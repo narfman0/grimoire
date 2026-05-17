@@ -644,17 +644,115 @@ function computeSpellcasting(
   for (const c of character.classes) {
     const row = content({ kind: 'class', slug: c.slug });
     if (!row) continue;
-    const sc = row.data.spellcasting as { ability: AbilityKey; progression: string } | null;
+    const sc = row.data.spellcasting as
+      | { ability: AbilityKey; progression: string }
+      | null;
     if (!sc) continue;
     const mod = abilities[sc.ability].mod;
     return {
       ability: sc.ability,
       dc: 8 + proficiencyBonus + mod,
       attack: proficiencyBonus + mod,
-      slots: fullCasterSlots(c.level)
+      slots: slotsFor(sc.progression, c.level)
     };
   }
   return { ability: null, dc: null, attack: null, slots: {} };
+}
+
+function slotsFor(
+  progression: string,
+  level: number
+): Record<number, { max: number; used: number }> {
+  switch (progression) {
+    case 'full':
+      return fullCasterSlots(level);
+    case 'half':
+      return halfCasterSlots(level);
+    case 'pact':
+      return pactCasterSlots(level);
+    default:
+      return {};
+  }
+}
+
+/** Single-class half caster (Paladin/Ranger). 2024 PHB spell-slot table.
+ *  Half casters get spells starting at L2 and slow progression to 5th-level slots at L17. */
+function halfCasterSlots(level: number): Record<number, { max: number; used: number }> {
+  const table: Record<number, number[]> = {
+    1: [],
+    2: [2],
+    3: [3],
+    4: [3],
+    5: [4, 2],
+    6: [4, 2],
+    7: [4, 3],
+    8: [4, 3],
+    9: [4, 3, 2],
+    10: [4, 3, 2],
+    11: [4, 3, 3],
+    12: [4, 3, 3],
+    13: [4, 3, 3, 1],
+    14: [4, 3, 3, 1],
+    15: [4, 3, 3, 2],
+    16: [4, 3, 3, 2],
+    17: [4, 3, 3, 3, 1],
+    18: [4, 3, 3, 3, 1],
+    19: [4, 3, 3, 3, 2],
+    20: [4, 3, 3, 3, 2]
+  };
+  return rowToSlots(table[level] ?? []);
+}
+
+/** Warlock Pact Magic. Returns one entry per level keyed by spell level
+ *  (1-5), with `max` = number of pact slots at that level. Pact slots all
+ *  refresh on a short rest (the engine emits resources[] separately when
+ *  Pact Magic is rolled into the activity-driven recovery model). */
+function pactCasterSlots(level: number): Record<number, { max: number; used: number }> {
+  // 2024 PHB Pact Magic: slots / slot-level
+  //   L1: 1 / 1st
+  //   L2: 2 / 1st
+  //   L3: 2 / 2nd
+  //   L4: 2 / 2nd
+  //   L5: 2 / 3rd
+  //   L6: 2 / 3rd
+  //   L7: 2 / 4th
+  //   L8: 2 / 4th
+  //   L9: 2 / 5th
+  //   L10: 2 / 5th
+  //   L11+: 3 / 5th (3 at L11/L12/L13/L14/L15/L16, then 4 at L17+)
+  const table: Array<{ count: number; slotLevel: number }> = [
+    { count: 1, slotLevel: 1 }, // L1
+    { count: 2, slotLevel: 1 }, // L2
+    { count: 2, slotLevel: 2 },
+    { count: 2, slotLevel: 2 },
+    { count: 2, slotLevel: 3 },
+    { count: 2, slotLevel: 3 },
+    { count: 2, slotLevel: 4 },
+    { count: 2, slotLevel: 4 },
+    { count: 2, slotLevel: 5 },
+    { count: 2, slotLevel: 5 },
+    { count: 3, slotLevel: 5 }, // L11
+    { count: 3, slotLevel: 5 },
+    { count: 3, slotLevel: 5 },
+    { count: 3, slotLevel: 5 },
+    { count: 3, slotLevel: 5 },
+    { count: 3, slotLevel: 5 }, // L16
+    { count: 4, slotLevel: 5 }, // L17+
+    { count: 4, slotLevel: 5 },
+    { count: 4, slotLevel: 5 },
+    { count: 4, slotLevel: 5 }
+  ];
+  const entry = table[Math.max(1, Math.min(20, level)) - 1];
+  if (!entry) return {};
+  return { [entry.slotLevel]: { max: entry.count, used: 0 } };
+}
+
+function rowToSlots(row: number[]): Record<number, { max: number; used: number }> {
+  const slots: Record<number, { max: number; used: number }> = {};
+  for (let i = 0; i < row.length; i++) {
+    slots[i + 1] = { max: row[i], used: 0 };
+  }
+  return slots;
 }
 
 /** Single-class full caster spell-slot table per 2024 PHB. */
