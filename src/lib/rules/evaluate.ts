@@ -8,14 +8,17 @@ export interface EvalContext {
   totalLevel: number;
   proficiencyBonus: number;
   rageDamage: number;
+  classLevels: Record<string, number>;
 }
 
 /**
  * Resolve a modifier value against the current context.
  *
- * Numbers/booleans/objects pass through. Strings get matched against magic
- * names; unknown strings pass through unchanged (the caller decides what to
- * do with non-numeric values).
+ * Numbers / booleans pass through. Strings match magic identifiers; unknown
+ * strings pass through unchanged. Objects of shape
+ *   { perClass: string, table: number[] }
+ * resolve to `table[classLevels[perClass] - 1]` for class-level-scaled values
+ * (e.g., barbarian rages per day).
  */
 export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
   if (typeof value === 'number') return value;
@@ -31,6 +34,12 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
       default:
         return value;
     }
+  }
+  if (value && typeof value === 'object' && 'perClass' in value && 'table' in value) {
+    const o = value as { perClass: string; table: number[] };
+    const lvl = ctx.classLevels[o.perClass] ?? 0;
+    if (lvl < 1) return 0;
+    return o.table[Math.min(lvl, o.table.length) - 1] ?? 0;
   }
   return value;
 }

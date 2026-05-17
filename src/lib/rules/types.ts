@@ -59,6 +59,8 @@ export interface CharacterDocument {
   conditions: string[];
 
   modifierToggles: Record<string, boolean>;
+  /** Per-resource counter keyed by resource id (see derive().resources[].id). */
+  resourcesSpent?: Record<string, number>;
 }
 
 export interface ContentRow {

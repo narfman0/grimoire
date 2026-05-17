@@ -133,7 +133,8 @@ export const CharacterDocument = z
     tempHp: z.number().int().nonnegative(),
     hitDiceSpent: z.record(z.string(), z.number().int().nonnegative()),
     conditions: z.array(z.string()),
-    modifierToggles: z.record(z.string(), z.boolean())
+    modifierToggles: z.record(z.string(), z.boolean()),
+    resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional()
   })
   .openapi('CharacterDocument');
 

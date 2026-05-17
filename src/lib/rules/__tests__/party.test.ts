@@ -108,6 +108,23 @@ describe('Half-Orc Zealot Barbarian L3', () => {
     expect(re!.on).toContain('damage.reduce-to-zero');
     expect(re!.limit).toEqual({ per: 'long-rest', uses: 1 });
   });
+
+  it('emits rages-per-day and Relentless Endurance as resources', () => {
+    const lookup = zealot.makeLookup(PACKS);
+    const d = derive(zealot.CHARACTER, lookup);
+
+    // Rage uses scale by barbarian level: L3 → 3 per long rest.
+    const rage = d.resources.find((r) => r.id.endsWith('/enter-rage'));
+    expect(rage).toBeDefined();
+    expect(rage!.max).toBe(3);
+    expect(rage!.per).toBe('long-rest');
+
+    // Triggers with `limit` also surface as resources.
+    const re = d.resources.find((r) => r.id.includes('relentless-endurance'));
+    expect(re).toBeDefined();
+    expect(re!.max).toBe(1);
+    expect(re!.per).toBe('long-rest');
+  });
 });
 
 describe('Tortle Chronurgy Wizard L5', () => {

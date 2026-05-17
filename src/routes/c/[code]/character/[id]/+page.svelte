@@ -130,10 +130,28 @@
     });
   }
 
+  async function adjustResource(id: string, delta: number, max: number) {
+    await patchDocument((d) => {
+      d.resourcesSpent ??= {};
+      const next = Math.max(0, Math.min(max, (d.resourcesSpent[id] ?? 0) + delta));
+      d.resourcesSpent[id] = next;
+    });
+  }
+
+  function resetResourcesByPer(d: NonNullable<typeof document>, per: string) {
+    if (!derived) return;
+    d.resourcesSpent ??= {};
+    for (const r of derived.resources) {
+      if (r.per === per) d.resourcesSpent[r.id] = 0;
+    }
+  }
+
   async function shortRest() {
-    // No resource state to reset yet (resources tracking lands later); short
-    // rest mainly recovers via hit-dice spending the player does explicitly.
-    restNote = 'Short rest — spend hit dice above as needed.';
+    if (!derived) return;
+    await patchDocument((d) => {
+      resetResourcesByPer(d, 'short-rest');
+    });
+    restNote = 'Short rest — short-rest resources restored. Spend hit dice above as needed.';
   }
 
   async function longRest() {
@@ -148,6 +166,10 @@
         const recovered = Math.max(1, Math.floor(c.level / 2));
         d.hitDiceSpent[c.slug] = Math.max(0, spent - recovered);
       }
+      // Reset per-long-rest AND per-short-rest resources (long rest covers
+      // short-rest features too).
+      resetResourcesByPer(d, 'long-rest');
+      resetResourcesByPer(d, 'short-rest');
       // Toggles (Reckless, GWM…) are per-turn / per-attack choices — don't
       // reset them on rest. Conditions like "frightened" generally end on a
       // long rest unless the source persists, but we don't track durations
@@ -324,6 +346,43 @@
       {/if}
     </div>
   </section>
+
+  <!-- Resources (rage, channel divinity, Relentless Endurance, etc.) -->
+  {#if derived.resources.length > 0}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <h2 class="mb-3 text-sm font-semibold text-slate-200">Resources</h2>
+      <ul class="grid gap-2 md:grid-cols-2">
+        {#each derived.resources as r}
+          {@const remaining = r.max - r.used}
+          <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-3 py-2">
+            <div>
+              <span class="font-semibold">{r.name}</span>
+              <span class="ml-2 text-xs text-slate-500">per {r.per}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="font-mono">{remaining} / {r.max}</span>
+              <button
+                class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                disabled={busy || remaining === 0}
+                title="Use one"
+                on:click={() => adjustResource(r.id, 1, r.max)}
+              >
+                Use
+              </button>
+              <button
+                class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                disabled={busy || r.used === 0}
+                title="Restore one"
+                on:click={() => adjustResource(r.id, -1, r.max)}
+              >
+                +1
+              </button>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
 
   <Sheet derived={derived} />
 {:else}

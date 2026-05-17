@@ -195,10 +195,14 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // PHASE 2 — compose stat block
   // -------------------------------------------------------------------------
 
+  const classLevels: Record<string, number> = {};
+  for (const c of character.classes) classLevels[c.slug] = c.level;
+
   const ctx = {
     totalLevel,
     proficiencyBonus,
-    rageDamage: rageDamageFor(character, proficiencyBonus)
+    rageDamage: rageDamageFor(character, proficiencyBonus),
+    classLevels
   };
 
   // (a) Ability scores
@@ -432,22 +436,37 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // -------------------------------------------------------------------------
 
   const resources: Resource[] = [];
+  const spent = character.resourcesSpent ?? {};
   for (const a of active) {
     const activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
     for (const act of activities) {
-      const uses = act.uses as { max?: number | string; per?: string } | undefined;
-      if (!uses?.max || !uses?.per) continue;
-      const max =
-        typeof uses.max === 'number'
-          ? uses.max
-          : ((evaluateValue(uses.max, ctx) as number | undefined) ?? 0);
+      const uses = act.uses as { max?: number | string | object; per?: string } | undefined;
+      if (uses?.max == null || !uses.per) continue;
+      const max = evaluateValue(uses.max, ctx);
       if (typeof max !== 'number' || max <= 0) continue;
+      const id = `${a.row.kind}/${a.row.slug}/${act.id as string}`;
       resources.push({
-        id: `${a.row.kind}/${a.row.slug}/${act.id as string}`,
+        id,
         name: (act.name as string | undefined) ?? (act.id as string),
         max,
-        used: 0,
+        used: Math.min(max, spent[id] ?? 0),
         per: uses.per,
+        sourceContent: { kind: a.row.kind, slug: a.row.slug }
+      });
+    }
+    // Triggers with a `limit` are functionally resources too — Relentless
+    // Endurance "1/long rest", Chronal Shift "2/long rest", etc.
+    const triggerList = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const t of triggerList) {
+      const limit = t.limit as { per?: string; uses?: number } | undefined;
+      if (!limit?.per || !limit.uses) continue;
+      const id = `trigger/${a.row.slug}/${(t.id as string) ?? 'unnamed'}`;
+      resources.push({
+        id,
+        name: (t.name as string | undefined) ?? (t.id as string) ?? id,
+        max: limit.uses,
+        used: Math.min(limit.uses, spent[id] ?? 0),
+        per: limit.per,
         sourceContent: { kind: a.row.kind, slug: a.row.slug }
       });
     }
