@@ -105,6 +105,43 @@
   }
 
   const abilityKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+
+  // 2024 PHB ability-generation methods. We don't enforce a particular one;
+  // we surface presets + a live point-buy counter and let the player + DM
+  // decide. Min/max on inputs is wide enough for rolled extremes (3..20
+  // base; species/feat bumps applied later push some higher).
+  const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
+  const POINT_COSTS: Record<number, number> = {
+    8: 0,
+    9: 1,
+    10: 2,
+    11: 3,
+    12: 4,
+    13: 5,
+    14: 7,
+    15: 9
+  };
+  const POINT_BUDGET = 27;
+
+  $: pointBuyCost = abilityKeys.reduce((sum, ab) => sum + (POINT_COSTS[abilities[ab]] ?? NaN), 0);
+  $: pointBuyValid = Number.isFinite(pointBuyCost) && pointBuyCost <= POINT_BUDGET;
+
+  function fillStandardArray() {
+    // Default order STR / DEX / CON / INT / WIS / CHA. Player can shuffle by
+    // editing the inputs.
+    abilityKeys.forEach((ab, i) => (abilities[ab] = STANDARD_ARRAY[i]));
+    abilities = { ...abilities };
+  }
+
+  function fillPointBuyBaseline() {
+    for (const ab of abilityKeys) abilities[ab] = 8;
+    abilities = { ...abilities };
+  }
+
+  function fillTens() {
+    for (const ab of abilityKeys) abilities[ab] = 10;
+    abilities = { ...abilities };
+  }
 </script>
 
 <header class="mb-6">
@@ -221,14 +258,27 @@
 
     </div>
 
+    <div class="flex flex-wrap items-center gap-2 text-xs">
+      <span class="text-slate-500 mr-1">Quick fill:</span>
+      <button type="button" class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={fillStandardArray}>
+        Standard Array (15/14/13/12/10/8)
+      </button>
+      <button type="button" class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={fillPointBuyBaseline}>
+        Point-Buy baseline (all 8s)
+      </button>
+      <button type="button" class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={fillTens}>
+        All 10s
+      </button>
+    </div>
+
     <fieldset class="grid grid-cols-3 gap-3 md:grid-cols-6">
       {#each abilityKeys as ab}
         <label class="text-sm">
           <span class="mb-1 block text-center text-xs uppercase tracking-wide text-slate-500">{ab}</span>
           <input
             type="number"
-            min="1"
-            max="30"
+            min="3"
+            max="20"
             class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-center font-mono"
             bind:value={abilities[ab]}
             required
@@ -238,8 +288,29 @@
     </fieldset>
 
     <p class="text-xs text-slate-500">
-      Background, equipment, prepared spells, feats, and ability-score bumps are
-      all picked on the character sheet after creation.
+      <span class="block">
+        <span class="font-semibold text-slate-300">Methods:</span>
+        Standard Array picks one of 15/14/13/12/10/8 per ability (use first to seed,
+        then shuffle). Point-Buy spends 27 points starting from 8 (cost table:
+        9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9; max base 15). Custom rolls
+        (e.g., 4d6-drop-lowest) allow base 3–17 — DM's responsibility to verify.
+      </span>
+      <span class="mt-1 block">
+        Point-buy cost of current scores:
+        {#if Number.isFinite(pointBuyCost)}
+          <span class={pointBuyValid ? 'text-emerald-300' : 'text-red-300'}>
+            {pointBuyCost} / {POINT_BUDGET}
+          </span>
+          {#if !pointBuyValid && pointBuyCost > POINT_BUDGET}
+            <span class="text-red-300">(over budget — not a valid point-buy allocation)</span>
+          {/if}
+        {:else}
+          <span class="text-slate-500">— (a score is outside point-buy range, so this is a Standard Array or Custom build)</span>
+        {/if}
+      </span>
+      <span class="mt-1 block">
+        Background, equipment, prepared spells, feats, and ASI bumps are picked on the character sheet after creation.
+      </span>
     </p>
 
     <button class="rounded bg-emerald-600 px-4 py-2 font-medium disabled:opacity-50" disabled={busy}>
