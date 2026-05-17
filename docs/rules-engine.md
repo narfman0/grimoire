@@ -361,6 +361,10 @@ Deliberate cuts to keep M1.5 shippable:
 - **Reactions during another creature's turn**: surfaced as available
   triggers based on the declarative `on:` set, but timing is the players'
   problem, not the engine's.
+- **Short/long rest recovery**: the engine emits `resources` rows with
+  `{max, used, per}` but doesn't simulate rest cycles itself. Resetting
+  `used` counters, HP, and hit-dice-spent on rest is UI work — lands in
+  the C "editable sheet" milestone as a pair of rest buttons.
 
 ## Related
 
