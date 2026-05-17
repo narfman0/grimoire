@@ -53,7 +53,12 @@
     <ul class="mb-4 divide-y divide-slate-800">
       {#each data.characters as character (character.id)}
         <li class="flex items-center justify-between py-2">
-          <span class="font-medium">{character.name}</span>
+          <a
+            class="font-medium hover:text-emerald-300"
+            href={`/c/${data.campaign.code}/character/${character.id}`}
+          >
+            {character.name}
+          </a>
           <button
             class="text-xs text-slate-400 hover:text-red-400"
             on:click={() => deleteCharacter(character.id)}
