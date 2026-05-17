@@ -7,8 +7,11 @@
   let newName = '';
   let speciesSlug = data.speciesOptions[0]?.slug ?? '';
   let classSlug = data.classOptions[0]?.slug ?? '';
+  let subclassSlug = '';
   let backgroundSlug = data.backgroundOptions[0]?.slug ?? '';
   let level = 1;
+  $: subclassesForClass = data.subclassOptions.filter((s) => s.parentClass === classSlug);
+  $: if (level < 3) subclassSlug = '';
   let abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
   let asiMode: 'two-one' | 'three-ones' = 'two-one';
   // Both modes are stored as an array of {ability, bonus} entries.
@@ -75,7 +78,14 @@
       const document = {
         id: 'placeholder', // server forces real id at insert time
         name: newName,
-        classes: [{ slug: classSlug, level, hpRolledPerLevel }],
+        classes: [
+          {
+            slug: classSlug,
+            level,
+            ...(level >= 3 && subclassSlug ? { subclass: subclassSlug } : {}),
+            hpRolledPerLevel
+          }
+        ],
         species: { kind: 'species', slug: speciesSlug, version: 1 },
         background: backgroundSlug
           ? {
@@ -218,6 +228,27 @@
           required
         />
       </label>
+
+      {#if level >= 3}
+        <label class="text-sm">
+          <span class="mb-1 block text-slate-400">Subclass</span>
+          {#if subclassesForClass.length === 0}
+            <p class="rounded border border-amber-700 bg-amber-950/30 px-2 py-2 text-xs text-amber-200">
+              No subclasses loaded for {classSlug}.
+            </p>
+          {:else}
+            <select
+              class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
+              bind:value={subclassSlug}
+            >
+              <option value="">— pick subclass —</option>
+              {#each subclassesForClass as opt}
+                <option value={opt.slug}>{opt.name}</option>
+              {/each}
+            </select>
+          {/if}
+        </label>
+      {/if}
 
       <label class="text-sm md:col-span-2">
         <span class="mb-1 block text-slate-400">Background</span>

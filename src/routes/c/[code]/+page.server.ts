@@ -67,6 +67,16 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     .from(schema.content)
     .where(eq(schema.content.kind, 'background'));
 
+  const subclassRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'subclass'));
+
   return {
     campaign: campaignRows[0],
     displayName,
@@ -99,6 +109,15 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
         source: r.source,
         abilityChoices: data.abilityChoices ?? [],
         skillProficiencies: data.skillProficiencies ?? []
+      };
+    }),
+    subclassOptions: subclassRows.map((r) => {
+      const data = JSON.parse(r.data as string) as { parentClass?: string };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        parentClass: data.parentClass ?? ''
       };
     })
   };

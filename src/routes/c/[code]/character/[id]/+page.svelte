@@ -238,7 +238,10 @@
     if (!cls) return;
     const newLevel = cls.level + 1;
     if (newLevel > 20) return;
-    const needsSubclass = newLevel === SUBCLASS_UNLOCK_LEVEL && !cls.subclass;
+    // A subclass is needed if the new level is at or past the subclass-unlock
+    // threshold AND no subclass is set yet. Catches characters created at L3+
+    // without one + the rare "skipped at L3, picking later" case.
+    const needsSubclass = newLevel >= SUBCLASS_UNLOCK_LEVEL && !cls.subclass;
     const needsAsi = ASI_LEVELS.has(newLevel);
     const sub = data.subclassOptions.find((s) => s.parentClass === classSlug);
     levelingUp = {
@@ -253,6 +256,21 @@
         { ability: 'dex', bonus: 1 }
       ]
     };
+  }
+
+  // Retroactive subclass picker: when an existing L3+ class has no subclass,
+  // surface a small inline form on the sheet.
+  let subclassFillSlug: Record<string, string> = {};
+
+  async function setSubclassFor(classSlug: string) {
+    const choice = subclassFillSlug[classSlug];
+    if (!choice) return;
+    await patchDocument((d) => {
+      const cls = d.classes.find((c) => c.slug === classSlug);
+      if (!cls) return;
+      cls.subclass = choice;
+    });
+    restNote = `Set ${classSlug} subclass to ${choice}.`;
   }
 
   function cancelLevelUp() {
@@ -525,6 +543,41 @@
       {/if}
     </div>
   </section>
+
+  <!-- Retroactive subclass pickers for any L3+ class missing one -->
+  {#each document.classes.filter((c) => c.level >= 3 && !c.subclass) as cls (cls.slug)}
+    {@const opts = data.subclassOptions.filter((s) => s.parentClass === cls.slug)}
+    <section class="mb-6 rounded-lg border border-amber-800 bg-amber-950/30 p-4 text-sm">
+      <h2 class="mb-2 text-sm font-semibold text-amber-200">
+        {cls.slug} L{cls.level} has no subclass
+      </h2>
+      {#if opts.length === 0}
+        <p class="text-amber-100">
+          No subclasses loaded for <span class="capitalize">{cls.slug}</span>. Add one to
+          <code>$GRIMOIRE_PACKS_DIR</code> or the SRD pack and reload.
+        </p>
+      {:else}
+        <div class="flex gap-2">
+          <select
+            class="flex-1 rounded border border-amber-700 bg-slate-950 px-2 py-1"
+            bind:value={subclassFillSlug[cls.slug]}
+          >
+            <option value="">— pick subclass —</option>
+            {#each opts as opt}
+              <option value={opt.slug}>{opt.name} <span class="text-slate-500">({opt.source})</span></option>
+            {/each}
+          </select>
+          <button
+            class="rounded bg-amber-700 px-3 py-1 hover:bg-amber-600 disabled:opacity-40"
+            disabled={busy || !subclassFillSlug[cls.slug]}
+            on:click={() => setSubclassFor(cls.slug)}
+          >
+            Set
+          </button>
+        </div>
+      {/if}
+    </section>
+  {/each}
 
   <!-- Level up -->
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
