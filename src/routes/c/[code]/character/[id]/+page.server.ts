@@ -85,6 +85,29 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const spellRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'spell'));
+
+  const spellOptions = spellRows
+    .map((r) => {
+      const data = JSON.parse(r.data as string) as { level?: number; school?: string };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        level: data.level ?? 0,
+        school: data.school ?? ''
+      };
+    })
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+
   return {
     campaign,
     character: {
@@ -95,6 +118,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     document,
     derived: serializeDerived(derived),
     displayName,
-    itemOptions
+    itemOptions,
+    spellOptions
   };
 };

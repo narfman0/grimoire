@@ -173,6 +173,46 @@
     return data.itemOptions.find((i) => i.slug === slug);
   }
 
+  // ---- spells ----
+  let spellPickerSlug = data.spellOptions[0]?.slug ?? '';
+
+  async function addSpell() {
+    if (!spellPickerSlug) return;
+    const opt = data.spellOptions.find((s) => s.slug === spellPickerSlug);
+    if (!opt) return;
+    await patchDocument((d) => {
+      if (d.spells.known.some((k) => k.slug === opt.slug)) return; // dedupe
+      d.spells.known.push({ kind: 'spell', slug: opt.slug, version: 1 });
+    });
+  }
+
+  async function togglePrepared(slug: string, on: boolean) {
+    await patchDocument((d) => {
+      const has = d.spells.prepared.includes(slug);
+      if (on && !has) d.spells.prepared.push(slug);
+      else if (!on && has) d.spells.prepared = d.spells.prepared.filter((s) => s !== slug);
+    });
+  }
+
+  async function removeSpell(slug: string) {
+    await patchDocument((d) => {
+      d.spells.known = d.spells.known.filter((s) => s.slug !== slug);
+      d.spells.prepared = d.spells.prepared.filter((s) => s !== slug);
+    });
+  }
+
+  function spellMeta(slug: string) {
+    return data.spellOptions.find((s) => s.slug === slug);
+  }
+
+  function levelLabel(level: number): string {
+    if (level === 0) return 'cantrip';
+    if (level === 1) return '1st';
+    if (level === 2) return '2nd';
+    if (level === 3) return '3rd';
+    return `${level}th`;
+  }
+
   function resetResourcesByPer(d: NonNullable<typeof document>, per: string) {
     if (!derived) return;
     d.resourcesSpent ??= {};
@@ -445,6 +485,60 @@
       </button>
     </div>
   </section>
+
+  <!-- Spells -->
+  {#if derived.stats.spellcastingAbility}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <h2 class="mb-3 text-sm font-semibold text-slate-200">Spells</h2>
+      <p class="mb-3 text-xs text-slate-500">
+        Spellbook = "known" list. Toggle "prepared" to make a spell available today.
+      </p>
+
+      {#if document.spells.known.length > 0}
+        <ul class="mb-3 divide-y divide-slate-800">
+          {#each document.spells.known as ref}
+            {@const meta = spellMeta(ref.slug)}
+            {@const prep = document.spells.prepared.includes(ref.slug)}
+            <li class="flex items-center justify-between gap-3 py-2 text-sm">
+              <div class="flex-1">
+                <span class="font-medium">{meta?.name ?? ref.slug}</span>
+                {#if meta}
+                  <span class="ml-2 text-xs text-slate-500">{levelLabel(meta.level)} &middot; {meta.school}</span>
+                {/if}
+              </div>
+              <label class="flex items-center gap-1 text-xs text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={prep}
+                  disabled={busy}
+                  on:change={(e) => togglePrepared(ref.slug, checkboxChecked(e))}
+                />
+                prepared
+              </label>
+              <button class="text-xs text-slate-500 hover:text-red-400" disabled={busy} on:click={() => removeSpell(ref.slug)}>
+                ×
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <div class="flex gap-2">
+        <select class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={spellPickerSlug}>
+          {#each data.spellOptions as opt}
+            <option value={opt.slug}>{opt.name} <span class="text-slate-500">({levelLabel(opt.level)})</span></option>
+          {/each}
+        </select>
+        <button
+          class="rounded bg-emerald-700 px-3 py-1 text-sm hover:bg-emerald-600 disabled:opacity-50"
+          disabled={busy || !spellPickerSlug}
+          on:click={addSpell}
+        >
+          Add
+        </button>
+      </div>
+    </section>
+  {/if}
 
   <!-- Resources (rage, channel divinity, Relentless Endurance, etc.) -->
   {#if derived.resources.length > 0}
