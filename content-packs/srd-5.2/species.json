@@ -44,5 +44,109 @@
       ],
       "features": ["dwarven-toughness", "stonecunning"]
     }
+  },
+  {
+    "kind": "species",
+    "slug": "dragonborn",
+    "version": 1,
+    "name": "Dragonborn",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "note": "Draconic ancestry choice is folded into a single species row. Player picks via trait.draconic-ancestry flag at character creation (black|blue|brass|bronze|copper|gold|green|red|silver|white); damage type follows from that choice. Subspecies model intentionally skipped for v0.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["draconic-ancestry", "breath-weapon", "damage-resistance-draconic", "draconic-flight"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "elf",
+    "version": 1,
+    "name": "Elf",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "note": "Elven Lineage (Drow/High/Wood) folded into informational trait.elven-lineage flag and a single elven-lineage feature for v0; lineage-specific spell/speed bumps not modeled here.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
+        { "kind": "stat-modifier", "target": "save.advantage.charmed", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "trait.fey-ancestry", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "trait.trance", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["fey-ancestry", "keen-senses", "trance", "elven-lineage"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "gnome",
+    "version": 1,
+    "name": "Gnome",
+    "data": {
+      "size": "small",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "note": "Gnomish Lineage (Forest/Rock) folded into informational trait.gnomish-lineage flag and a single gnomish-lineage feature for v0; lineage-specific cantrips/tool proficiencies not modeled.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
+        { "kind": "stat-modifier", "target": "save.advantage.int", "mode": "OVERRIDE", "value": "magic" },
+        { "kind": "stat-modifier", "target": "save.advantage.wis", "mode": "OVERRIDE", "value": "magic" },
+        { "kind": "stat-modifier", "target": "save.advantage.cha", "mode": "OVERRIDE", "value": "magic" }
+      ],
+      "features": ["gnomish-cunning", "gnomish-lineage"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "goliath",
+    "version": 1,
+    "name": "Goliath",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 35 },
+      "languages": ["common"],
+      "note": "Giant Ancestry choice (Cloud/Fire/Frost/Hill/Stone/Storm) folded into trait.giant-ancestry flag for v0; ancestry-specific bonus actions modeled as a single giant-ancestry feature.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "trait.large-form", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["giant-ancestry", "large-form", "powerful-build-goliath"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "halfling",
+    "version": 1,
+    "name": "Halfling",
+    "data": {
+      "size": "small",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.advantage.frightened", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["brave", "halfling-nimbleness", "luck", "naturally-stealthy"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "tiefling",
+    "version": 1,
+    "name": "Tiefling",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "note": "Fiendish Legacy (Abyssal/Chthonic/Infernal) folded into trait.fiendish-legacy flag for v0; legacy-specific resistance and per-tier spell list collapsed into one fiendish-legacy feature with a generic save activity at L3/L5.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
+        { "kind": "stat-modifier", "target": "trait.fiendish-legacy", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["fiendish-legacy", "otherworldly-presence"]
+    }
   }
 ]

@@ -1,0 +1,378 @@
+[
+  {
+    "kind": "feat",
+    "slug": "alert",
+    "version": 1,
+    "name": "Alert",
+    "data": {
+      "category": "origin",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "initiative", "mode": "ADD", "value": "proficiencyBonus" }
+      ],
+      "activities": [
+        {
+          "id": "initiative-swap",
+          "type": "utility",
+          "name": "Initiative Swap",
+          "cost": "free",
+          "note": "Immediately after rolling Initiative, swap your initiative with a willing ally's. Neither of you may be Incapacitated."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "lucky",
+    "version": 1,
+    "name": "Lucky",
+    "data": {
+      "category": "origin",
+      "activities": [
+        {
+          "id": "luck-advantage",
+          "type": "utility",
+          "name": "Lucky (Advantage)",
+          "cost": "free",
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" },
+          "note": "When you roll a d20 for a D20 Test, spend 1 Luck Point to give yourself Advantage on the roll."
+        },
+        {
+          "id": "luck-disadvantage",
+          "type": "utility",
+          "name": "Lucky (Disadvantage)",
+          "cost": "reaction",
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" },
+          "note": "When a creature rolls a d20 for an attack roll against you, spend 1 Luck Point to impose Disadvantage. Shares the Luck Point pool with luck-advantage; v0 models them as separate resources for simplicity."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "magic-initiate-wizard",
+    "version": 1,
+    "name": "Magic Initiate (Wizard)",
+    "data": {
+      "category": "origin",
+      "spellList": "wizard",
+      "activities": [
+        {
+          "id": "magic-initiate-level1",
+          "type": "utility",
+          "name": "Magic Initiate 1st-Level Spell",
+          "cost": "action",
+          "uses": { "max": 1, "per": "long-rest" },
+          "note": "Cast the chosen 1st-level spell once without a spell slot; can also cast it using any spell slot of an appropriate level. Two cantrips are also learned (no resource cost)."
+        }
+      ],
+      "note": "2024 SRD 5.2 Magic Initiate: two cantrips + one 1st-level spell from the Cleric, Druid, or Wizard list. Spellcasting ability is INT/WIS/CHA (player's choice on selection). Repeatable; different list each time. Modeled here as the Wizard variant; create separate -cleric/-druid feat rows for the other two lists, or have the UI pick the list as a choice attached to a single slug."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "savage-attacker",
+    "version": 1,
+    "name": "Savage Attacker",
+    "data": {
+      "category": "origin",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "savage-attacker-reroll",
+          "name": "Savage Attacker",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.proficient": true }
+            ]
+          },
+          "effects": [
+            { "target": "damage.reroll-and-keep-higher", "mode": "OVERRIDE", "value": true }
+          ],
+          "note": "Once per turn when you hit with a weapon, roll the weapon's damage dice twice and use either roll. v0 evaluator does not implement the 'damage.reroll-and-keep-higher' target — this surfaces as a tagged modifier only."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "skilled",
+    "version": 1,
+    "name": "Skilled",
+    "data": {
+      "category": "origin",
+      "skillChoices": { "from": "any", "pick": 3, "includesTools": true },
+      "note": "Gain proficiency in any combination of three skills or tools of your choice. Repeatable. The actual choices live on the character document (character.proficienciesChosen) and are merged in by the engine; no stat-modifier rows are emitted at the feat level because the choice is per-character."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "tough",
+    "version": 1,
+    "name": "Tough",
+    "data": {
+      "category": "origin",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" },
+        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" }
+      ],
+      "note": "2024 Tough grants +2 HP per character level (HP max increases by 2*characterLevel on take, then +2 each level after). Modeled as two stat-modifiers both targeting hp.max with value 'totalLevel' (1 per level each = +2/level total) since the evaluator doesn't support arithmetic on magic identifiers in v0."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "great-weapon-master",
+    "version": 1,
+    "name": "Great Weapon Master",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4, "ability": { "str": 13 } },
+      "abilityChoices": ["str"],
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "gwm-heavy-weapon-mastery",
+          "name": "Heavy Weapon Mastery",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.property": "heavy" },
+              { "weapon.proficient": true }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": "proficiencyBonus" }
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "gwm-hew",
+          "name": "Hew",
+          "on": ["attack.crit", "attack.reduce-to-zero"],
+          "scope": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "weapon.classification": "weapon" }
+            ]
+          },
+          "grants": {
+            "activityType": "attack",
+            "cost": "bonus",
+            "usingWeapon": "same"
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Great Weapon Master. Heavy Weapon Mastery: hit with a Heavy weapon as part of the Attack action -> extra damage equal to proficiency bonus (no longer the -5/+10 toggle of 2014). Hew: after a crit OR reducing a creature to 0 with a melee weapon, bonus-action attack with the same weapon. No explicit per-turn limit in the 2024 text on Hew."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "sharpshooter",
+    "version": 1,
+    "name": "Sharpshooter",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4, "ability": { "dex": 13 } },
+      "abilityChoices": ["dex"],
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "sharpshooter-ignore-cover",
+          "name": "Bypass Cover",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "ranged" },
+              { "attack.classification": "weapon" }
+            ]
+          },
+          "effects": [
+            { "target": "attack.ignores-cover", "mode": "OVERRIDE", "value": "half-and-three-quarters" }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "sharpshooter-firing-in-melee",
+          "name": "Firing in Melee",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "ranged" },
+              { "attack.classification": "weapon" }
+            ]
+          },
+          "effects": [
+            { "target": "attack.no-disadvantage.within-5ft", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "sharpshooter-long-shots",
+          "name": "Long Shots",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "ranged" },
+              { "attack.classification": "weapon" }
+            ]
+          },
+          "effects": [
+            { "target": "attack.no-disadvantage.long-range", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ],
+      "note": "2024 SRD 5.2 Sharpshooter. The 2014 -5/+10 toggle was removed in 2024. v0 evaluator does not implement the cover / range / melee-proximity targets — these surface as tagged modifiers only."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "polearm-master",
+    "version": 1,
+    "name": "Polearm Master",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4 },
+      "abilityChoices": ["str", "dex"],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "pam-reactive-strike",
+          "name": "Reactive Strike",
+          "on": ["enemy.enters-reach"],
+          "scope": {
+            "predicates": [
+              { "wielding.weapon": ["quarterstaff", "spear", "heavy-reach"] }
+            ]
+          },
+          "grants": {
+            "activityType": "attack",
+            "cost": "reaction",
+            "usingWeapon": "same"
+          }
+        }
+      ],
+      "activities": [
+        {
+          "id": "pam-pole-strike",
+          "type": "attack",
+          "name": "Pole Strike (Bonus-Action Butt-End)",
+          "cost": "bonus",
+          "note": "Immediately after taking the Attack action and attacking with a quarterstaff, spear, or heavy+reach weapon, you can make a bonus-action melee attack with the opposite end. d4 bludgeoning + STR; same proficiency as the parent weapon. v0 models this as a standalone activity; tie-in to the parent Attack action is enforced narratively, not by the engine.",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d4", "type": "bludgeoning" }]
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Polearm Master. Pole Strike requires the parent Attack-action attack to have been with a quarterstaff, spear, or heavy+reach weapon (e.g., glaive, halberd, pike). Reactive Strike is a normal melee attack (not an opportunity attack), so Sentinel's Halt does NOT trigger off it."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "sentinel",
+    "version": 1,
+    "name": "Sentinel",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4, "ability": { "or": [{ "str": 13 }, { "dex": 13 }] } },
+      "abilityChoices": ["str", "dex"],
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "sentinel-halt",
+          "name": "Halt",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.kind": "opportunity" }
+            ]
+          },
+          "effects": [
+            { "target": "on-hit.target.speed", "mode": "OVERRIDE", "value": 0 }
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "sentinel-guardian",
+          "name": "Guardian",
+          "on": ["ally.attacked-within-5ft", "enemy.disengages-within-5ft"],
+          "scope": {
+            "predicates": [
+              { "trigger.creature.within": 5 }
+            ]
+          },
+          "grants": {
+            "activityType": "attack",
+            "cost": "reaction",
+            "attackKind": "opportunity"
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Sentinel. Guardian: when a creature within 5 ft of you takes the Disengage action OR hits a target other than you, take a reaction to make an Opportunity Attack against that creature. Halt: on a hit with an Opportunity Attack, target's Speed becomes 0 for the rest of the current turn. v0 evaluator does not implement on-hit.target.speed; surfaces as tagged modifier only."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "war-caster",
+    "version": 1,
+    "name": "War Caster",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4, "feature": "spellcasting-or-pact-magic" },
+      "abilityChoices": ["int", "wis", "cha"],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.concentration",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.somatic-with-occupied-hands",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "war-caster-reactive-spell",
+          "name": "Reactive Spell",
+          "on": ["enemy.provokes-opportunity-attack"],
+          "scope": {
+            "predicates": [
+              { "self.has-feature": "spellcasting" }
+            ]
+          },
+          "grants": {
+            "activityType": "cast",
+            "cost": "reaction",
+            "constraint": "1-action casting time, targets only the provoking creature"
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 War Caster. The spell cast via Reactive Spell must have a casting time of one action and target only the provoking creature. v0 evaluator does not implement save.advantage.concentration or spellcasting.somatic-with-occupied-hands; surface as tagged modifiers only."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "resilient",
+    "version": 1,
+    "name": "Resilient",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4 },
+      "abilityChoices": ["str", "dex", "con", "int", "wis", "cha"],
+      "note": "2024 SRD 5.2 Resilient. Choose one ability you lack save proficiency in; +1 to that ability (max 20) and gain saving-throw proficiency in it. The +1 and save-proficiency are emitted by the engine from character.feats[].choices.ability (analogous to background ASI distribution). No fixed modifiers at the feat level because the ability is per-character."
+    }
+  }
+]

@@ -77,5 +77,137 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "cure-wounds",
+    "version": 1,
+    "name": "Cure Wounds",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "cure-wounds-cast",
+          "type": "heal",
+          "name": "Cure Wounds",
+          "cost": "action",
+          "heal": { "amount": "2d8 + spellMod" },
+          "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "2d8" },
+          "target": { "affects": "creature", "count": 1 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "healing-word",
+    "version": 1,
+    "name": "Healing Word",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "bonus",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "healing-word-cast",
+          "type": "heal",
+          "name": "Healing Word",
+          "cost": "bonus",
+          "heal": { "amount": "1d4 + spellMod" },
+          "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "1d4" },
+          "target": { "affects": "creature", "count": 1 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "bless",
+    "version": 1,
+    "name": "Bless",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": { "value": 30, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "bless-cast",
+          "type": "utility",
+          "name": "Bless",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 3 },
+          "scalesWithSlotLevel": { "perSlotAbove": 1, "addTargets": 1 },
+          "note": "Up to three creatures of your choice add 1d4 to attack rolls and saving throws made while the spell is active."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "detect-magic",
+    "version": 1,
+    "name": "Detect Magic",
+    "data": {
+      "level": 1,
+      "school": "divination",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s"],
+      "duration": "concentration, up to 10 minutes",
+      "concentration": true,
+      "ritual": true,
+      "activities": [
+        {
+          "id": "detect-magic-cast",
+          "type": "utility",
+          "name": "Detect Magic",
+          "cost": "action",
+          "note": "Sense the presence of magic within 30 feet. Action to see a faint aura around any visible magical creature/object and learn its school. Can be cast as a ritual."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "hex",
+    "version": 1,
+    "name": "Hex",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "bonus",
+      "range": { "value": 90, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 hour",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "hex-cast",
+          "type": "utility",
+          "name": "Hex",
+          "cost": "bonus",
+          "target": { "affects": "creature", "count": 1 },
+          "note": "Target takes an extra 1d6 necrotic damage whenever you hit it with an attack. Also gives disadvantage on ability checks with one chosen ability. As a bonus action, transfer the curse to a new target if the original drops to 0 HP. Upcast: 3rd-4th level = up to 8 hours, 5th+ = up to 24 hours."
+        }
+      ]
+    }
   }
 ]

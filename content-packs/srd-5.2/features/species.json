@@ -66,5 +66,327 @@
         { "kind": "stat-modifier", "target": "tremorsense", "mode": "UPGRADE", "value": 60, "appliesWhen": { "requires": "touching-stone" } }
       ]
     }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry",
+    "version": 1,
+    "name": "Draconic Ancestry",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dragonborn",
+      "note": "Damage type is determined by player's trait.draconic-ancestry choice. Tracked as informational flag for v0.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry-chosen", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "breath-weapon",
+    "version": 1,
+    "name": "Breath Weapon",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dragonborn",
+      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + proficiency bonus. Damage 1d10 at L1, 2d10 L5, 3d10 L11, 4d10 L17 (modeled here as a flat 1d10; UI/sheet can scale by totalLevel later). Damage type follows trait.draconic-ancestry.",
+      "activities": [
+        {
+          "id": "breath-weapon",
+          "type": "save",
+          "name": "Breath Weapon",
+          "cost": "action",
+          "range": { "value": 15, "units": "ft" },
+          "save": { "ability": "dex", "dc": { "calc": "fixed", "value": 8 } },
+          "damage": { "parts": [{ "dice": "1d10", "type": "varies" }] },
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "damage-resistance-draconic",
+    "version": 1,
+    "name": "Damage Resistance",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dragonborn",
+      "note": "Resistance type follows trait.draconic-ancestry; modeled as informational flag for v0 since target damage type is dynamic.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-damage-resistance", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-flight",
+    "version": 1,
+    "name": "Draconic Flight",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dragonborn",
+      "minLevel": 5,
+      "note": "SRD 5.2: at L5, bonus action to sprout wings; fly speed equals walking speed for 10 minutes, 1/long rest. Modeled as a player-invoked trigger so the speed only applies while the wings are active.",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "draconic-flight",
+          "name": "Draconic Flight",
+          "on": ["turn.start"],
+          "scope": { "predicates": [{ "self": true }] },
+          "grants": { "type": "grant-speed", "speed": "fly", "value": "walk", "duration": "10-minutes" },
+          "limit": { "per": "long-rest", "uses": 1 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fey-ancestry",
+    "version": 1,
+    "name": "Fey Ancestry",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "elf",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.advantage.charmed", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "keen-senses",
+    "version": 1,
+    "name": "Keen Senses",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "elf",
+      "note": "SRD 5.2: gain proficiency in Insight, Perception, or Survival (player's choice). Modeled here as Perception by default; the choice mechanism plugs in later via character.background.choices or species choice slot.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.perception", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "trance",
+    "version": 1,
+    "name": "Trance",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "elf",
+      "note": "4-hour meditation = long rest; gain proficiency with a weapon or tool of player's choice. Informational flag only for v0.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.trance", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "elven-lineage",
+    "version": 1,
+    "name": "Elven Lineage",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "elf",
+      "note": "Choice of Drow / High Elf / Wood Elf folded into trait.elven-lineage flag for v0. Drow grants superior darkvision (120 ft), Dancing Lights cantrip, and Faerie Fire/Darkness at L3/L5. High Elf grants Prestidigitation and a 1st-level wizard spell at L1, plus Detect Magic/Misty Step. Wood Elf grants +5 walking speed, Druidcraft, and Longstrider/Pass Without Trace. Lineage-specific spell lists/speed deferred until the choice system lands.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.elven-lineage-chosen", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "gnomish-cunning",
+    "version": 1,
+    "name": "Gnomish Cunning",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "gnome",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.advantage.int", "mode": "OVERRIDE", "value": "magic" },
+        { "kind": "stat-modifier", "target": "save.advantage.wis", "mode": "OVERRIDE", "value": "magic" },
+        { "kind": "stat-modifier", "target": "save.advantage.cha", "mode": "OVERRIDE", "value": "magic" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "gnomish-lineage",
+    "version": 1,
+    "name": "Gnomish Lineage",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "gnome",
+      "note": "Choice of Forest Gnome (Minor Illusion cantrip, Speak with Small Beasts) or Rock Gnome (Mending + Prestidigitation, Tinker — craft Tiny Clockwork Devices). Folded into trait.gnomish-lineage flag for v0.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.gnomish-lineage-chosen", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry",
+    "version": 1,
+    "name": "Giant Ancestry",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "goliath",
+      "note": "SRD 5.2: choose Cloud/Fire/Frost/Hill/Stone/Storm. Each grants a small bonus action usable PB/long rest (Cloud: short teleport; Fire: 1d10 fire damage on hit; Frost: reduce damage; Hill: knock prone; Stone: reaction to redirect attack; Storm: 30-ft repulse). Folded into trait.giant-ancestry flag and a generic per-PB activity for v0.",
+      "activities": [
+        {
+          "id": "giant-ancestry",
+          "type": "utility",
+          "name": "Giant Ancestry",
+          "cost": "bonus",
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "large-form",
+    "version": 1,
+    "name": "Large Form",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "goliath",
+      "minLevel": 5,
+      "note": "SRD 5.2: at L5, bonus action to grow to Large for 10 minutes (advantage on Strength checks, +10 to walking speed) once per long rest, only if you have room. Modeled as player-invoked trigger.",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "large-form",
+          "name": "Large Form",
+          "on": ["turn.start"],
+          "scope": { "predicates": [{ "self": true }] },
+          "grants": { "type": "grow-large", "duration": "10-minutes" },
+          "limit": { "per": "long-rest", "uses": 1 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "powerful-build-goliath",
+    "version": 1,
+    "name": "Powerful Build",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "goliath",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "brave",
+    "version": 1,
+    "name": "Brave",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "halfling",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.advantage.frightened", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "halfling-nimbleness",
+    "version": 1,
+    "name": "Halfling Nimbleness",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "halfling",
+      "note": "SRD 5.2: can move through space of any creature of a size larger than yourself. Informational flag.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.halfling-nimbleness", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "luck",
+    "version": 1,
+    "name": "Luck",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "halfling",
+      "note": "SRD 5.2 (2024): when you roll a 1 on the d20 for an attack, ability check, or save, you can reroll and must use the new roll. No per-rest cap in 2024 rules. Modeled as a trigger without a use limit.",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "halfling-luck",
+          "name": "Lucky",
+          "on": ["d20.roll-natural-one"],
+          "scope": { "predicates": [{ "self": true }] },
+          "grants": { "type": "reroll-d20", "useNewRoll": true }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "naturally-stealthy",
+    "version": 1,
+    "name": "Naturally Stealthy",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "halfling",
+      "note": "SRD 5.2: can hide behind a creature larger than yourself. Informational flag.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.naturally-stealthy", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fiendish-legacy",
+    "version": 1,
+    "name": "Fiendish Legacy",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "tiefling",
+      "note": "Choice of Abyssal (poison resistance + Poison Spray / Ray of Sickness / Hold Person), Chthonic (necrotic resistance + Chill Touch / False Life / Ray of Enfeeblement), or Infernal (fire resistance + Fire Bolt / Hellish Rebuke / Darkness) folded into trait.fiendish-legacy flag for v0. Modeled here as a generic per-long-rest cast slot; specific spell choice lives on the chosen legacy and plugs in when the choice system lands.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.fiendish-legacy-chosen", "mode": "OVERRIDE", "value": true }
+      ],
+      "activities": [
+        {
+          "id": "fiendish-legacy-spell-l3",
+          "type": "cast",
+          "name": "Fiendish Legacy (Level 1 Spell)",
+          "cost": "action",
+          "minLevel": 3,
+          "uses": { "max": 1, "per": "long-rest" }
+        },
+        {
+          "id": "fiendish-legacy-spell-l5",
+          "type": "cast",
+          "name": "Fiendish Legacy (Level 2 Spell)",
+          "cost": "action",
+          "minLevel": 5,
+          "uses": { "max": 1, "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "otherworldly-presence",
+    "version": 1,
+    "name": "Otherworldly Presence",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "tiefling",
+      "note": "SRD 5.2: know the Thaumaturgy cantrip; ability for it = Cha/Wis/Int per fiendish-legacy choice. Modeled as informational flag for v0; cantrip granting plugs in later.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.otherworldly-presence", "mode": "OVERRIDE", "value": true }
+      ]
+    }
   }
 ]

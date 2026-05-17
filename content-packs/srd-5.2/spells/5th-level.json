@@ -1,0 +1,28 @@
+[
+  {
+    "kind": "spell",
+    "slug": "wall-of-force",
+    "version": 1,
+    "name": "Wall of Force",
+    "data": {
+      "level": 5,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 120, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "wall-of-force-cast",
+          "type": "utility",
+          "name": "Wall of Force",
+          "cost": "action",
+          "target": { "affects": "area", "shape": "wall-or-sphere", "panels": 10, "panelSize": 10, "sphereRadius": 10 },
+          "note": "Invisible wall of force. Nothing can physically pass through it. Immune to all damage and cannot be dispelled by dispel magic (though disintegrate destroys it instantly). Can be a flat surface of up to ten 10-ft-by-10-ft panels, or a sphere up to 10 ft in radius."
+        }
+      ]
+    }
+  }
+]

@@ -56,5 +56,102 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "spirit-guardians",
+    "version": 1,
+    "name": "Spirit Guardians",
+    "data": {
+      "level": 3,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "spirit-guardians-cast",
+          "type": "save",
+          "name": "Spirit Guardians",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "3d8", "type": "radiant", "halfOnSave": true, "alternativeType": "necrotic" }],
+            "scalesWithSlotLevel": { "perSlotAbove": 3, "addDice": "1d8" }
+          },
+          "target": { "affects": "area", "shape": "emanation", "radius": 15 },
+          "note": "Choose radiant (typically good) or necrotic (typically evil) when casting. The area moves with the caster. Hostile creatures in the area have their speed halved. First entered or starting turn there triggers the save and damage."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "fly",
+    "version": 1,
+    "name": "Fly",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "fly-cast",
+          "type": "utility",
+          "name": "Fly",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 1 },
+          "scalesWithSlotLevel": { "perSlotAbove": 3, "addTargets": 1 },
+          "appliedModifiers": [
+            { "kind": "stat-modifier", "target": "speed.fly", "mode": "UPGRADE", "value": 60 }
+          ],
+          "note": "Target gains a flying speed of 60 feet for the duration. If still flying when the spell ends, target falls unless it can otherwise stop the fall."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "lightning-bolt",
+    "version": 1,
+    "name": "Lightning Bolt",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s", "m"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "lightning-bolt-cast",
+          "type": "save",
+          "name": "Lightning Bolt",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "8d6", "type": "lightning", "halfOnSave": true }],
+            "scalesWithSlotLevel": { "perSlotAbove": 3, "addDice": "1d6" }
+          },
+          "target": { "affects": "area", "shape": "line", "length": 100, "width": 5 }
+        }
+      ]
+    }
   }
 ]

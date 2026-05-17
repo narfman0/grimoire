@@ -48,5 +48,144 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "sacred-flame",
+    "version": 1,
+    "name": "Sacred Flame",
+    "data": {
+      "level": 0,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "sacred-flame-cast",
+          "type": "save",
+          "name": "Sacred Flame",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "1d8", "type": "radiant", "scalesWithCharacterLevel": { "at5": "2d8", "at11": "3d8", "at17": "4d8" } }]
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "Target gains no benefit from cover for this save."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "eldritch-blast",
+    "version": 1,
+    "name": "Eldritch Blast",
+    "data": {
+      "level": 0,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 120, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "eldritch-blast-cast",
+          "type": "attack",
+          "name": "Eldritch Blast",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [{ "dice": "1d10", "type": "force" }]
+          },
+          "target": { "affects": "creature", "count": 1, "scalesWithCharacterLevel": { "at5": 2, "at11": 3, "at17": 4 } },
+          "note": "Creates 1 beam, gaining additional beams at levels 5/11/17. Each beam is a separate spell attack roll."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "toll-the-dead",
+    "version": 1,
+    "name": "Toll the Dead",
+    "data": {
+      "level": 0,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "toll-the-dead-cast",
+          "type": "save",
+          "name": "Toll the Dead",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "1d8", "type": "necrotic", "scalesWithCharacterLevel": { "at5": "2d8", "at11": "3d8", "at17": "4d8" } }]
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "Damage die is 1d12 instead of 1d8 (2d12/3d12/4d12 at higher levels) if the target is missing any of its hit points."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "guidance",
+    "version": 1,
+    "name": "Guidance",
+    "data": {
+      "level": 0,
+      "school": "divination",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "activities": [
+        {
+          "id": "guidance-cast",
+          "type": "utility",
+          "name": "Guidance",
+          "cost": "action",
+          "note": "Target adds 1d4 to one ability check of its choice before the spell ends. Spell then ends."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "light",
+    "version": 1,
+    "name": "Light",
+    "data": {
+      "level": 0,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "m"],
+      "duration": "1 hour",
+      "activities": [
+        {
+          "id": "light-cast",
+          "type": "utility",
+          "name": "Light",
+          "cost": "action",
+          "note": "Object touched sheds bright light in a 20-foot radius and dim light for an additional 20 feet. Dexterity save to avoid if cast on a hostile creature's item."
+        }
+      ]
+    }
   }
 ]

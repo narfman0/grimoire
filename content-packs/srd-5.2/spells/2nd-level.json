@@ -1,0 +1,124 @@
+[
+  {
+    "kind": "spell",
+    "slug": "misty-step",
+    "version": 1,
+    "name": "Misty Step",
+    "data": {
+      "level": 2,
+      "school": "conjuration",
+      "castingTime": "bonus",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "misty-step-cast",
+          "type": "utility",
+          "name": "Misty Step",
+          "cost": "bonus",
+          "note": "Teleport up to 30 feet to an unoccupied space you can see."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "hold-person",
+    "version": 2,
+    "name": "Hold Person",
+    "data": {
+      "level": 2,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "hold-person-cast",
+          "type": "save",
+          "name": "Hold Person",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "creature", "count": 1, "creatureType": "humanoid" },
+          "scalesWithSlotLevel": { "perSlotAbove": 1, "addTargets": 1 },
+          "note": "Target humanoid must succeed on a WIS save or be paralyzed for the duration. Repeats the save at the end of each of its turns."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "spiritual-weapon",
+    "version": 1,
+    "name": "Spiritual Weapon",
+    "data": {
+      "level": 2,
+      "school": "evocation",
+      "castingTime": "bonus",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "spiritual-weapon-cast",
+          "type": "attack",
+          "name": "Spiritual Weapon",
+          "cost": "bonus",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "melee",
+            "damage": [{ "dice": "1d8", "type": "force", "addsSpellMod": true }]
+          },
+          "scalesWithSlotLevel": { "perSlotAbove": 2, "addDice": "1d8" },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "Creates a floating spectral weapon. Bonus action to attack a creature within 5 ft of the weapon; damage is 1d8 + spellMod force. Can move the weapon up to 20 ft as part of casting or attacking."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "scorching-ray",
+    "version": 1,
+    "name": "Scorching Ray",
+    "data": {
+      "level": 2,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 120, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "scorching-ray-cast",
+          "type": "attack",
+          "name": "Scorching Ray",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [{ "dice": "2d6", "type": "fire" }]
+          },
+          "target": { "affects": "creature", "count": 3, "perRay": true },
+          "scalesWithSlotLevel": { "perSlotAbove": 2, "addRays": 1 },
+          "note": "Make 3 ranged spell attack rolls (one per ray), each dealing 2d6 fire. Rays may target the same or different creatures."
+        }
+      ]
+    }
+  }
+]

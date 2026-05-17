@@ -1,0 +1,66 @@
+[
+  {
+    "kind": "spell",
+    "slug": "polymorph",
+    "version": 1,
+    "name": "Polymorph",
+    "data": {
+      "level": 4,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 hour",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "polymorph-cast",
+          "type": "save",
+          "name": "Polymorph",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "On a failed WIS save, the target is transformed into a beast whose CR is no higher than the target's CR (or level). Full statblock replacement (HP, attacks, abilities) is OUT OF SCOPE for v0 — the engine does not model form overlay. The target's game stats are replaced by the beast's; it retains alignment and personality. Reverts on 0 HP or duration end."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "wall-of-fire",
+    "version": 1,
+    "name": "Wall of Fire",
+    "data": {
+      "level": 4,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 120, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "wall-of-fire-cast",
+          "type": "save",
+          "name": "Wall of Fire",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "5d8", "type": "fire", "halfOnSave": true }],
+            "scalesWithSlotLevel": { "perSlotAbove": 4, "addDice": "1d8" }
+          },
+          "target": { "affects": "area", "shape": "wall", "length": 60, "height": 20, "width": 1 },
+          "note": "Wall is opaque from one side (caster's choice) which deals damage on entry or starting turn within 10 ft. The other side does no damage. Creatures within wall on cast make a DEX save."
+        }
+      ]
+    }
+  }
+]
