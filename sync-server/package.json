@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@hocuspocus/server": "^2.13.0",
-    "@hocuspocus/extension-sqlite": "^2.13.0",
     "better-sqlite3": "^11.1.0",
     "y-protocols": "^1.0.6",
     "yjs": "^13.6.0"
