@@ -55,6 +55,36 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
   const { lookup } = await buildContentLookup();
   const derived = derive(document, lookup);
 
+  // Item picker options for the inventory section.
+  const itemRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'item'));
+
+  const itemOptions = itemRows
+    .map((r) => {
+      const data = JSON.parse(r.data as string) as {
+        category?: string;
+        weaponType?: string;
+        armorType?: string;
+        requiresAttunement?: boolean | object;
+      };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        category: data.category ?? 'other',
+        kindHint: data.weaponType ?? data.armorType ?? data.category ?? '',
+        requiresAttunement: data.requiresAttunement === true
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     campaign,
     character: {
@@ -64,6 +94,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     },
     document,
     derived: serializeDerived(derived),
-    displayName
+    displayName,
+    itemOptions
   };
 };

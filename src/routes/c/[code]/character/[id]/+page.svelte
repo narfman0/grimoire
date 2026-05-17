@@ -138,6 +138,41 @@
     });
   }
 
+  // ---- inventory ----
+  let pickerSlug = data.itemOptions[0]?.slug ?? '';
+
+  async function addItem() {
+    if (!pickerSlug) return;
+    const opt = data.itemOptions.find((i) => i.slug === pickerSlug);
+    if (!opt) return;
+    await patchDocument((d) => {
+      d.inventory.push({
+        contentKind: 'item',
+        contentSlug: opt.slug,
+        version: 1,
+        equipped: false,
+        attuned: false
+      });
+    });
+  }
+
+  async function setInventoryFlag(index: number, key: 'equipped' | 'attuned', on: boolean) {
+    await patchDocument((d) => {
+      if (!d.inventory[index]) return;
+      d.inventory[index][key] = on;
+    });
+  }
+
+  async function removeInventoryItem(index: number) {
+    await patchDocument((d) => {
+      d.inventory.splice(index, 1);
+    });
+  }
+
+  function itemMeta(slug: string) {
+    return data.itemOptions.find((i) => i.slug === slug);
+  }
+
   function resetResourcesByPer(d: NonNullable<typeof document>, per: string) {
     if (!derived) return;
     d.resourcesSpent ??= {};
@@ -344,6 +379,70 @@
           {/each}
         </ul>
       {/if}
+    </div>
+  </section>
+
+  <!-- Inventory -->
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+    <h2 class="mb-3 text-sm font-semibold text-slate-200">Inventory</h2>
+
+    {#if document.inventory.length > 0}
+      <ul class="mb-3 divide-y divide-slate-800">
+        {#each document.inventory as slot, i}
+          {@const meta = itemMeta(slot.contentSlug)}
+          <li class="flex items-center justify-between gap-3 py-2 text-sm">
+            <div class="flex-1">
+              <span class="font-medium">{meta?.name ?? slot.contentSlug}</span>
+              {#if meta?.kindHint}
+                <span class="ml-2 text-xs text-slate-500">{meta.kindHint}</span>
+              {/if}
+            </div>
+            <label class="flex items-center gap-1 text-xs text-slate-400">
+              <input
+                type="checkbox"
+                checked={slot.equipped}
+                disabled={busy}
+                on:change={(e) => setInventoryFlag(i, 'equipped', checkboxChecked(e))}
+              />
+              equipped
+            </label>
+            <label class="flex items-center gap-1 text-xs text-slate-400" class:opacity-40={!meta?.requiresAttunement}>
+              <input
+                type="checkbox"
+                checked={slot.attuned}
+                disabled={busy || !meta?.requiresAttunement}
+                on:change={(e) => setInventoryFlag(i, 'attuned', checkboxChecked(e))}
+              />
+              attuned
+            </label>
+            <button
+              class="text-xs text-slate-500 hover:text-red-400"
+              disabled={busy}
+              on:click={() => removeInventoryItem(i)}
+            >
+              ×
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <div class="flex gap-2">
+      <select
+        class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+        bind:value={pickerSlug}
+      >
+        {#each data.itemOptions as opt}
+          <option value={opt.slug}>{opt.name} <span class="text-slate-500">({opt.category})</span></option>
+        {/each}
+      </select>
+      <button
+        class="rounded bg-emerald-700 px-3 py-1 text-sm hover:bg-emerald-600 disabled:opacity-50"
+        disabled={busy || !pickerSlug}
+        on:click={addItem}
+      >
+        Add
+      </button>
     </div>
   </section>
 
