@@ -1,11 +1,11 @@
 // Browser-side Y.Doc + Hocuspocus connection for a single character.
 //
-// v0 sync model: the server hydrates the Y.Doc from `characters.document`
-// JSON on first load (in sync-server's onLoadDocument). The browser
-// connects to room `character:<id>`, observes the Y.Doc, and surfaces
-// a snapshot CharacterDocument for the page to render. Edits don't yet
-// flow through the Y.Doc — that's M2.3+. For now this is read-only +
-// presence info ("alice is also here").
+// Sync model: the server hydrates the Y.Doc from `characters.document`
+// JSON on first load (sync-server onLoadDocument). The browser connects
+// to room `character:<id>`, observes the Y.Doc, and surfaces a snapshot
+// CharacterDocument for the page to render. As of M2.3, HP / tempHp
+// edits flow through the Y.Doc via setDocField() and propagate to other
+// tabs in real time. Structural edits still go through PATCH.
 
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';

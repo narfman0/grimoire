@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   }
 
   const document = JSON.parse(character.document) as CharacterDocument;
-  const { lookup } = await buildContentLookup();
+  const { lookup, map: contentMap } = await buildContentLookup();
   const derived = derive(document, lookup);
 
   // Item picker options for the inventory section.
@@ -175,6 +175,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     },
     document,
     derived: serializeDerived(derived),
+    // Ship the content lookup to the client so derive() can re-run there
+    // on every Y.Doc update (M2.3). ~200 KB; revisit when scale matters.
+    contentMap,
     itemOptions,
     spellOptions,
     subclassOptions,

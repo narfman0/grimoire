@@ -89,8 +89,8 @@ const getYjsState = db.prepare<
   SELECT yjs_state, document FROM characters WHERE id = ? LIMIT 1
 `);
 
-const saveYjsState = db.prepare<[Buffer, number, string]>(`
-  UPDATE characters SET yjs_state = ?, updated_at = ? WHERE id = ?
+const saveYjsState = db.prepare<[Buffer, string, number, string]>(`
+  UPDATE characters SET yjs_state = ?, document = ?, updated_at = ? WHERE id = ?
 `);
 
 async function loadDocument({
@@ -117,15 +117,44 @@ async function loadDocument({
   return null;
 }
 
+/**
+ * Decode the Y.Doc back into the CharacterDocument JSON shape the API
+ * + SSR + rules engine read. v0 stores each top-level field as a
+ * JSON-encoded string under root Y.Map "document".
+ */
+function decodeDocumentJson(doc: Y.Doc, characterId: string): string {
+  const root = doc.getMap('document');
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of root.entries()) {
+    if (typeof v === 'string') {
+      try {
+        out[k] = JSON.parse(v);
+      } catch {
+        out[k] = v;
+      }
+    } else {
+      out[k] = v;
+    }
+  }
+  // Force the document.id to match the row id so a swapped doc can't
+  // claim a different character (same invariant the API enforces).
+  out.id = characterId;
+  return JSON.stringify(out);
+}
+
 async function storeDocument({
   documentName,
   document
 }: onStoreDocumentPayload): Promise<void> {
   const characterId = parseCharacterId(documentName);
   if (!characterId) return;
-  // Hocuspocus's Document extends Y.Doc — encode the live state.
+  // Hocuspocus's Document extends Y.Doc — encode the live state into both
+  // the binary `yjs_state` (live cold-storage) and the `document` JSON
+  // (consumed by the API + SSR + rules engine). Writing both keeps the
+  // two views consistent; the API path also writes both via PATCH.
   const state = Y.encodeStateAsUpdate(document);
-  saveYjsState.run(Buffer.from(state), Date.now(), characterId);
+  const docJson = decodeDocumentJson(document, characterId);
+  saveYjsState.run(Buffer.from(state), docJson, Date.now(), characterId);
 }
 
 const server = Server.configure({

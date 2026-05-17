@@ -33,22 +33,57 @@
     return (e.target as HTMLInputElement).checked;
   }
 
-  // ---- realtime sync (M2.2) ----
-  // Opens a Y.Doc + Hocuspocus websocket on mount. v0 is read-only — edits
-  // still flow through the existing PATCH path. The status badge proves the
-  // pipe works; M2.3+ wires actual edits through the Y.Doc.
+  // ---- realtime sync (M2.3) ----
+  // Y.Doc state from the server replaces the SSR snapshot once the websocket
+  // is open. Client runs derive() locally on every Y.Doc update so the
+  // displayed stats reflect live HP/conditions/toggles within one tick.
   let conn: ConnectedDoc | null = null;
   let syncStatus: 'connecting' | 'open' | 'closed' | 'auth-failed' = 'connecting';
   let unsubStatus: (() => void) | undefined;
+  let unsubDoc: (() => void) | undefined;
+  /** Snapshot from the live Y.Doc — null until first message arrives. */
+  let liveDoc: CharacterDocument | null = null;
+
+  // Build a ContentLookup over the shipped contentMap. Lazy via $: so HMR
+  // updates of contentMap (rare) re-thread.
+  $: contentLookup = ((ref) =>
+    data.contentMap[`${ref.kind}/${ref.slug}`]) as ContentLookup;
+
+  // The effective document: live Y.Doc snapshot when available, else the
+  // SSR document. Falls back gracefully if the sync-server is offline.
+  $: document = (liveDoc ?? data.document) as CharacterDocument | null;
+
+  // Re-derive when document changes. Initial render uses the server's
+  // derived output (data.derived) so first paint isn't blank.
+  $: derived = document
+    ? serializeDerivedClient(derive(document, contentLookup))
+    : data.derived;
+
+  // Sets aren't JSON-serializable; the server's serializeDerived swaps them
+  // for arrays before shipping. Client-side derive() returns Sets, so we
+  // do the same swap here for shape parity with the Sheet component.
+  function serializeDerivedClient(d: Derived) {
+    return {
+      ...d,
+      stats: {
+        ...d.stats,
+        resistances: [...d.stats.resistances],
+        immunities: [...d.stats.immunities],
+        vulnerabilities: [...d.stats.vulnerabilities]
+      }
+    };
+  }
 
   onMount(() => {
     if (!data.syncToken) return;
     conn = connectCharacterDoc({ token: data.syncToken, characterId: data.character.id });
     unsubStatus = conn.status.subscribe((s) => (syncStatus = s));
+    unsubDoc = conn.document.subscribe((d) => (liveDoc = d));
   });
 
   onDestroy(() => {
     unsubStatus?.();
+    unsubDoc?.();
     conn?.destroy();
   });
 
