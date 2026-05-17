@@ -8,6 +8,22 @@ import type { RequestHandler } from './$types';
 
 const ListQuery = z.object({ campaign: CampaignCode.optional() });
 
+function serializeCharacter(r: {
+  id: string;
+  campaignId: string;
+  name: string;
+  document: string | null;
+  updatedAt: Date;
+}) {
+  return {
+    id: r.id,
+    campaignId: r.campaignId,
+    name: r.name,
+    document: r.document ? JSON.parse(r.document) : null,
+    updatedAt: r.updatedAt.getTime()
+  };
+}
+
 export const GET: RequestHandler = async ({ url }) => {
   const { campaign } = parseSearch(url, ListQuery);
 
@@ -24,14 +40,13 @@ export const GET: RequestHandler = async ({ url }) => {
         id: schema.characters.id,
         campaignId: schema.characters.campaignId,
         name: schema.characters.name,
+        document: schema.characters.document,
         updatedAt: schema.characters.updatedAt
       })
       .from(schema.characters)
       .where(eq(schema.characters.campaignId, found[0].id));
 
-    return json({
-      characters: rows.map((r) => ({ ...r, updatedAt: r.updatedAt.getTime() }))
-    });
+    return json({ characters: rows.map(serializeCharacter) });
   }
 
   const rows = await db
@@ -39,17 +54,16 @@ export const GET: RequestHandler = async ({ url }) => {
       id: schema.characters.id,
       campaignId: schema.characters.campaignId,
       name: schema.characters.name,
+      document: schema.characters.document,
       updatedAt: schema.characters.updatedAt
     })
     .from(schema.characters);
 
-  return json({
-    characters: rows.map((r) => ({ ...r, updatedAt: r.updatedAt.getTime() }))
-  });
+  return json({ characters: rows.map(serializeCharacter) });
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-  const { campaignCode, name } = await parseJson(request, CreateCharacterRequest);
+  const { campaignCode, name, document } = await parseJson(request, CreateCharacterRequest);
 
   const found = await db
     .select({ id: schema.campaigns.id })
@@ -64,6 +78,7 @@ export const POST: RequestHandler = async ({ request }) => {
     id,
     campaignId: found[0].id,
     name,
+    document: document ? JSON.stringify({ ...document, id }) : null,
     updatedAt: now
   });
 
@@ -71,6 +86,7 @@ export const POST: RequestHandler = async ({ request }) => {
     id,
     campaignId: found[0].id,
     name,
+    document: document ? { ...document, id } : null,
     updatedAt: now.getTime()
   });
 };

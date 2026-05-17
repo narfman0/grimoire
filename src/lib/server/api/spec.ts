@@ -8,6 +8,7 @@ import {
   Campaign,
   CampaignCode,
   Character,
+  CharacterDocument,
   CharacterList,
   ContentKind,
   ContentList,
@@ -34,6 +35,7 @@ registry.register('CreateCampaignResponse', CreateCampaignResponse);
 registry.register('JoinCampaignRequest', JoinCampaignRequest);
 registry.register('CreateCharacterRequest', CreateCharacterRequest);
 registry.register('UpdateCharacterRequest', UpdateCharacterRequest);
+registry.register('CharacterDocument', CharacterDocument);
 registry.register('ContentSummary', ContentSummary);
 registry.register('ContentRow', ContentRow);
 registry.register('ContentList', ContentList);

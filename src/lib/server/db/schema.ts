@@ -18,6 +18,7 @@ export const characters = sqliteTable('characters', {
     .notNull()
     .references(() => campaigns.id),
   name: text('name').notNull(),
+  document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required
   yjsState: blob('yjs_state'), // latest compacted Y.Doc snapshot
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });

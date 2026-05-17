@@ -15,6 +15,13 @@
       "when": 1779038217045,
       "tag": "0001_whole_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779041765365,
+      "tag": "0002_absurd_dragon_lord",
+      "breakpoints": true
     }
   ]
 }

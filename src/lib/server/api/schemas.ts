@@ -70,11 +70,79 @@ export const JoinCampaignRequest = z
 // Character
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// CharacterDocument — full rules-engine input persisted alongside metadata.
+// Mirrors `src/lib/rules/types.ts` CharacterDocument.
+// ---------------------------------------------------------------------------
+
+const AbilityScores = z.object({
+  str: z.number().int(),
+  dex: z.number().int(),
+  con: z.number().int(),
+  int: z.number().int(),
+  wis: z.number().int(),
+  cha: z.number().int()
+});
+
+const ContentRefSchema = z.object({
+  kind: z.string(),
+  slug: z.string(),
+  version: z.number().int().positive().optional(),
+  choices: z.record(z.string(), z.unknown()).optional()
+});
+
+const ClassEntrySchema = z.object({
+  slug: z.string(),
+  level: z.number().int().min(1).max(20),
+  subclass: z.string().optional(),
+  hpRolledPerLevel: z.array(z.number().int().nonnegative())
+});
+
+const InventorySlotSchema = z.object({
+  contentKind: z.string(),
+  contentSlug: z.string(),
+  version: z.number().int().positive().optional(),
+  equipped: z.boolean(),
+  attuned: z.boolean(),
+  charges: z.number().int().nonnegative().optional(),
+  slot: z.string().optional()
+});
+
+export const CharacterDocument = z
+  .object({
+    id: z.string(),
+    name: z.string().min(1),
+    alignment: z.string().optional(),
+    classes: z.array(ClassEntrySchema).min(1),
+    species: ContentRefSchema,
+    subspecies: ContentRefSchema.optional(),
+    background: ContentRefSchema.optional(),
+    feats: z.array(ContentRefSchema),
+    abilityScores: AbilityScores,
+    proficienciesChosen: z.object({
+      skills: z.array(z.string()).optional(),
+      tools: z.array(z.string()).optional(),
+      languages: z.array(z.string()).optional()
+    }),
+    inventory: z.array(InventorySlotSchema),
+    spells: z.object({
+      known: z.array(ContentRefSchema),
+      prepared: z.array(z.string())
+    }),
+    currentHp: z.number().int().nonnegative(),
+    tempHp: z.number().int().nonnegative(),
+    hitDiceSpent: z.record(z.string(), z.number().int().nonnegative()),
+    conditions: z.array(z.string()),
+    modifierToggles: z.record(z.string(), z.boolean())
+  })
+  .openapi('CharacterDocument');
+
 export const Character = z
   .object({
     id: Uuid,
     campaignId: Uuid,
     name: CharacterName,
+    document: CharacterDocument.nullable(),
     updatedAt: TimestampMs
   })
   .openapi('Character');
@@ -88,13 +156,15 @@ export const CharacterList = z
 export const CreateCharacterRequest = z
   .object({
     campaignCode: CampaignCode,
-    name: CharacterName
+    name: CharacterName,
+    document: CharacterDocument.optional()
   })
   .openapi('CreateCharacterRequest');
 
 export const UpdateCharacterRequest = z
   .object({
-    name: CharacterName.optional()
+    name: CharacterName.optional(),
+    document: CharacterDocument.optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateCharacterRequest');
@@ -106,6 +176,7 @@ export const UpdateCharacterRequest = z
 
 export type TCampaign = z.infer<typeof Campaign>;
 export type TCharacter = z.infer<typeof Character>;
+export type TCharacterDocument = z.infer<typeof CharacterDocument>;
 export type TCreateCampaignRequest = z.infer<typeof CreateCampaignRequest>;
 export type TCreateCampaignResponse = z.infer<typeof CreateCampaignResponse>;
 export type TJoinCampaignRequest = z.infer<typeof JoinCampaignRequest>;
