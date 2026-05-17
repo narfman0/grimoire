@@ -1,4 +1,12 @@
-import { sqliteTable, text, integer, blob, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable,
+  text,
+  integer,
+  blob,
+  uniqueIndex,
+  index,
+  primaryKey
+} from 'drizzle-orm/sqlite-core';
 
 // Kept intentionally portable: only text/integer/blob, no SQLite-specific
 // column types. Migrating to Postgres later means swapping the import
@@ -17,6 +25,7 @@ export const characters = sqliteTable('characters', {
   campaignId: text('campaign_id')
     .notNull()
     .references(() => campaigns.id),
+  ownerUserId: text('owner_user_id'), // FK to users.id; nullable for legacy/test rows pre-auth
   name: text('name').notNull(),
   document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required
   yjsState: blob('yjs_state'), // latest compacted Y.Doc snapshot
@@ -84,6 +93,49 @@ export const content = sqliteTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// Auth (3a) — see docs/...
+//
+// `users` is one row per registered account. Username doubles as the public
+// handle; the display-name cookie that used to identify players is gone.
+// `sessions` holds opaque session ids resolved server-side by the cookie.
+// `campaign_members` is the join table; role distinguishes DM from players.
+// ---------------------------------------------------------------------------
+
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  username: text('username').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  email: text('email'), // nullable; required before public-deploy email verification
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const campaignMembers = sqliteTable(
+  'campaign_members',
+  {
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'dm' | 'player'
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.campaignId, t.userId] })
+  })
+);
+
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;
 export type Character = typeof characters.$inferSelect;
@@ -92,3 +144,8 @@ export type Pack = typeof packs.$inferSelect;
 export type NewPack = typeof packs.$inferInsert;
 export type ContentRow = typeof content.$inferSelect;
 export type NewContentRow = typeof content.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type CampaignMember = typeof campaignMembers.$inferSelect;
+export type NewCampaignMember = typeof campaignMembers.$inferInsert;
