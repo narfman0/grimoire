@@ -4,12 +4,13 @@ import { db, schema } from '$lib/server/db';
 import { derive } from '$lib/rules';
 import type { CharacterDocument } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
+import { requireMembershipByCode } from '$lib/server/auth/membership';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, cookies }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
+  if (!locals.user) throw redirect(303, '/login');
   const code = params.code.toUpperCase();
-  const displayName = cookies.get('grimoire_name');
-  if (!displayName) throw redirect(303, '/');
+  const membership = await requireMembershipByCode(locals.user, code);
 
   const campaignRows = await db
     .select({
@@ -40,14 +41,15 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
   if (!character.document) {
     return {
       campaign,
+      user: locals.user,
+      role: membership.role,
       character: {
         id: character.id,
         name: character.name,
         updatedAt: character.updatedAt.getTime()
       },
       document: null,
-      derived: null,
-      displayName
+      derived: null
     };
   }
 
@@ -132,6 +134,8 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
   return {
     campaign,
+    user: locals.user,
+    role: membership.role,
     character: {
       id: character.id,
       name: character.name,
@@ -139,7 +143,6 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     },
     document,
     derived: serializeDerived(derived),
-    displayName,
     itemOptions,
     spellOptions,
     subclassOptions

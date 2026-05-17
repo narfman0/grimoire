@@ -84,14 +84,11 @@ registry.registerPath({
   method: 'post',
   path: '/api/campaigns/{code}/join',
   tags: ['campaigns'],
-  summary: 'Set the caller’s display-name cookie for a campaign',
-  request: {
-    params: z.object({ code: CampaignCode }),
-    body: { required: true, ...jsonBody(JoinCampaignRequest) }
-  },
+  summary: 'Join the campaign as a player (must be logged in)',
+  request: { params: z.object({ code: CampaignCode }) },
   responses: {
-    204: { description: 'Joined; display-name cookie set' },
-    400: errorResponses[400],
+    200: { description: 'Joined' },
+    401: { description: 'Login required', ...jsonBody(ErrorResponse) },
     404: errorResponses[404]
   }
 });

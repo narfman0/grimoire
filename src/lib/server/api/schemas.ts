@@ -60,11 +60,9 @@ export const CreateCampaignResponse = z
   })
   .openapi('CreateCampaignResponse');
 
-export const JoinCampaignRequest = z
-  .object({
-    displayName: DisplayName
-  })
-  .openapi('JoinCampaignRequest');
+// Join no longer accepts a body — the user's identity comes from their
+// session, and their username doubles as the display name (Option A).
+export const JoinCampaignRequest = z.object({}).openapi('JoinCampaignRequest');
 
 // ---------------------------------------------------------------------------
 // Character

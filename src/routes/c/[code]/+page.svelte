@@ -142,8 +142,9 @@
 <header class="mb-6">
   <h1 class="text-2xl font-semibold">{data.campaign.name}</h1>
   <p class="text-sm text-slate-400">
-    Code <span class="font-mono">{data.campaign.code}</span> &middot; signed in as
-    <span class="font-medium">{data.displayName}</span>
+    Code <span class="font-mono">{data.campaign.code}</span> &middot;
+    <span class="font-mono">{data.user.username}</span>
+    <span class="ml-1 rounded bg-slate-800 px-1 py-0.5 text-xs uppercase tracking-wide {data.role === 'dm' ? 'text-amber-300' : 'text-slate-400'}">{data.role}</span>
   </p>
 </header>
 
