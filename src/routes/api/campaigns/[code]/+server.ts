@@ -1,11 +1,15 @@
 import { json, error } from '@sveltejs/kit';
-import { db, schema } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { db, schema } from '$lib/server/db';
+import { CampaignCode } from '$lib/server/api/schemas';
+import { parseParams } from '$lib/server/api/validate';
 import type { RequestHandler } from './$types';
 
+const Params = z.object({ code: CampaignCode });
+
 export const GET: RequestHandler = async ({ params }) => {
-  const code = params.code?.toUpperCase();
-  if (!code) throw error(400, 'code required');
+  const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
 
   const rows = await db
     .select({

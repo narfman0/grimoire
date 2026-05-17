@@ -1,18 +1,13 @@
 import { json, error } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { generateCampaignCode } from '$lib/server/code';
-import { eq } from 'drizzle-orm';
+import { CreateCampaignRequest } from '$lib/server/api/schemas';
+import { parseJson } from '$lib/server/api/validate';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-  let body: { name?: unknown };
-  try {
-    body = await request.json();
-  } catch {
-    throw error(400, 'invalid JSON');
-  }
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
-  if (!name) throw error(400, 'name required');
+  const { name } = await parseJson(request, CreateCampaignRequest);
 
   const id = crypto.randomUUID();
 

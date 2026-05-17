@@ -1,20 +1,16 @@
 import { error } from '@sveltejs/kit';
-import { db, schema } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { db, schema } from '$lib/server/db';
+import { CampaignCode, JoinCampaignRequest } from '$lib/server/api/schemas';
+import { parseJson, parseParams } from '$lib/server/api/validate';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ params, request, cookies }) => {
-  const code = params.code?.toUpperCase();
-  if (!code) throw error(400, 'code required');
+const Params = z.object({ code: CampaignCode });
 
-  let body: { displayName?: unknown };
-  try {
-    body = await request.json();
-  } catch {
-    throw error(400, 'invalid JSON');
-  }
-  const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
-  if (!displayName) throw error(400, 'displayName required');
+export const POST: RequestHandler = async ({ params, request, cookies }) => {
+  const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
+  const { displayName } = await parseJson(request, JoinCampaignRequest);
 
   const rows = await db
     .select({ id: schema.campaigns.id })
