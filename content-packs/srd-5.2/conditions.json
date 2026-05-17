@@ -1,0 +1,53 @@
+[
+  {
+    "kind": "condition",
+    "slug": "prone",
+    "version": 1,
+    "name": "Prone",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "movement.crawl-only", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attack.disadvantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked-by-melee.advantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked-by-ranged-5ft+.disadvantage", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "frightened",
+    "version": 1,
+    "name": "Frightened",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "ability-check.disadvantage", "mode": "OVERRIDE", "value": "while-source-in-sight" },
+        { "kind": "stat-modifier", "target": "attack.disadvantage", "mode": "OVERRIDE", "value": "while-source-in-sight" }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "unconscious",
+    "version": 1,
+    "name": "Unconscious",
+    "data": {
+      "implies": ["prone", "incapacitated"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.auto-fail.str", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.auto-fail.dex", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.advantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked-within-5ft.crit-on-hit", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "rage",
+    "version": 1,
+    "name": "Rage",
+    "data": {
+      "owner": "self-applied",
+      "note": "Active condition applied by the Rage feature. Modifiers actually live on the rage feature; this row exists so the condition can be tracked on the character."
+    }
+  }
+]

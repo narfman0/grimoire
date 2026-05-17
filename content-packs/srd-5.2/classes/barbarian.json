@@ -1,0 +1,34 @@
+{
+  "kind": "class",
+  "slug": "barbarian",
+  "version": 1,
+  "name": "Barbarian",
+  "data": {
+    "hitDie": 12,
+    "primaryAbility": ["str"],
+    "saves": ["str", "con"],
+    "armorProficiencies": ["light", "medium", "shield"],
+    "weaponProficiencies": ["simple", "martial"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": ["animal-handling", "athletics", "intimidation", "nature", "perception", "survival"],
+      "pick": 2
+    },
+    "spellcasting": null,
+    "features": [
+      { "level": 1, "slug": "rage" },
+      { "level": 1, "slug": "unarmored-defense-barbarian" },
+      { "level": 1, "slug": "weapon-mastery" },
+      { "level": 2, "slug": "danger-sense" },
+      { "level": 2, "slug": "reckless-attack" },
+      { "level": 3, "slug": "primal-path", "choice": { "from": ["path-of-the-berserker"], "pick": 1 } },
+      { "level": 3, "slug": "primal-knowledge" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "extra-attack" },
+      { "level": 5, "slug": "fast-movement" },
+      { "level": 7, "slug": "feral-instinct" },
+      { "level": 9, "slug": "brutal-strike" },
+      { "level": 11, "slug": "relentless-rage" }
+    ]
+  }
+}

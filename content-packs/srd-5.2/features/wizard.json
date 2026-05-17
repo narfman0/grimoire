@@ -1,0 +1,51 @@
+[
+  {
+    "kind": "feature",
+    "slug": "spellcasting-wizard",
+    "version": 1,
+    "name": "Spellcasting (Wizard)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "wizard",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "int" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "arcane-recovery",
+    "version": 1,
+    "name": "Arcane Recovery",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "wizard",
+      "minLevel": 1,
+      "activities": [
+        {
+          "id": "arcane-recovery",
+          "type": "utility",
+          "name": "Arcane Recovery",
+          "cost": "free",
+          "trigger": "short-rest-completed",
+          "uses": { "max": 1, "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ritual-adept",
+    "version": 1,
+    "name": "Ritual Adept",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "wizard",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ritual-without-prep", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  }
+]

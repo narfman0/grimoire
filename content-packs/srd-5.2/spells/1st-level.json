@@ -1,0 +1,81 @@
+[
+  {
+    "kind": "spell",
+    "slug": "magic-missile",
+    "version": 1,
+    "name": "Magic Missile",
+    "data": {
+      "level": 1,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 120, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "magic-missile-cast",
+          "type": "damage",
+          "name": "Magic Missile",
+          "cost": "action",
+          "autoHit": true,
+          "damage": {
+            "parts": [{ "dice": "1d4+1", "type": "force" }],
+            "perDart": 3,
+            "scalesWithSlotLevel": { "perSlotAbove": 1, "addDarts": 1 }
+          },
+          "target": { "affects": "creature", "count": 3, "perDart": true }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "shield",
+    "version": 1,
+    "name": "Shield",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "reaction",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s"],
+      "duration": "1 round",
+      "activities": [
+        {
+          "id": "shield-cast",
+          "type": "utility",
+          "name": "Shield",
+          "cost": "reaction",
+          "modifiers": [
+            { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 5 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mage-armor",
+    "version": 1,
+    "name": "Mage Armor",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s", "m"],
+      "duration": "8 hours",
+      "activities": [
+        {
+          "id": "mage-armor-cast",
+          "type": "utility",
+          "name": "Mage Armor",
+          "cost": "action",
+          "appliedModifiers": [
+            { "kind": "stat-modifier", "target": "ac.formula", "mode": "OVERRIDE", "value": { "base": 13, "ability": "dex" } }
+          ]
+        }
+      ]
+    }
+  }
+]

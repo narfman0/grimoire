@@ -1,0 +1,70 @@
+[
+  {
+    "kind": "feature",
+    "slug": "adrenaline-rush",
+    "version": 1,
+    "name": "Adrenaline Rush",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "orc",
+      "activities": [
+        {
+          "id": "adrenaline-rush-dash",
+          "type": "utility",
+          "name": "Adrenaline Rush",
+          "cost": "bonus",
+          "effect": { "type": "dash" },
+          "grantsTempHp": "proficiencyBonus",
+          "uses": { "max": "proficiencyBonus", "per": "short-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "relentless-endurance",
+    "version": 1,
+    "name": "Relentless Endurance",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "orc",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "relentless-endurance",
+          "name": "Relentless Endurance",
+          "on": ["damage.reduce-to-zero"],
+          "scope": { "predicates": [{ "self": true }] },
+          "grants": { "type": "set-hp", "value": 1 },
+          "limit": { "per": "long-rest", "uses": 1 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "dwarven-toughness",
+    "version": 1,
+    "name": "Dwarven Toughness",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dwarf",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "stonecunning",
+    "version": 1,
+    "name": "Stonecunning",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dwarf",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "tremorsense", "mode": "UPGRADE", "value": 60, "appliesWhen": { "requires": "touching-stone" } }
+      ]
+    }
+  }
+]

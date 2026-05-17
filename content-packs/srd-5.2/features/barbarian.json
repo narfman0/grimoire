@@ -1,0 +1,155 @@
+[
+  {
+    "kind": "feature",
+    "slug": "rage",
+    "version": 1,
+    "name": "Rage",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 1,
+      "condition": "rage",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.bludgeoning",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": { "condition": "rage" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.piercing",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": { "condition": "rage" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.slashing",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": { "condition": "rage" }
+        },
+        {
+          "kind": "action-modifier",
+          "id": "rage-melee-damage",
+          "name": "Rage Damage",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "attack.ability": "str" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": "rageDamage" }
+          ],
+          "appliesWhen": { "condition": "rage" }
+        }
+      ],
+      "activities": [
+        {
+          "id": "enter-rage",
+          "type": "utility",
+          "name": "Enter Rage",
+          "cost": "bonus",
+          "duration": { "value": 1, "units": "minute", "concentration": false },
+          "appliesCondition": "rage",
+          "uses": { "max": "ragesPerDay", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "unarmored-defense-barbarian",
+    "version": 1,
+    "name": "Unarmored Defense (Barbarian)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 1,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "ac.formula",
+          "mode": "OVERRIDE",
+          "value": { "base": 10, "abilities": ["dex", "con"], "requires": "no-armor" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "reckless-attack",
+    "version": 1,
+    "name": "Reckless Attack",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 2,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "reckless-attack-toggle",
+          "name": "Reckless Attack",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "attack.ability": "str" }
+            ]
+          },
+          "effects": [
+            { "target": "attack.advantage", "mode": "OVERRIDE", "value": true },
+            { "target": "attacker.grants-advantage-against", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "danger-sense",
+    "version": 1,
+    "name": "Danger Sense",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 2,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.advantage.dex", "mode": "OVERRIDE", "value": "vs-seen-effects" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "extra-attack",
+    "version": 1,
+    "name": "Extra Attack",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 5,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fast-movement",
+    "version": 1,
+    "name": "Fast Movement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 5,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10, "appliesWhen": { "requires": "no-heavy-armor" } }
+      ]
+    }
+  }
+]

@@ -1,0 +1,75 @@
+[
+  {
+    "kind": "item",
+    "slug": "leather-armor",
+    "version": 1,
+    "name": "Leather Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "light",
+      "armorClassFormula": { "base": 11, "ability": "dex" },
+      "weight": 10,
+      "cost": { "gp": 10 },
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "studded-leather",
+    "version": 1,
+    "name": "Studded Leather Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "light",
+      "armorClassFormula": { "base": 12, "ability": "dex" },
+      "weight": 13,
+      "cost": { "gp": 45 },
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "chain-shirt",
+    "version": 1,
+    "name": "Chain Shirt",
+    "data": {
+      "category": "armor",
+      "armorType": "medium",
+      "armorClassFormula": { "base": 13, "ability": "dex", "abilityCap": 2 },
+      "weight": 20,
+      "cost": { "gp": 50 },
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "plate",
+    "version": 1,
+    "name": "Plate Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "heavy",
+      "armorClassFormula": { "base": 18, "ability": null },
+      "weight": 65,
+      "cost": { "gp": 1500 },
+      "stealthDisadvantage": true,
+      "strRequired": 15,
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "shield",
+    "version": 1,
+    "name": "Shield",
+    "data": {
+      "category": "armor",
+      "armorType": "shield",
+      "weight": 6,
+      "cost": { "gp": 10 },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 2, "appliesWhen": { "requires": "equipped:offHand" } }
+      ]
+    }
+  }
+]

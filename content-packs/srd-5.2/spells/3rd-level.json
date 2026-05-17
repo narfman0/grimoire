@@ -1,0 +1,60 @@
+[
+  {
+    "kind": "spell",
+    "slug": "fireball",
+    "version": 1,
+    "name": "Fireball",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 150, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "fireball-cast",
+          "type": "save",
+          "name": "Fireball",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "8d6", "type": "fire", "halfOnSave": true }],
+            "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "1d6" }
+          },
+          "target": { "affects": "area", "shape": "sphere", "radius": 20 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "counterspell",
+    "version": 1,
+    "name": "Counterspell",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "reaction",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["s"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "counterspell-cast",
+          "type": "save",
+          "name": "Counterspell",
+          "cost": "reaction",
+          "save": {
+            "ability": "spellcasting-of-target",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "creature", "count": 1 }
+        }
+      ]
+    }
+  }
+]

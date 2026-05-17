@@ -1,0 +1,35 @@
+{
+  "kind": "class",
+  "slug": "wizard",
+  "version": 1,
+  "name": "Wizard",
+  "data": {
+    "hitDie": 6,
+    "primaryAbility": ["int"],
+    "saves": ["int", "wis"],
+    "armorProficiencies": [],
+    "weaponProficiencies": ["simple"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": ["arcana", "history", "insight", "investigation", "medicine", "nature", "religion"],
+      "pick": 2
+    },
+    "spellcasting": {
+      "ability": "int",
+      "progression": "full",
+      "ritualCasting": true,
+      "spellbook": true
+    },
+    "features": [
+      { "level": 1, "slug": "spellcasting-wizard" },
+      { "level": 1, "slug": "ritual-adept" },
+      { "level": 1, "slug": "arcane-recovery" },
+      { "level": 2, "slug": "scholar" },
+      { "level": 3, "slug": "arcane-tradition" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "memorize-spell" },
+      { "level": 18, "slug": "spell-mastery" },
+      { "level": 20, "slug": "signature-spells" }
+    ]
+  }
+}

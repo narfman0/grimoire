@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "spell",
+    "slug": "fire-bolt",
+    "version": 1,
+    "name": "Fire Bolt",
+    "data": {
+      "level": 0,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 120, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "fire-bolt-cast",
+          "type": "attack",
+          "name": "Fire Bolt",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [{ "dice": "1d10", "type": "fire", "scalesWithCharacterLevel": { "at5": "2d10", "at11": "3d10", "at17": "4d10" } }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mage-hand",
+    "version": 1,
+    "name": "Mage Hand",
+    "data": {
+      "level": 0,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": { "value": 30, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "1 minute",
+      "activities": [
+        {
+          "id": "mage-hand-cast",
+          "type": "utility",
+          "name": "Mage Hand",
+          "cost": "action"
+        }
+      ]
+    }
+  }
+]

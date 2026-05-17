@@ -1,0 +1,48 @@
+[
+  {
+    "kind": "species",
+    "slug": "orc",
+    "version": 1,
+    "name": "Orc",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
+        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["adrenaline-rush", "relentless-endurance"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "human",
+    "version": 1,
+    "name": "Human",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "modifiers": [],
+      "features": ["resourceful", "skillful", "versatile"]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "dwarf",
+    "version": 1,
+    "name": "Dwarf",
+    "data": {
+      "size": "medium",
+      "speed": { "walk": 30 },
+      "languages": ["common"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 120 },
+        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.advantage.poison", "mode": "OVERRIDE", "value": true }
+      ],
+      "features": ["dwarven-toughness", "stonecunning"]
+    }
+  }
+]

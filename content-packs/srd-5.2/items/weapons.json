@@ -1,0 +1,146 @@
+[
+  {
+    "kind": "item",
+    "slug": "greatsword",
+    "version": 1,
+    "name": "Greatsword",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["heavy", "two-handed"],
+      "mastery": "graze",
+      "weight": 6,
+      "cost": { "gp": 50 },
+      "activities": [
+        {
+          "id": "greatsword-attack",
+          "type": "attack",
+          "name": "Greatsword Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "2d6", "type": "slashing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "longsword",
+    "version": 1,
+    "name": "Longsword",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["versatile"],
+      "versatileDamage": "1d10",
+      "mastery": "sap",
+      "weight": 3,
+      "cost": { "gp": 15 },
+      "activities": [
+        {
+          "id": "longsword-attack",
+          "type": "attack",
+          "name": "Longsword Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d8", "type": "slashing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "quarterstaff",
+    "version": 1,
+    "name": "Quarterstaff",
+    "data": {
+      "category": "weapon",
+      "weaponType": "simple-melee",
+      "properties": ["versatile"],
+      "versatileDamage": "1d8",
+      "mastery": "topple",
+      "weight": 4,
+      "cost": { "sp": 2 },
+      "activities": [
+        {
+          "id": "quarterstaff-attack",
+          "type": "attack",
+          "name": "Quarterstaff Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d6", "type": "bludgeoning" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "dagger",
+    "version": 1,
+    "name": "Dagger",
+    "data": {
+      "category": "weapon",
+      "weaponType": "simple-melee",
+      "properties": ["finesse", "light", "thrown"],
+      "thrownRange": { "normal": 20, "long": 60 },
+      "mastery": "nick",
+      "weight": 1,
+      "cost": { "gp": 2 },
+      "activities": [
+        {
+          "id": "dagger-attack",
+          "type": "attack",
+          "name": "Dagger Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d4", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "light-crossbow",
+    "version": 1,
+    "name": "Light Crossbow",
+    "data": {
+      "category": "weapon",
+      "weaponType": "simple-ranged",
+      "properties": ["ammunition", "loading", "two-handed"],
+      "range": { "normal": 80, "long": 320 },
+      "mastery": "slow",
+      "weight": 5,
+      "cost": { "gp": 25 },
+      "activities": [
+        {
+          "id": "light-crossbow-attack",
+          "type": "attack",
+          "name": "Light Crossbow Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "dex",
+            "classification": "weapon",
+            "range": "ranged",
+            "damage": [{ "dice": "1d8", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  }
+]
