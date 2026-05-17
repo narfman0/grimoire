@@ -134,7 +134,7 @@
     "data": {
       "ownerKind": "class",
       "ownerSlug": "warlock",
-      "minLevel": 1,
+      "minLevel": 2,
       "activities": [
         {
           "id": "magical-cunning-ritual",
@@ -156,7 +156,7 @@
     "data": {
       "ownerKind": "class",
       "ownerSlug": "warlock",
-      "minLevel": 3,
+      "minLevel": 1,
       "modifiers": [
         {
           "kind": "stat-modifier",

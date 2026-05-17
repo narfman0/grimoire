@@ -44,16 +44,16 @@
           ],
           "pick": 1,
           "scaling": { "1": 1, "2": 2, "5": 3, "7": 4, "9": 5, "12": 6, "15": 7, "18": 8 },
-          "note": "Warlock learns 1 invocation at L1. Number known scales with class level per the table above (v0 spec: L1=1, L2=2, L5=3, ...). The class row references invocations via this choice slot; the actual invocation rows live in features/warlock.json. Player records picks on character.classes[].choices.invocations and the engine activates the chosen feature rows."
+          "note": "Number known scales with class level (L1=1, L2=2, L5=3, ...). Picks live on character.classes[].choices.invocations."
         }
       },
-      { "level": 1, "slug": "magical-cunning" },
+      { "level": 1, "slug": "pact-boon" },
+      { "level": 2, "slug": "magical-cunning" },
       {
         "level": 3,
         "slug": "warlock-subclass",
         "choice": { "kind": "subclass", "pick": 1, "from": "warlock-subclasses" }
       },
-      { "level": 3, "slug": "pact-boon" },
       { "level": 4, "slug": "ability-score-improvement" }
     ]
   }
