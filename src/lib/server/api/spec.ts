@@ -9,11 +9,16 @@ import {
   CampaignCode,
   Character,
   CharacterList,
+  ContentKind,
+  ContentList,
+  ContentRow,
+  ContentSummary,
   CreateCampaignRequest,
   CreateCampaignResponse,
   CreateCharacterRequest,
   ErrorResponse,
   JoinCampaignRequest,
+  SourceList,
   UpdateCharacterRequest,
   Uuid
 } from './schemas';
@@ -29,6 +34,10 @@ registry.register('CreateCampaignResponse', CreateCampaignResponse);
 registry.register('JoinCampaignRequest', JoinCampaignRequest);
 registry.register('CreateCharacterRequest', CreateCharacterRequest);
 registry.register('UpdateCharacterRequest', UpdateCharacterRequest);
+registry.register('ContentSummary', ContentSummary);
+registry.register('ContentRow', ContentRow);
+registry.register('ContentList', ContentList);
+registry.register('SourceList', SourceList);
 registry.register('Error', ErrorResponse);
 
 const jsonBody = (schema: z.ZodTypeAny) => ({
@@ -162,6 +171,79 @@ registry.registerPath({
 });
 
 // ---------------------------------------------------------------------------
+// Content (public catalog)
+// ---------------------------------------------------------------------------
+
+const SlugParam = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9-]+$/)
+  .openapi({ description: 'Content slug', example: 'wizard' });
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/content',
+  tags: ['content'],
+  summary: 'List public catalog rows',
+  request: {
+    query: z.object({
+      kind: ContentKind.optional(),
+      source: z.string().optional().openapi({ description: 'Filter to a public source slug' }),
+      limit: z.coerce.number().int().positive().max(500).default(100).optional(),
+      offset: z.coerce.number().int().nonnegative().default(0).optional(),
+      include: z.enum(['data']).optional().openapi({ description: 'Include full row data, not just summary' })
+    })
+  },
+  responses: {
+    200: { description: 'OK', ...jsonBody(ContentList) },
+    400: errorResponses[400]
+  }
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/content/{kind}/{slug}',
+  tags: ['content'],
+  summary: 'Fetch the latest public version of a content row',
+  request: { params: z.object({ kind: ContentKind, slug: SlugParam }) },
+  responses: {
+    200: { description: 'OK', ...jsonBody(ContentRow) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/content/{kind}/{slug}/v{version}',
+  tags: ['content'],
+  summary: 'Fetch a pinned version of a content row',
+  request: {
+    params: z.object({
+      kind: ContentKind,
+      slug: SlugParam,
+      version: z.coerce.number().int().positive()
+    })
+  },
+  responses: {
+    200: { description: 'OK', ...jsonBody(ContentRow) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/content/sources',
+  tags: ['content'],
+  summary: 'List the public source slugs available on this server',
+  responses: {
+    200: { description: 'OK', ...jsonBody(SourceList) }
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
 
@@ -179,7 +261,8 @@ export function buildOpenApiDocument() {
     servers: [{ url: '/', description: 'This server' }],
     tags: [
       { name: 'campaigns', description: 'Create, fetch, and join campaigns' },
-      { name: 'characters', description: 'Per-campaign character sheets (metadata)' }
+      { name: 'characters', description: 'Per-campaign character sheets (metadata)' },
+      { name: 'content', description: 'Public game-content catalog (SRD 5.2)' }
     ]
   });
 }

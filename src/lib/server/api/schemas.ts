@@ -111,3 +111,61 @@ export type TCreateCampaignResponse = z.infer<typeof CreateCampaignResponse>;
 export type TJoinCampaignRequest = z.infer<typeof JoinCampaignRequest>;
 export type TCreateCharacterRequest = z.infer<typeof CreateCharacterRequest>;
 export type TUpdateCharacterRequest = z.infer<typeof UpdateCharacterRequest>;
+
+// ---------------------------------------------------------------------------
+// Content (public catalog API)
+// ---------------------------------------------------------------------------
+
+export const ContentKind = z
+  .enum([
+    'species',
+    'subspecies',
+    'class',
+    'subclass',
+    'background',
+    'feat',
+    'item',
+    'spell',
+    'condition',
+    'feature'
+  ])
+  .openapi({ description: 'Content row kind' });
+
+const ContentSlug = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9-]+$/, 'lowercase alphanumeric with hyphens');
+
+export const ContentSummary = z
+  .object({
+    kind: ContentKind,
+    slug: ContentSlug,
+    version: z.number().int().positive(),
+    name: z.string(),
+    source: z.string()
+  })
+  .openapi('ContentSummary');
+
+export const ContentRow = ContentSummary.extend({
+  data: z.record(z.string(), z.unknown())
+}).openapi('ContentRow');
+
+export const ContentList = z
+  .object({
+    items: z.array(z.union([ContentSummary, ContentRow])),
+    total: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+    offset: z.number().int().nonnegative()
+  })
+  .openapi('ContentList');
+
+export const SourceList = z
+  .object({
+    sources: z.array(z.string())
+  })
+  .openapi('SourceList');
+
+export type TContentKind = z.infer<typeof ContentKind>;
+export type TContentSummary = z.infer<typeof ContentSummary>;
+export type TContentRow = z.infer<typeof ContentRow>;
