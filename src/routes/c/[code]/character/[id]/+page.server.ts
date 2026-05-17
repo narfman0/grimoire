@@ -132,6 +132,30 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Background options for the retroactive picker affordance on the sheet
+  // (creation form deliberately doesn't ask for these; user picks here).
+  const backgroundRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'background'));
+
+  const backgroundOptions = backgroundRows
+    .map((r) => {
+      const d = JSON.parse(r.data as string) as { abilityChoices?: string[] };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        abilityChoices: d.abilityChoices ?? []
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     campaign,
     user: locals.user,
@@ -145,6 +169,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     derived: serializeDerived(derived),
     itemOptions,
     spellOptions,
-    subclassOptions
+    subclassOptions,
+    backgroundOptions
   };
 };
