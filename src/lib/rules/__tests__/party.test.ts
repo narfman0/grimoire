@@ -1,6 +1,8 @@
 // Smoke tests for the rules engine v0 against the actual party.
-// Both characters use real SRD content (loaded from content-packs/srd-5.2/)
-// plus inline non-SRD content for their species/subclasses.
+// Both characters use real content loaded from disk:
+//   - SRD 5.2 from this repo's `content-packs/`
+//   - Non-SRD (Tortle, Half-Orc legacy, Chronurgy, Zealot) from
+//     `../grimoire-packs/` (override with $GRIMOIRE_PACKS_DIR).
 //
 // These assertions cover the *shape* of derive() — that the engine produces
 // reasonable numbers for the two builds. Exact damage formulas and edge-case
@@ -8,20 +10,20 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { derive } from '../derive';
-import { loadSrdContent } from './setup/load-srd';
+import { loadAllPacks } from './setup/load-packs';
 import * as zealot from './fixtures/half-orc-zealot-barbarian';
 import * as chronurgy from './fixtures/tortle-chronurgy-wizard';
 import type { ContentRow } from '../types';
 
-let SRD: Map<string, ContentRow>;
+let PACKS: Map<string, ContentRow>;
 
 beforeAll(() => {
-  SRD = loadSrdContent();
+  PACKS = loadAllPacks();
 });
 
 describe('Half-Orc Zealot Barbarian L3', () => {
   it('composes the basic stat block', () => {
-    const lookup = zealot.makeLookup(SRD);
+    const lookup = zealot.makeLookup(PACKS);
     const d = derive(zealot.CHARACTER, lookup);
 
     // Level + prof bonus
@@ -59,7 +61,7 @@ describe('Half-Orc Zealot Barbarian L3', () => {
   });
 
   it('registers active resistances while raging', () => {
-    const lookup = zealot.makeLookup(SRD);
+    const lookup = zealot.makeLookup(PACKS);
     const d = derive(zealot.CHARACTER, lookup);
 
     // Rage condition is on the character; resistance modifiers apply
@@ -69,7 +71,7 @@ describe('Half-Orc Zealot Barbarian L3', () => {
   });
 
   it('produces a greatsword attack action with the right hit + type', () => {
-    const lookup = zealot.makeLookup(SRD);
+    const lookup = zealot.makeLookup(PACKS);
     const d = derive(zealot.CHARACTER, lookup);
 
     const greatsword = d.actions.find((a) => a.sourceContent.slug === 'greatsword');
@@ -83,7 +85,7 @@ describe('Half-Orc Zealot Barbarian L3', () => {
   });
 
   it('applies Rage damage + Divine Fury to the greatsword while raging', () => {
-    const lookup = zealot.makeLookup(SRD);
+    const lookup = zealot.makeLookup(PACKS);
     const d = derive(zealot.CHARACTER, lookup);
 
     const greatsword = d.actions.find((a) => a.sourceContent.slug === 'greatsword');
@@ -98,7 +100,7 @@ describe('Half-Orc Zealot Barbarian L3', () => {
   });
 
   it('declares the Relentless Endurance trigger', () => {
-    const lookup = zealot.makeLookup(SRD);
+    const lookup = zealot.makeLookup(PACKS);
     const d = derive(zealot.CHARACTER, lookup);
 
     const re = d.triggers.find((t) => t.id === 'relentless-endurance');
@@ -110,7 +112,7 @@ describe('Half-Orc Zealot Barbarian L3', () => {
 
 describe('Tortle Chronurgy Wizard L5', () => {
   it('composes the basic stat block', () => {
-    const lookup = chronurgy.makeLookup(SRD);
+    const lookup = chronurgy.makeLookup(PACKS);
     const d = derive(chronurgy.CHARACTER, lookup);
 
     expect(d.stats.totalLevel).toBe(5);
@@ -154,7 +156,7 @@ describe('Tortle Chronurgy Wizard L5', () => {
   });
 
   it('produces Fire Bolt with the spell attack bonus', () => {
-    const lookup = chronurgy.makeLookup(SRD);
+    const lookup = chronurgy.makeLookup(PACKS);
     const d = derive(chronurgy.CHARACTER, lookup);
 
     const fb = d.actions.find((a) => a.sourceContent.slug === 'fire-bolt');
@@ -166,7 +168,7 @@ describe('Tortle Chronurgy Wizard L5', () => {
   });
 
   it('declares the Chronal Shift trigger', () => {
-    const lookup = chronurgy.makeLookup(SRD);
+    const lookup = chronurgy.makeLookup(PACKS);
     const d = derive(chronurgy.CHARACTER, lookup);
 
     const cs = d.triggers.find((t) => t.id === 'chronal-shift');
