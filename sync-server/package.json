@@ -1,0 +1,24 @@
+{
+  "name": "@grimoire/sync-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^2.13.0",
+    "@hocuspocus/extension-sqlite": "^2.13.0",
+    "better-sqlite3": "^11.1.0",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.10",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.4.0"
+  }
+}

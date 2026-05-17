@@ -1,0 +1,17 @@
+packages:
+  - "sync-server"
+
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  sqlite3: true
+  svelte-preprocess: true
+
+# Explicit allowlist for postinstall scripts. pnpm@11 hides these by
+# default; we opt in to the ones that need to run native builds or
+# generate preprocessors.
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
+  - sqlite3
+  - svelte-preprocess

@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Project-wide design tokens live here. Tailwind v4 picks up @theme blocks
+   automatically. Add CSS custom properties for fonts, brand colors, etc.
+   as the design solidifies. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+}
