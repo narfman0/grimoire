@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "dev:sync": "pnpm --filter @grimoire/sync-server dev",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node build",
@@ -33,8 +34,10 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
+    "@hocuspocus/provider": "^4.0.0",
     "better-sqlite3": "^11.1.0",
     "drizzle-orm": "^0.33.0",
+    "yjs": "^13.6.30",
     "zod": "^4.4.3"
   }
 }

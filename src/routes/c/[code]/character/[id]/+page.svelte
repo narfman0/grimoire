@@ -1,6 +1,8 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { onMount, onDestroy } from 'svelte';
   import Sheet from '$lib/components/Sheet.svelte';
+  import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -28,8 +30,27 @@
   // Svelte 4 inline expressions are plain JS — TS `as` casts must live in
   // script-block helpers, not in event handlers.
   function checkboxChecked(e: Event): boolean {
-    return checkboxChecked(e);
+    return (e.target as HTMLInputElement).checked;
   }
+
+  // ---- realtime sync (M2.2) ----
+  // Opens a Y.Doc + Hocuspocus websocket on mount. v0 is read-only — edits
+  // still flow through the existing PATCH path. The status badge proves the
+  // pipe works; M2.3+ wires actual edits through the Y.Doc.
+  let conn: ConnectedDoc | null = null;
+  let syncStatus: 'connecting' | 'open' | 'closed' | 'auth-failed' = 'connecting';
+  let unsubStatus: (() => void) | undefined;
+
+  onMount(() => {
+    if (!data.syncToken) return;
+    conn = connectCharacterDoc({ token: data.syncToken, characterId: data.character.id });
+    unsubStatus = conn.status.subscribe((s) => (syncStatus = s));
+  });
+
+  onDestroy(() => {
+    unsubStatus?.();
+    conn?.destroy();
+  });
 
   $: document = data.document;
   $: derived = data.derived;
@@ -455,6 +476,17 @@
         {#if document.background} &middot; {document.background.slug}{/if}
       {:else}
         no document yet
+      {/if}
+    </p>
+    <p class="mt-1 text-xs">
+      {#if syncStatus === 'open'}
+        <span class="rounded bg-emerald-900/40 px-1.5 py-0.5 text-emerald-200">● Live sync connected</span>
+      {:else if syncStatus === 'connecting'}
+        <span class="rounded bg-slate-800 px-1.5 py-0.5 text-slate-400">○ Sync connecting…</span>
+      {:else if syncStatus === 'auth-failed'}
+        <span class="rounded bg-red-900/40 px-1.5 py-0.5 text-red-200">✕ Sync auth failed</span>
+      {:else}
+        <span class="rounded bg-amber-900/40 px-1.5 py-0.5 text-amber-200">⚠ Sync offline (edits still persist via API)</span>
       {/if}
     </p>
   </div>

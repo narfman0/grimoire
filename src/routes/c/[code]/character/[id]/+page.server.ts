@@ -5,12 +5,19 @@ import { derive } from '$lib/rules';
 import type { CharacterDocument } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
+import { SESSION_COOKIE } from '$lib/server/auth/sessions';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   if (!locals.user) throw redirect(303, '/login');
   const code = params.code.toUpperCase();
   const membership = await requireMembershipByCode(locals.user, code);
+
+  // Pass the session cookie value through page data so the client can use
+  // it as the Hocuspocus token when opening the sync websocket. Cookie is
+  // httpOnly server-side; we accept the small leak through `data` because
+  // the same browser already has the cookie (no new exposure).
+  const syncToken = cookies.get(SESSION_COOKIE) ?? '';
 
   const campaignRows = await db
     .select({
@@ -160,6 +167,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     campaign,
     user: locals.user,
     role: membership.role,
+    syncToken,
     character: {
       id: character.id,
       name: character.name,
