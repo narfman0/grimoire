@@ -120,5 +120,92 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "aid",
+    "version": 1,
+    "name": "Aid",
+    "data": {
+      "level": 2,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": { "value": 30, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "aid-cast",
+          "type": "utility",
+          "name": "Aid",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 3 },
+          "appliedModifiers": [
+            { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": 5 }
+          ],
+          "scalesWithSlotLevel": { "perSlotAbove": 2, "addHpMax": 5 },
+          "note": "Each target's HP max and current HP increase by 5 (or +5 per slot above 2nd) for the duration."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "web",
+    "version": 1,
+    "name": "Web",
+    "data": {
+      "level": 2,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 hour",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "web-cast",
+          "type": "save",
+          "name": "Web",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "area", "shape": "cube", "size": 20 },
+          "note": "Area fills with thick webs (difficult terrain, lightly obscured). A creature in the area when cast or that enters/ends turn in it makes a DEX save or is Restrained. Restrained creature may repeat the save at end of its turn (STR check) to break free. Webs are flammable: any 5-ft cube exposed to fire burns away over 1 round, dealing 2d4 fire to any creature in it."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "invisibility",
+    "version": 1,
+    "name": "Invisibility",
+    "data": {
+      "level": 2,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 hour",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "invisibility-cast",
+          "type": "utility",
+          "name": "Invisibility",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 1 },
+          "scalesWithSlotLevel": { "perSlotAbove": 2, "addTargets": 1 },
+          "note": "Target (and anything it carries) gains the Invisible condition for the duration. Spell ends on the target if it attacks or casts a spell."
+        }
+      ]
+    }
   }
 ]

@@ -1,0 +1,27 @@
+[
+  {
+    "kind": "spell",
+    "slug": "wish",
+    "version": 1,
+    "name": "Wish",
+    "data": {
+      "level": 9,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "wish-cast",
+          "type": "utility",
+          "name": "Wish",
+          "cost": "action",
+          "note": "Standard uses (safe): duplicate any spell of 8th level or lower, ignoring components. Otherwise, alter reality per DM ruling — examples include granting one creature resistance to a damage type, removing all curses/contagions/poisons, restoring up to 20 creatures to full HP, granting +1 to AC and saves to up to 10 creatures for 8 hours, or undoing a single recent event. Open-ended wishes carry the standard stress: 33% chance per non-spell-duplicating wish that you can never cast Wish again, plus 1d10 levels of Exhaustion and other penalties per the 2024 SRD. v0 cannot model open-ended magic — surfaces as a note only."
+        }
+      ]
+    }
+  }
+]

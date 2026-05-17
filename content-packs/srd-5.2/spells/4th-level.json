@@ -62,5 +62,88 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "greater-invisibility",
+    "version": 1,
+    "name": "Greater Invisibility",
+    "data": {
+      "level": 4,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "greater-invisibility-cast",
+          "type": "utility",
+          "name": "Greater Invisibility",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 1 },
+          "note": "Target (and anything it carries) gains the Invisible condition for the duration. Unlike Invisibility, the spell does NOT end when the target attacks or casts a spell."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "banishment",
+    "version": 1,
+    "name": "Banishment",
+    "data": {
+      "level": 4,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "banishment-cast",
+          "type": "save",
+          "name": "Banishment",
+          "cost": "action",
+          "save": {
+            "ability": "cha",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "scalesWithSlotLevel": { "perSlotAbove": 4, "addTargets": 1 },
+          "note": "On a failed CHA save, target is banished to a harmless demiplane (if native to your plane) or to its home plane (if outsider, possibly permanent if concentration is maintained for the full minute). v0 cannot model planar shifts — surfaces as a note. Target is Incapacitated while banished and reappears in the space it left when the spell ends."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "dimension-door",
+    "version": 1,
+    "name": "Dimension Door",
+    "data": {
+      "level": 4,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": { "value": 500, "units": "ft" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "dimension-door-cast",
+          "type": "utility",
+          "name": "Dimension Door",
+          "cost": "action",
+          "target": { "affects": "self" },
+          "note": "Teleport yourself, plus optionally one willing creature within 5 ft of you (and gear it carries up to its carrying capacity), to any spot within 500 ft you can visualize. If you'd arrive in an occupied space, both teleporters take 4d6 force damage and the spell fails to teleport."
+        }
+      ]
+    }
   }
 ]

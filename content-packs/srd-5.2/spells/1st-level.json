@@ -209,5 +209,98 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "faerie-fire",
+    "version": 1,
+    "name": "Faerie Fire",
+    "data": {
+      "level": 1,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "faerie-fire-cast",
+          "type": "save",
+          "name": "Faerie Fire",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "area", "shape": "cube", "size": 20 },
+          "note": "Each creature in the cube on a failed DEX save is outlined in colored light: attack rolls against it have Advantage, and it can't benefit from the Invisible condition. Sheds dim light in a 10-ft radius."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sleep",
+    "version": 1,
+    "name": "Sleep",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": { "value": 90, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "sleep-cast",
+          "type": "save",
+          "name": "Sleep",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "area", "shape": "sphere", "radius": 5 },
+          "note": "Each creature in a 5-ft-radius sphere makes a WIS save or has the Unconscious condition for the duration. Sleep ends on the target if it takes damage or someone uses an action to wake it. Constructs and Undead automatically succeed. Upcast effect is per the 2024 SRD; v0 leaves it as a note."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "burning-hands",
+    "version": 1,
+    "name": "Burning Hands",
+    "data": {
+      "level": 1,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "burning-hands-cast",
+          "type": "save",
+          "name": "Burning Hands",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "3d6", "type": "fire", "halfOnSave": true }],
+            "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "1d6" }
+          },
+          "target": { "affects": "area", "shape": "cone", "length": 15 }
+        }
+      ]
+    }
   }
 ]

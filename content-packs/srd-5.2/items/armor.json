@@ -71,5 +71,110 @@
         { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 2, "appliesWhen": { "requires": "equipped:offHand" } }
       ]
     }
+  },
+  {
+    "kind": "item",
+    "slug": "padded",
+    "version": 1,
+    "name": "Padded Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "light",
+      "armorClassFormula": { "base": 11, "ability": "dex" },
+      "weight": 8,
+      "cost": { "gp": 5 },
+      "stealthDisadvantage": true,
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "hide",
+    "version": 1,
+    "name": "Hide Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "medium",
+      "armorClassFormula": { "base": 12, "ability": "dex", "abilityCap": 2 },
+      "weight": 12,
+      "cost": { "gp": 10 },
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "breastplate",
+    "version": 1,
+    "name": "Breastplate",
+    "data": {
+      "category": "armor",
+      "armorType": "medium",
+      "armorClassFormula": { "base": 14, "ability": "dex", "abilityCap": 2 },
+      "weight": 20,
+      "cost": { "gp": 400 },
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "half-plate",
+    "version": 1,
+    "name": "Half Plate Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "medium",
+      "armorClassFormula": { "base": 15, "ability": "dex", "abilityCap": 2 },
+      "weight": 40,
+      "cost": { "gp": 750 },
+      "stealthDisadvantage": true,
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "ring-mail",
+    "version": 1,
+    "name": "Ring Mail",
+    "data": {
+      "category": "armor",
+      "armorType": "heavy",
+      "armorClassFormula": { "base": 14, "ability": null },
+      "weight": 40,
+      "cost": { "gp": 30 },
+      "stealthDisadvantage": true,
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "chain-mail",
+    "version": 1,
+    "name": "Chain Mail",
+    "data": {
+      "category": "armor",
+      "armorType": "heavy",
+      "armorClassFormula": { "base": 16, "ability": null },
+      "weight": 55,
+      "cost": { "gp": 75 },
+      "stealthDisadvantage": true,
+      "strRequired": 13,
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "splint",
+    "version": 1,
+    "name": "Splint Armor",
+    "data": {
+      "category": "armor",
+      "armorType": "heavy",
+      "armorClassFormula": { "base": 17, "ability": null },
+      "weight": 60,
+      "cost": { "gp": 200 },
+      "stealthDisadvantage": true,
+      "strRequired": 15,
+      "modifiers": []
+    }
   }
 ]

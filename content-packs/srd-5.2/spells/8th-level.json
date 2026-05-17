@@ -1,0 +1,28 @@
+[
+  {
+    "kind": "spell",
+    "slug": "power-word-stun",
+    "version": 1,
+    "name": "Power Word Stun",
+    "data": {
+      "level": 8,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "power-word-stun-cast",
+          "type": "utility",
+          "name": "Power Word Stun",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 1 },
+          "note": "If target has 150 HP or fewer, it gains the Stunned condition. Otherwise the spell has no effect. Target then makes a CON save at the end of each of its turns; on a success, the spell ends. No save on initial application — only the HP threshold gate."
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,64 @@
+[
+  {
+    "kind": "spell",
+    "slug": "heal",
+    "version": 1,
+    "name": "Heal",
+    "data": {
+      "level": 6,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "heal-cast",
+          "type": "heal",
+          "name": "Heal",
+          "cost": "action",
+          "heal": { "amount": "70" },
+          "scalesWithSlotLevel": { "perSlotAbove": 6, "addHp": 10 },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "Target regains 70 HP and ends the Blinded, Deafened, and Poisoned conditions. No effect on Constructs or Undead."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "disintegrate",
+    "version": 1,
+    "name": "Disintegrate",
+    "data": {
+      "level": 6,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "disintegrate-cast",
+          "type": "save",
+          "name": "Disintegrate",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "10d6+40", "type": "force" }],
+            "scalesWithSlotLevel": { "perSlotAbove": 6, "addDice": "3d6" }
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "On a failed DEX save, target takes damage; if reduced to 0 HP, it is disintegrated (only ash + equipment remains; can be restored only by True Resurrection or Wish). Can also target a Large or smaller nonmagical object or a creation of magical force (auto-disintegrated)."
+        }
+      ]
+    }
+  }
+]

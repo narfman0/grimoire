@@ -49,5 +49,184 @@
       "owner": "self-applied",
       "note": "Active condition applied by the Rage feature. Modifiers actually live on the rage feature; this row exists so the condition can be tracked on the character."
     }
+  },
+  {
+    "kind": "condition",
+    "slug": "charmed",
+    "version": 1,
+    "name": "Charmed",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attack.cannot-target-source", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "ability-check.source-has-advantage-socially", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "Charmed creature can't attack the charmer or target the charmer with harmful Activities/magical effects. The charmer has Advantage on any ability check to interact socially with the creature."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "blinded",
+    "version": 1,
+    "name": "Blinded",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "vision.cannot-see", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "ability-check.auto-fail.sight-required", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attack.disadvantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.advantage", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "deafened",
+    "version": 1,
+    "name": "Deafened",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "hearing.cannot-hear", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "ability-check.auto-fail.hearing-required", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "grappled",
+    "version": 1,
+    "name": "Grappled",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "speed.fly", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "speed.swim", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "speed.climb", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "attack.disadvantage.not-against-grappler", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "Speed becomes 0. Has Disadvantage on attack rolls against targets other than the grappler. Ends if the grappler is Incapacitated or if the creature is moved out of the grappler's reach."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "incapacitated",
+    "version": 1,
+    "name": "Incapacitated",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "action.disabled", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "bonus.disabled", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "reaction.disabled", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "concentration.broken", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "speech.cannot-speak", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "initiative.disadvantage", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "Can't take Actions, Bonus Actions, or Reactions. Can't speak. Concentration breaks. Disadvantage on Initiative."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "paralyzed",
+    "version": 1,
+    "name": "Paralyzed",
+    "data": {
+      "implies": ["incapacitated"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "movement.cannot-move", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.auto-fail.str", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.auto-fail.dex", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.advantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked-within-5ft.crit-on-hit", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "petrified",
+    "version": 1,
+    "name": "Petrified",
+    "data": {
+      "implies": ["incapacitated"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "movement.cannot-move", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "weight.multiply", "mode": "MULTIPLY", "value": 10 },
+        { "kind": "stat-modifier", "target": "aging.stop", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.advantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.auto-fail.str", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.auto-fail.dex", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "resistance.all", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "immunity.poison", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "immunity.disease", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "poisoned",
+    "version": 1,
+    "name": "Poisoned",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attack.disadvantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "ability-check.disadvantage", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "restrained",
+    "version": 1,
+    "name": "Restrained",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "speed.fly", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "speed.swim", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "speed.climb", "mode": "OVERRIDE", "value": 0 },
+        { "kind": "stat-modifier", "target": "attack.disadvantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.advantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.disadvantage.dex", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "stunned",
+    "version": 1,
+    "name": "Stunned",
+    "data": {
+      "implies": ["incapacitated"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "save.auto-fail.str", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.auto-fail.dex", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.advantage", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "invisible",
+    "version": 1,
+    "name": "Invisible",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "stealth.surprise-immune", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "concealed", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attack.advantage", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "attacked.disadvantage", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "Heavily obscured for purposes of being seen. Attack rolls against the invisible creature have Disadvantage, and the invisible creature's attack rolls have Advantage. Surprised condition immunity is implicit. Sound, tracks, etc. still detectable."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "exhaustion",
+    "version": 1,
+    "name": "Exhaustion",
+    "data": {
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "d20-test.penalty", "mode": "ADD", "value": -2 },
+        { "kind": "stat-modifier", "target": "speed.all", "mode": "ADD", "value": -5 }
+      ],
+      "note": "Modeled here as the Exhaustion Level 1 effect: -2 to every D20 Test (attack rolls, ability checks, saves) and -5 ft to all speeds. The full 2024 rule is cumulative per level (1 to 6); each level adds -2 to D20 Tests and -5 ft speed, and Level 6 = death. v0 models only the L1 effect; level-based stacking is out of scope."
+    }
   }
 ]

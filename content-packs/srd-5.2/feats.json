@@ -374,5 +374,312 @@
       "abilityChoices": ["str", "dex", "con", "int", "wis", "cha"],
       "note": "2024 SRD 5.2 Resilient. Choose one ability you lack save proficiency in; +1 to that ability (max 20) and gain saving-throw proficiency in it. The +1 and save-proficiency are emitted by the engine from character.feats[].choices.ability (analogous to background ASI distribution). No fixed modifiers at the feat level because the ability is per-character."
     }
+  },
+  {
+    "kind": "feat",
+    "slug": "crafter",
+    "version": 1,
+    "name": "Crafter",
+    "data": {
+      "category": "origin",
+      "abilityChoices": ["int"],
+      "toolProficiencies": { "from": "artisans-tools", "pick": 3 },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "shopping.nonmagical-discount", "mode": "OVERRIDE", "value": 0.2 }
+      ],
+      "note": "2024 SRD 5.2 Crafter. Gain proficiency with three Artisan's Tools of your choice. Nonmagical items bought from a shop cost 20% less. Craft items in half the time during a Long Rest. v0 evaluator does not implement shopping/crafting hooks — surfaces as a tagged modifier only. The three tool choices live on the character document (character.feats[].choices.tools)."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "healer",
+    "version": 1,
+    "name": "Healer",
+    "data": {
+      "category": "origin",
+      "activities": [
+        {
+          "id": "healer-stabilize",
+          "type": "utility",
+          "name": "Healer's Kit (Stabilize)",
+          "cost": "utilize",
+          "note": "Use a Healer's Kit charge to stabilize a creature without a Medicine check, and that creature regains 1 HP."
+        },
+        {
+          "id": "healer-mend",
+          "type": "heal",
+          "name": "Healer's Mend",
+          "cost": "utilize",
+          "heal": { "amount": "1d6+4" },
+          "scalesWithCharacterLevel": { "perProfBonusIncrease": "+spellMod" },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "As a Utilize action, spend one charge of a Healer's Kit to restore 1d6 + 4 HP + your character level. A creature can't be healed by this again until it finishes a Short or Long Rest."
+        }
+      ],
+      "note": "2024 SRD 5.2 Healer. Two uses of a Healer's Kit charge. v0 cannot track Short Rest gating on a per-creature basis — Healer's Mend surfaces as a note."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "musician",
+    "version": 1,
+    "name": "Musician",
+    "data": {
+      "category": "origin",
+      "toolProficiencies": { "from": "musical-instrument", "pick": 3 },
+      "activities": [
+        {
+          "id": "musician-encouraging",
+          "type": "utility",
+          "name": "Encouraging Song",
+          "cost": "free",
+          "note": "At the end of a Short or Long Rest, you can give a Musical Instrument performance and bestow Heroic Inspiration on a number of allies up to your Proficiency Bonus who heard the performance."
+        }
+      ],
+      "note": "2024 SRD 5.2 Musician. Gain proficiency with three Musical Instruments. v0 does not track Heroic Inspiration — surfaces as a note."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "tavern-brawler",
+    "version": 1,
+    "name": "Tavern Brawler",
+    "data": {
+      "category": "origin",
+      "abilityChoices": ["str", "con"],
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "tavern-brawler-unarmed-die",
+          "name": "Enhanced Unarmed Strike",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.kind": "unarmed" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.dice", "mode": "OVERRIDE", "value": "1d4" }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "tavern-brawler-improvised",
+          "name": "Improvised Weapon Proficiency",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.kind": "improvised" }
+            ]
+          },
+          "effects": [
+            { "target": "weapon.proficient", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "tavern-brawler-push",
+          "name": "Push",
+          "on": ["attack.hit"],
+          "scope": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.kind": ["unarmed", "improvised"] }
+            ]
+          },
+          "grants": {
+            "actionType": "push",
+            "constraint": "Once per turn after hitting with an unarmed strike or improvised weapon, push target 5 ft."
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Tavern Brawler. Unarmed Strike damage becomes 1d4 bludgeoning. Proficient with improvised weapons. Free reroll: once per turn, when you roll a damage die for an unarmed strike or improvised weapon, you can reroll once and use either result (v0 does not model the reroll). Push: after hitting with an unarmed strike or improvised, can push target up to 5 ft."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4 },
+      "repeatable": true,
+      "choice": { "from": ["ability-bumps"], "pick": 1 },
+      "note": "2024 SRD 5.2 Ability Score Improvement. Increase one ability score by 2, or two ability scores by 1 each (max 20 per ability). Modeled as a `choice` slot resolved per-character: derive.ts reads ASI bump distributions from character.classes[].asis (analogous to background asis). The feat row carries no fixed modifiers because the ability choice is per-character."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "charger",
+    "version": 1,
+    "name": "Charger",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4 },
+      "abilityChoices": ["str", "dex"],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "charger-dash-attack",
+          "name": "Charge",
+          "on": ["action.dash"],
+          "scope": {
+            "predicates": [
+              { "self.moved-straight": { "gte": 10 } }
+            ]
+          },
+          "grants": {
+            "activityType": "attack",
+            "cost": "bonus",
+            "constraint": "Either +1d8 damage on the bonus-action attack, or push the target up to 10 ft as part of the hit."
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Charger. When you take the Dash action and move at least 10 ft in a straight line, you can use a Bonus Action to make a melee attack OR shove. On hit: +1d8 damage OR push the target 10 ft away. v0 surfaces the option as a trigger; the choice between extra damage and shove is player-side."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "dual-wielder",
+    "version": 1,
+    "name": "Dual Wielder",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4 },
+      "abilityChoices": ["str", "dex"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "wielding:two-melee-weapons" } }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "dual-wielder-quick-draw",
+          "name": "Quick Draw",
+          "on": ["combat.start"],
+          "scope": {
+            "predicates": []
+          },
+          "grants": {
+            "actionType": "draw-or-stow",
+            "constraint": "Draw or stow two one-handed weapons when you'd normally only be able to draw/stow one."
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Dual Wielder. Enhanced Dual Wielding: can use two-weapon fighting with weapons that are one-handed (don't need to be Light). +1 AC while wielding a separate melee weapon in each hand. Quick Draw: can draw/stow two weapons when you'd normally draw/stow only one. v0 evaluator does not model the 'one-handed but not Light' allowance — surfaces as a note."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "elemental-adept",
+    "version": 1,
+    "name": "Elemental Adept",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4, "feature": "spellcasting-or-pact-magic" },
+      "abilityChoices": ["int", "wis", "cha"],
+      "repeatable": true,
+      "choice": { "from": ["acid", "cold", "fire", "lightning", "thunder"], "pick": 1 },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "elemental-adept-bypass-resistance",
+          "name": "Ignore Resistance",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": ["cast", "save", "attack"],
+            "predicates": [
+              { "spell.damage-type": "$choice" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.ignore-resistance", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "elemental-adept-minimum-die",
+          "name": "Damage Floor",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": ["cast", "save", "attack"],
+            "predicates": [
+              { "spell.damage-type": "$choice" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.die.min", "mode": "UPGRADE", "value": 2 }
+          ]
+        }
+      ],
+      "note": "2024 SRD 5.2 Elemental Adept. Choose one of: acid, cold, fire, lightning, or thunder. Spells you cast ignore Resistance to that damage type, and when rolling spell damage of that type, treat any 1 on a damage die as a 2. Repeatable; new damage type each time. v0 does not yet implement damage.ignore-resistance or damage.die.min — surfaces as tagged modifiers only. The chosen type lives on the character document."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "mobile",
+    "version": 1,
+    "name": "Mobile",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4 },
+      "abilityChoices": ["str", "dex"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10 },
+        { "kind": "stat-modifier", "target": "movement.dash-difficult-terrain-no-extra-cost", "mode": "OVERRIDE", "value": true }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "mobile-no-opportunity",
+          "name": "Mobile Evade",
+          "on": ["attack.declare"],
+          "scope": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" }
+            ]
+          },
+          "grants": {
+            "constraint": "After making a melee attack against a creature this turn (hit or miss), you do not provoke Opportunity Attacks from that creature for the rest of the turn."
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Mobile. +10 walking speed. Dashing through Difficult Terrain doesn't cost extra movement on your turn. After making a melee attack vs a creature, you don't provoke Opportunity Attacks from that creature for the rest of your turn. v0 does not model dash-difficult-terrain target — surfaces as tagged modifier."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "defensive-duelist",
+    "version": 1,
+    "name": "Defensive Duelist",
+    "data": {
+      "category": "general",
+      "prerequisite": { "level": 4, "ability": { "dex": 13 } },
+      "abilityChoices": ["dex"],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "defensive-duelist-parry",
+          "name": "Parry",
+          "on": ["attacked.melee.hit"],
+          "scope": {
+            "predicates": [
+              { "wielding.weapon.property": "finesse" }
+            ]
+          },
+          "grants": {
+            "activityType": "utility",
+            "cost": "reaction",
+            "constraint": "Add your Proficiency Bonus to your AC against the triggering attack, possibly turning a hit into a miss."
+          }
+        }
+      ],
+      "note": "2024 SRD 5.2 Defensive Duelist. When wielding a Finesse weapon and hit by a melee attack, use Reaction to add your Proficiency Bonus to your AC against that attack (possibly turning a hit into a miss)."
+    }
   }
 ]

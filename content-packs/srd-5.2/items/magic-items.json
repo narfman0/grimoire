@@ -1,0 +1,88 @@
+[
+  {
+    "kind": "item",
+    "slug": "bag-of-holding",
+    "version": 1,
+    "name": "Bag of Holding",
+    "data": {
+      "category": "wondrous",
+      "rarity": "uncommon",
+      "requiresAttunement": false,
+      "weight": 15,
+      "note": "Inner planar space holds up to 500 lb / 64 cu ft of material; the bag itself always weighs 15 lb regardless of contents. Action to retrieve an item from the bag. Overloading, piercing, or placing inside another extradimensional space ruptures the bag (rift to the Astral Plane)."
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "weapon-plus-1",
+    "version": 1,
+    "name": "+1 Weapon",
+    "data": {
+      "category": "weapon-template",
+      "rarity": "uncommon",
+      "requiresAttunement": false,
+      "template": {
+        "appliesTo": { "category": "weapon" },
+        "namePrefix": "+1 ",
+        "modifiers": [
+          { "kind": "stat-modifier", "target": "attack.bonus", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "equipped" } },
+          { "kind": "stat-modifier", "target": "damage.bonus", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "equipped" } },
+          { "kind": "stat-modifier", "target": "weapon.magical", "mode": "OVERRIDE", "value": true, "appliesWhen": { "requires": "equipped" } }
+        ]
+      },
+      "note": "Generic +1 weapon template — must be instantiated against a specific base weapon at character-time. v0 does not auto-instantiate templates; a +1 Longsword should be authored as its own concrete item (slug: longsword-plus-1, version: 1) extending the base longsword with these three modifiers. This row exists as a reference template."
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "cloak-of-protection",
+    "version": 1,
+    "name": "Cloak of Protection",
+    "data": {
+      "category": "wondrous",
+      "rarity": "uncommon",
+      "requiresAttunement": true,
+      "slot": "cloak",
+      "weight": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "equipped:attuned" } },
+        { "kind": "stat-modifier", "target": "save.bonus.all", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "equipped:attuned" } }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "ring-of-protection",
+    "version": 1,
+    "name": "Ring of Protection",
+    "data": {
+      "category": "ring",
+      "rarity": "rare",
+      "requiresAttunement": true,
+      "slot": "ring",
+      "weight": 0,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "equipped:attuned" } },
+        { "kind": "stat-modifier", "target": "save.bonus.all", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "equipped:attuned" } }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "boots-of-striding-and-springing",
+    "version": 1,
+    "name": "Boots of Striding and Springing",
+    "data": {
+      "category": "wondrous",
+      "rarity": "uncommon",
+      "requiresAttunement": true,
+      "slot": "feet",
+      "weight": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "UPGRADE", "value": 30, "appliesWhen": { "requires": "equipped:attuned" } },
+        { "kind": "stat-modifier", "target": "movement.jump-distance-multiplier", "mode": "OVERRIDE", "value": 3, "appliesWhen": { "requires": "equipped:attuned" } }
+      ],
+      "note": "While attuned and equipped, walking speed becomes 30 ft (unless higher) and is unaffected by encumbrance or wearing heavy armor. Jump distance (both long and high) is tripled. v0 evaluator does not implement movement.jump-distance-multiplier — surfaces as tagged modifier only."
+    }
+  }
+]

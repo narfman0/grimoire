@@ -153,5 +153,63 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "haste",
+    "version": 1,
+    "name": "Haste",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": { "value": 30, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "haste-cast",
+          "type": "utility",
+          "name": "Haste",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 1 },
+          "appliedModifiers": [
+            { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 2 },
+            { "kind": "stat-modifier", "target": "save.advantage.dex", "mode": "OVERRIDE", "value": true },
+            { "kind": "stat-modifier", "target": "speed.walk", "mode": "MULTIPLY", "value": 2 }
+          ],
+          "note": "Target's speed doubles, +2 AC, Advantage on DEX saves, and gains an additional action each turn limited to Attack (one weapon attack only), Dash, Disengage, Hide, or Utilize. When the spell ends, target can't move or take actions until after its next turn (lethargy)."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mass-healing-word",
+    "version": 1,
+    "name": "Mass Healing Word",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "bonus",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "mass-healing-word-cast",
+          "type": "heal",
+          "name": "Mass Healing Word",
+          "cost": "bonus",
+          "heal": { "amount": "1d4 + spellMod" },
+          "scalesWithSlotLevel": { "perSlotAbove": 3, "addDice": "1d4" },
+          "target": { "affects": "creature", "count": 6 }
+        }
+      ]
+    }
   }
 ]

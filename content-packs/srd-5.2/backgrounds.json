@@ -66,5 +66,107 @@
         { "kind": "stat-modifier", "target": "proficiency.skill.history", "mode": "OVERRIDE", "value": true }
       ]
     }
+  },
+  {
+    "kind": "background",
+    "slug": "charlatan",
+    "version": 1,
+    "name": "Charlatan",
+    "data": {
+      "abilityChoices": ["dex", "con", "cha"],
+      "skillProficiencies": ["deception", "sleight-of-hand"],
+      "toolProficiencies": ["forgery-kit"],
+      "languages": [],
+      "originFeat": "skilled",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.deception", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.sleight-of-hand", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "entertainer",
+    "version": 1,
+    "name": "Entertainer",
+    "data": {
+      "abilityChoices": ["str", "dex", "cha"],
+      "skillProficiencies": ["acrobatics", "performance"],
+      "toolProficiencies": ["musical-instrument"],
+      "languages": [],
+      "originFeat": "musician",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.acrobatics", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.performance", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "folk-hero",
+    "version": 1,
+    "name": "Folk Hero",
+    "data": {
+      "abilityChoices": ["str", "con", "wis"],
+      "skillProficiencies": ["animal-handling", "survival"],
+      "toolProficiencies": ["artisans-tools"],
+      "languages": [],
+      "originFeat": "healer",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.animal-handling", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "guide",
+    "version": 1,
+    "name": "Guide",
+    "data": {
+      "abilityChoices": ["dex", "con", "wis"],
+      "skillProficiencies": ["stealth", "survival"],
+      "toolProficiencies": ["cartographers-tools"],
+      "languages": [],
+      "originFeat": "magic-initiate-druid",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.stealth", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "hermit",
+    "version": 1,
+    "name": "Hermit",
+    "data": {
+      "abilityChoices": ["con", "wis", "cha"],
+      "skillProficiencies": ["medicine", "religion"],
+      "toolProficiencies": ["herbalism-kit"],
+      "languages": [],
+      "originFeat": "healer",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.medicine", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.religion", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "noble",
+    "version": 1,
+    "name": "Noble",
+    "data": {
+      "abilityChoices": ["str", "int", "cha"],
+      "skillProficiencies": ["history", "persuasion"],
+      "toolProficiencies": ["gaming-set"],
+      "languages": [],
+      "originFeat": "skilled",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.history", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.persuasion", "mode": "OVERRIDE", "value": true }
+      ]
+    }
   }
 ]

@@ -1,0 +1,28 @@
+[
+  {
+    "kind": "spell",
+    "slug": "plane-shift",
+    "version": 1,
+    "name": "Plane Shift",
+    "data": {
+      "level": 7,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "touch" },
+      "components": ["v", "s", "m"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "plane-shift-cast",
+          "type": "utility",
+          "name": "Plane Shift",
+          "cost": "action",
+          "target": { "affects": "creature", "count": 9 },
+          "note": "Two modes. (1) Transport: you and up to eight willing creatures linked by hand (or yourself alone) travel to another plane. (2) Banish: with a melee spell attack against one unwilling creature, succeed and force a CHA save (DC = spell save); on a failed save the target is banished to another plane (no return without aid). v0 cannot model planar shifts — surfaces as a note only."
+        }
+      ]
+    }
+  }
+]

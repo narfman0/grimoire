@@ -187,5 +187,88 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "vicious-mockery",
+    "version": 1,
+    "name": "Vicious Mockery",
+    "data": {
+      "level": 0,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": { "value": 60, "units": "ft" },
+      "components": ["v"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "vicious-mockery-cast",
+          "type": "save",
+          "name": "Vicious Mockery",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "1d6", "type": "psychic", "scalesWithCharacterLevel": { "at5": "2d6", "at11": "3d6", "at17": "4d6" } }]
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "note": "On a failed save, target takes psychic damage and has Disadvantage on the next attack roll it makes before the end of its next turn."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "shillelagh",
+    "version": 1,
+    "name": "Shillelagh",
+    "data": {
+      "level": 0,
+      "school": "transmutation",
+      "castingTime": "bonus",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s", "m"],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "shillelagh-cast",
+          "type": "utility",
+          "name": "Shillelagh",
+          "cost": "bonus",
+          "note": "Imbue a Club or Quarterstaff. Until the spell ends, the weapon becomes magical, deals 1d8 (2d8 at L5, 3d8 at L11, 4d8 at L17) force damage on a hit, and uses your spellcasting ability for attack and damage rolls instead of STR/DEX. v0 cannot retarget weapon attack ability — surfaces as a note only."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "prestidigitation",
+    "version": 1,
+    "name": "Prestidigitation",
+    "data": {
+      "level": 0,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": { "value": 10, "units": "ft" },
+      "components": ["v", "s"],
+      "duration": "up to 1 hour",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "prestidigitation-cast",
+          "type": "utility",
+          "name": "Prestidigitation",
+          "cost": "action",
+          "note": "Minor magical trick: create a sensory effect, light/snuff a small flame, clean or soil an object, chill/warm/flavor material, create a trinket or illusory image. Up to three non-instantaneous effects can be active at once."
+        }
+      ]
+    }
   }
 ]

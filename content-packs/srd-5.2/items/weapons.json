@@ -142,5 +142,319 @@
         }
       ]
     }
+  },
+  {
+    "kind": "item",
+    "slug": "shortsword",
+    "version": 1,
+    "name": "Shortsword",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["finesse", "light"],
+      "mastery": "vex",
+      "weight": 2,
+      "cost": { "gp": 10 },
+      "activities": [
+        {
+          "id": "shortsword-attack",
+          "type": "attack",
+          "name": "Shortsword Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d6", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "rapier",
+    "version": 1,
+    "name": "Rapier",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["finesse"],
+      "mastery": "vex",
+      "weight": 2,
+      "cost": { "gp": 25 },
+      "activities": [
+        {
+          "id": "rapier-attack",
+          "type": "attack",
+          "name": "Rapier Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d8", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "scimitar",
+    "version": 1,
+    "name": "Scimitar",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["finesse", "light"],
+      "mastery": "nick",
+      "weight": 3,
+      "cost": { "gp": 25 },
+      "activities": [
+        {
+          "id": "scimitar-attack",
+          "type": "attack",
+          "name": "Scimitar Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d6", "type": "slashing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "battleaxe",
+    "version": 1,
+    "name": "Battleaxe",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["versatile"],
+      "versatileDamage": "1d10",
+      "mastery": "topple",
+      "weight": 4,
+      "cost": { "gp": 10 },
+      "activities": [
+        {
+          "id": "battleaxe-attack",
+          "type": "attack",
+          "name": "Battleaxe Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d8", "type": "slashing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "maul",
+    "version": 1,
+    "name": "Maul",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["heavy", "two-handed"],
+      "mastery": "topple",
+      "weight": 10,
+      "cost": { "gp": 10 },
+      "activities": [
+        {
+          "id": "maul-attack",
+          "type": "attack",
+          "name": "Maul Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "2d6", "type": "bludgeoning" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "greataxe",
+    "version": 1,
+    "name": "Greataxe",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-melee",
+      "properties": ["heavy", "two-handed"],
+      "mastery": "cleave",
+      "weight": 7,
+      "cost": { "gp": 30 },
+      "activities": [
+        {
+          "id": "greataxe-attack",
+          "type": "attack",
+          "name": "Greataxe Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d12", "type": "slashing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "heavy-crossbow",
+    "version": 1,
+    "name": "Heavy Crossbow",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-ranged",
+      "properties": ["ammunition", "heavy", "loading", "two-handed"],
+      "range": { "normal": 100, "long": 400 },
+      "mastery": "push",
+      "weight": 18,
+      "cost": { "gp": 50 },
+      "activities": [
+        {
+          "id": "heavy-crossbow-attack",
+          "type": "attack",
+          "name": "Heavy Crossbow Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "dex",
+            "classification": "weapon",
+            "range": "ranged",
+            "damage": [{ "dice": "1d10", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "hand-crossbow",
+    "version": 1,
+    "name": "Hand Crossbow",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-ranged",
+      "properties": ["ammunition", "light", "loading"],
+      "range": { "normal": 30, "long": 120 },
+      "mastery": "vex",
+      "weight": 3,
+      "cost": { "gp": 75 },
+      "activities": [
+        {
+          "id": "hand-crossbow-attack",
+          "type": "attack",
+          "name": "Hand Crossbow Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "dex",
+            "classification": "weapon",
+            "range": "ranged",
+            "damage": [{ "dice": "1d6", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "longbow",
+    "version": 1,
+    "name": "Longbow",
+    "data": {
+      "category": "weapon",
+      "weaponType": "martial-ranged",
+      "properties": ["ammunition", "heavy", "two-handed"],
+      "range": { "normal": 150, "long": 600 },
+      "mastery": "slow",
+      "weight": 2,
+      "cost": { "gp": 50 },
+      "activities": [
+        {
+          "id": "longbow-attack",
+          "type": "attack",
+          "name": "Longbow Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "dex",
+            "classification": "weapon",
+            "range": "ranged",
+            "damage": [{ "dice": "1d8", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "shortbow",
+    "version": 1,
+    "name": "Shortbow",
+    "data": {
+      "category": "weapon",
+      "weaponType": "simple-ranged",
+      "properties": ["ammunition", "two-handed"],
+      "range": { "normal": 80, "long": 320 },
+      "mastery": "vex",
+      "weight": 2,
+      "cost": { "gp": 25 },
+      "activities": [
+        {
+          "id": "shortbow-attack",
+          "type": "attack",
+          "name": "Shortbow Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "dex",
+            "classification": "weapon",
+            "range": "ranged",
+            "damage": [{ "dice": "1d6", "type": "piercing" }]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "item",
+    "slug": "javelin",
+    "version": 1,
+    "name": "Javelin",
+    "data": {
+      "category": "weapon",
+      "weaponType": "simple-melee",
+      "properties": ["thrown"],
+      "thrownRange": { "normal": 30, "long": 120 },
+      "mastery": "slow",
+      "weight": 2,
+      "cost": { "sp": 5 },
+      "activities": [
+        {
+          "id": "javelin-attack",
+          "type": "attack",
+          "name": "Javelin Attack",
+          "cost": "action",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d6", "type": "piercing" }]
+          }
+        }
+      ]
+    }
   }
 ]

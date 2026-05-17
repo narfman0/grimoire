@@ -24,5 +24,69 @@
         }
       ]
     }
+  },
+  {
+    "kind": "spell",
+    "slug": "hold-monster",
+    "version": 1,
+    "name": "Hold Monster",
+    "data": {
+      "level": 5,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": { "value": 90, "units": "ft" },
+      "components": ["v", "s", "m"],
+      "duration": "concentration, up to 1 minute",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "hold-monster-cast",
+          "type": "save",
+          "name": "Hold Monster",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          },
+          "target": { "affects": "creature", "count": 1 },
+          "scalesWithSlotLevel": { "perSlotAbove": 5, "addTargets": 1 },
+          "note": "Target (non-Undead) on a failed WIS save has the Paralyzed condition for the duration. Target repeats the save at the end of each of its turns to end the effect. Upcast: each additional target must be within 30 ft of the others."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "cone-of-cold",
+    "version": 1,
+    "name": "Cone of Cold",
+    "data": {
+      "level": 5,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": { "value": 0, "units": "self" },
+      "components": ["v", "s", "m"],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "cone-of-cold-cast",
+          "type": "save",
+          "name": "Cone of Cold",
+          "cost": "action",
+          "save": {
+            "ability": "con",
+            "dc": { "calc": "spell" }
+          },
+          "damage": {
+            "parts": [{ "dice": "8d8", "type": "cold", "halfOnSave": true }],
+            "scalesWithSlotLevel": { "perSlotAbove": 5, "addDice": "1d8" }
+          },
+          "target": { "affects": "area", "shape": "cone", "length": 60 }
+        }
+      ]
+    }
   }
 ]
