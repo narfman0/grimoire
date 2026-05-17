@@ -136,6 +136,64 @@ export const campaignMembers = sqliteTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// Encounters (M3.1) — combat scenes with participants.
+//
+// An encounter is owned by a campaign and progresses through three states:
+//   `staging` — DM is building it (adding participants, prepping monsters)
+//   `live`    — combat is running (initiative rolled, round counter active)
+//   `ended`   — combat finished; read-only history.
+//
+// Many can exist per campaign; the DM keeps an inventory of prepped
+// encounters and promotes one to `live` when combat starts. Multiple
+// encounters can be `live` simultaneously (per-encounter state, not
+// per-campaign) — the UI surfaces a "current live" for each player based
+// on which encounters they're participants in.
+//
+// Participants link PCs (via character_id, live HP through that doc) or
+// monsters (via statblock_slug pointing at a content row of kind
+// 'monster') or ad-hoc NPCs (statblock_json inline). Initiative is
+// DM-entered for v0; players can suggest a value but the DM accepts.
+// ---------------------------------------------------------------------------
+
+export const encounters = sqliteTable('encounters', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  status: text('status').notNull(), // 'staging' | 'live' | 'ended'
+  round: integer('round').notNull().default(0), // 0 pre-combat, 1+ active round
+  activeParticipantId: text('active_participant_id'),
+  notesJson: text('notes_json'), // arbitrary DM notes
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  endedAt: integer('ended_at', { mode: 'timestamp_ms' })
+});
+
+export const participants = sqliteTable('participants', {
+  id: text('id').primaryKey(),
+  encounterId: text('encounter_id')
+    .notNull()
+    .references(() => encounters.id, { onDelete: 'cascade' }),
+  /** For PCs: link to characters.id; HP/conditions read live from there. Null otherwise. */
+  characterId: text('character_id').references(() => characters.id, { onDelete: 'set null' }),
+  /** Display name. For PCs this may shadow character.name. */
+  name: text('name').notNull(),
+  kind: text('kind').notNull(), // 'pc' | 'npc' | 'monster'
+  /** For `monster` kind that exists in a content pack: pointer to content.slug (kind='monster'). */
+  statblockSlug: text('statblock_slug'),
+  /** For ad-hoc NPCs or monsters not in any pack: inline JSON statblock. */
+  statblockJson: text('statblock_json'),
+  /** DM-entered initiative roll; null = not rolled yet. */
+  initiative: integer('initiative'),
+  /** Hit-point tracking. For PCs these stay null and the engine reads from the character doc. */
+  currentHp: integer('current_hp'),
+  maxHp: integer('max_hp'),
+  tempHp: integer('temp_hp').notNull().default(0),
+  conditionsJson: text('conditions_json').notNull().default('[]'),
+  sortOrder: integer('sort_order').notNull().default(0)
+});
+
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;
 export type Character = typeof characters.$inferSelect;
@@ -149,3 +207,7 @@ export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type CampaignMember = typeof campaignMembers.$inferSelect;
 export type NewCampaignMember = typeof campaignMembers.$inferInsert;
+export type Encounter = typeof encounters.$inferSelect;
+export type NewEncounter = typeof encounters.$inferInsert;
+export type Participant = typeof participants.$inferSelect;
+export type NewParticipant = typeof participants.$inferInsert;

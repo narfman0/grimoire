@@ -329,6 +329,18 @@
   {/if}
 </section>
 
+<section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-sm font-semibold text-slate-200">Encounters</h2>
+      <p class="text-xs text-slate-500">Combat scenes and initiative tracker.</p>
+    </div>
+    <a class="rounded border border-slate-700 px-3 py-1 text-sm hover:border-emerald-600 hover:text-emerald-200" href={`/c/${data.campaign.code}/encounters`}>
+      Open encounters →
+    </a>
+  </div>
+</section>
+
 <section class="mt-6 rounded-lg border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-300">
   <h2 class="mb-2 text-sm font-semibold text-slate-200">Rules-engine sheet previews</h2>
   <p class="mb-2 text-xs text-slate-500">
