@@ -10,6 +10,7 @@ import { db, schema } from '$lib/server/db';
 import { ContentRowFileOrArray, PackMeta, type ContentRowFile } from './schemas';
 
 const DEFAULT_REPO_PACKS_DIR = './content-packs';
+const DEFAULT_EXTRA_PACKS_DIR = '../grimoire-packs';
 
 interface LoaderResult {
   packsLoaded: number;
@@ -32,7 +33,8 @@ interface PackContext {
  */
 export async function loadAllPacks(): Promise<LoaderResult> {
   const roots = [DEFAULT_REPO_PACKS_DIR];
-  if (process.env.GRIMOIRE_PACKS_DIR) roots.push(process.env.GRIMOIRE_PACKS_DIR);
+  const extra = process.env.GRIMOIRE_PACKS_DIR ?? DEFAULT_EXTRA_PACKS_DIR;
+  if (extra && existsSync(extra)) roots.push(extra);
 
   const packDirs: string[] = [];
   for (const root of roots) {

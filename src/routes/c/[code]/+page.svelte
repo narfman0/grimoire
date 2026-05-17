@@ -87,3 +87,19 @@
 <p class="text-xs text-slate-500">
   M2 wires up real-time sheet edits via Hocuspocus / Y.js.
 </p>
+
+<section class="mt-6 rounded-lg border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-300">
+  <h2 class="mb-2 text-sm font-semibold text-slate-200">Rules-engine sheet previews</h2>
+  <p class="mb-2 text-xs text-slate-500">
+    Read-only demos that run derive() against the real packs on disk. Wire-up for
+    editable per-campaign sheets lands in M2.
+  </p>
+  <div class="flex flex-wrap gap-2">
+    <a class="rounded border border-slate-700 px-3 py-1 hover:border-emerald-600 hover:text-emerald-200" href="/sheet/half-orc-zealot-barbarian">
+      Vorm (Half-Orc Zealot Barbarian L3)
+    </a>
+    <a class="rounded border border-slate-700 px-3 py-1 hover:border-emerald-600 hover:text-emerald-200" href="/sheet/tortle-chronurgy-wizard">
+      Shellmar (Tortle Chronurgy Wizard L5)
+    </a>
+  </div>
+</section>
