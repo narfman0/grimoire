@@ -9,7 +9,12 @@
       "ownerSlug": "paladin",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "cha"
+        }
       ],
       "note": "Paladin is a half-caster (slots progress at half rate; first slot at L2 per the standard half-caster table). Prepared spells = CHA mod + half Paladin level (rounded up), min 1. v0 surfaces the casting ability; slot progression is computed in derive.ts (currently only full-caster progression is implemented — half-caster slot table is a follow-up)."
     }
@@ -29,9 +34,36 @@
           "type": "heal",
           "name": "Lay on Hands (Pool)",
           "cost": "bonus",
-          "range": { "value": 5, "units": "ft" },
+          "range": {
+            "value": 5,
+            "units": "ft"
+          },
           "uses": {
-            "max": { "perClass": "paladin", "table": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100] },
+            "max": {
+              "perClass": "paladin",
+              "table": [
+                5,
+                10,
+                15,
+                20,
+                25,
+                30,
+                35,
+                40,
+                45,
+                50,
+                55,
+                60,
+                65,
+                70,
+                75,
+                80,
+                85,
+                90,
+                95,
+                100
+              ]
+            },
             "per": "long-rest"
           },
           "note": "Pool of healing power equal to 5 x Paladin level. As a Bonus Action, touch a creature and draw from the pool to restore HP, OR spend 5 points to end one disease or one Poisoned condition. v0 surfaces the pool as a single resource; HP-vs-cure-pool spend distinction isn't enforced."
@@ -55,7 +87,12 @@
         "from": "weapons-with-mastery"
       },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.weapon-mastery-chosen", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.weapon-mastery-chosen",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -113,14 +150,28 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "attack.classification": "weapon" },
-              { "attack.result": "hit" }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "attack.classification": "weapon"
+              },
+              {
+                "attack.result": "hit"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": "divineSmiteSlotDice" },
-            { "target": "damage.type-on-bonus", "mode": "OVERRIDE", "value": "radiant" }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "divineSmiteSlotDice"
+            },
+            {
+              "target": "damage.type-on-bonus",
+              "mode": "OVERRIDE",
+              "value": "radiant"
+            }
           ]
         }
       ],
@@ -166,32 +217,6 @@
         "pick": 1,
         "from": "paladin-subclasses"
       }
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "paladin",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "extra-attack",
-    "version": 1,
-    "name": "Extra Attack",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "paladin",
-      "minLevel": 5,
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
-      ]
     }
   },
   {

@@ -17,12 +17,25 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.category": ["monk", "unarmed"] }
+              {
+                "weapon.category": [
+                  "monk",
+                  "unarmed"
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "attack.ability", "mode": "OVERRIDE", "value": "dex" },
-            { "target": "damage.ability", "mode": "OVERRIDE", "value": "dex" }
+            {
+              "target": "attack.ability",
+              "mode": "OVERRIDE",
+              "value": "dex"
+            },
+            {
+              "target": "damage.ability",
+              "mode": "OVERRIDE",
+              "value": "dex"
+            }
           ]
         }
       ],
@@ -36,7 +49,12 @@
             "ability": "best-of:str,dex",
             "classification": "weapon",
             "range": "melee",
-            "damage": [{ "dice": "1d6", "type": "bludgeoning" }]
+            "damage": [
+              {
+                "dice": "1d6",
+                "type": "bludgeoning"
+              }
+            ]
           },
           "note": "Immediately after the Attack action with an Unarmed Strike or Monk Weapon, make one Unarmed Strike as a Bonus Action. Damage die uses the Martial Arts die (1d6 at L1, scaling later)."
         }
@@ -57,7 +75,14 @@
           "kind": "stat-modifier",
           "target": "ac.formula",
           "mode": "OVERRIDE",
-          "value": { "base": 10, "abilities": ["dex", "wis"], "requires": "no-armor-no-shield" }
+          "value": {
+            "base": 10,
+            "abilities": [
+              "dex",
+              "wis"
+            ],
+            "requires": "no-armor-no-shield"
+          }
         }
       ]
     }
@@ -79,7 +104,31 @@
           "name": "Focus Points",
           "cost": "free",
           "uses": {
-            "max": { "perClass": "monk", "table": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+            "max": {
+              "perClass": "monk",
+              "table": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20
+              ]
+            },
             "per": "short-rest"
           }
         }
@@ -145,7 +194,12 @@
             "ability": "best-of:str,dex",
             "classification": "weapon",
             "range": "melee",
-            "damage": [{ "dice": "1d6", "type": "bludgeoning" }]
+            "damage": [
+              {
+                "dice": "1d6",
+                "type": "bludgeoning"
+              }
+            ]
           },
           "note": "Immediately after the Attack action, spend 1 Focus Point to make two Unarmed Strikes as a Bonus Action (this activity models one of the two strikes; engine doesn't multi-target a single activity). Number of strikes increases to 3 at L10. v0 doesn't deduct the focus point automatically."
         }
@@ -166,8 +220,34 @@
           "kind": "stat-modifier",
           "target": "speed.walk",
           "mode": "ADD",
-          "value": { "perClass": "monk", "table": [0, 10, 10, 10, 15, 15, 15, 15, 15, 20, 20, 20, 20, 25, 25, 25, 25, 30, 30, 30] },
-          "appliesWhen": { "requires": "no-armor-no-shield" }
+          "value": {
+            "perClass": "monk",
+            "table": [
+              0,
+              10,
+              10,
+              10,
+              15,
+              15,
+              15,
+              15,
+              15,
+              20,
+              20,
+              20,
+              20,
+              25,
+              25,
+              25,
+              25,
+              30,
+              30,
+              30
+            ]
+          },
+          "appliesWhen": {
+            "requires": "no-armor-no-shield"
+          }
         }
       ]
     }
@@ -203,11 +283,20 @@
           "kind": "trigger",
           "id": "deflect-attacks-reaction",
           "name": "Deflect Attacks",
-          "on": ["self.hit-by-attack"],
+          "on": [
+            "self.hit-by-attack"
+          ],
           "scope": {
             "predicates": [
-              { "attack.range": ["melee", "ranged"] },
-              { "attack.classification": "weapon" }
+              {
+                "attack.range": [
+                  "melee",
+                  "ranged"
+                ]
+              },
+              {
+                "attack.classification": "weapon"
+              }
             ]
           },
           "grants": {
@@ -218,32 +307,6 @@
         }
       ],
       "note": "When an attack roll hits you with a Bludgeoning, Piercing, or Slashing attack (melee or ranged), use your Reaction to reduce the damage by 1d10 + your DEX modifier + your Monk level. If the damage is reduced to 0, you can spend 1 Focus Point to redirect some of the attack's force: make a ranged attack with a thrown weapon or unarmed strike."
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "monk",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "extra-attack",
-    "version": 1,
-    "name": "Extra Attack",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "monk",
-      "minLevel": 5,
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
-      ]
     }
   },
   {
@@ -264,12 +327,27 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "weapon.category": ["monk", "unarmed"] }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "weapon.category": [
+                  "monk",
+                  "unarmed"
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "on-hit.target.save", "mode": "OVERRIDE", "value": { "ability": "con", "dc": "monk-spell-dc", "onFail": "stunned-end-of-next-turn" } }
+            {
+              "target": "on-hit.target.save",
+              "mode": "OVERRIDE",
+              "value": {
+                "ability": "con",
+                "dc": "monk-spell-dc",
+                "onFail": "stunned-end-of-next-turn"
+              }
+            }
           ]
         }
       ],

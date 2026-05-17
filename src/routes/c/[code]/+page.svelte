@@ -296,16 +296,20 @@
         (e.g., 4d6-drop-lowest) allow base 3–17 — DM's responsibility to verify.
       </span>
       <span class="mt-1 block">
-        Point-buy cost of current scores:
         {#if Number.isFinite(pointBuyCost)}
+          <span class="text-slate-300">Point Buy:</span>
           <span class={pointBuyValid ? 'text-emerald-300' : 'text-red-300'}>
-            {pointBuyCost} / {POINT_BUDGET}
+            {pointBuyCost} / {POINT_BUDGET} points used
           </span>
           {#if !pointBuyValid && pointBuyCost > POINT_BUDGET}
-            <span class="text-red-300">(over budget — not a valid point-buy allocation)</span>
+            <span class="text-red-300">(over budget — not a valid Point Buy allocation)</span>
           {/if}
         {:else}
-          <span class="text-slate-500">— (a score is outside point-buy range, so this is a Standard Array or Custom build)</span>
+          <span class="text-slate-500">
+            Point Buy: <span class="font-mono">N/A</span> — one of your scores is below 8 or above 15,
+            so you're not on a Point Buy build. (Point Buy maxes out at 15 base; 16+ comes from
+            species/feat/ASI bumps applied later.) Fine for Standard Array or Custom rolls.
+          </span>
         {/if}
       </span>
       <span class="mt-1 block">

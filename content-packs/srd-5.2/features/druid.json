@@ -10,7 +10,12 @@
       "minLevel": 1,
       "note": "Grants the Druidic language. v0 surfaces this as a language proficiency flag; full language tracking isn't yet wired through derive.ts.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "proficiency.language.druidic", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.language.druidic",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -24,7 +29,12 @@
       "ownerSlug": "druid",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "wis" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "wis"
+        }
       ]
     }
   },
@@ -41,10 +51,18 @@
       "choice": {
         "kind": "primal-order",
         "pick": 1,
-        "from": ["magician", "warden"]
+        "from": [
+          "magician",
+          "warden"
+        ]
       },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.primal-order", "mode": "OVERRIDE", "value": "unset" }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.primal-order",
+          "mode": "OVERRIDE",
+          "value": "unset"
+        }
       ]
     }
   },
@@ -111,18 +129,6 @@
         "pick": 1,
         "from": "druid-subclasses"
       }
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "druid",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
     }
   },
   {

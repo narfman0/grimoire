@@ -10,7 +10,12 @@
       "minLevel": 1,
       "note": "Half-caster on the Wis ability. The 2024 ranger learns spells from the Ranger list and uses the half-caster slot table (1st-level slots starting at ranger level 2). v0 derive.ts only implements fullCasterSlots — the ranger spell slot table needs an engine-side branch keyed off spellcasting.progression='half'.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "wis" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "wis"
+        }
       ]
     }
   },
@@ -71,7 +76,12 @@
         "from": "proficient-skills"
       },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.deft-explorer.ignores-nonmagical-difficult-terrain", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.deft-explorer.ignores-nonmagical-difficult-terrain",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -127,22 +137,25 @@
       "minLevel": 3,
       "note": "Walking speed +10, plus climb and swim speeds equal to your walking speed (while not wearing heavy armor). v0 emits the +10 walk + flat climb/swim speed modifiers; the post-bonus equality (climb=walk including +10) is approximated by also ADDing 10 to climb/swim baselines from a 30-ft starting walk. If a species has a different base walk, the engineer-extension is to compute climb/swim from the post-modifier walk speed.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10 },
-        { "kind": "stat-modifier", "target": "speed.climb", "mode": "UPGRADE", "value": 40 },
-        { "kind": "stat-modifier", "target": "speed.swim", "mode": "UPGRADE", "value": 40 }
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "ADD",
+          "value": 10
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "UPGRADE",
+          "value": 40
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "UPGRADE",
+          "value": 40
+        }
       ]
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "ranger",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
     }
   },
   {
@@ -155,7 +168,12 @@
       "ownerSlug": "ranger",
       "minLevel": 5,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+        {
+          "kind": "stat-modifier",
+          "target": "attacks-per-action",
+          "mode": "UPGRADE",
+          "value": 2
+        }
       ]
     }
   }

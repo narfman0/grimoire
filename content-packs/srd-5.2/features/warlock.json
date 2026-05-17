@@ -9,7 +9,12 @@
       "ownerSlug": "warlock",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "cha"
+        }
       ],
       "note": "Warlock Pact Magic — spells known are fixed (not prepared), and pact slots refresh on a Short or Long Rest. v0 engine emits spell DC + attack from the class's spellcasting.ability, but the slots table (1/1/2/2/2/2/2/2/2/2 at slot levels 1/1/2/2/3/3/4/4/5/5 for class levels 1-10) is NOT yet emitted because derive.ts/fullCasterSlots only handles progression: 'full'. Tracked in dev memory + docs; until then derived.stats.spellSlots will be empty for Warlocks."
     }
@@ -45,7 +50,9 @@
       "ownerKind": "feature",
       "ownerSlug": "eldritch-invocations",
       "minLevel": 1,
-      "prerequisite": { "knows-spell": "eldritch-blast" },
+      "prerequisite": {
+        "knows-spell": "eldritch-blast"
+      },
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -54,11 +61,17 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "sourceContent.slug": "eldritch-blast" }
+              {
+                "sourceContent.slug": "eldritch-blast"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": "abilityModifier.cha" }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "abilityModifier.cha"
+            }
           ],
           "note": "When you cast Eldritch Blast, add your Charisma modifier to the damage roll of each of its beams. v0 evaluator does not implement 'abilityModifier.cha' as a magic identifier (only 'proficiencyBonus' / 'totalLevel' / 'rageDamage' resolve in evaluate.ts); surfaces as a tagged modifier and the damage bonus will not auto-apply until evaluate.ts learns ability-mod identifiers."
         }
@@ -114,7 +127,9 @@
       "ownerKind": "feature",
       "ownerSlug": "eldritch-invocations",
       "minLevel": 1,
-      "prerequisite": { "knows-spell": "eldritch-blast" },
+      "prerequisite": {
+        "knows-spell": "eldritch-blast"
+      },
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -141,8 +156,15 @@
           "type": "utility",
           "name": "Magical Cunning",
           "cost": "action",
-          "duration": { "value": 1, "units": "minute", "concentration": false },
-          "uses": { "max": 1, "per": "long-rest" },
+          "duration": {
+            "value": 1,
+            "units": "minute",
+            "concentration": false
+          },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Perform a 1-minute esoteric rite. At the end of it, you regain expended Pact Magic spell slots, up to a number equal to half your maximum Pact Magic slot count (round up). Once you use this feature, you can't do so again until you finish a Long Rest. v0 does not auto-restore pact slots (pact slots aren't emitted yet); the resource counter surfaces the 1/long-rest use but the slot-refresh effect is descriptive only."
         }
       ]
@@ -168,7 +190,12 @@
       "choice": {
         "kind": "pact-boon",
         "pick": 1,
-        "from": ["pact-of-the-blade", "pact-of-the-chain", "pact-of-the-tome", "pact-of-the-talisman"]
+        "from": [
+          "pact-of-the-blade",
+          "pact-of-the-chain",
+          "pact-of-the-tome",
+          "pact-of-the-talisman"
+        ]
       },
       "note": "Player picks one of: Pact of the Blade, Pact of the Chain, Pact of the Tome, Pact of the Talisman. v0 models this as a trait flag only — no mechanical effects (no Mystic Arcanum-style spell access, no bonded weapon, no familiar, no extra cantrips, no talisman save bonus). Subsequent batches will author each boon as its own feature row with the real mechanics."
     }
@@ -188,18 +215,6 @@
         "pick": 1,
         "from": "warlock-subclasses"
       }
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "warlock",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
     }
   }
 ]

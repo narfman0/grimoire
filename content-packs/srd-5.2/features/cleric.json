@@ -9,7 +9,12 @@
       "ownerSlug": "cleric",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "wis" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "wis"
+        }
       ]
     }
   },
@@ -26,10 +31,18 @@
       "choice": {
         "kind": "divine-order",
         "pick": 1,
-        "from": ["protector", "thaumaturge"]
+        "from": [
+          "protector",
+          "thaumaturge"
+        ]
       },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.divine-order", "mode": "OVERRIDE", "value": "unset" }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.divine-order",
+          "mode": "OVERRIDE",
+          "value": "unset"
+        }
       ]
     }
   },
@@ -73,10 +86,15 @@
           "type": "save",
           "name": "Turn Undead",
           "cost": "action",
-          "range": { "value": 30, "units": "ft" },
+          "range": {
+            "value": 30,
+            "units": "ft"
+          },
           "save": {
             "ability": "wis",
-            "dc": { "calc": "spell" }
+            "dc": {
+              "calc": "spell"
+            }
           }
         }
       ]
@@ -101,18 +119,6 @@
   },
   {
     "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "cleric",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
-    }
-  },
-  {
-    "kind": "feature",
     "slug": "sear-undead",
     "version": 1,
     "name": "Sear Undead",
@@ -128,7 +134,12 @@
           "name": "Sear Undead",
           "cost": "free",
           "damage": {
-            "parts": [{ "dice": "2d8", "type": "radiant" }]
+            "parts": [
+              {
+                "dice": "2d8",
+                "type": "radiant"
+              }
+            ]
           }
         }
       ]

@@ -36,7 +36,15 @@
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "wearing-armor" } }
+        {
+          "kind": "stat-modifier",
+          "target": "ac",
+          "mode": "ADD",
+          "value": 1,
+          "appliesWhen": {
+            "requires": "wearing-armor"
+          }
+        }
       ]
     }
   },
@@ -49,7 +57,15 @@
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "damage.bonus.melee", "mode": "ADD", "value": 2, "appliesWhen": { "requires": "one-handed-no-shield" } }
+        {
+          "kind": "stat-modifier",
+          "target": "damage.bonus.melee",
+          "mode": "ADD",
+          "value": 2,
+          "appliesWhen": {
+            "requires": "one-handed-no-shield"
+          }
+        }
       ],
       "note": "Applies when wielding a melee weapon in one hand with no other weapons. v0 surfaces the modifier; the requires-tag is not yet enforced by the engine."
     }
@@ -70,12 +86,23 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "weapon.property": ["two-handed", "versatile"] }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "weapon.property": [
+                  "two-handed",
+                  "versatile"
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "damage.reroll-1s-and-2s", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "damage.reroll-1s-and-2s",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         }
       ],
@@ -91,7 +118,12 @@
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "attack.bonus.ranged", "mode": "ADD", "value": 2 }
+        {
+          "kind": "stat-modifier",
+          "target": "attack.bonus.ranged",
+          "mode": "ADD",
+          "value": 2
+        }
       ]
     }
   },
@@ -104,7 +136,12 @@
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.two-weapon-fighting-ability-mod", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.two-weapon-fighting-ability-mod",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "note": "Add your ability modifier to the damage of your off-hand (bonus-action) attack. v0 evaluator doesn't model the off-hand split; surfaces as a trait flag."
     }
@@ -122,10 +159,14 @@
           "kind": "trigger",
           "id": "protection-impose-disadvantage",
           "name": "Protection",
-          "on": ["ally.attacked-within-5ft"],
+          "on": [
+            "ally.attacked-within-5ft"
+          ],
           "scope": {
             "predicates": [
-              { "self.wielding": "shield" }
+              {
+                "self.wielding": "shield"
+              }
             ]
           },
           "grants": {
@@ -147,7 +188,12 @@
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.blindsight", "mode": "UPGRADE", "value": 10 }
+        {
+          "kind": "stat-modifier",
+          "target": "sense.blindsight",
+          "mode": "UPGRADE",
+          "value": 10
+        }
       ],
       "note": "You have Blindsight with a range of 10 feet. Within that range, you can effectively see anything that isn't behind Total Cover, even if you're Blinded or in Darkness."
     }
@@ -165,10 +211,18 @@
           "kind": "trigger",
           "id": "interception-reduce-damage",
           "name": "Interception",
-          "on": ["ally.hit-within-5ft"],
+          "on": [
+            "ally.hit-within-5ft"
+          ],
           "scope": {
             "predicates": [
-              { "self.wielding": ["shield", "simple-weapon", "martial-weapon"] }
+              {
+                "self.wielding": [
+                  "shield",
+                  "simple-weapon",
+                  "martial-weapon"
+                ]
+              }
             ]
           },
           "grants": {
@@ -197,12 +251,20 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "ranged" },
-              { "weapon.property": "thrown" }
+              {
+                "attack.range": "ranged"
+              },
+              {
+                "weapon.property": "thrown"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": 2
+            }
           ]
         }
       ],
@@ -218,7 +280,12 @@
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.unarmed-fighting-d8", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.unarmed-fighting-d8",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "note": "Unarmed strike damage becomes 1d6 (1d8 if no shield and not wielding any weapons in either hand). At the start of each of your turns, you can deal 1d4 bludgeoning to a creature Grappled by you. v0 surfaces this as a trait flag; activities are not synthesized."
     }
@@ -240,10 +307,43 @@
           "name": "Second Wind",
           "cost": "bonus",
           "damage": {
-            "parts": [{ "dice": "1d10", "type": "healing", "scaling": { "per-class-level": "fighter", "addBonus": "fighterLevel" } }]
+            "parts": [
+              {
+                "dice": "1d10",
+                "type": "healing",
+                "scaling": {
+                  "per-class-level": "fighter",
+                  "addBonus": "fighterLevel"
+                }
+              }
+            ]
           },
           "uses": {
-            "max": { "perClass": "fighter", "table": [2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4] },
+            "max": {
+              "perClass": "fighter",
+              "table": [
+                2,
+                2,
+                2,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4
+              ]
+            },
             "per": "long-rest"
           },
           "note": "Regain 1d10 + Fighter level HP."
@@ -267,7 +367,12 @@
         "from": "weapons-with-mastery"
       },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.weapon-mastery-chosen", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.weapon-mastery-chosen",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -287,7 +392,31 @@
           "name": "Action Surge",
           "cost": "free",
           "uses": {
-            "max": { "perClass": "fighter", "table": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2] },
+            "max": {
+              "perClass": "fighter",
+              "table": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                2
+              ]
+            },
             "per": "short-rest"
           },
           "note": "On your turn, take one additional action. Once per turn."
@@ -334,32 +463,6 @@
         "pick": 1,
         "from": "fighter-subclasses"
       }
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "fighter",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "extra-attack",
-    "version": 1,
-    "name": "Extra Attack",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "fighter",
-      "minLevel": 5,
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
-      ]
     }
   }
 ]

@@ -35,14 +35,24 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "or": [
-                { "weapon.property": "finesse" },
-                { "attack.range": "ranged" }
-              ] }
+              {
+                "or": [
+                  {
+                    "weapon.property": "finesse"
+                  },
+                  {
+                    "attack.range": "ranged"
+                  }
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": "1d6" }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "1d6"
+            }
           ]
         }
       ]
@@ -59,7 +69,12 @@
       "minLevel": 1,
       "note": "You know Thieves' Cant, a secret mix of jargon, slang, and hand signs. The 2024 SRD also grants one additional language of your choice. v0 stores the language as a proficiency flag; language tracking isn't yet wired through derive.ts.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "proficiency.language.thieves-cant", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.language.thieves-cant",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -139,18 +154,6 @@
   },
   {
     "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "rogue",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
-    }
-  },
-  {
-    "kind": "feature",
     "slug": "cunning-strike",
     "version": 1,
     "name": "Cunning Strike",
@@ -168,14 +171,24 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "or": [
-                { "weapon.property": "finesse" },
-                { "attack.range": "ranged" }
-              ] }
+              {
+                "or": [
+                  {
+                    "weapon.property": "finesse"
+                  },
+                  {
+                    "attack.range": "ranged"
+                  }
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "tag.cunning-strike.disarm", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.cunning-strike.disarm",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -186,14 +199,24 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "or": [
-                { "weapon.property": "finesse" },
-                { "attack.range": "ranged" }
-              ] }
+              {
+                "or": [
+                  {
+                    "weapon.property": "finesse"
+                  },
+                  {
+                    "attack.range": "ranged"
+                  }
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "tag.cunning-strike.poison", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.cunning-strike.poison",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -204,14 +227,24 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "or": [
-                { "weapon.property": "finesse" },
-                { "attack.range": "ranged" }
-              ] }
+              {
+                "or": [
+                  {
+                    "weapon.property": "finesse"
+                  },
+                  {
+                    "attack.range": "ranged"
+                  }
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "tag.cunning-strike.trip", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.cunning-strike.trip",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -222,14 +255,24 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "or": [
-                { "weapon.property": "finesse" },
-                { "attack.range": "ranged" }
-              ] }
+              {
+                "or": [
+                  {
+                    "weapon.property": "finesse"
+                  },
+                  {
+                    "attack.range": "ranged"
+                  }
+                ]
+              }
             ]
           },
           "effects": [
-            { "target": "tag.cunning-strike.withdraw", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.cunning-strike.withdraw",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         }
       ]
@@ -250,10 +293,14 @@
           "kind": "trigger",
           "id": "uncanny-dodge",
           "name": "Uncanny Dodge",
-          "on": ["damage.taken-from-attacker-you-see"],
+          "on": [
+            "damage.taken-from-attacker-you-see"
+          ],
           "scope": {
             "predicates": [
-              { "attack.attacker.visible": true }
+              {
+                "attack.attacker.visible": true
+              }
             ]
           },
           "grants": {

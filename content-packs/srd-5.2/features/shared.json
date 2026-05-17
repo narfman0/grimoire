@@ -1,0 +1,25 @@
+[
+  {
+    "kind": "feature",
+    "slug": "extra-attack",
+    "version": 1,
+    "name": "Extra Attack",
+    "data": {
+      "ownerKind": "shared",
+      "note": "Granted by Barbarian/Fighter/Monk/Paladin/Ranger at L5 (Fighter additionally at L11/L20). Each class row references this slug in its features[]; the engine gates by the referencing class's level, not by ownerSlug, so one row covers them all.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "shared",
+      "note": "Granted at class levels 4 / 8 / 12 / 16 / 19 for most classes (Fighter extras at 6 + 14, Rogue extra at 10). The player records each ASI's choice on character.classes[].asis (analogous to character.background.choices.asis). The engine reads those choices and synthesizes ADD stat-modifiers — same shape as background bumps, currently wired for backgrounds only; class-level ASIs land with the level-up flow's PATCH path (already in place — the level-up form writes directly to abilityScores)."
+    }
+  }
+]

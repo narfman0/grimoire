@@ -9,7 +9,12 @@
       "ownerSlug": "sorcerer",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "cha"
+        }
       ]
     }
   },
@@ -29,14 +34,28 @@
           "type": "utility",
           "name": "Innate Sorcery",
           "cost": "bonus",
-          "duration": { "value": 1, "units": "minute", "concentration": false },
+          "duration": {
+            "value": 1,
+            "units": "minute",
+            "concentration": false
+          },
           "uses": {
             "max": 2,
             "per": "long-rest"
           },
           "appliedModifiers": [
-            { "kind": "stat-modifier", "target": "spellcasting.dc.bonus", "mode": "ADD", "value": 1 },
-            { "kind": "stat-modifier", "target": "spellcasting.attack.advantage", "mode": "OVERRIDE", "value": true }
+            {
+              "kind": "stat-modifier",
+              "target": "spellcasting.dc.bonus",
+              "mode": "ADD",
+              "value": 1
+            },
+            {
+              "kind": "stat-modifier",
+              "target": "spellcasting.attack.advantage",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         }
       ]
@@ -76,7 +95,31 @@
           "name": "Sorcery Points",
           "cost": "free",
           "uses": {
-            "max": { "perClass": "sorcerer", "table": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+            "max": {
+              "perClass": "sorcerer",
+              "table": [
+                0,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20
+              ]
+            },
             "per": "long-rest"
           }
         }
@@ -113,9 +156,15 @@
           "id": "metamagic-careful",
           "name": "Metamagic: Careful Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.careful", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.careful",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -123,9 +172,15 @@
           "id": "metamagic-distant",
           "name": "Metamagic: Distant Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.distant", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.distant",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -133,9 +188,15 @@
           "id": "metamagic-empowered",
           "name": "Metamagic: Empowered Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.empowered", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.empowered",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -143,9 +204,15 @@
           "id": "metamagic-extended",
           "name": "Metamagic: Extended Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.extended", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.extended",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -153,9 +220,15 @@
           "id": "metamagic-heightened",
           "name": "Metamagic: Heightened Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.heightened", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.heightened",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -163,9 +236,15 @@
           "id": "metamagic-quickened",
           "name": "Metamagic: Quickened Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.quickened", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.quickened",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -173,9 +252,15 @@
           "id": "metamagic-subtle",
           "name": "Metamagic: Subtle Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.subtle", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.subtle",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -183,9 +268,15 @@
           "id": "metamagic-twinned",
           "name": "Metamagic: Twinned Spell",
           "defaultEnabled": false,
-          "appliesTo": { "activityType": "cast" },
+          "appliesTo": {
+            "activityType": "cast"
+          },
           "effects": [
-            { "target": "tag.metamagic.twinned", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "tag.metamagic.twinned",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         }
       ]
@@ -206,18 +297,6 @@
         "pick": 1,
         "from": "sorcerer-subclasses"
       }
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "sorcerer",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
     }
   },
   {

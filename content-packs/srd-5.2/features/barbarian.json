@@ -15,21 +15,27 @@
           "target": "resistance.bludgeoning",
           "mode": "OVERRIDE",
           "value": true,
-          "appliesWhen": { "condition": "rage" }
+          "appliesWhen": {
+            "condition": "rage"
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "resistance.piercing",
           "mode": "OVERRIDE",
           "value": true,
-          "appliesWhen": { "condition": "rage" }
+          "appliesWhen": {
+            "condition": "rage"
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "resistance.slashing",
           "mode": "OVERRIDE",
           "value": true,
-          "appliesWhen": { "condition": "rage" }
+          "appliesWhen": {
+            "condition": "rage"
+          }
         },
         {
           "kind": "action-modifier",
@@ -38,14 +44,24 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "attack.ability": "str" }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "attack.ability": "str"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": "rageDamage" }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "rageDamage"
+            }
           ],
-          "appliesWhen": { "condition": "rage" }
+          "appliesWhen": {
+            "condition": "rage"
+          }
         }
       ],
       "activities": [
@@ -54,10 +70,38 @@
           "type": "utility",
           "name": "Enter Rage",
           "cost": "bonus",
-          "duration": { "value": 1, "units": "minute", "concentration": false },
+          "duration": {
+            "value": 1,
+            "units": "minute",
+            "concentration": false
+          },
           "appliesCondition": "rage",
           "uses": {
-            "max": { "perClass": "barbarian", "table": [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 99] },
+            "max": {
+              "perClass": "barbarian",
+              "table": [
+                2,
+                2,
+                3,
+                3,
+                3,
+                4,
+                4,
+                4,
+                4,
+                4,
+                5,
+                5,
+                5,
+                5,
+                5,
+                6,
+                6,
+                6,
+                6,
+                99
+              ]
+            },
             "per": "long-rest"
           }
         }
@@ -78,7 +122,14 @@
           "kind": "stat-modifier",
           "target": "ac.formula",
           "mode": "OVERRIDE",
-          "value": { "base": 10, "abilities": ["dex", "con"], "requires": "no-armor" }
+          "value": {
+            "base": 10,
+            "abilities": [
+              "dex",
+              "con"
+            ],
+            "requires": "no-armor"
+          }
         }
       ]
     }
@@ -101,13 +152,25 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "attack.ability": "str" }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "attack.ability": "str"
+              }
             ]
           },
           "effects": [
-            { "target": "attack.advantage", "mode": "OVERRIDE", "value": true },
-            { "target": "attacker.grants-advantage-against", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "attack.advantage",
+              "mode": "OVERRIDE",
+              "value": true
+            },
+            {
+              "target": "attacker.grants-advantage-against",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         }
       ]
@@ -123,21 +186,12 @@
       "ownerSlug": "barbarian",
       "minLevel": 2,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.dex", "mode": "OVERRIDE", "value": "vs-seen-effects" }
-      ]
-    }
-  },
-  {
-    "kind": "feature",
-    "slug": "extra-attack",
-    "version": 1,
-    "name": "Extra Attack",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "barbarian",
-      "minLevel": 5,
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.dex",
+          "mode": "OVERRIDE",
+          "value": "vs-seen-effects"
+        }
       ]
     }
   },
@@ -151,7 +205,15 @@
       "ownerSlug": "barbarian",
       "minLevel": 5,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10, "appliesWhen": { "requires": "no-heavy-armor" } }
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "ADD",
+          "value": 10,
+          "appliesWhen": {
+            "requires": "no-heavy-armor"
+          }
+        }
       ]
     }
   }

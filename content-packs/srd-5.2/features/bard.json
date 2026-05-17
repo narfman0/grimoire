@@ -15,7 +15,10 @@
           "type": "utility",
           "name": "Bardic Inspiration",
           "cost": "bonus",
-          "range": { "value": 60, "units": "ft" },
+          "range": {
+            "value": 60,
+            "units": "ft"
+          },
           "uses": {
             "max": "proficiencyBonus",
             "per": "long-rest"
@@ -34,7 +37,12 @@
       "ownerSlug": "bard",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "cha"
+        }
       ]
     }
   },
@@ -66,7 +74,12 @@
       "minLevel": 2,
       "note": "Adds half proficiency (rounded down) to ability checks for which the bard isn't already proficient. The v0 stat-modifier targets don't yet include a halfProf flag; modelled as a trait for the editor to display until the engine grows the target.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.jack-of-all-trades", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.jack-of-all-trades",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -89,18 +102,6 @@
   },
   {
     "kind": "feature",
-    "slug": "ability-score-improvement",
-    "version": 1,
-    "name": "Ability Score Improvement",
-    "data": {
-      "ownerKind": "class",
-      "ownerSlug": "bard",
-      "minLevel": 4,
-      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
-    }
-  },
-  {
-    "kind": "feature",
     "slug": "font-of-inspiration",
     "version": 1,
     "name": "Font of Inspiration",
@@ -115,7 +116,10 @@
           "type": "utility",
           "name": "Bardic Inspiration (Font of Inspiration)",
           "cost": "bonus",
-          "range": { "value": 60, "units": "ft" },
+          "range": {
+            "value": 60,
+            "units": "ft"
+          },
           "uses": {
             "max": "proficiencyBonus",
             "per": "short-rest"
