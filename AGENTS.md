@@ -61,8 +61,10 @@ Tests will arrive with M1. Until then, "builds + boots" is the bar.
 | Milestone | Scope                                                               |
 | --------- | ------------------------------------------------------------------- |
 | M0 ✅      | Scaffold (SvelteKit + Drizzle + Hocuspocus stub + Docker)           |
-| M1 🚧     | Characters CRUD + OpenAPI docs done; SRD pickers still pending      |
-| M2        | Real-time sheet edits via Y.js / Hocuspocus                         |
-| M3        | D&D Beyond paste-based importer                                     |
+| M1 ✅     | Characters CRUD + per-campaign list page + OpenAPI 3.1 spec at `/api` |
+| M1.5 ✅   | Pack loader, `/api/content`, SRD 5.2 tier 1, rules engine v0, vitest |
+| M1.6      | SRD 5.2 tier 2 — fill out species/classes/feats/spells in parallel PRs |
+| M2        | Sheet UI + real-time edits via Y.js / Hocuspocus                    |
+| M3        | D&D Beyond paste-based importer + turn/encounter planner            |
 | M4        | Shared notes, NPCs, dice roller broadcast                           |
 | M5        | Polish (presence, undo, export)                                     |
