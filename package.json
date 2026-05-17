@@ -11,7 +11,9 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node ./scripts/migrate.mjs",
-    "migrate": "node ./scripts/migrate.mjs"
+    "migrate": "node ./scripts/migrate.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",
@@ -26,7 +28,8 @@
     "tailwindcss": "^4.0.0",
     "tslib": "^2.6.0",
     "typescript": "^5.4.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^2.1.9"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
