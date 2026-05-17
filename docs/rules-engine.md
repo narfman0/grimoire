@@ -31,8 +31,8 @@ type CharacterDocument = {
   alignment?: string;
 
   classes: ClassEntry[];            // multiclass: many entries
-  race: ContentRef;
-  subrace?: ContentRef;
+  species: ContentRef;
+  subspecies?: ContentRef;
   background?: ContentRef;
   feats: ContentRef[];
 
@@ -145,13 +145,13 @@ input ───►  │ 1. resolve active content  │
 
 ### Phase 1: resolve active content
 
-Walk every `ContentRef` on the character (race, subrace, background,
+Walk every `ContentRef` on the character (species, subspecies, background,
 classes, feats, inventory items, prepared spells, conditions). For each
 referenced row, decide if it's **applicable** right now:
 
-| Source         | `applicable` if…                                                       |
-| -------------- | ----------------------------------------------------------------------- |
-| race / subrace | always (one of each, locked at creation)                                |
+| Source             | `applicable` if…                                                    |
+| ------------------ | ------------------------------------------------------------------- |
+| species/subspecies | always (one of each, locked at creation)                            |
 | background     | always                                                                  |
 | class          | `level ≥ 1`                                                             |
 | class feature  | `featureLevel ≤ classLevel ≤ featureMaxLevel`                           |

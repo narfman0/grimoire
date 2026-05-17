@@ -12,7 +12,7 @@ silently drift.
 
 | `source` value | License | Content covered                                            | Lives in |
 | -------------- | ------- | ---------------------------------------------------------- | -------- |
-| `srd-5.2`      | CC-BY 4.0 | **Primary v1 seed.** 9 races, 12 classes (one subclass each), ~48 feats incl. GWM, all SRD spells, weapons, armor, magic items, conditions, basic backgrounds. Released April 2025 by WotC. | This repo, `content-packs/srd-5.2/`. |
+| `srd-5.2`      | CC-BY 4.0 | **Primary v1 seed.** 9 species, 12 classes (one subclass each), ~48 feats incl. GWM, all SRD spells, weapons, armor, magic items, conditions, basic backgrounds. Released April 2025 by WotC. | This repo, `content-packs/srd-5.2/`. |
 | `srd-5.1`      | OGL 1.0a | Older SRD; broadly similar coverage but **only one feat (Grappler)** and an older rules baseline. Available locally at `~/workspace/dnd-5e-srd` as prose JSON. | This repo if used; preferred to use 5.2 wherever possible. |
 | Non-SRD official | proprietary | Tortle (Tortle Package), Chronurgy Magic (Wildemount), Path of the Zealot (Xanathar's), anything from PHB/Tasha/Xanathar/etc. beyond SRD. | **`grimoire-packs` (separate private repo).** Never this repo. |
 | `homebrew`     | none    | DM- or player-authored content, scoped to a campaign or user. | `grimoire-packs` or operator's local pack dir. |
@@ -137,7 +137,7 @@ a top-level slug:
 ```
 content-packs/srd-5.2/
   meta.json          # {slug, license, attribution, ...}
-  races/half-orc.json
+  species/orc.json
   classes/barbarian.json
   classes/wizard.json
   ...

@@ -24,7 +24,7 @@ walk keeps the DB in sync with what's on disk.
 ```
 my-pack/
   meta.json                     # pack-level metadata
-  races.json                    # bundled: array of rows
+  species.json                  # bundled: array of rows
   classes/wizard.json           # split: one row per file
   classes/barbarian.json
   spells/cantrips.json          # bundled by some convention
@@ -58,12 +58,12 @@ Each non-`meta.json` file contains either:
 
 ```jsonc
 // single-row form
-{ "kind": "race", "slug": "half-orc", "version": 1, "name": "Half-Orc", "data": {...} }
+{ "kind": "species", "slug": "orc", "version": 1, "name": "Orc", "data": {...} }
 
 // array form
 [
-  { "kind": "race", "slug": "half-orc",  "version": 1, "name": "Half-Orc",  "data": {...} },
-  { "kind": "race", "slug": "dragonborn", "version": 1, "name": "Dragonborn", "data": {...} }
+  { "kind": "species", "slug": "orc",        "version": 1, "name": "Orc",        "data": {...} },
+  { "kind": "species", "slug": "dragonborn", "version": 1, "name": "Dragonborn", "data": {...} }
 ]
 ```
 
@@ -149,7 +149,7 @@ This is one SELECT per row at load time. Trivially fast at our scale.
 **Keep + warn.** The loader emits:
 
 ```
-WARN pack=srd-5.2 orphaned row: race/aasimar@v1 (referenced by 0 characters)
+WARN pack=srd-5.2 orphaned row: species/aasimar@v1 (referenced by 0 characters)
 ```
 
 Operators decide whether to clean up. A separate `content:prune` command
@@ -179,8 +179,8 @@ next pack with a logged error.
 Production summary:
 
 ```
-[grimoire] pack srd-5.2 loaded: 9 races, 12 classes, 48 feats, 312 spells, 89 items, 0 warnings (87ms)
-[grimoire] pack tashas-2020 loaded: 11 subclasses, 2 races, 14 feats, 0 warnings (12ms)
+[grimoire] pack srd-5.2 loaded: 9 species, 12 classes, 48 feats, 312 spells, 89 items, 0 warnings (87ms)
+[grimoire] pack tashas-2020 loaded: 11 subclasses, 2 species, 14 feats, 0 warnings (12ms)
 [grimoire] content layer ready (3 packs, 545 rows, 99ms)
 ```
 

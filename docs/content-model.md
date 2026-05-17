@@ -1,6 +1,6 @@
 # content model
 
-Game-content catalog (races, classes, feats, items, spells…) plus the
+Game-content catalog (species, classes, feats, items, spells…) plus the
 modifier DSL the rules engine reads. Companion to [rules-engine.md](./rules-engine.md);
 licensing per source lives in [seed-sources.md](./seed-sources.md).
 
@@ -10,8 +10,8 @@ triggers as first-class data instead of leaving them to community modules.
 
 ## Goals
 
-- **Catalog as data, sheet as document.** Adding a new race, feat, or magic
-  item is an `INSERT` into `content`, not a schema migration.
+- **Catalog as data, sheet as document.** Adding a new species, feat, or
+  magic item is an `INSERT` into `content`, not a schema migration.
 - **Versioned content.** Old characters keep working when content is revised.
 - **Modifiers compose predictably.** A small ordered set of modes (ADD,
   MULTIPLY, OVERRIDE, UPGRADE, DOWNGRADE, CUSTOM) covers ~90% of 5e math.
@@ -48,7 +48,7 @@ A character document (lives in the Y.Doc) references content rows:
 
 ```ts
 type ContentRef = {
-  kind: string;        // 'race' | 'class' | ...
+  kind: string;        // 'species' | 'class' | ...
   slug: string;
   version: number;
   choices?: Record<string, unknown>;  // e.g. { fightingStyle: 'dueling' }
@@ -63,8 +63,8 @@ one until they explicitly migrate.
 
 | Kind         | What it represents                                              |
 | ------------ | --------------------------------------------------------------- |
-| `race`       | Species (Hill Dwarf, Lightfoot Halfling). Carries ASIs, speed, traits. |
-| `subrace`    | Optional further specialization; can be folded into `race` for simple cases. |
+| `species`    | Player species (Dwarf, Elf, Halfling…). Carries ASIs, speed, traits. (2024 PHB terminology; older sources call this "race".) |
+| `subspecies` | Optional further specialization; 2024 mostly eliminated subspecies, so this is largely a legacy/homebrew slot. |
 | `class`      | Character class (Fighter, Wizard). Includes level progression, hit die, starting proficiencies. |
 | `subclass`   | E.g., Champion, Lore Bard. References parent class slug. |
 | `background` | Acolyte, etc. Skill proficiencies + a small feature.    |
@@ -72,7 +72,7 @@ one until they explicitly migrate.
 | `item`       | Weapons, armor, gear, consumables. Magic items included. |
 | `spell`      | Fireball, Cure Wounds. Has level, school, casting time, components, an `Activity`. |
 | `condition`  | Frightened, Prone, Restrained. Applies effects while the character has the condition. |
-| `feature`    | A class-/subclass-/race-granted ability that's substantial enough to be its own row (Sneak Attack, Rage, Channel Divinity). Referenced from class/race `data.features[]`. |
+| `feature`    | A class-/subclass-/species-granted ability that's substantial enough to be its own row (Sneak Attack, Rage, Channel Divinity). Referenced from class/species `data.features[]`. |
 
 ## The three-kind modifier DSL
 
@@ -262,7 +262,7 @@ Every modifier has two state fields:
   - **Prepared-caster spells**: spell is in `character.spells.prepared[]`.
   - **Condition-gated** ("while raging"): the named condition is on the
     character.
-  - **Subrace traits**: character's subrace matches.
+  - **Subspecies traits**: character's subspecies matches.
 
 **`active = enabled && applicable`**. The engine only applies active modifiers.
 
@@ -272,11 +272,11 @@ eligibility belong apart.
 
 ## Worked examples (per kind)
 
-### Race — Hill Dwarf
+### Species — Hill Dwarf
 
 ```jsonc
 {
-  "kind": "race",
+  "kind": "species",
   "slug": "hill-dwarf",
   "version": 1,
   "source": "srd-5.2",
