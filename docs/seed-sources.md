@@ -10,12 +10,37 @@ silently drift.
 
 ## Sources
 
-| `source` value | License | Content covered                                            | Notes |
-| -------------- | ------- | ---------------------------------------------------------- | ----- |
-| `srd-5.2`      | CC-BY 4.0 | **Primary v1 seed.** 9 races, 12 classes (one subclass each), ~48 feats incl. GWM, all SRD spells, weapons, armor, magic items, conditions, basic backgrounds. Released April 2025 by WotC. | Cleanest license; supersedes 5.1 in practice. Required attribution: see below. |
-| `srd-5.1`      | OGL 1.0a | Older SRD; broadly similar coverage but **only one feat (Grappler)** and an older rules baseline. | Available locally at `~/workspace/dnd-5e-srd` as prose JSON. Useful as a backup prose source for items also in 5.2, but `srd-5.2` is preferred where both exist. |
-| `homebrew`     | none    | DM- or player-authored content, scoped to a campaign (or user, in M2+).   | `scope_id` carries the campaign UUID. Not shared across campaigns. |
-| third-party    | varies  | Future: Kobold Press, Level Up A5E, etc. Each gets its own `source` slug like `kobold-tob-2024`. | Must record license + attribution per source before adding rows. |
+| `source` value | License | Content covered                                            | Lives in |
+| -------------- | ------- | ---------------------------------------------------------- | -------- |
+| `srd-5.2`      | CC-BY 4.0 | **Primary v1 seed.** 9 races, 12 classes (one subclass each), ~48 feats incl. GWM, all SRD spells, weapons, armor, magic items, conditions, basic backgrounds. Released April 2025 by WotC. | This repo, `content-packs/srd-5.2/`. |
+| `srd-5.1`      | OGL 1.0a | Older SRD; broadly similar coverage but **only one feat (Grappler)** and an older rules baseline. Available locally at `~/workspace/dnd-5e-srd` as prose JSON. | This repo if used; preferred to use 5.2 wherever possible. |
+| Non-SRD official | proprietary | Tortle (Tortle Package), Chronurgy Magic (Wildemount), Path of the Zealot (Xanathar's), anything from PHB/Tasha/Xanathar/etc. beyond SRD. | **`grimoire-packs` (separate private repo).** Never this repo. |
+| `homebrew`     | none    | DM- or player-authored content, scoped to a campaign or user. | `grimoire-packs` or operator's local pack dir. |
+| Third-party SRD-equivalent | varies | Future: Kobold Press CC-BY content, Level Up A5E, etc. Each gets its own `source` slug like `kobold-tob-cc-by`. | This repo only if openly licensed; otherwise `grimoire-packs`. |
+
+## Rule: non-SRD content never enters this repo
+
+The public grimoire repo and any public deployment of its API ship **only**
+openly-licensed content (`srd-5.2`, possibly `srd-5.1`, future CC-BY
+third-party). Anything else — official WotC content beyond SRD, the
+operator's homebrew, third-party paid content — lives in
+**[grimoire-packs](https://github.com/narfman0/grimoire-packs)** (a separate
+private repo) and is loaded at runtime via `GRIMOIRE_PACKS_DIR`.
+
+Reasons:
+
+- Once non-SRD content lands in git history, removing it is messy. Keeping
+  this repo SRD-only means it stays publishable open source indefinitely.
+- The public API can be advertised as a clean CC-BY 4.0 SRD service; no
+  asterisks needed.
+- Operators with rights to additional content (e.g., they own the books)
+  load their packs into their own deploy without anyone else seeing them.
+- Each operator decides what they have rights to. We don't.
+
+CI on this repo should fail if any file under `content-packs/` references a
+`source` slug not in the public allow-list (`srd-5.2`, `srd-5.1`, and any
+explicitly-permitted CC-BY third-party). Worth adding once the pack loader
+lands.
 
 ## Per-source attribution
 
@@ -104,19 +129,53 @@ Two places attribution appears:
 Per-content-row badges (e.g., "SRD 5.2" pill on the Greatsword card) are
 nice-to-have, deferred to UI polish.
 
+## Pack loading at runtime
+
+A pack is a directory of JSON files (one per row, or batched per kind) under
+a top-level slug:
+
+```
+content-packs/srd-5.2/
+  meta.json          # {slug, license, attribution, ...}
+  races/half-orc.json
+  classes/barbarian.json
+  classes/wizard.json
+  ...
+```
+
+At boot, the server walks two directories:
+
+1. `./content-packs/` — packs shipped with this repo (SRD only).
+2. `$GRIMOIRE_PACKS_DIR` — operator-supplied packs (default unset; typical
+   value `/srv/grimoire/packs/` or a symlink to a checkout of
+   `grimoire-packs`).
+
+Both feed the same loader, which upserts rows into the `content` table.
+Rows persist across boots (the table is the source of truth at query time);
+the boot walk is for keeping the DB in sync with what's on disk.
+
+Campaign enablement: a campaign carries `enabled_packs: string[]` (pack
+slugs). The content resolver filters rows by
+`scope_id IS NULL AND pack_slug IN campaign.enabled_packs`. SRD 5.2 is
+always enabled. Packs added at runtime require the DM to opt in via the
+campaign settings UI before their content appears in pickers.
+
 ## v1 seeding plan
 
-1. Download SRD 5.2.1 (already CC-BY); parse into structured rows. This is
-   the bulk of v1 content.
+1. Download SRD 5.2.1 (already CC-BY); parse into structured rows. Ship
+   under `content-packs/srd-5.2/` in this repo.
 2. Hand-write modifier/activity data for each row. The SRD ships prose;
    `{type:'bonus', target:'ability.str', value:2}` doesn't extract
    automatically. Budget this honestly — it's hundreds of small JSON
    blobs, not a script run.
-3. Use `~/workspace/dnd-5e-srd` (SRD 5.1) prose as a sanity-check source
-   for items not changed between 5.1 and 5.2, but mark those rows
-   `source: 'srd-5.2'` if their structured fields are based on 5.2 rules.
-4. Stub a `sources.ts` map with `srd-5.2` and `homebrew` only; defer 5.1
-   ingestion until we hit a row that only exists in 5.1 (rare).
+3. For the operator's party content (Tortle, Chronurgy, Zealot), author
+   pack files in **the grimoire-packs repo**, not here.
+4. Use `~/workspace/dnd-5e-srd` (SRD 5.1) prose as a sanity-check source
+   for SRD 5.2 rows, but tag the rows themselves `source: 'srd-5.2'`.
+5. Stub `src/lib/server/content/sources.ts` with `srd-5.2` and
+   `homebrew` only; defer 5.1 ingestion until needed.
+6. Add a CI check that rejects any `content-packs/**/*.json` referencing a
+   `source` slug not in the public allow-list.
 
 ## Why not pull from Foundry's `dnd5e` compendium?
 
