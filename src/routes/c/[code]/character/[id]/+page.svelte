@@ -213,6 +213,110 @@
     return `${level}th`;
   }
 
+  // ---- level up ----
+  const ASI_LEVELS = new Set([4, 8, 12, 16, 19]);
+  const SUBCLASS_UNLOCK_LEVEL = 3;
+  const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+
+  let levelingUp: {
+    classSlug: string;
+    newLevel: number;
+    needsSubclass: boolean;
+    subclassSlug: string;
+    needsAsi: boolean;
+    asiMode: 'two-one' | 'three-ones';
+    asiBumps: Array<{ ability: string; bonus: number }>;
+  } | null = null;
+
+  $: subclassOptionsForLevelup = levelingUp
+    ? data.subclassOptions.filter((s) => s.parentClass === levelingUp.classSlug)
+    : [];
+
+  function startLevelUp(classSlug: string) {
+    if (!document) return;
+    const cls = document.classes.find((c) => c.slug === classSlug);
+    if (!cls) return;
+    const newLevel = cls.level + 1;
+    if (newLevel > 20) return;
+    const needsSubclass = newLevel === SUBCLASS_UNLOCK_LEVEL && !cls.subclass;
+    const needsAsi = ASI_LEVELS.has(newLevel);
+    const sub = data.subclassOptions.find((s) => s.parentClass === classSlug);
+    levelingUp = {
+      classSlug,
+      newLevel,
+      needsSubclass,
+      subclassSlug: cls.subclass ?? sub?.slug ?? '',
+      needsAsi,
+      asiMode: 'two-one',
+      asiBumps: [
+        { ability: 'str', bonus: 2 },
+        { ability: 'dex', bonus: 1 }
+      ]
+    };
+  }
+
+  function cancelLevelUp() {
+    levelingUp = null;
+  }
+
+  $: if (levelingUp) {
+    levelingUp.asiBumps =
+      levelingUp.asiMode === 'two-one'
+        ? [
+            { ability: levelingUp.asiBumps[0]?.ability ?? 'str', bonus: 2 },
+            { ability: levelingUp.asiBumps[1]?.ability ?? 'dex', bonus: 1 }
+          ]
+        : [
+            { ability: levelingUp.asiBumps[0]?.ability ?? 'str', bonus: 1 },
+            { ability: levelingUp.asiBumps[1]?.ability ?? 'dex', bonus: 1 },
+            { ability: levelingUp.asiBumps[2]?.ability ?? 'con', bonus: 1 }
+          ];
+  }
+
+  async function confirmLevelUp() {
+    if (!levelingUp || !document) return;
+    if (levelingUp.needsSubclass && !levelingUp.subclassSlug) {
+      restNote = 'Pick a subclass before confirming the level-up.';
+      return;
+    }
+    if (levelingUp.needsAsi) {
+      const distinct = new Set(levelingUp.asiBumps.map((b) => b.ability));
+      if (distinct.size !== levelingUp.asiBumps.length) {
+        restNote = 'ASI ability bumps must be distinct.';
+        return;
+      }
+    }
+    const draft = levelingUp;
+    await patchDocument((d) => {
+      const cls = d.classes.find((c) => c.slug === draft.classSlug);
+      if (!cls) return;
+      cls.level = draft.newLevel;
+      // HP gain: average of hit-die size + CON mod
+      const hitDie =
+        cls.hpRolledPerLevel.length > 1
+          ? (cls.hpRolledPerLevel[1] - 1) * 2
+          : cls.hpRolledPerLevel[0];
+      const conMod = abilityMod(d.abilityScores.con);
+      const gained = Math.max(1, avgPerHitDie(hitDie) + conMod);
+      cls.hpRolledPerLevel.push(avgPerHitDie(hitDie));
+      // Subclass
+      if (draft.needsSubclass && draft.subclassSlug) {
+        cls.subclass = draft.subclassSlug;
+      }
+      // ASI bumps applied to base abilityScores (they compose downstream).
+      if (draft.needsAsi) {
+        for (const b of draft.asiBumps) {
+          d.abilityScores[b.ability as keyof typeof d.abilityScores] += b.bonus;
+        }
+      }
+      // Bump currentHp by the gained amount (rules text: "gain hit point maximum
+      // increase as you level"). currentHp goes up by the same amount.
+      d.currentHp += gained;
+    });
+    restNote = `Leveled ${draft.classSlug} to ${draft.newLevel}.`;
+    levelingUp = null;
+  }
+
   function resetResourcesByPer(d: NonNullable<typeof document>, per: string) {
     if (!derived) return;
     d.resourcesSpent ??= {};
@@ -420,6 +524,102 @@
         </ul>
       {/if}
     </div>
+  </section>
+
+  <!-- Level up -->
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+    <h2 class="mb-3 text-sm font-semibold text-slate-200">Level up</h2>
+    {#if levelingUp}
+      {@const draft = levelingUp}
+      <div class="space-y-3 text-sm">
+        <p>
+          Bumping <span class="capitalize">{draft.classSlug}</span> to
+          <span class="font-mono">L{draft.newLevel}</span>.
+        </p>
+
+        {#if draft.needsSubclass}
+          <label class="block">
+            <span class="mb-1 block text-xs uppercase tracking-wide text-slate-500">Subclass</span>
+            {#if subclassOptionsForLevelup.length === 0}
+              <p class="text-xs text-amber-200">
+                No subclasses loaded for {draft.classSlug}. Add one to
+                <code>$GRIMOIRE_PACKS_DIR</code> or the SRD pack and reload.
+              </p>
+            {:else}
+              <select
+                class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                bind:value={levelingUp.subclassSlug}
+              >
+                {#each subclassOptionsForLevelup as opt}
+                  <option value={opt.slug}>{opt.name} <span class="text-slate-500">({opt.source})</span></option>
+                {/each}
+              </select>
+            {/if}
+          </label>
+        {/if}
+
+        {#if draft.needsAsi}
+          <fieldset class="rounded border border-slate-700 p-3">
+            <legend class="px-1 text-xs uppercase tracking-wide text-slate-500">
+              ASI / Feat (ASI for now; feats land later)
+            </legend>
+            <div class="mb-2 flex gap-4">
+              <label class="flex items-center gap-1">
+                <input type="radio" bind:group={levelingUp.asiMode} value="two-one" />
+                <span>+2 / +1</span>
+              </label>
+              <label class="flex items-center gap-1">
+                <input type="radio" bind:group={levelingUp.asiMode} value="three-ones" />
+                <span>+1 / +1 / +1</span>
+              </label>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              {#each levelingUp.asiBumps as bump, i}
+                <label class="text-xs">
+                  <span class="block text-slate-500">+{bump.bonus} to</span>
+                  <select
+                    class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                    bind:value={levelingUp.asiBumps[i].ability}
+                  >
+                    {#each ABILITY_KEYS as ab}
+                      <option value={ab}>{ab.toUpperCase()}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/each}
+            </div>
+          </fieldset>
+        {/if}
+
+        <div class="flex gap-2">
+          <button
+            class="rounded bg-emerald-700 px-3 py-1 hover:bg-emerald-600 disabled:opacity-50"
+            disabled={busy}
+            on:click={confirmLevelUp}
+          >
+            Confirm level-up
+          </button>
+          <button class="rounded border border-slate-600 px-3 py-1 hover:bg-slate-800" disabled={busy} on:click={cancelLevelUp}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    {:else}
+      <p class="mb-3 text-xs text-slate-500">
+        Adds 1 level + average HP. Prompts for subclass at L3 and ASI at L4/8/12/16/19.
+      </p>
+      <div class="flex flex-wrap gap-2">
+        {#each document.classes as cls}
+          <button
+            class="rounded border border-slate-600 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
+            disabled={busy || cls.level >= 20}
+            on:click={() => startLevelUp(cls.slug)}
+          >
+            Level up {cls.slug} (L{cls.level} → L{cls.level + 1})
+          </button>
+        {/each}
+      </div>
+    {/if}
   </section>
 
   <!-- Inventory -->

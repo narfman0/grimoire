@@ -108,6 +108,28 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 
+  const subclassRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'subclass'));
+
+  const subclassOptions = subclassRows
+    .map((r) => {
+      const data = JSON.parse(r.data as string) as { parentClass?: string };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        parentClass: data.parentClass ?? ''
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     campaign,
     character: {
@@ -119,6 +141,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     derived: serializeDerived(derived),
     displayName,
     itemOptions,
-    spellOptions
+    spellOptions,
+    subclassOptions
   };
 };
