@@ -58,22 +58,52 @@ and `${GRIMOIRE_SYNC_PORT:-49301}` for sync. Both write to a shared
 named volume (`grimoire-data`) holding `grimoire.db`. Drizzle migrations
 run on the web container's startup.
 
-## Endpoints (M0/M1 boundary)
+## API
 
-| Method | Path                            | Purpose                                                 |
-| ------ | ------------------------------- | ------------------------------------------------------- |
-| POST   | `/api/campaigns`                | Create a campaign; returns `{id, code}` (6-char base32) |
-| GET    | `/api/campaigns/:code`          | Fetch campaign metadata                                 |
-| POST   | `/api/campaigns/:code/join`     | Set `grimoire_name` cookie; 204                         |
-| (page) | `/`                             | Create or join                                          |
-| (page) | `/c/:code`                      | Campaign room (placeholder until M1)                    |
+The REST surface is described by an **OpenAPI 3.1** spec generated from Zod
+schemas. The spec is the source of truth: the same schemas validate requests
+at runtime and produce the spec — they can't drift.
+
+- Spec JSON: `GET /api/openapi.json`
+- Interactive docs: `/api` (rendered with [Scalar](https://scalar.com))
+- Schema source: `src/lib/server/api/schemas.ts` (Zod)
+- Path registrations: `src/lib/server/api/spec.ts`
+
+| Method | Path                          | Purpose                              |
+| ------ | ----------------------------- | ------------------------------------ |
+| POST   | `/api/campaigns`              | Create a campaign                    |
+| GET    | `/api/campaigns/{code}`       | Fetch campaign metadata              |
+| POST   | `/api/campaigns/{code}/join`  | Set `grimoire_name` cookie; 204      |
+| GET    | `/api/characters?campaign=…`  | List characters (optionally filtered) |
+| POST   | `/api/characters`             | Create a character                   |
+| GET    | `/api/characters/{id}`        | Fetch a character                    |
+| PATCH  | `/api/characters/{id}`        | Update a character                   |
+| DELETE | `/api/characters/{id}`        | Delete a character; 204              |
+| GET    | `/api/openapi.json`           | OpenAPI 3.1 spec (JSON)              |
+| (page) | `/`                           | Create or join                       |
+| (page) | `/c/{code}`                   | Campaign room (character list)       |
+| (page) | `/api`                        | Scalar API reference                 |
+
+Adding an endpoint = (1) add/extend the Zod schema in `schemas.ts`,
+(2) `registry.registerPath({...})` in `spec.ts`, (3) write the handler using
+`parseJson`/`parseParams`/`parseSearch` from `validate.ts`. Spec updates
+automatically.
 
 ## Milestones
 
-- **M0** (this commit): scaffold + landing page + join flow.
-- **M1**: characters CRUD + per-campaign character list page.
+- **M0**: scaffold + landing page + join flow.
+- **M1** (in progress): characters CRUD + per-campaign list page + OpenAPI docs.
 - **M2**: real-time character sheet edits via Hocuspocus / Y.js.
 - **M3**: D&D Beyond paste-based importer.
+
+## Workflow
+
+Commit and push **frequently** straight to `master`. One logical change per
+commit, conventional-commit prefixes (`feat:` / `fix:` / `chore:` / `docs:` /
+`refactor:`), and a `pnpm build` before every push. No long-lived branches for
+solo work; branch + PR only for risky changes (schema migrations, infra spikes).
+
+Full workflow and contributor expectations live in [AGENTS.md](./AGENTS.md).
 
 ## Notes
 
