@@ -1,0 +1,60 @@
+{
+  "kind": "class",
+  "slug": "warlock",
+  "version": 1,
+  "name": "Warlock",
+  "data": {
+    "hitDie": 8,
+    "primaryAbility": ["cha"],
+    "saves": ["wis", "cha"],
+    "armorProficiencies": ["light"],
+    "weaponProficiencies": ["simple"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": [
+        "arcana",
+        "deception",
+        "history",
+        "intimidation",
+        "investigation",
+        "nature",
+        "religion"
+      ],
+      "pick": 2
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "progression": "pact",
+      "spellsKnown": "fixed",
+      "slotsPer": "short-rest",
+      "note": "Warlock pact slots use a separate table: 1/1/2/2/2/2/2/2/2/2 slots at levels 1-10, all at the level shown by the Pact Magic table (e.g., L1=1 slot of 1st, L3=2 slots of 2nd, L5=2 slots of 3rd, ...). The engine currently only emits slots for progression: 'full' — pact slots need a separate code path; until then this class declares its intent but slots[] will be empty in derived stats. Tracked in dev memory + docs."
+    },
+    "features": [
+      { "level": 1, "slug": "pact-magic" },
+      {
+        "level": 1,
+        "slug": "eldritch-invocations",
+        "choice": {
+          "kind": "invocations",
+          "from": [
+            "agonizing-blast",
+            "armor-of-shadows",
+            "devils-sight",
+            "repelling-blast"
+          ],
+          "pick": 1,
+          "scaling": { "1": 1, "2": 2, "5": 3, "7": 4, "9": 5, "12": 6, "15": 7, "18": 8 },
+          "note": "Warlock learns 1 invocation at L1. Number known scales with class level per the table above (v0 spec: L1=1, L2=2, L5=3, ...). The class row references invocations via this choice slot; the actual invocation rows live in features/warlock.json. Player records picks on character.classes[].choices.invocations and the engine activates the chosen feature rows."
+        }
+      },
+      { "level": 1, "slug": "magical-cunning" },
+      {
+        "level": 3,
+        "slug": "warlock-subclass",
+        "choice": { "kind": "subclass", "pick": 1, "from": "warlock-subclasses" }
+      },
+      { "level": 3, "slug": "pact-boon" },
+      { "level": 4, "slug": "ability-score-improvement" }
+    ]
+  }
+}

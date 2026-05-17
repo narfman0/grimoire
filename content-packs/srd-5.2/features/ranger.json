@@ -1,0 +1,162 @@
+[
+  {
+    "kind": "feature",
+    "slug": "spellcasting-ranger",
+    "version": 1,
+    "name": "Spellcasting (Ranger)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 1,
+      "note": "Half-caster on the Wis ability. The 2024 ranger learns spells from the Ranger list and uses the half-caster slot table (1st-level slots starting at ranger level 2). v0 derive.ts only implements fullCasterSlots — the ranger spell slot table needs an engine-side branch keyed off spellcasting.progression='half'.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "wis" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "favored-enemy",
+    "version": 1,
+    "name": "Favored Enemy",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 1,
+      "note": "2024 SRD 5.2 Favored Enemy: you always have Hunter's Mark prepared (auto-prepared; does not count against the prepared-spell limit) and can cast it without a spell slot a number of times equal to your proficiency bonus per long rest. You may still cast it using slots. Number of free casts increases (PB scaling). v0 surfaces the resource pool only; the auto-prepared Hunter's Mark spell and the slotless-cast plumbing need engine support.",
+      "activities": [
+        {
+          "id": "favored-enemy-hunters-mark",
+          "type": "utility",
+          "name": "Favored Enemy: Cast Hunter's Mark (no slot)",
+          "cost": "bonus",
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "weapon-mastery-ranger",
+    "version": 1,
+    "name": "Weapon Mastery (Ranger)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 1,
+      "note": "Choose 2 kinds of weapons you have proficiency with to apply their mastery property. You can change one chosen weapon when you finish a long rest. The mastery properties (Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex) aren't yet first-class targets in the engine; surfaced here as a choice.",
+      "choice": {
+        "kind": "weapon-mastery",
+        "pick": 2,
+        "from": "weapons-with-proficiency"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "deft-explorer",
+    "version": 1,
+    "name": "Deft Explorer",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 2,
+      "note": "Gain Expertise in one skill in which you have proficiency, learn one additional language of your choice, and ignore difficult terrain that's the result of nonmagical plants and undergrowth. v0 lacks first-class expertise and difficult-terrain bypass targets; surfaces the picks as choices and a trait flag.",
+      "choice": {
+        "kind": "expertise",
+        "pick": 1,
+        "from": "proficient-skills"
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.deft-explorer.ignores-nonmagical-difficult-terrain", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-ranger",
+    "version": 1,
+    "name": "Fighting Style (Ranger)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 2,
+      "note": "At Ranger 2 the ranger gains a fighting style feat. The 2024 SRD options for ranger are Archery, Blind Fighting, Defense, Druidic Warrior, Thrown Weapon Fighting, and Two-Weapon Fighting. v0 stores the choice; effects are emitted by the chosen fighting-style feat row.",
+      "choice": {
+        "kind": "fighting-style",
+        "pick": 1,
+        "from": [
+          "fighting-style-archery",
+          "fighting-style-blind-fighting",
+          "fighting-style-defense",
+          "fighting-style-druidic-warrior",
+          "fighting-style-thrown-weapon-fighting",
+          "fighting-style-two-weapon-fighting"
+        ]
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ranger-subclass",
+    "version": 1,
+    "name": "Ranger Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 3,
+      "note": "Placeholder for Ranger Conclave selection (Beast Master / Fey Wanderer / Gloom Stalker / Hunter in 2024 SRD 5.2). The chosen subclass slug lives on character.classes[].subclass. Out-of-scope for this batch (2b).",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "ranger-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "roving",
+    "version": 1,
+    "name": "Roving",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 3,
+      "note": "Walking speed +10, plus climb and swim speeds equal to your walking speed (while not wearing heavy armor). v0 emits the +10 walk + flat climb/swim speed modifiers; the post-bonus equality (climb=walk including +10) is approximated by also ADDing 10 to climb/swim baselines from a 30-ft starting walk. If a species has a different base walk, the engineer-extension is to compute climb/swim from the post-modifier walk speed.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10 },
+        { "kind": "stat-modifier", "target": "speed.climb", "mode": "UPGRADE", "value": 40 },
+        { "kind": "stat-modifier", "target": "speed.swim", "mode": "UPGRADE", "value": 40 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "extra-attack-ranger",
+    "version": 1,
+    "name": "Extra Attack (Ranger)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 5,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+      ]
+    }
+  }
+]

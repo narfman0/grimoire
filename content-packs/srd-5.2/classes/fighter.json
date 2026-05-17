@@ -1,0 +1,48 @@
+{
+  "kind": "class",
+  "slug": "fighter",
+  "version": 1,
+  "name": "Fighter",
+  "data": {
+    "hitDie": 10,
+    "primaryAbility": ["str", "dex"],
+    "saves": ["str", "con"],
+    "armorProficiencies": ["light", "medium", "heavy", "shield"],
+    "weaponProficiencies": ["simple", "martial"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": ["acrobatics", "animal-handling", "athletics", "history", "insight", "intimidation", "perception", "persuasion", "survival"],
+      "pick": 2
+    },
+    "spellcasting": null,
+    "features": [
+      {
+        "level": 1,
+        "slug": "fighting-style-fighter",
+        "choice": {
+          "kind": "fighting-style",
+          "pick": 1,
+          "from": [
+            "fighting-style-defense",
+            "fighting-style-dueling",
+            "fighting-style-great-weapon-fighting",
+            "fighting-style-archery",
+            "fighting-style-two-weapon-fighting",
+            "fighting-style-protection",
+            "fighting-style-blind-fighting",
+            "fighting-style-interception",
+            "fighting-style-thrown-weapon-fighting",
+            "fighting-style-unarmed-fighting"
+          ]
+        }
+      },
+      { "level": 1, "slug": "second-wind" },
+      { "level": 1, "slug": "weapon-mastery-fighter" },
+      { "level": 2, "slug": "action-surge" },
+      { "level": 2, "slug": "tactical-mind" },
+      { "level": 3, "slug": "fighter-subclass" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "extra-attack" }
+    ]
+  }
+}

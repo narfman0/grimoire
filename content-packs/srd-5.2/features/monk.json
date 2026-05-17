@@ -1,0 +1,279 @@
+[
+  {
+    "kind": "feature",
+    "slug": "martial-arts",
+    "version": 1,
+    "name": "Martial Arts",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 1,
+      "note": "Use DEX (instead of STR) for attack and damage rolls of your Unarmed Strikes and Monk Weapons. Martial Arts die: 1d6 (L1), 1d8 (L5), 1d10 (L11), 1d12 (L17). When you take the Attack action on your turn, you can make one Unarmed Strike as a Bonus Action. Monk Weapons = Simple Melee weapons + Shortsword + any other weapon you choose with the Monk property. v0 surfaces the action-modifier override and bonus-action activity; the die scaling table isn't simulated beyond 1d6.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "martial-arts-dex",
+          "name": "Martial Arts (DEX)",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.category": ["monk", "unarmed"] }
+            ]
+          },
+          "effects": [
+            { "target": "attack.ability", "mode": "OVERRIDE", "value": "dex" },
+            { "target": "damage.ability", "mode": "OVERRIDE", "value": "dex" }
+          ]
+        }
+      ],
+      "activities": [
+        {
+          "id": "martial-arts-bonus-strike",
+          "type": "attack",
+          "name": "Martial Arts: Unarmed Strike (Bonus)",
+          "cost": "bonus",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d6", "type": "bludgeoning" }]
+          },
+          "note": "Immediately after the Attack action with an Unarmed Strike or Monk Weapon, make one Unarmed Strike as a Bonus Action. Damage die uses the Martial Arts die (1d6 at L1, scaling later)."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "unarmored-defense-monk",
+    "version": 1,
+    "name": "Unarmored Defense (Monk)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 1,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "ac.formula",
+          "mode": "OVERRIDE",
+          "value": { "base": 10, "abilities": ["dex", "wis"], "requires": "no-armor-no-shield" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "monks-focus",
+    "version": 1,
+    "name": "Monk's Focus",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 1,
+      "note": "Focus Points pool: equal to your Monk level. Spent by various features (Flurry of Blows, Patient Defense, Step of the Wind, Stunning Strike, and subclass features). Recovers on a Short or Long Rest. v0 surfaces a single resource pool tagged per-short-rest; activities that spend focus reference this pool narratively.",
+      "activities": [
+        {
+          "id": "focus-points",
+          "type": "utility",
+          "name": "Focus Points",
+          "cost": "free",
+          "uses": {
+            "max": { "perClass": "monk", "table": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+            "per": "short-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "step-of-the-wind",
+    "version": 1,
+    "name": "Step of the Wind",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 2,
+      "activities": [
+        {
+          "id": "step-of-the-wind",
+          "type": "utility",
+          "name": "Step of the Wind",
+          "cost": "bonus",
+          "note": "Spend 1 Focus Point to take the Disengage or Dash action as a Bonus Action; jump distance is doubled for the turn. v0 doesn't deduct the focus point automatically — surface as a narrative note."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "patient-defense",
+    "version": 1,
+    "name": "Patient Defense",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 2,
+      "activities": [
+        {
+          "id": "patient-defense",
+          "type": "utility",
+          "name": "Patient Defense",
+          "cost": "bonus",
+          "note": "Take the Disengage action as a Bonus Action (free), or spend 1 Focus Point to take both the Disengage and Dodge actions as a single Bonus Action. v0 doesn't deduct the focus point automatically."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "flurry-of-blows",
+    "version": 1,
+    "name": "Flurry of Blows",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 2,
+      "activities": [
+        {
+          "id": "flurry-of-blows",
+          "type": "attack",
+          "name": "Flurry of Blows",
+          "cost": "bonus",
+          "attack": {
+            "ability": "best-of:str,dex",
+            "classification": "weapon",
+            "range": "melee",
+            "damage": [{ "dice": "1d6", "type": "bludgeoning" }]
+          },
+          "note": "Immediately after the Attack action, spend 1 Focus Point to make two Unarmed Strikes as a Bonus Action (this activity models one of the two strikes; engine doesn't multi-target a single activity). Number of strikes increases to 3 at L10. v0 doesn't deduct the focus point automatically."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "unarmored-movement",
+    "version": 1,
+    "name": "Unarmored Movement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 2,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "ADD",
+          "value": { "perClass": "monk", "table": [0, 10, 10, 10, 15, 15, 15, 15, 15, 20, 20, 20, 20, 25, 25, 25, 25, 30, 30, 30] },
+          "appliesWhen": { "requires": "no-armor-no-shield" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "monk-subclass",
+    "version": 1,
+    "name": "Monk Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 3,
+      "note": "Placeholder for subclass selection (Warrior of the Open Hand, Shadow, Elements, Mercy in 2024). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "monk-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "deflect-attacks",
+    "version": 1,
+    "name": "Deflect Attacks",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 3,
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "deflect-attacks-reaction",
+          "name": "Deflect Attacks",
+          "on": ["self.hit-by-attack"],
+          "scope": {
+            "predicates": [
+              { "attack.range": ["melee", "ranged"] },
+              { "attack.classification": "weapon" }
+            ]
+          },
+          "grants": {
+            "activityType": "utility",
+            "cost": "reaction",
+            "effect": "reduce-damage-1d10-plus-dex-plus-monk-level"
+          }
+        }
+      ],
+      "note": "When an attack roll hits you with a Bludgeoning, Piercing, or Slashing attack (melee or ranged), use your Reaction to reduce the damage by 1d10 + your DEX modifier + your Monk level. If the damage is reduced to 0, you can spend 1 Focus Point to redirect some of the attack's force: make a ranged attack with a thrown weapon or unarmed strike."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "extra-attack",
+    "version": 1,
+    "name": "Extra Attack",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 5,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "stunning-strike",
+    "version": 1,
+    "name": "Stunning Strike",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "monk",
+      "minLevel": 5,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "stunning-strike-toggle",
+          "name": "Stunning Strike",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "weapon.category": ["monk", "unarmed"] }
+            ]
+          },
+          "effects": [
+            { "target": "on-hit.target.save", "mode": "OVERRIDE", "value": { "ability": "con", "dc": "monk-spell-dc", "onFail": "stunned-end-of-next-turn" } }
+          ]
+        }
+      ],
+      "note": "Once per turn, when you hit a creature with a Monk Weapon or Unarmed Strike, spend 1 Focus Point to force a CON saving throw against your Monk spell save DC (8 + PB + WIS). On a fail, the target has the Stunned condition until the end of your next turn. v0 doesn't deduct the focus point or enforce the once-per-turn cap automatically; surfaces as a tagged action-modifier toggle."
+    }
+  }
+]

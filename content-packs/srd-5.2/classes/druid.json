@@ -1,0 +1,44 @@
+{
+  "kind": "class",
+  "slug": "druid",
+  "version": 1,
+  "name": "Druid",
+  "data": {
+    "hitDie": 8,
+    "primaryAbility": ["wis"],
+    "saves": ["int", "wis"],
+    "armorProficiencies": ["light", "shield"],
+    "weaponProficiencies": ["simple"],
+    "toolProficiencies": ["herbalism-kit"],
+    "skillChoices": {
+      "from": [
+        "arcana",
+        "animal-handling",
+        "insight",
+        "medicine",
+        "nature",
+        "perception",
+        "religion",
+        "survival"
+      ],
+      "pick": 2
+    },
+    "spellcasting": {
+      "ability": "wis",
+      "progression": "full",
+      "ritualCasting": true,
+      "preparedCaster": true
+    },
+    "features": [
+      { "level": 1, "slug": "druidic" },
+      { "level": 1, "slug": "spellcasting-druid" },
+      { "level": 1, "slug": "primal-order" },
+      { "level": 2, "slug": "wild-companion" },
+      { "level": 2, "slug": "wild-shape" },
+      { "level": 3, "slug": "druid-subclass" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "wild-resurgence" }
+    ],
+    "note": "Pre-2024 Druids were forbidden to wear metal armor or use metal shields; 2024 SRD 5.2 removed the restriction. Skipping the modifier per spec."
+  }
+}

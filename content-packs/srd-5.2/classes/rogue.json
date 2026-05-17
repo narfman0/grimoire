@@ -1,0 +1,44 @@
+{
+  "kind": "class",
+  "slug": "rogue",
+  "version": 1,
+  "name": "Rogue",
+  "data": {
+    "hitDie": 8,
+    "primaryAbility": ["dex"],
+    "saves": ["dex", "int"],
+    "armorProficiencies": ["light"],
+    "weaponProficiencies": ["simple", "martial-finesse-or-light"],
+    "toolProficiencies": ["thieves-tools"],
+    "skillChoices": {
+      "from": [
+        "acrobatics",
+        "athletics",
+        "deception",
+        "insight",
+        "intimidation",
+        "investigation",
+        "perception",
+        "performance",
+        "persuasion",
+        "sleight-of-hand",
+        "stealth"
+      ],
+      "pick": 4
+    },
+    "spellcasting": null,
+    "features": [
+      { "level": 1, "slug": "expertise-rogue" },
+      { "level": 1, "slug": "sneak-attack" },
+      { "level": 1, "slug": "thieves-cant" },
+      { "level": 1, "slug": "weapon-mastery-rogue" },
+      { "level": 2, "slug": "cunning-action" },
+      { "level": 3, "slug": "rogue-subclass" },
+      { "level": 3, "slug": "steady-aim" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "cunning-strike" },
+      { "level": 5, "slug": "uncanny-dodge" }
+    ],
+    "note": "2024 SRD 5.2 Rogue. Weapon proficiencies are simple weapons + martial weapons with the Finesse or Light property; we model the martial subset as a custom proficiency tag 'martial-finesse-or-light' (engine doesn't yet enforce property-based subset proficiency)."
+  }
+}

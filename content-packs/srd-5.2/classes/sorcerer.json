@@ -1,0 +1,42 @@
+{
+  "kind": "class",
+  "slug": "sorcerer",
+  "version": 1,
+  "name": "Sorcerer",
+  "data": {
+    "hitDie": 6,
+    "primaryAbility": ["cha"],
+    "saves": ["con", "cha"],
+    "armorProficiencies": [],
+    "weaponProficiencies": ["simple"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": [
+        "arcana",
+        "deception",
+        "insight",
+        "intimidation",
+        "persuasion",
+        "religion"
+      ],
+      "pick": 2
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "progression": "full",
+      "ritualCasting": false,
+      "preparedCaster": true
+    },
+    "features": [
+      { "level": 1, "slug": "spellcasting-sorcerer" },
+      { "level": 1, "slug": "innate-sorcery" },
+      { "level": 1, "slug": "sorcerous-origin" },
+      { "level": 2, "slug": "font-of-magic" },
+      { "level": 2, "slug": "metamagic" },
+      { "level": 3, "slug": "sorcerer-subclass" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "sorcerous-restoration" }
+    ],
+    "note": "2024 SRD 5.2 Sorcerer. No armor proficiencies at L1; weapons are limited to Simple (the 2024 PHB explicitly lists Simple weapons rather than the 2014 dagger/dart/sling/quarterstaff/light-crossbow short list). Full caster on Cha."
+  }
+}

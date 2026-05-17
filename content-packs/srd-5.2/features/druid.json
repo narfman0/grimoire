@@ -1,0 +1,152 @@
+[
+  {
+    "kind": "feature",
+    "slug": "druidic",
+    "version": 1,
+    "name": "Druidic",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 1,
+      "note": "Grants the Druidic language. v0 surfaces this as a language proficiency flag; full language tracking isn't yet wired through derive.ts.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.language.druidic", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "spellcasting-druid",
+    "version": 1,
+    "name": "Spellcasting (Druid)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "wis" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "primal-order",
+    "version": 1,
+    "name": "Primal Order",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 1,
+      "note": "Player chooses Magician or Warden at L1. Magician grants an extra cantrip and +Wis-mod to Arcana/Nature checks; Warden grants martial weapon proficiency and medium armor. v0 stores the pick as a flag only.",
+      "choice": {
+        "kind": "primal-order",
+        "pick": 1,
+        "from": ["magician", "warden"]
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.primal-order", "mode": "OVERRIDE", "value": "unset" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "wild-companion",
+    "version": 1,
+    "name": "Wild Companion",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 2,
+      "note": "Expend a Wild Shape use to cast Find Familiar (as a ritual) summoning a Fey spirit for 1 hour. The Find Familiar effect isn't simulated by v0; the resource and a utility activity are surfaced.",
+      "activities": [
+        {
+          "id": "wild-companion",
+          "type": "utility",
+          "name": "Wild Companion",
+          "cost": "action",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "wild-shape",
+    "version": 1,
+    "name": "Wild Shape",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 2,
+      "note": "Full statblock replacement is out-of-scope for v0 (see docs/rules-engine.md What v0 does not handle). The resource and a utility activity are surfaced; the actual form/CR table isn't modelled.",
+      "activities": [
+        {
+          "id": "wild-shape",
+          "type": "utility",
+          "name": "Wild Shape",
+          "cost": "bonus",
+          "uses": {
+            "max": 2,
+            "per": "short-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "druid-subclass",
+    "version": 1,
+    "name": "Druid Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 3,
+      "note": "Placeholder for Druid Circle selection (Land / Moon / Sea / Stars in 2024 SRD 5.2). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "druid-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "wild-resurgence",
+    "version": 1,
+    "name": "Wild Resurgence",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "druid",
+      "minLevel": 5,
+      "note": "Once per turn, when the druid has no Wild Shape uses left they may expend a spell slot (any level) to regain one Wild Shape use, or vice versa (1/long-rest, expend a Wild Shape use to regain a level-1 spell slot). v0 surfaces the once-per-long-rest leg as a utility activity; the per-turn leg is left to UI adjudication.",
+      "activities": [
+        {
+          "id": "wild-resurgence",
+          "type": "utility",
+          "name": "Wild Resurgence (slot recovery)",
+          "cost": "bonus",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          }
+        }
+      ]
+    }
+  }
+]

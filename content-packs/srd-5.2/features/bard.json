@@ -1,0 +1,127 @@
+[
+  {
+    "kind": "feature",
+    "slug": "bardic-inspiration",
+    "version": 1,
+    "name": "Bardic Inspiration",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 1,
+      "note": "Inspiration die scales d6 (L1), d8 (L5), d10 (L10), d12 (L15). v0 surfaces the resource only; the die-size table isn't simulated.",
+      "activities": [
+        {
+          "id": "bardic-inspiration",
+          "type": "utility",
+          "name": "Bardic Inspiration",
+          "cost": "bonus",
+          "range": { "value": 60, "units": "ft" },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "spellcasting-bard",
+    "version": 1,
+    "name": "Spellcasting (Bard)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "expertise-bard-2",
+    "version": 1,
+    "name": "Expertise",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 2,
+      "note": "Player picks 2 skills they're proficient in to gain expertise. The v0 engine doesn't yet have a per-skill expertise toggle; expertise is hard-wired to false in derive.ts. Tracked here for surfacing in the editor.",
+      "choice": {
+        "kind": "expertise",
+        "pick": 2,
+        "from": "proficient-skills"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "jack-of-all-trades",
+    "version": 1,
+    "name": "Jack of All Trades",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 2,
+      "note": "Adds half proficiency (rounded down) to ability checks for which the bard isn't already proficient. The v0 stat-modifier targets don't yet include a halfProf flag; modelled as a trait for the editor to display until the engine grows the target.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.jack-of-all-trades", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "bard-subclass",
+    "version": 1,
+    "name": "Bard Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 3,
+      "note": "Placeholder for subclass selection (College of Lore / Valor / Glamour / Eloquence in 2024). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "bard-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "font-of-inspiration",
+    "version": 1,
+    "name": "Font of Inspiration",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "bard",
+      "minLevel": 5,
+      "note": "Bardic Inspiration regains on a Short Rest in addition to a Long Rest; replace the L1 long-rest resource with this short-rest one once the feature is online. v0 surfaces both as separate resources; UI should hide the L1 version when L5 is active.",
+      "activities": [
+        {
+          "id": "bardic-inspiration-short-rest",
+          "type": "utility",
+          "name": "Bardic Inspiration (Font of Inspiration)",
+          "cost": "bonus",
+          "range": { "value": 60, "units": "ft" },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "short-rest"
+          }
+        }
+      ]
+    }
+  }
+]

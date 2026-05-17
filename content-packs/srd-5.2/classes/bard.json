@@ -1,0 +1,52 @@
+{
+  "kind": "class",
+  "slug": "bard",
+  "version": 1,
+  "name": "Bard",
+  "data": {
+    "hitDie": 8,
+    "primaryAbility": ["cha"],
+    "saves": ["dex", "cha"],
+    "armorProficiencies": ["light"],
+    "weaponProficiencies": ["simple"],
+    "toolProficiencies": ["musical-instrument-x3"],
+    "skillChoices": {
+      "from": [
+        "acrobatics",
+        "animal-handling",
+        "arcana",
+        "athletics",
+        "deception",
+        "history",
+        "insight",
+        "intimidation",
+        "investigation",
+        "medicine",
+        "nature",
+        "perception",
+        "performance",
+        "persuasion",
+        "religion",
+        "sleight-of-hand",
+        "stealth",
+        "survival"
+      ],
+      "pick": 3
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "progression": "full",
+      "ritualCasting": true,
+      "preparedCaster": true
+    },
+    "features": [
+      { "level": 1, "slug": "bardic-inspiration" },
+      { "level": 1, "slug": "spellcasting-bard" },
+      { "level": 2, "slug": "expertise-bard-2" },
+      { "level": 2, "slug": "jack-of-all-trades" },
+      { "level": 3, "slug": "bard-subclass" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "font-of-inspiration" }
+    ]
+  }
+}

@@ -1,0 +1,248 @@
+[
+  {
+    "kind": "feature",
+    "slug": "spellcasting-sorcerer",
+    "version": 1,
+    "name": "Spellcasting (Sorcerer)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "innate-sorcery",
+    "version": 1,
+    "name": "Innate Sorcery",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 1,
+      "note": "2024 SRD 5.2 Innate Sorcery (replaces 2014's Sorcerous Restoration as the L1 capstone trait): bonus action, lasts 1 minute, twice per long rest (recovers one use on a short rest at higher levels — engine extension needed). While active: your Spell Save DC is +1 and you have Advantage on Spell attack rolls you make. v0 surfaces the activity with a 2/long-rest uses block and a passive +1 to spell DC; the duration-gated advantage on spell attacks is left as a tagged effect for the UI (advantage isn't a first-class action target in the engine yet).",
+      "activities": [
+        {
+          "id": "innate-sorcery",
+          "type": "utility",
+          "name": "Innate Sorcery",
+          "cost": "bonus",
+          "duration": { "value": 1, "units": "minute", "concentration": false },
+          "uses": {
+            "max": 2,
+            "per": "long-rest"
+          },
+          "appliedModifiers": [
+            { "kind": "stat-modifier", "target": "spellcasting.dc.bonus", "mode": "ADD", "value": 1 },
+            { "kind": "stat-modifier", "target": "spellcasting.attack.advantage", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "sorcerous-origin",
+    "version": 1,
+    "name": "Sorcerous Origin",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 1,
+      "note": "Placeholder for Sorcerous Origin selection at L3 (Aberrant Sorcery / Clockwork Sorcery / Draconic Sorcery / Wild Magic Sorcery in 2024 SRD 5.2). The L1 row is a sourcing slot only; the actual subclass features come online at L3. The chosen subclass slug lives on character.classes[].subclass. Out-of-scope for this batch (2b).",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "sorcerer-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "font-of-magic",
+    "version": 1,
+    "name": "Font of Magic",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 2,
+      "note": "Sorcery Points pool, gained at Sorcerer 2. Used to fuel Metamagic options and (via Flexible Casting) to convert points to spell slots or vice versa. Sorcery Points table indexed from character-level 1: 0 at L1, then sorcerer level from L2 onward. Pool refreshes on long rest. v0 surfaces the resource; the conversions (Sorcery Points <-> spell slots) aren't yet wired.",
+      "activities": [
+        {
+          "id": "sorcery-points",
+          "type": "utility",
+          "name": "Sorcery Points",
+          "cost": "free",
+          "uses": {
+            "max": { "perClass": "sorcerer", "table": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+            "per": "long-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "metamagic",
+    "version": 1,
+    "name": "Metamagic",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 2,
+      "note": "At Sorcerer 2 the sorcerer picks 2 Metamagic options (and may change one on a long rest). Each spends a different number of Sorcery Points when applied to a spell. v0 models each option as a defaultEnabled:false action-modifier toggle that tags the cast; the Sorcery Point cost accounting and the spell-modification mechanics (extra target, no components, ignore resistance, etc.) are NOT simulated — engine extension needed.",
+      "choice": {
+        "kind": "metamagic",
+        "pick": 2,
+        "from": [
+          "careful-spell",
+          "distant-spell",
+          "empowered-spell",
+          "extended-spell",
+          "heightened-spell",
+          "quickened-spell",
+          "subtle-spell",
+          "twinned-spell"
+        ]
+      },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-careful",
+          "name": "Metamagic: Careful Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.careful", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-distant",
+          "name": "Metamagic: Distant Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.distant", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-empowered",
+          "name": "Metamagic: Empowered Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.empowered", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-extended",
+          "name": "Metamagic: Extended Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.extended", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-heightened",
+          "name": "Metamagic: Heightened Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.heightened", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-quickened",
+          "name": "Metamagic: Quickened Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.quickened", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-subtle",
+          "name": "Metamagic: Subtle Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.subtle", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-twinned",
+          "name": "Metamagic: Twinned Spell",
+          "defaultEnabled": false,
+          "appliesTo": { "activityType": "cast" },
+          "effects": [
+            { "target": "tag.metamagic.twinned", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "sorcerer-subclass",
+    "version": 1,
+    "name": "Sorcerer Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 3,
+      "note": "Sorcerous Origin features come online at L3 (Aberrant / Clockwork / Draconic / Wild Magic in 2024 SRD 5.2). The chosen subclass slug lives on character.classes[].subclass. Out-of-scope for this batch (2b).",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "sorcerer-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "sorcerous-restoration",
+    "version": 1,
+    "name": "Sorcerous Restoration",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "sorcerer",
+      "minLevel": 5,
+      "note": "When you finish a Short Rest, you regain expended Sorcery Points (up to a maximum equal to half your Sorcerer level, rounded down). Once per long rest. v0 surfaces a utility activity that fires the recovery; the conditional 'half sorcerer level rounded down' cap and the interaction with the font-of-magic resource aren't yet plumbed.",
+      "activities": [
+        {
+          "id": "sorcerous-restoration",
+          "type": "utility",
+          "name": "Sorcerous Restoration",
+          "cost": "free",
+          "trigger": "short-rest-completed",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          }
+        }
+      ]
+    }
+  }
+]

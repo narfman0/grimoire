@@ -1,0 +1,33 @@
+{
+  "kind": "class",
+  "slug": "cleric",
+  "version": 1,
+  "name": "Cleric",
+  "data": {
+    "hitDie": 8,
+    "primaryAbility": ["wis"],
+    "saves": ["wis", "cha"],
+    "armorProficiencies": ["light", "medium", "shield"],
+    "weaponProficiencies": ["simple"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": ["history", "insight", "medicine", "persuasion", "religion"],
+      "pick": 2
+    },
+    "spellcasting": {
+      "ability": "wis",
+      "progression": "full",
+      "ritualCasting": true,
+      "preparedCaster": true
+    },
+    "features": [
+      { "level": 1, "slug": "spellcasting-cleric" },
+      { "level": 1, "slug": "divine-order" },
+      { "level": 2, "slug": "channel-divinity" },
+      { "level": 2, "slug": "turn-undead" },
+      { "level": 3, "slug": "cleric-subclass" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "sear-undead" }
+    ]
+  }
+}

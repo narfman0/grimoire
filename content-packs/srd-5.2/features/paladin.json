@@ -1,0 +1,221 @@
+[
+  {
+    "kind": "feature",
+    "slug": "spellcasting-paladin",
+    "version": 1,
+    "name": "Spellcasting (Paladin)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "cha" }
+      ],
+      "note": "Paladin is a half-caster (slots progress at half rate; first slot at L2 per the standard half-caster table). Prepared spells = CHA mod + half Paladin level (rounded up), min 1. v0 surfaces the casting ability; slot progression is computed in derive.ts (currently only full-caster progression is implemented — half-caster slot table is a follow-up)."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "lay-on-hands",
+    "version": 1,
+    "name": "Lay on Hands",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 1,
+      "activities": [
+        {
+          "id": "lay-on-hands",
+          "type": "heal",
+          "name": "Lay on Hands (Pool)",
+          "cost": "bonus",
+          "range": { "value": 5, "units": "ft" },
+          "uses": {
+            "max": { "perClass": "paladin", "table": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100] },
+            "per": "long-rest"
+          },
+          "note": "Pool of healing power equal to 5 x Paladin level. As a Bonus Action, touch a creature and draw from the pool to restore HP, OR spend 5 points to end one disease or one Poisoned condition. v0 surfaces the pool as a single resource; HP-vs-cure-pool spend distinction isn't enforced."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "weapon-mastery-paladin",
+    "version": 1,
+    "name": "Weapon Mastery",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 1,
+      "note": "At L1 pick 2 weapons; gain access to their masteries. Swap one chosen weapon's mastery on each Long Rest. v0 surfaces the chosen-weapon flag; weapon-mastery effects (Cleave, Push, Slow, etc.) aren't simulated.",
+      "choice": {
+        "kind": "weapon-mastery-chosen",
+        "pick": 2,
+        "from": "weapons-with-mastery"
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.weapon-mastery-chosen", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-paladin",
+    "version": 1,
+    "name": "Fighting Style",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 2,
+      "note": "Choose one Fighting Style. Paladin's available styles in 2024 SRD 5.2: Blessed Warrior, Blind Fighting, Defense, Dueling, Great Weapon Fighting, Interception, Protection. Defense/Dueling/Great Weapon Fighting/Blind Fighting/Interception/Protection rows live in features/fighter.json; Blessed Warrior is paladin-specific (below).",
+      "choice": {
+        "kind": "fighting-style",
+        "pick": 1,
+        "from": [
+          "fighting-style-blessed-warrior",
+          "fighting-style-blind-fighting",
+          "fighting-style-defense",
+          "fighting-style-dueling",
+          "fighting-style-great-weapon-fighting",
+          "fighting-style-interception",
+          "fighting-style-protection"
+        ]
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-blessed-warrior",
+    "version": 1,
+    "name": "Fighting Style: Blessed Warrior",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-paladin",
+      "note": "Learn two Cleric cantrips of your choice. They count as Paladin spells; CHA is your spellcasting ability for them. Whenever you gain a Paladin level, you can replace one of these cantrips with another Cleric cantrip. v0 surfaces the choice; the cantrip slots live on character.spells.known."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "divine-smite",
+    "version": 1,
+    "name": "Divine Smite",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 2,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "divine-smite-toggle",
+          "name": "Divine Smite",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "attack.classification": "weapon" },
+              { "attack.result": "hit" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": "divineSmiteSlotDice" },
+            { "target": "damage.type-on-bonus", "mode": "OVERRIDE", "value": "radiant" }
+          ]
+        }
+      ],
+      "note": "When you hit a creature with a Melee weapon or Unarmed Strike, expend a spell slot to deal extra Radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8 from a 4th-level slot, capped). Once per turn. v0 doesn't consume the spell slot automatically and uses a placeholder magic identifier `divineSmiteSlotDice` for the bonus die total; surfaces as a toggle the player flips per-attack."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "channel-oath",
+    "version": 1,
+    "name": "Channel Oath",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 2,
+      "note": "Paladin's 2024 Channel Divinity analogue. Subclass grants specific Channel Oath options at L3. v0 surfaces the resource as 1 use/short rest; later levels scale uses (2 at higher tiers in some printings; SRD 5.2 keeps a single resource recovered on Short or Long Rest).",
+      "activities": [
+        {
+          "id": "channel-oath",
+          "type": "utility",
+          "name": "Channel Oath",
+          "cost": "action",
+          "uses": {
+            "max": 1,
+            "per": "short-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "paladin-subclass",
+    "version": 1,
+    "name": "Sacred Oath",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 3,
+      "note": "Placeholder for Sacred Oath subclass selection (Oath of Devotion, Glory, Vengeance, Ancients in 2024). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "paladin-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "extra-attack",
+    "version": 1,
+    "name": "Extra Attack",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 5,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "faithful-steed",
+    "version": 1,
+    "name": "Faithful Steed",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 5,
+      "activities": [
+        {
+          "id": "faithful-steed",
+          "type": "cast",
+          "name": "Find Steed (Faithful Steed)",
+          "cost": "action",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
+          "note": "Cast Find Steed without expending a spell slot, once per Long Rest. You can also cast it using a Paladin spell slot normally. The Find Steed spell row should be added to character.spells.known when this feature is online."
+        }
+      ]
+    }
+  }
+]

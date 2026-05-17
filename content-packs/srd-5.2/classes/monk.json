@@ -1,0 +1,33 @@
+{
+  "kind": "class",
+  "slug": "monk",
+  "version": 1,
+  "name": "Monk",
+  "data": {
+    "hitDie": 8,
+    "primaryAbility": ["dex", "wis"],
+    "saves": ["str", "dex"],
+    "armorProficiencies": [],
+    "weaponProficiencies": ["simple", "martial-light-finesse"],
+    "toolProficiencies": ["one-artisan-or-musical"],
+    "skillChoices": {
+      "from": ["acrobatics", "athletics", "history", "insight", "religion", "stealth"],
+      "pick": 2
+    },
+    "spellcasting": null,
+    "features": [
+      { "level": 1, "slug": "martial-arts" },
+      { "level": 1, "slug": "unarmored-defense-monk" },
+      { "level": 1, "slug": "monks-focus" },
+      { "level": 2, "slug": "step-of-the-wind" },
+      { "level": 2, "slug": "patient-defense" },
+      { "level": 2, "slug": "flurry-of-blows" },
+      { "level": 2, "slug": "unarmored-movement" },
+      { "level": 3, "slug": "monk-subclass" },
+      { "level": 3, "slug": "deflect-attacks" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "extra-attack" },
+      { "level": 5, "slug": "stunning-strike" }
+    ]
+  }
+}

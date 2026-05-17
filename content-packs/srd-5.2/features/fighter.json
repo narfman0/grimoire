@@ -1,0 +1,365 @@
+[
+  {
+    "kind": "feature",
+    "slug": "fighting-style-fighter",
+    "version": 1,
+    "name": "Fighting Style",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 1,
+      "note": "Choose one Fighting Style. The chosen style is a separate `kind:feature` row; the engine pulls it in via character.classes[].choices.fightingStyle. v0 surfaces the choice; the picked style's modifiers apply automatically.",
+      "choice": {
+        "kind": "fighting-style",
+        "pick": 1,
+        "from": [
+          "fighting-style-defense",
+          "fighting-style-dueling",
+          "fighting-style-great-weapon-fighting",
+          "fighting-style-archery",
+          "fighting-style-two-weapon-fighting",
+          "fighting-style-protection",
+          "fighting-style-blind-fighting",
+          "fighting-style-interception",
+          "fighting-style-thrown-weapon-fighting",
+          "fighting-style-unarmed-fighting"
+        ]
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-defense",
+    "version": 1,
+    "name": "Fighting Style: Defense",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "wearing-armor" } }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-dueling",
+    "version": 1,
+    "name": "Fighting Style: Dueling",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "damage.bonus.melee", "mode": "ADD", "value": 2, "appliesWhen": { "requires": "one-handed-no-shield" } }
+      ],
+      "note": "Applies when wielding a melee weapon in one hand with no other weapons. v0 surfaces the modifier; the requires-tag is not yet enforced by the engine."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-great-weapon-fighting",
+    "version": 1,
+    "name": "Fighting Style: Great Weapon Fighting",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "gwf-damage-reroll",
+          "name": "Great Weapon Fighting",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "weapon.property": ["two-handed", "versatile"] }
+            ]
+          },
+          "effects": [
+            { "target": "damage.reroll-1s-and-2s", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ],
+      "note": "When you roll damage with a melee weapon wielded with two hands (including Versatile used two-handed), reroll any 1 or 2 once. v0 evaluator does not implement damage.reroll-1s-and-2s; surfaces as tagged modifier only."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-archery",
+    "version": 1,
+    "name": "Fighting Style: Archery",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attack.bonus.ranged", "mode": "ADD", "value": 2 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-two-weapon-fighting",
+    "version": 1,
+    "name": "Fighting Style: Two-Weapon Fighting",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.two-weapon-fighting-ability-mod", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "Add your ability modifier to the damage of your off-hand (bonus-action) attack. v0 evaluator doesn't model the off-hand split; surfaces as a trait flag."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-protection",
+    "version": 1,
+    "name": "Fighting Style: Protection",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "protection-impose-disadvantage",
+          "name": "Protection",
+          "on": ["ally.attacked-within-5ft"],
+          "scope": {
+            "predicates": [
+              { "self.wielding": "shield" }
+            ]
+          },
+          "grants": {
+            "activityType": "utility",
+            "cost": "reaction",
+            "effect": "impose-disadvantage-on-attack"
+          }
+        }
+      ],
+      "note": "When a creature you can see attacks a target other than you within 5 feet of you while you're wielding a shield, use your reaction to impose Disadvantage on the attack roll."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-blind-fighting",
+    "version": 1,
+    "name": "Fighting Style: Blind Fighting",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.blindsight", "mode": "UPGRADE", "value": 10 }
+      ],
+      "note": "You have Blindsight with a range of 10 feet. Within that range, you can effectively see anything that isn't behind Total Cover, even if you're Blinded or in Darkness."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-interception",
+    "version": 1,
+    "name": "Fighting Style: Interception",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "interception-reduce-damage",
+          "name": "Interception",
+          "on": ["ally.hit-within-5ft"],
+          "scope": {
+            "predicates": [
+              { "self.wielding": ["shield", "simple-weapon", "martial-weapon"] }
+            ]
+          },
+          "grants": {
+            "activityType": "utility",
+            "cost": "reaction",
+            "effect": "reduce-damage-1d10-plus-pb"
+          }
+        }
+      ],
+      "note": "When a creature within 5 ft of you takes damage from an attack, use your reaction to reduce the damage by 1d10 + your proficiency bonus (min 0). Must be wielding a shield or a simple/martial weapon."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-thrown-weapon-fighting",
+    "version": 1,
+    "name": "Fighting Style: Thrown Weapon Fighting",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "thrown-weapon-damage",
+          "name": "Thrown Weapon Fighting",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "ranged" },
+              { "weapon.property": "thrown" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+          ]
+        }
+      ],
+      "note": "+2 damage on any attack you make with a Thrown weapon (thrown attack)."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighting-style-unarmed-fighting",
+    "version": 1,
+    "name": "Fighting Style: Unarmed Fighting",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-fighter",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.unarmed-fighting-d8", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "Unarmed strike damage becomes 1d6 (1d8 if no shield and not wielding any weapons in either hand). At the start of each of your turns, you can deal 1d4 bludgeoning to a creature Grappled by you. v0 surfaces this as a trait flag; activities are not synthesized."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "second-wind",
+    "version": 1,
+    "name": "Second Wind",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 1,
+      "note": "Uses regain 1 on a Short Rest (in addition to all on a Long Rest). v0 surfaces the long-rest pool; the short-rest 1-back recovery is not yet modelled.",
+      "activities": [
+        {
+          "id": "second-wind",
+          "type": "heal",
+          "name": "Second Wind",
+          "cost": "bonus",
+          "damage": {
+            "parts": [{ "dice": "1d10", "type": "healing", "scaling": { "per-class-level": "fighter", "addBonus": "fighterLevel" } }]
+          },
+          "uses": {
+            "max": { "perClass": "fighter", "table": [2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4] },
+            "per": "long-rest"
+          },
+          "note": "Regain 1d10 + Fighter level HP."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "weapon-mastery-fighter",
+    "version": 1,
+    "name": "Weapon Mastery",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 1,
+      "note": "At L1 pick 3 weapons; gain access to their masteries. Count scales: L1=3, L4=4, L10=5, L16=6. Swap one chosen weapon's mastery on each long rest. v0 surfaces the chosen-weapon flag; weapon-mastery effects (Cleave, Push, Slow, etc.) aren't simulated.",
+      "choice": {
+        "kind": "weapon-mastery-chosen",
+        "pick": 3,
+        "from": "weapons-with-mastery"
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.weapon-mastery-chosen", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "action-surge",
+    "version": 1,
+    "name": "Action Surge",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 2,
+      "activities": [
+        {
+          "id": "action-surge",
+          "type": "utility",
+          "name": "Action Surge",
+          "cost": "free",
+          "uses": {
+            "max": { "perClass": "fighter", "table": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2] },
+            "per": "short-rest"
+          },
+          "note": "On your turn, take one additional action. Once per turn."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "tactical-mind",
+    "version": 1,
+    "name": "Tactical Mind",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 2,
+      "activities": [
+        {
+          "id": "tactical-mind",
+          "type": "utility",
+          "name": "Tactical Mind",
+          "cost": "free",
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          },
+          "note": "When you fail an ability check, expend one use to add 1d10 to the roll, potentially turning it into a success. If the roll still fails, the use is refunded."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fighter-subclass",
+    "version": 1,
+    "name": "Fighter Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 3,
+      "note": "Placeholder for subclass selection (Champion, Battle Master, Eldritch Knight, Psi Warrior in 2024). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "fighter-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "extra-attack",
+    "version": 1,
+    "name": "Extra Attack",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "fighter",
+      "minLevel": 5,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
+      ]
+    }
+  }
+]

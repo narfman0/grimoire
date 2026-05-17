@@ -1,0 +1,137 @@
+[
+  {
+    "kind": "feature",
+    "slug": "spellcasting-cleric",
+    "version": 1,
+    "name": "Spellcasting (Cleric)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 1,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "wis" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "divine-order",
+    "version": 1,
+    "name": "Divine Order",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 1,
+      "note": "Player chooses Protector or Thaumaturge at L1. Protector grants heavy armor + martial weapon proficiency; Thaumaturge grants an extra cantrip + proficiency in one INT-based skill (Arcana/History/Nature/Religion). v0 stores the pick as a flag; the proficiency/cantrip grants aren't yet wired in.",
+      "choice": {
+        "kind": "divine-order",
+        "pick": 1,
+        "from": ["protector", "thaumaturge"]
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.divine-order", "mode": "OVERRIDE", "value": "unset" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "channel-divinity",
+    "version": 1,
+    "name": "Channel Divinity",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 2,
+      "note": "Uses per short rest scale with cleric level: 2 at L2, 3 at L6, 4 at L18. v0 uses a static 2; engine doesn't yet support a perClass+table for activity uses (only triggers in derive.ts plumbing).",
+      "activities": [
+        {
+          "id": "channel-divinity",
+          "type": "utility",
+          "name": "Channel Divinity",
+          "cost": "action",
+          "uses": {
+            "max": 2,
+            "per": "short-rest"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "turn-undead",
+    "version": 1,
+    "name": "Channel Divinity: Turn Undead",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 2,
+      "note": "Consumes a Channel Divinity use; undead in range make a Wisdom save (spell DC) or are turned for 1 minute. v0 surfaces the save action; the resource accounting lives on the Channel Divinity activity.",
+      "activities": [
+        {
+          "id": "turn-undead",
+          "type": "save",
+          "name": "Turn Undead",
+          "cost": "action",
+          "range": { "value": 30, "units": "ft" },
+          "save": {
+            "ability": "wis",
+            "dc": { "calc": "spell" }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "cleric-subclass",
+    "version": 1,
+    "name": "Cleric Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 3,
+      "note": "Placeholder for Divine Domain selection (Life / Light / Trickery / War in 2024 SRD 5.2). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "cleric-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "sear-undead",
+    "version": 1,
+    "name": "Sear Undead",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "cleric",
+      "minLevel": 5,
+      "note": "Improvement to Turn Undead: when an undead fails the save, it takes radiant damage equal to 2d8 + Wis-mod-times-cleric-level (per 2024 SRD). v0 surfaces a damage activity with a placeholder formula; the per-level scaling isn't fully simulated.",
+      "activities": [
+        {
+          "id": "sear-undead",
+          "type": "damage",
+          "name": "Sear Undead",
+          "cost": "free",
+          "damage": {
+            "parts": [{ "dice": "2d8", "type": "radiant" }]
+          }
+        }
+      ]
+    }
+  }
+]

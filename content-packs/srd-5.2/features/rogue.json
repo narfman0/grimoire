@@ -1,0 +1,267 @@
+[
+  {
+    "kind": "feature",
+    "slug": "expertise-rogue",
+    "version": 1,
+    "name": "Expertise (Rogue)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 1,
+      "note": "Choose 2 of your skill proficiencies; your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies. A third pick is added at Rogue 6. v0 derive.ts hard-codes expertise=false in the skills loop; the choice is surfaced for the editor but the doubled-PB bonus isn't yet emitted.",
+      "choice": {
+        "kind": "expertise",
+        "pick": 2,
+        "from": "proficient-skills"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "sneak-attack",
+    "version": 1,
+    "name": "Sneak Attack",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 1,
+      "note": "2024 SRD 5.2 Sneak Attack: once per turn, when you hit with an attack roll using a Finesse or Ranged weapon and either you have Advantage or an ally of the target is within 5 ft of it (and you don't have Disadvantage), deal extra damage. Scales by rogue level: [1d6,1d6,2d6,2d6,3d6,3d6,4d6,4d6,5d6,5d6,6d6,6d6,7d6,7d6,8d6,8d6,9d6,9d6,10d6,10d6]. v0 hard-codes the L1 +1d6 bonus and doesn't scale; engine-extension needed to: (a) read perClass/table for damage.bonus dice values, (b) enforce 'once per turn', (c) gate on advantage/ally-adjacency. The {or:[...]} predicate covers Finesse OR Ranged weapon classification.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "sneak-attack-damage",
+          "name": "Sneak Attack",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "or": [
+                { "weapon.property": "finesse" },
+                { "attack.range": "ranged" }
+              ] }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": "1d6" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "thieves-cant",
+    "version": 1,
+    "name": "Thieves' Cant",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 1,
+      "note": "You know Thieves' Cant, a secret mix of jargon, slang, and hand signs. The 2024 SRD also grants one additional language of your choice. v0 stores the language as a proficiency flag; language tracking isn't yet wired through derive.ts.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.language.thieves-cant", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "weapon-mastery-rogue",
+    "version": 1,
+    "name": "Weapon Mastery (Rogue)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 1,
+      "note": "Choose 2 kinds of weapons you have proficiency with to apply their mastery property. You can change one chosen weapon when you finish a long rest. Mastery properties (Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex) aren't yet first-class targets in the engine; surfaced as a choice.",
+      "choice": {
+        "kind": "weapon-mastery",
+        "pick": 2,
+        "from": "weapons-with-proficiency"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "cunning-action",
+    "version": 1,
+    "name": "Cunning Action",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 2,
+      "note": "Take a Bonus Action to Dash, Disengage, or Hide. v0 surfaces a single utility activity; the three sub-options are described in the activity name and a note.",
+      "activities": [
+        {
+          "id": "cunning-action",
+          "type": "utility",
+          "name": "Cunning Action (Dash / Disengage / Hide)",
+          "cost": "bonus"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "rogue-subclass",
+    "version": 1,
+    "name": "Rogue Subclass",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 3,
+      "note": "Placeholder for Roguish Archetype selection (Arcane Trickster / Assassin / Soulknife / Thief in 2024 SRD 5.2). The chosen subclass slug lives on character.classes[].subclass. Out-of-scope for this batch (2b).",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "rogue-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "steady-aim",
+    "version": 1,
+    "name": "Steady Aim",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 3,
+      "note": "Bonus Action: give yourself Advantage on the next attack roll you make this turn, but your Speed is 0 until end of turn. Once per turn. v0 doesn't model 'advantage' as a first-class predicate that the engine can apply across actions; surfaced as a utility activity and a tagged modifier.",
+      "activities": [
+        {
+          "id": "steady-aim",
+          "type": "utility",
+          "name": "Steady Aim",
+          "cost": "bonus"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "ability-score-improvement",
+    "version": 1,
+    "name": "Ability Score Improvement",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 4,
+      "note": "Player chooses +2/+1 distribution or a feat. v0 surfaces the choice; the chosen ASI is applied via stat-modifiers on the character document at edit time."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "cunning-strike",
+    "version": 1,
+    "name": "Cunning Strike",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 5,
+      "note": "When you deal Sneak Attack damage, you can spend some of that damage (forgoing dice) to add a maneuver effect: Disarm, Poison, Trip, or Withdraw. Each maneuver has a cost in Sneak Attack dice and most impose a save (DC = 8 + Dex mod + PB). v0 surfaces each maneuver as a separate action-modifier toggle (defaultEnabled:false); the dice-spend accounting and the imposed saves/conditions are NOT simulated — engine extension needed.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "cunning-strike-disarm",
+          "name": "Cunning Strike: Disarm",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "or": [
+                { "weapon.property": "finesse" },
+                { "attack.range": "ranged" }
+              ] }
+            ]
+          },
+          "effects": [
+            { "target": "tag.cunning-strike.disarm", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "cunning-strike-poison",
+          "name": "Cunning Strike: Poison",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "or": [
+                { "weapon.property": "finesse" },
+                { "attack.range": "ranged" }
+              ] }
+            ]
+          },
+          "effects": [
+            { "target": "tag.cunning-strike.poison", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "cunning-strike-trip",
+          "name": "Cunning Strike: Trip",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "or": [
+                { "weapon.property": "finesse" },
+                { "attack.range": "ranged" }
+              ] }
+            ]
+          },
+          "effects": [
+            { "target": "tag.cunning-strike.trip", "mode": "OVERRIDE", "value": true }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "cunning-strike-withdraw",
+          "name": "Cunning Strike: Withdraw",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "or": [
+                { "weapon.property": "finesse" },
+                { "attack.range": "ranged" }
+              ] }
+            ]
+          },
+          "effects": [
+            { "target": "tag.cunning-strike.withdraw", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "uncanny-dodge",
+    "version": 1,
+    "name": "Uncanny Dodge",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 5,
+      "note": "Reaction: when an attacker you can see hits you with an attack roll, halve the attack's damage against you. v0 doesn't yet model damage reduction as a target the engine can apply; surfaced as a declarative trigger so the UI can prompt the player.",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "uncanny-dodge",
+          "name": "Uncanny Dodge",
+          "on": ["damage.taken-from-attacker-you-see"],
+          "scope": {
+            "predicates": [
+              { "attack.attacker.visible": true }
+            ]
+          },
+          "grants": {
+            "effect": "damage.halve-incoming",
+            "cost": "reaction"
+          }
+        }
+      ]
+    }
+  }
+]

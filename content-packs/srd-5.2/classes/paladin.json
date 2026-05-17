@@ -1,0 +1,52 @@
+{
+  "kind": "class",
+  "slug": "paladin",
+  "version": 1,
+  "name": "Paladin",
+  "data": {
+    "hitDie": 10,
+    "primaryAbility": ["str", "cha"],
+    "saves": ["wis", "cha"],
+    "armorProficiencies": ["light", "medium", "heavy", "shield"],
+    "weaponProficiencies": ["simple", "martial"],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "from": ["athletics", "insight", "intimidation", "medicine", "persuasion", "religion"],
+      "pick": 2
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "progression": "half",
+      "preparedCaster": true,
+      "spellList": "paladin"
+    },
+    "features": [
+      { "level": 1, "slug": "spellcasting-paladin" },
+      { "level": 1, "slug": "lay-on-hands" },
+      { "level": 1, "slug": "weapon-mastery-paladin" },
+      {
+        "level": 2,
+        "slug": "fighting-style-paladin",
+        "choice": {
+          "kind": "fighting-style",
+          "pick": 1,
+          "from": [
+            "fighting-style-blessed-warrior",
+            "fighting-style-blind-fighting",
+            "fighting-style-defense",
+            "fighting-style-dueling",
+            "fighting-style-great-weapon-fighting",
+            "fighting-style-interception",
+            "fighting-style-protection"
+          ]
+        }
+      },
+      { "level": 2, "slug": "divine-smite" },
+      { "level": 2, "slug": "channel-oath" },
+      { "level": 3, "slug": "paladin-subclass" },
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 5, "slug": "extra-attack" },
+      { "level": 5, "slug": "faithful-steed" }
+    ]
+  }
+}
