@@ -192,18 +192,39 @@ whether to invoke. This is how dnd5e + a human DM actually play.
 }
 ```
 
-**Event names** (v1; expand cautiously):
+**Event names** (v1 + M1.6 batch 2 additions; expand cautiously):
+
+*Self events (subject = the character):*
 - Attack lifecycle: `attack.declare`, `attack.hit`, `attack.miss`,
   `attack.crit`, `attack.fumble`, `attack.reduce-to-zero`
+- Roll lifecycle: `save.declare`, `check.declare`, `save.fail`,
+  `save.success`, `save.crit`
 - Turn lifecycle: `turn.start`, `turn.end`, `round.start`
-- Damage: `damage.taken`, `damage.dealt`
-- Saves: `save.fail`, `save.success`, `save.crit`
+- Damage: `damage.taken`, `damage.dealt`, `damage.reduce-to-zero`
 - Spells: `spell.cast`, `spell.concentration-broken`
+
+*Enemy events (subject = a hostile creature):*
+- `enemy.attack.declare` — a hostile is about to attack (used by
+  Bard Cutting Words, Chronurgy Chronal Shift)
+- `enemy.check.declare` — a hostile is about to make an ability check
+- `enemy.reduce-to-zero` — a hostile drops to 0 HP within range
+  (Warlock Fiend Pact Dark One's Blessing)
+- `enemy.dies-within-range` — a hostile dies within range (Ranger
+  Hunter's Mark transfer cases)
+- `enemy.damage.dealt` — used for retributive on-damage triggers
+- `enemy.enters-reach` — Polearm Master opportunity attack
+- `enemy.disengages-within-5ft` — Sentinel Halt opportunity attack
+
+*Ally events (subject = a friendly within range):*
+- `ally.attacked-within-5ft` — Sentinel reaction attack
+- `ally.crit` — used by some support-class reaction triggers
 
 The engine maintains a small state — `pendingTriggers[]` — populated when
 the UI signals an event. The trigger registration in the engine is purely
 declarative; UI is responsible for firing events and showing the pending
-list.
+list. New events get added here as content authors need them; the engine
+just stores the `on` list as opaque strings until a combat tracker / GM
+console fires them.
 
 ## Activities
 
