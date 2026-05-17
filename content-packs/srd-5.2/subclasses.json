@@ -1,0 +1,141 @@
+[
+  {
+    "kind": "subclass",
+    "slug": "path-of-the-berserker",
+    "version": 1,
+    "name": "Path of the Berserker",
+    "data": {
+      "parentClass": "barbarian",
+      "features": ["frenzy", "mindless-rage"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "college-of-lore",
+    "version": 1,
+    "name": "College of Lore",
+    "data": {
+      "parentClass": "bard",
+      "features": ["bonus-proficiencies-lore", "cutting-words", "magical-secrets-lore"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "life-domain",
+    "version": 1,
+    "name": "Life Domain",
+    "data": {
+      "parentClass": "cleric",
+      "features": [
+        "life-domain-spells",
+        "life-domain-heavy-armor",
+        "disciple-of-life",
+        "preserve-life",
+        "blessed-healer"
+      ]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "circle-of-the-land",
+    "version": 1,
+    "name": "Circle of the Land",
+    "data": {
+      "parentClass": "druid",
+      "features": ["circle-of-the-land-spells", "lands-aid", "natural-recovery"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "champion",
+    "version": 1,
+    "name": "Champion",
+    "data": {
+      "parentClass": "fighter",
+      "features": ["improved-critical", "remarkable-athlete"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "way-of-the-open-hand",
+    "version": 1,
+    "name": "Way of the Open Hand",
+    "data": {
+      "parentClass": "monk",
+      "features": ["open-hand-technique", "wholeness-of-body"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "oath-of-devotion",
+    "version": 1,
+    "name": "Oath of Devotion",
+    "data": {
+      "parentClass": "paladin",
+      "features": [
+        "devotion-spells",
+        "channel-divinity-sacred-weapon",
+        "channel-divinity-holy-rebuke",
+        "aura-of-devotion"
+      ]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "hunter",
+    "version": 1,
+    "name": "Hunter",
+    "data": {
+      "parentClass": "ranger",
+      "features": ["hunters-lore", "hunters-prey"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "thief",
+    "version": 1,
+    "name": "Thief",
+    "data": {
+      "parentClass": "rogue",
+      "features": ["fast-hands", "second-story-work"]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "draconic-sorcery",
+    "version": 1,
+    "name": "Draconic Sorcery",
+    "data": {
+      "parentClass": "sorcerer",
+      "features": [
+        "draconic-resilience",
+        "dragon-ancestry",
+        "elemental-affinity"
+      ]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "fiend-patron",
+    "version": 1,
+    "name": "Fiend Patron",
+    "data": {
+      "parentClass": "warlock",
+      "features": [
+        "fiend-spells",
+        "dark-ones-blessing",
+        "dark-ones-own-luck"
+      ]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "evocation",
+    "version": 1,
+    "name": "Evocation",
+    "data": {
+      "parentClass": "wizard",
+      "features": ["evocation-savant", "sculpt-spells", "potent-cantrip"]
+    }
+  }
+]

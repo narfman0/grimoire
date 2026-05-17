@@ -1,0 +1,772 @@
+[
+  {
+    "kind": "feature",
+    "slug": "frenzy",
+    "version": 1,
+    "name": "Frenzy",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "path-of-the-berserker",
+      "minLevel": 3,
+      "note": "While Raging, immediately after taking the Attack action on your turn you can make one additional melee weapon attack as a bonus action (Frenzied Strike). On a hit, you can choose to push the target up to 10 ft or knock it prone. In 2024 Frenzy no longer imposes a level of exhaustion. v0 surfaces this as a tagged action-modifier; the bonus-action Frenzied Strike isn't synthesized as a discrete action yet.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "frenzy-rider",
+          "name": "Frenzied Strike",
+          "appliesWhen": { "condition": "rage" },
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "attack.range": "melee" }]
+          },
+          "effects": [
+            { "target": "tag.frenzy-rider-available", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "mindless-rage",
+    "version": 1,
+    "name": "Mindless Rage",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "path-of-the-berserker",
+      "minLevel": 3,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "immunity.charmed",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": { "condition": "rage" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "immunity.frightened",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": { "condition": "rage" }
+        }
+      ],
+      "note": "While Raging you can't be Charmed or Frightened. If Charmed/Frightened when you enter rage, the effect is suspended for the rage's duration."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "bonus-proficiencies-lore",
+    "version": 1,
+    "name": "Bonus Proficiencies (Lore)",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "college-of-lore",
+      "minLevel": 3,
+      "note": "Gain proficiency in three skills of your choice when you adopt this subclass at level 3. v0 surfaces the choice; the skill picks live on character.classes[].choices.loreSkills and the engine should add them as proficiency.skill.<slug> stat-modifiers (not yet wired).",
+      "choice": {
+        "kind": "skill",
+        "pick": 3,
+        "from": "any"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "cutting-words",
+    "version": 1,
+    "name": "Cutting Words",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "college-of-lore",
+      "minLevel": 3,
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "cutting-words",
+          "name": "Cutting Words",
+          "on": ["enemy.attack.declare", "enemy.check.declare", "enemy.damage.dealt"],
+          "scope": { "predicates": [{ "distance.from-self.ft": { "lte": 60 } }, { "target.can-hear": true }] },
+          "grants": {
+            "activityType": "utility",
+            "cost": "reaction",
+            "effect": "subtract-bardic-inspiration-die-from-target-roll"
+          }
+        }
+      ],
+      "note": "When a creature you can see within 60 feet that can hear you makes an attack roll, an ability check, or a damage roll, you can use your reaction to expend a use of Bardic Inspiration and subtract the rolled die from the creature's roll. Can be used after seeing the roll but before the DM declares whether it succeeds. v0 surfaces as a trigger; Bardic Inspiration die accounting lives on the bard class row."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "magical-secrets-lore",
+    "version": 1,
+    "name": "Magical Secrets",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "college-of-lore",
+      "minLevel": 6,
+      "note": "Learn two spells of your choice from any class's spell list. Each spell must be of a level you can cast (or a cantrip) and counts as a Bard spell for you. v0 surfaces the choice; the picks live on character.classes[].choices.magicalSecrets and the engine should add the chosen spells to bard.spells.known (not yet wired).",
+      "choice": {
+        "kind": "spell",
+        "pick": 2,
+        "from": "any-class-list"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "life-domain-spells",
+    "version": 1,
+    "name": "Life Domain Spells",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "life-domain",
+      "minLevel": 3,
+      "note": "You always have the following always-prepared Domain spells (do not count against your prepared limit): L1 Bless, Cure Wounds; L3 Lesser Restoration, Spiritual Weapon; L5 Mass Healing Word, Revivify; L7 Aura of Life, Death Ward; L9 Mass Cure Wounds, Raise Dead. v0 surfaces this as a note; auto-prep injection into character.spells.prepared isn't wired yet.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.domain-spells.life", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "life-domain-heavy-armor",
+    "version": 1,
+    "name": "Heavy Armor Training (Life Domain)",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "life-domain",
+      "minLevel": 3,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.armor.heavy", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "disciple-of-life",
+    "version": 1,
+    "name": "Disciple of Life",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "life-domain",
+      "minLevel": 3,
+      "note": "Whenever you cast a spell of level 1+ that restores HP to a creature, the creature regains an additional 2 + the spell's level HP. v0 surfaces as a tagged action-modifier on heal-typed activities; the additive amount isn't applied to the heal roll yet.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "disciple-of-life-rider",
+          "name": "Disciple of Life",
+          "appliesTo": { "activityType": "heal" },
+          "effects": [
+            { "target": "heal.bonus", "mode": "ADD", "value": "spellLevelPlus2" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "preserve-life",
+    "version": 1,
+    "name": "Channel Divinity: Preserve Life",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "life-domain",
+      "minLevel": 3,
+      "note": "Use one Channel Divinity charge as an action to create a pool of healing equal to 5 x your cleric level. Distribute the pool among creatures within 30 ft you can see (including yourself); each creature can only be brought up to half its HP max with this pool. Consumes a Channel Divinity use from the cleric class row.",
+      "activities": [
+        {
+          "id": "preserve-life",
+          "type": "heal",
+          "name": "Preserve Life (Channel Divinity)",
+          "cost": "action",
+          "range": { "value": 30, "units": "ft" },
+          "damage": {
+            "parts": [
+              { "dice": "0", "type": "healing", "scaling": { "per-class-level": "cleric", "addBonus": "fiveTimesClericLevel" } }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "blessed-healer",
+    "version": 1,
+    "name": "Blessed Healer",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "life-domain",
+      "minLevel": 6,
+      "note": "When you cast a spell of level 1+ that restores HP to a creature other than yourself, you also regain HP equal to 2 + the spell's level. v0 surfaces as a tagged action-modifier on heal-typed activities targeting others; the self-heal credit isn't applied automatically.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "blessed-healer-rider",
+          "name": "Blessed Healer",
+          "appliesTo": { "activityType": "heal" },
+          "effects": [
+            { "target": "self.heal-on-heal-other", "mode": "OVERRIDE", "value": "spellLevelPlus2" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "circle-of-the-land-spells",
+    "version": 1,
+    "name": "Circle of the Land Spells",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "circle-of-the-land",
+      "minLevel": 3,
+      "note": "You always have the following Druid spells always-prepared (selected from your chosen land's spell list — Arctic, Coast, Desert, Forest, Grassland, Mountain, Swamp, or Underdark). Choose your land at L3; spells don't count against your prepared limit. v0 surfaces this as a flag + a choice; auto-prep injection isn't wired.",
+      "choice": {
+        "kind": "circle-land",
+        "pick": 1,
+        "from": ["arctic", "coast", "desert", "forest", "grassland", "mountain", "swamp", "underdark"]
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.circle-land-spells", "mode": "OVERRIDE", "value": "unset" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "lands-aid",
+    "version": 1,
+    "name": "Land's Aid",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "circle-of-the-land",
+      "minLevel": 3,
+      "note": "As a Magic action, expend a use of Wild Shape to target a point within 60 ft. Each creature you choose in a 10-ft radius sphere centered on that point must make a Constitution save (Spell DC) — taking 2d6 necrotic damage on a failure or half on a success. Each creature of your choice in that area also regains 2d6 HP. Damage and healing scale at L10/14/17. v0 models the base L3 version as a save activity; selecting healed targets is left to play.",
+      "activities": [
+        {
+          "id": "lands-aid",
+          "type": "save",
+          "name": "Land's Aid",
+          "cost": "action",
+          "range": { "value": 60, "units": "ft" },
+          "save": { "ability": "con", "dc": { "calc": "spell" } },
+          "damage": {
+            "parts": [
+              { "dice": "2d6", "type": "necrotic" },
+              { "dice": "2d6", "type": "healing" }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "natural-recovery",
+    "version": 1,
+    "name": "Natural Recovery",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "circle-of-the-land",
+      "minLevel": 6,
+      "note": "Once per long rest, when you finish a short rest you can recover expended spell slots whose combined level is no greater than half your druid level (rounded up), with no slot above level 5. v0 surfaces a 1/long-rest utility; the slot-recovery accounting is left to the player.",
+      "activities": [
+        {
+          "id": "natural-recovery",
+          "type": "utility",
+          "name": "Natural Recovery",
+          "cost": "free",
+          "trigger": "short-rest-completed",
+          "uses": { "max": 1, "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "improved-critical",
+    "version": 1,
+    "name": "Improved Critical",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "champion",
+      "minLevel": 3,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "attack.crit-threshold", "mode": "DOWNGRADE", "value": 19 }
+      ],
+      "note": "Your weapon attacks score a critical hit on a roll of 19 or 20 on the d20. In 2024 this is gated to weapon attacks (spell attacks do not benefit)."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "remarkable-athlete",
+    "version": 1,
+    "name": "Remarkable Athlete",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "champion",
+      "minLevel": 3,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "initiative", "mode": "ADD", "value": "strMod" }
+      ],
+      "note": "2024 Champion: when you roll Initiative, add your STR modifier to the roll. You also have a climbing and swimming speed equal to your walking speed and can use STR (Athletics) for a running long/high jump distance bonus. v0 applies the +STR to initiative; the climb/swim speed and jump bonuses aren't synthesized yet."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "open-hand-technique",
+    "version": 1,
+    "name": "Open Hand Technique",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "way-of-the-open-hand",
+      "minLevel": 3,
+      "note": "When you hit a creature with one of the attacks granted by your Flurry of Blows, you can impose one of the following effects on that target: (a) it must make a DEX save or be knocked prone; (b) it must make a STR save or be pushed up to 15 ft from you; (c) it can't take reactions until the end of your next turn (no save). v0 surfaces as a tagged action-modifier on Flurry of Blows attacks; effect picks and save resolution are left to play.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "open-hand-technique-rider",
+          "name": "Open Hand Technique",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "attack.tag": "flurry-of-blows" }]
+          },
+          "effects": [
+            { "target": "tag.open-hand-rider-available", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "wholeness-of-body",
+    "version": 1,
+    "name": "Wholeness of Body",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "way-of-the-open-hand",
+      "minLevel": 6,
+      "note": "As a bonus action, expend a Focus Point to heal yourself for 2d8 + your WIS modifier HP. v0 surfaces a heal activity costing a focus point; focus-point accounting lives on the monk class row.",
+      "activities": [
+        {
+          "id": "wholeness-of-body",
+          "type": "heal",
+          "name": "Wholeness of Body",
+          "cost": "bonus",
+          "damage": {
+            "parts": [{ "dice": "2d8", "type": "healing", "scaling": { "addBonus": "wisMod" } }]
+          },
+          "uses": { "max": "focusPoints", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "devotion-spells",
+    "version": 1,
+    "name": "Devotion Spells",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "oath-of-devotion",
+      "minLevel": 3,
+      "note": "You always have the following always-prepared paladin spells: L3 Protection from Evil and Good, Shield of Faith; L5 Lesser Restoration, Zone of Truth; L9 Beacon of Hope, Dispel Magic; L13 Freedom of Movement, Guardian of Faith; L17 Commune, Flame Strike. They don't count against your prepared limit. v0 surfaces this as a flag; auto-prep injection isn't wired.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.oath-spells.devotion", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "channel-divinity-sacred-weapon",
+    "version": 1,
+    "name": "Channel Divinity: Sacred Weapon",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "oath-of-devotion",
+      "minLevel": 3,
+      "note": "As a Bonus Action, expend a use of Channel Divinity to imbue one weapon you're holding with positive energy for 1 minute. For the duration: attacks with the weapon gain a bonus to attack rolls equal to your CHA modifier (min +1), the weapon deals an extra 1d8 radiant damage on hit, and it emits bright light in a 20-ft radius (and dim 20 ft more). Consumes a Channel Divinity use from the paladin class row.",
+      "activities": [
+        {
+          "id": "channel-divinity-sacred-weapon",
+          "type": "utility",
+          "name": "Sacred Weapon (Channel Divinity)",
+          "cost": "bonus",
+          "duration": { "value": 1, "units": "minute", "concentration": false }
+        }
+      ],
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "sacred-weapon-bonus",
+          "name": "Sacred Weapon",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "weapon.classification": "weapon" }]
+          },
+          "effects": [
+            { "target": "attack.roll", "mode": "ADD", "value": "chaMod" },
+            { "target": "damage.bonus", "mode": "ADD", "value": "1d8" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "channel-divinity-holy-rebuke",
+    "version": 1,
+    "name": "Channel Divinity: Holy Rebuke",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "oath-of-devotion",
+      "minLevel": 3,
+      "note": "When a creature within 60 ft hits you with an attack, expend a use of Channel Divinity as a reaction to deal radiant damage to it equal to 2d8 + your paladin level. The creature can attempt a CON save for half damage. (In 2024 PHB this replaced the 2014 'Turn the Unholy'.) v0 surfaces this as a reaction-cost save activity.",
+      "activities": [
+        {
+          "id": "holy-rebuke",
+          "type": "save",
+          "name": "Holy Rebuke (Channel Divinity)",
+          "cost": "reaction",
+          "range": { "value": 60, "units": "ft" },
+          "save": { "ability": "con", "dc": { "calc": "spell" } },
+          "damage": {
+            "parts": [
+              { "dice": "2d8", "type": "radiant", "scaling": { "per-class-level": "paladin", "addBonus": "paladinLevel" } }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "aura-of-devotion",
+    "version": 1,
+    "name": "Aura of Devotion",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "oath-of-devotion",
+      "minLevel": 6,
+      "note": "You and your allies have Immunity to the Charmed condition while within 10 ft of you (or 30 ft at L18). The aura is suppressed while you have the Incapacitated condition. v0 applies the self portion of the immunity; ally-aura broadcasting isn't modelled.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "immunity.charmed", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "aura.charmed-immunity.radius", "mode": "OVERRIDE", "value": 10 }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "hunters-lore",
+    "version": 1,
+    "name": "Hunter's Lore",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "hunter",
+      "minLevel": 3,
+      "note": "You can call on the spirits of nature to reveal certain strengths and weaknesses of a creature you can see within 120 ft as a bonus action. The DM tells you if the creature has any Damage Immunities/Resistances/Vulnerabilities. v0 surfaces a bonus-action utility; the info reveal is a DM-side action.",
+      "activities": [
+        {
+          "id": "hunters-lore",
+          "type": "utility",
+          "name": "Hunter's Lore",
+          "cost": "bonus",
+          "range": { "value": 120, "units": "ft" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "hunters-prey",
+    "version": 1,
+    "name": "Hunter's Prey",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "hunter",
+      "minLevel": 3,
+      "note": "Choose one of the following at L3: Colossus Slayer (once per turn when you hit a creature with a weapon you can deal an extra 1d8 damage if the target is below its hit point maximum); Horde Breaker (once per turn when you make a weapon attack you can make another weapon attack against a different creature within 5 ft of the first and within your weapon range); Giant Killer (when a Large or larger creature within 5 ft of you hits or misses you with an attack, you can use your reaction to make one melee weapon attack against it). v0 surfaces all three as action/trigger modifiers but only Colossus Slayer auto-applies; the others are tagged. Pick lives on character.classes[].choices.huntersPrey.",
+      "choice": {
+        "kind": "hunters-prey",
+        "pick": 1,
+        "from": ["colossus-slayer", "horde-breaker", "giant-killer"]
+      },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "colossus-slayer",
+          "name": "Colossus Slayer",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.classification": "weapon" },
+              { "target.below-max-hp": true }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": "1d8" }
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "giant-killer",
+          "name": "Giant Killer",
+          "on": ["enemy.attack.declare"],
+          "scope": {
+            "predicates": [
+              { "target.size": ["large", "huge", "gargantuan"] },
+              { "distance.from-self.ft": { "lte": 5 } }
+            ]
+          },
+          "grants": {
+            "activityType": "attack",
+            "cost": "reaction",
+            "usingWeapon": "any-melee",
+            "limit": { "per": "turn", "uses": 1 }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fast-hands",
+    "version": 1,
+    "name": "Fast Hands",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "thief",
+      "minLevel": 3,
+      "note": "You can use the bonus action granted by Cunning Action to take the Utilize action; to make a Sleight of Hand check; or to use Thieves' Tools to disarm a trap or pick a lock. v0 surfaces this as a tagged trait — the underlying bonus-action grant is on the rogue Cunning Action feature row.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.fast-hands", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "second-story-work",
+    "version": 1,
+    "name": "Second-Story Work",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "thief",
+      "minLevel": 3,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.climb", "mode": "UPGRADE", "value": 30 }
+      ],
+      "note": "You gain a Climb Speed equal to your Speed (v0 uses a flat 30; the engine should match this to the character's walking speed). When you make a running jump, your jump distance increases by a number of feet equal to your Dexterity modifier. The latter is left as a note; jump math isn't modelled in v0."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-resilience",
+    "version": 1,
+    "name": "Draconic Resilience",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "draconic-sorcery",
+      "minLevel": 3,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "sorcererLevel" },
+        { "kind": "stat-modifier", "target": "ac.formula", "mode": "OVERRIDE", "value": { "base": 13, "abilities": ["dex"], "requires": "no-armor" } }
+      ],
+      "note": "Your hit point maximum increases by an amount equal to your Sorcerer level (v0 evaluates 'sorcererLevel' as the sorcerer class level). When you aren't wearing armor your AC = 13 + your DEX modifier."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "dragon-ancestry",
+    "version": 1,
+    "name": "Dragon Ancestry",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "draconic-sorcery",
+      "minLevel": 3,
+      "note": "Choose a dragon type at L3 (black: acid; blue: lightning; brass: fire; bronze: lightning; copper: acid; gold: fire; green: poison; red: fire; silver: cold; white: cold). You gain the ability to speak, read, and write Draconic. The chosen dragon's damage type ties into Elemental Affinity (L6). Pick lives on character.classes[].choices.dragonAncestry.",
+      "choice": {
+        "kind": "dragon-ancestry",
+        "pick": 1,
+        "from": ["black", "blue", "brass", "bronze", "copper", "gold", "green", "red", "silver", "white"]
+      },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.language.draconic", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "elemental-affinity",
+    "version": 1,
+    "name": "Elemental Affinity",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "draconic-sorcery",
+      "minLevel": 6,
+      "note": "When you cast a spell that deals damage of the type associated with your Draconic Ancestry, you can add your CHA modifier to one damage roll of that spell. You also gain Resistance to that damage type. v0 surfaces a tagged action-modifier on cast activities (the damage-type predicate keys off the chosen ancestry); the resistance is granted unconditionally as the player picks the type at edit time and the engine can OVERRIDE the right resistance.<type>. Both the bonus damage and the dynamic resistance are left to the engine extension for full mapping — the modifier here is a generic flag.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "elemental-affinity-bonus",
+          "name": "Elemental Affinity (CHA bonus damage)",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "cast",
+            "predicates": [{ "damage.type.matches-dragon-ancestry": true }]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": "chaMod" }
+          ]
+        },
+        { "kind": "stat-modifier", "target": "trait.elemental-affinity-resistance", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fiend-spells",
+    "version": 1,
+    "name": "Fiend Spells",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "fiend-patron",
+      "minLevel": 3,
+      "note": "You always have the following always-prepared Warlock spells (in addition to those you know): L3 Burning Hands, Command; L5 Blindness/Deafness, Scorching Ray; L7 Fireball, Stinking Cloud; L9 Fire Shield, Wall of Fire. They don't count against your prepared limit. v0 surfaces this as a flag; auto-prep injection isn't wired.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.patron-spells.fiend", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "dark-ones-blessing",
+    "version": 1,
+    "name": "Dark One's Blessing",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "fiend-patron",
+      "minLevel": 3,
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "dark-ones-blessing",
+          "name": "Dark One's Blessing",
+          "on": ["enemy.reduce-to-zero", "enemy.dies-within-range"],
+          "scope": { "predicates": [{ "distance.from-self.ft": { "lte": 30 } }] },
+          "grants": {
+            "activityType": "utility",
+            "cost": "free",
+            "effect": "gain-temp-hp",
+            "amount": "warlockLevelPlusChaMod"
+          }
+        }
+      ],
+      "note": "When you reduce a creature to 0 HP, or when a creature within 30 ft of you (other than you) is reduced to 0 HP by anyone, you gain Temporary HP equal to your CHA modifier + your Warlock level (minimum 1). In 2024 the trigger expanded so any nearby enemy death qualifies — not just kills by the warlock."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "dark-ones-own-luck",
+    "version": 1,
+    "name": "Dark One's Own Luck",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "fiend-patron",
+      "minLevel": 6,
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "dark-ones-own-luck",
+          "name": "Dark One's Own Luck",
+          "on": ["check.declare", "save.declare"],
+          "scope": { "predicates": [{ "self.is-target": true }] },
+          "grants": {
+            "activityType": "utility",
+            "cost": "free",
+            "effect": "add-d10-to-roll"
+          },
+          "limit": { "per": "short-rest", "uses": 1 }
+        }
+      ],
+      "note": "When you make an ability check or saving throw, you can add 1d10 to the roll. You can do so after seeing the roll but before any of its effects occur. Once used, you can't use this feature again until you finish a Short or Long Rest. (v0 'limit.per' uses short-rest semantics.)"
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "evocation-savant",
+    "version": 1,
+    "name": "Evocation Savant",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "evocation",
+      "minLevel": 3,
+      "note": "When you adopt this subclass at L3, you gain two free Evocation spells of your choice from the wizard spell list, added to your spellbook. Whenever you gain a Wizard level after L3, you can add one Evocation spell to your spellbook for free. v0 surfaces the L3 picks as a choice; ongoing per-level bonus picks aren't tracked.",
+      "choice": {
+        "kind": "spell",
+        "pick": 2,
+        "from": "wizard-evocation"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "sculpt-spells",
+    "version": 1,
+    "name": "Sculpt Spells",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "evocation",
+      "minLevel": 3,
+      "note": "When you cast an Evocation spell that affects other creatures you can see, you can choose a number of those creatures equal to 1 + the spell's level. The chosen creatures automatically succeed on their saving throws against the spell, and they take no damage if they would normally take half damage on a success. v0 surfaces a tagged action-modifier on Evocation casts; ally-protection logic is left to play.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "sculpt-spells-rider",
+          "name": "Sculpt Spells",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "cast",
+            "predicates": [{ "spell.school": "evocation" }]
+          },
+          "effects": [
+            { "target": "tag.sculpt-spells", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "potent-cantrip",
+    "version": 1,
+    "name": "Potent Cantrip",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "evocation",
+      "minLevel": 6,
+      "note": "When a creature succeeds on a saving throw against your cantrip, the creature takes half the damage (if any) but suffers no additional effect from the cantrip. v0 surfaces a tagged action-modifier on cantrip cast activities; half-on-save semantics are left to the engine extension.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "potent-cantrip-rider",
+          "name": "Potent Cantrip",
+          "appliesTo": {
+            "activityType": "cast",
+            "predicates": [{ "spell.level": 0 }]
+          },
+          "effects": [
+            { "target": "tag.potent-cantrip", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ]
+    }
+  }
+]
