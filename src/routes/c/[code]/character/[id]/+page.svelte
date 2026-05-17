@@ -273,6 +273,69 @@
     restNote = `Set ${classSlug} subclass to ${choice}.`;
   }
 
+  // ---- retroactive background + ASI bump picker ----
+  //
+  // Creation form doesn't ask for these (deliberately — kept it simple +
+  // dodged a reactivity bug). Surface it here when document.background is
+  // null. State updates use explicit on:change handlers, NOT reactive `$:`,
+  // so the user's dropdown picks aren't blown away by recompute.
+  let bgDraftSlug = '';
+  let bgDraftMode: 'two-one' | 'three-ones' = 'two-one';
+  let bgDraftBumps: Array<{ ability: string; bonus: number }> = [];
+
+  $: bgDraftMeta = data.backgroundOptions.find((b) => b.slug === bgDraftSlug);
+
+  function makeBgBumps(
+    mode: 'two-one' | 'three-ones',
+    slug: string
+  ): Array<{ ability: string; bonus: number }> {
+    const bg = data.backgroundOptions.find((b) => b.slug === slug);
+    const choices = bg?.abilityChoices ?? [];
+    if (mode === 'two-one') {
+      return [
+        { ability: choices[0] ?? 'str', bonus: 2 },
+        { ability: choices[1] ?? 'dex', bonus: 1 }
+      ];
+    }
+    return choices.slice(0, 3).map((a) => ({ ability: a, bonus: 1 }));
+  }
+
+  function selectBgDraft(e: Event) {
+    const slug = (e.target as HTMLSelectElement).value;
+    bgDraftSlug = slug;
+    bgDraftBumps = makeBgBumps(bgDraftMode, slug);
+  }
+
+  function selectBgMode(mode: 'two-one' | 'three-ones') {
+    bgDraftMode = mode;
+    bgDraftBumps = makeBgBumps(mode, bgDraftSlug);
+  }
+
+  async function applyBackground() {
+    if (!bgDraftSlug) {
+      restNote = 'Pick a background first.';
+      return;
+    }
+    const distinct = new Set(bgDraftBumps.map((b) => b.ability));
+    if (distinct.size !== bgDraftBumps.length) {
+      restNote = 'Ability bumps must be distinct.';
+      return;
+    }
+    const bumps = bgDraftBumps;
+    const slug = bgDraftSlug;
+    await patchDocument((d) => {
+      d.background = {
+        kind: 'background',
+        slug,
+        version: 1,
+        choices: { asis: bumps }
+      };
+    });
+    restNote = `Set background to ${slug}.`;
+    bgDraftSlug = '';
+    bgDraftBumps = [];
+  }
+
   function cancelLevelUp() {
     levelingUp = null;
   }
@@ -578,6 +641,80 @@
       {/if}
     </section>
   {/each}
+
+  <!-- Retroactive background picker: surfaces if no background is set yet. -->
+  {#if !document.background}
+    <section class="mb-6 rounded-lg border border-amber-800 bg-amber-950/30 p-4 text-sm">
+      <h2 class="mb-2 text-sm font-semibold text-amber-200">No background set</h2>
+      <p class="mb-3 text-xs text-amber-100">
+        Pick a background and apply its ability bumps. 2024 PHB grants +2/+1 or +1/+1/+1 across the background's three allowed abilities.
+      </p>
+
+      <div class="flex gap-2 mb-3">
+        <select
+          class="flex-1 rounded border border-amber-700 bg-slate-950 px-2 py-1"
+          value={bgDraftSlug}
+          on:change={selectBgDraft}
+        >
+          <option value="">— pick background —</option>
+          {#each data.backgroundOptions as opt}
+            <option value={opt.slug}>{opt.name}</option>
+          {/each}
+        </select>
+      </div>
+
+      {#if bgDraftMeta}
+        <fieldset class="rounded border border-amber-800 bg-slate-950/30 p-3 mb-3">
+          <legend class="px-1 text-xs uppercase tracking-wide text-amber-300">
+            Bumps ({bgDraftMeta.abilityChoices.map((a) => a.toUpperCase()).join(' / ')})
+          </legend>
+          <div class="mb-2 flex gap-4 text-xs">
+            <label class="flex items-center gap-1">
+              <input
+                type="radio"
+                name="bg-draft-mode"
+                checked={bgDraftMode === 'two-one'}
+                on:change={() => selectBgMode('two-one')}
+              />
+              <span>+2 / +1</span>
+            </label>
+            <label class="flex items-center gap-1">
+              <input
+                type="radio"
+                name="bg-draft-mode"
+                checked={bgDraftMode === 'three-ones'}
+                on:change={() => selectBgMode('three-ones')}
+              />
+              <span>+1 / +1 / +1</span>
+            </label>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            {#each bgDraftBumps as bump, i}
+              <label class="text-xs">
+                <span class="block text-amber-300">+{bump.bonus} to</span>
+                <select
+                  class="w-full rounded border border-amber-700 bg-slate-950 px-2 py-1 uppercase"
+                  bind:value={bgDraftBumps[i].ability}
+                >
+                  {#each bgDraftMeta.abilityChoices as a}
+                    <option value={a}>{a.toUpperCase()}</option>
+                  {/each}
+                </select>
+              </label>
+            {/each}
+          </div>
+        </fieldset>
+
+        <button
+          class="rounded bg-amber-700 px-3 py-1 text-sm hover:bg-amber-600 disabled:opacity-40"
+          disabled={busy}
+          on:click={applyBackground}
+        >
+          Apply background
+        </button>
+      {/if}
+    </section>
+  {/if}
 
   <!-- Level up -->
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
