@@ -1,0 +1,70 @@
+[
+  {
+    "kind": "background",
+    "slug": "acolyte",
+    "version": 1,
+    "name": "Acolyte",
+    "data": {
+      "abilityChoices": ["int", "wis", "cha"],
+      "skillProficiencies": ["insight", "religion"],
+      "toolProficiencies": [],
+      "languages": [],
+      "originFeat": "magic-initiate-cleric",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.insight", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.religion", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "soldier",
+    "version": 1,
+    "name": "Soldier",
+    "data": {
+      "abilityChoices": ["str", "dex", "con"],
+      "skillProficiencies": ["athletics", "intimidation"],
+      "toolProficiencies": ["gaming-set"],
+      "languages": [],
+      "originFeat": "savage-attacker",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.athletics", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.intimidation", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "criminal",
+    "version": 1,
+    "name": "Criminal",
+    "data": {
+      "abilityChoices": ["dex", "con", "int"],
+      "skillProficiencies": ["sleight-of-hand", "stealth"],
+      "toolProficiencies": ["thieves-tools"],
+      "languages": [],
+      "originFeat": "alert",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.sleight-of-hand", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.stealth", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "sage",
+    "version": 1,
+    "name": "Sage",
+    "data": {
+      "abilityChoices": ["con", "int", "wis"],
+      "skillProficiencies": ["arcana", "history"],
+      "toolProficiencies": ["calligraphers-supplies"],
+      "languages": [],
+      "originFeat": "magic-initiate-wizard",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.arcana", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.history", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  }
+]

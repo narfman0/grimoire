@@ -7,10 +7,32 @@
   let newName = '';
   let speciesSlug = data.speciesOptions[0]?.slug ?? '';
   let classSlug = data.classOptions[0]?.slug ?? '';
+  let backgroundSlug = data.backgroundOptions[0]?.slug ?? '';
   let level = 1;
   let abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  let asiMode: 'two-one' | 'three-ones' = 'two-one';
+  // Both modes are stored as an array of {ability, bonus} entries.
+  // two-one: [{a, 2}, {b, 1}]; three-ones: [{a, 1}, {b, 1}, {c, 1}]
+  let asiBumps: Array<{ ability: string; bonus: number }> = [];
   let busy = false;
   let error: string | null = null;
+
+  $: bg = data.backgroundOptions.find((b) => b.slug === backgroundSlug);
+  $: asiBumps = computeAsiBumps(asiMode, bg);
+
+  function computeAsiBumps(
+    mode: 'two-one' | 'three-ones',
+    bg: typeof data.backgroundOptions[number] | undefined
+  ): Array<{ ability: string; bonus: number }> {
+    const choices = bg?.abilityChoices ?? [];
+    if (mode === 'two-one') {
+      return [
+        { ability: choices[0] ?? 'str', bonus: 2 },
+        { ability: choices[1] ?? 'dex', bonus: 1 }
+      ];
+    }
+    return choices.slice(0, 3).map((a) => ({ ability: a, bonus: 1 }));
+  }
 
   function abilityMod(score: number): number {
     return Math.floor((score - 10) / 2);
@@ -41,11 +63,28 @@
       const hpRolledPerLevel = buildHpRolledPerLevel(cls.hitDie, level);
       const maxHp = hpRolledPerLevel.reduce((a, b) => a + b, 0) + abilityMod(abilities.con) * level;
 
+      // Validate ASI bumps: abilities must all be in the background's allowed
+      // set, and at most one duplicate is allowed for the +2/+1 case (both
+      // distinct), three distinct for +1/+1/+1.
+      const distinct = new Set(asiBumps.map((b) => b.ability));
+      if (asiBumps.length > 0 && distinct.size !== asiBumps.length) {
+        error = 'ability score bumps must be distinct';
+        return;
+      }
+
       const document = {
         id: 'placeholder', // server forces real id at insert time
         name: newName,
         classes: [{ slug: classSlug, level, hpRolledPerLevel }],
         species: { kind: 'species', slug: speciesSlug, version: 1 },
+        background: backgroundSlug
+          ? {
+              kind: 'background',
+              slug: backgroundSlug,
+              version: 1,
+              choices: { asis: asiBumps }
+            }
+          : undefined,
         feats: [],
         abilityScores: { ...abilities },
         proficienciesChosen: {},
@@ -179,7 +218,77 @@
           required
         />
       </label>
+
+      <label class="text-sm md:col-span-2">
+        <span class="mb-1 block text-slate-400">Background</span>
+        <select
+          class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
+          bind:value={backgroundSlug}
+        >
+          {#each data.backgroundOptions as opt}
+            <option value={opt.slug}>{opt.name}</option>
+          {/each}
+        </select>
+      </label>
     </div>
+
+    {#if bg}
+      <fieldset class="rounded border border-slate-800 bg-slate-950/30 p-3 text-sm">
+        <legend class="px-1 text-xs uppercase tracking-wide text-slate-500">
+          Ability bumps ({bg.abilityChoices.map((a) => a.toUpperCase()).join(' / ')})
+        </legend>
+        <div class="mb-2 flex gap-4 text-sm">
+          <label class="flex items-center gap-1">
+            <input type="radio" bind:group={asiMode} value="two-one" />
+            <span>+2 to one, +1 to another</span>
+          </label>
+          <label class="flex items-center gap-1">
+            <input type="radio" bind:group={asiMode} value="three-ones" />
+            <span>+1 to three (all)</span>
+          </label>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          {#if asiMode === 'two-one'}
+            <label class="text-xs">
+              <span class="block text-slate-500">+2 to</span>
+              <select
+                class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                bind:value={asiBumps[0].ability}
+              >
+                {#each bg.abilityChoices as a}
+                  <option value={a}>{a.toUpperCase()}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="text-xs">
+              <span class="block text-slate-500">+1 to</span>
+              <select
+                class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                bind:value={asiBumps[1].ability}
+              >
+                {#each bg.abilityChoices as a}
+                  <option value={a}>{a.toUpperCase()}</option>
+                {/each}
+              </select>
+            </label>
+          {:else}
+            {#each asiBumps as _, i}
+              <label class="text-xs">
+                <span class="block text-slate-500">+1 to</span>
+                <select
+                  class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                  bind:value={asiBumps[i].ability}
+                >
+                  {#each bg.abilityChoices as a}
+                    <option value={a}>{a.toUpperCase()}</option>
+                  {/each}
+                </select>
+              </label>
+            {/each}
+          {/if}
+        </div>
+      </fieldset>
+    {/if}
 
     <fieldset class="grid grid-cols-3 gap-3 md:grid-cols-6">
       {#each abilityKeys as ab}

@@ -57,6 +57,16 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     .from(schema.content)
     .where(eq(schema.content.kind, 'class'));
 
+  const backgroundRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'background'));
+
   return {
     campaign: campaignRows[0],
     displayName,
@@ -77,6 +87,19 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
       name: r.name,
       source: r.source,
       hitDie: (JSON.parse(r.data as string) as { hitDie?: number }).hitDie ?? 8
-    }))
+    })),
+    backgroundOptions: backgroundRows.map((r) => {
+      const data = JSON.parse(r.data as string) as {
+        abilityChoices?: string[];
+        skillProficiencies?: string[];
+      };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        abilityChoices: data.abilityChoices ?? [],
+        skillProficiencies: data.skillProficiencies ?? []
+      };
+    })
   };
 };

@@ -162,6 +162,32 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         raw: t
       });
     }
+
+    // 2024 background ASI choices: the player picked +2/+1 or +1/+1/+1
+    // distribution onto the background's `abilityChoices`. The choice lives
+    // on character.background.choices.asis; synthesize stat-modifiers from
+    // it here so phase 2 picks them up like any other ability bump.
+    if (a.row.kind === 'background' && character.background?.slug === a.row.slug) {
+      const allowed = (a.data.abilityChoices as string[] | undefined) ?? [];
+      const asis = (character.background.choices as
+        | { asis?: Array<{ ability: string; bonus: number }> }
+        | undefined)?.asis ?? [];
+      for (let i = 0; i < asis.length; i++) {
+        const asi = asis[i];
+        if (!allowed.includes(asi.ability)) continue; // illegal choice — drop
+        allMods.push({
+          id: `background/${a.row.slug}/asi/${i}`,
+          kind: 'stat-modifier',
+          source: a,
+          raw: {
+            kind: 'stat-modifier',
+            target: `ability.${asi.ability}`,
+            mode: 'ADD',
+            value: asi.bonus
+          }
+        });
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
