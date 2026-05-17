@@ -44,6 +44,7 @@ export function serializeDerived(d: Derived) {
       resistances: [...d.stats.resistances],
       immunities: [...d.stats.immunities],
       vulnerabilities: [...d.stats.vulnerabilities]
-    }
+    },
+    toggles: d.toggles
   };
 }

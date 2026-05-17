@@ -166,10 +166,19 @@ export interface ValidationIssue {
   message: string;
 }
 
+export interface AvailableToggle {
+  id: string;
+  name: string;
+  defaultEnabled: boolean;
+  currentlyEnabled: boolean;
+  sourceContent: { kind: string; slug: string };
+}
+
 export interface Derived {
   stats: StatBlock;
   actions: Action[];
   triggers: TriggerDeclaration[];
   resources: Resource[];
   validations: ValidationIssue[];
+  toggles: AvailableToggle[];
 }

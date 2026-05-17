@@ -17,6 +17,7 @@ import type {
   AbilityKey,
   Action,
   AppliedModifier,
+  AvailableToggle,
   CharacterDocument,
   ContentLookup,
   ContentRef,
@@ -452,7 +453,30 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
-  return { stats, actions, triggers, resources, validations };
+  // -------------------------------------------------------------------------
+  // Surface user-toggleable action modifiers for the edit UI. Only modifiers
+  // that declare `defaultEnabled` are exposed — those are the ones the rules
+  // text says are "the player's choice" (Reckless Attack, GWM Power Attack…).
+  // Always-on modifiers (Rage damage, Savage Attacks, Divine Fury) don't
+  // appear as toggles since the player has no decision to make.
+  // -------------------------------------------------------------------------
+
+  const toggles: AvailableToggle[] = [];
+  for (const m of allMods) {
+    if (m.kind !== 'action-modifier') continue;
+    if (!('defaultEnabled' in m.raw)) continue;
+    const defaultEnabled = m.raw.defaultEnabled as boolean;
+    const currentlyEnabled = character.modifierToggles[m.id] ?? defaultEnabled;
+    toggles.push({
+      id: m.id,
+      name: (m.raw.name as string | undefined) ?? m.id,
+      defaultEnabled,
+      currentlyEnabled,
+      sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug }
+    });
+  }
+
+  return { stats, actions, triggers, resources, validations, toggles };
 }
 
 // ---------------------------------------------------------------------------
