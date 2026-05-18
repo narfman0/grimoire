@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { derive } from '$lib/rules';
 import type { CharacterDocument } from '$lib/rules/types';
@@ -38,6 +38,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .select({
       id: schema.characters.id,
       campaignId: schema.characters.campaignId,
+      ownerUserId: schema.characters.ownerUserId,
       name: schema.characters.name,
       document: schema.characters.document,
       updatedAt: schema.characters.updatedAt
@@ -62,7 +63,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   // + liveEncounter are null but the picker option lists still load —
   // simpler client typing, no narrowing-then-undefined cascade.
   const document = character.document ? (JSON.parse(character.document) as CharacterDocument) : null;
-  const { lookup, map: contentMap } = await buildContentLookup();
+  // Pass the character's owner so their homebrew content rows are visible to
+  // derive() — that user's homebrew wins slug collisions against any
+  // pack-loaded row of the same kind/slug.
+  const { lookup, map: contentMap } = await buildContentLookup(
+    character.ownerUserId ?? undefined
+  );
   const derived = document ? derive(document, lookup) : null;
 
   // Item picker options for the inventory section.
@@ -174,15 +180,30 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 
   // Feat picker options. We ship `category` so the picker can group / filter
   // by Origin / General / Fighting Style / Epic Boon when packs annotate.
+  //
+  // Visibility: pack-loaded rows (owner_user_id IS NULL) are global; in-app
+  // homebrew rows are scoped to the character owner so authored feats appear
+  // in their own characters' pickers across any campaign. Scoped to the
+  // *character owner*, not the viewer — keeps the picker and the rules
+  // engine (buildContentLookup above) in lockstep.
+  const homebrewScope = character.ownerUserId;
   const featRows = await db
     .select({
       slug: schema.content.slug,
       name: schema.content.name,
       source: schema.content.source,
-      data: schema.content.data
+      data: schema.content.data,
+      ownerUserId: schema.content.ownerUserId
     })
     .from(schema.content)
-    .where(eq(schema.content.kind, 'feat'));
+    .where(
+      and(
+        eq(schema.content.kind, 'feat'),
+        homebrewScope
+          ? or(isNull(schema.content.ownerUserId), eq(schema.content.ownerUserId, homebrewScope))
+          : isNull(schema.content.ownerUserId)
+      )
+    );
   const featOptions = featRows
     .map((r) => {
       const data = JSON.parse(r.data as string) as {
@@ -207,7 +228,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         category: data.category ?? '',
         description: data.description ?? '',
         prerequisite: data.prerequisite ?? '',
-        choices: data.choices ?? null
+        choices: data.choices ?? null,
+        isHomebrew: r.ownerUserId !== null
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

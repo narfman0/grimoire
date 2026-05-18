@@ -39,6 +39,7 @@
       </div>
       <div class="flex items-center gap-3 text-slate-400">
         {#if data.user}
+          <a class="text-xs hover:text-slate-200" href="/me/homebrew/feats">Homebrew</a>
           <span class="font-mono text-xs">{data.user.username}</span>
           <button
             class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:text-slate-200 disabled:opacity-40"

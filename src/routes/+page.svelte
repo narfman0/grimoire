@@ -48,19 +48,78 @@
 </script>
 
 <svelte:head>
-  <title>My campaigns — Grimoire</title>
+  <title>Home — Grimoire</title>
 </svelte:head>
 
-<header class="mb-6 flex items-baseline justify-between">
-  <div>
-    <h1 class="text-2xl font-semibold">My campaigns</h1>
-    <p class="text-sm text-slate-400">Logged in as <span class="font-mono">{data.user.username}</span>.</p>
-  </div>
-  <a class="text-xs text-slate-400 hover:text-emerald-300" href="/characters">My characters →</a>
+<header class="mb-6">
+  <h1 class="text-2xl font-semibold">Home</h1>
+  <p class="text-sm text-slate-400">Logged in as <span class="font-mono">{data.user.username}</span>.</p>
 </header>
 
-{#if data.campaigns.length > 0}
-  <section class="mb-8">
+<section class="mb-8">
+  <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    Characters
+    {#if data.characters.length > 0}<span class="ml-1 text-xs text-slate-600">({data.characters.length})</span>{/if}
+  </h2>
+  {#if data.characters.length === 0}
+    <p class="rounded border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
+      No characters yet. Open a campaign below and use "+ create one."
+    </p>
+  {:else}
+    <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900/40">
+      {#each data.characters as c (c.id)}
+        <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+          <div class="min-w-0 flex-1">
+            {#if c.campaigns.length > 0}
+              <a
+                class="font-medium hover:text-emerald-300"
+                href={`/c/${c.campaigns[0].code}/character/${c.id}`}
+                title={`Open in ${c.campaigns[0].name}`}
+              >
+                {c.name}
+              </a>
+            {:else}
+              <span class="font-medium text-slate-300">{c.name}</span>
+              <span class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                retired
+              </span>
+            {/if}
+            {#if c.descLine}
+              <p class="text-xs text-slate-500">{c.descLine}</p>
+            {/if}
+          </div>
+          <div class="flex flex-wrap items-center gap-1 text-xs text-slate-400">
+            {#each c.campaigns as link}
+              <a
+                class="rounded border border-slate-700 px-2 py-0.5 hover:border-emerald-600 hover:text-emerald-200"
+                href={`/c/${link.code}/character/${c.id}`}
+              >
+                {link.name}
+              </a>
+            {/each}
+            {#if c.totalLevel > 0}
+              <span class="ml-1 font-mono text-[10px] text-slate-600">L{c.totalLevel}</span>
+            {/if}
+          </div>
+        </li>
+      {/each}
+    </ul>
+    <p class="mt-2 text-xs text-slate-500">
+      <a class="hover:text-slate-200" href="/characters">All characters →</a>
+    </p>
+  {/if}
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    Campaigns
+    {#if data.campaigns.length > 0}<span class="ml-1 text-xs text-slate-600">({data.campaigns.length})</span>{/if}
+  </h2>
+  {#if data.campaigns.length === 0}
+    <p class="rounded border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
+      No campaigns yet. Create one below or join one with a code.
+    </p>
+  {:else}
     <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900/40">
       {#each data.campaigns as c}
         <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -80,12 +139,8 @@
         </li>
       {/each}
     </ul>
-  </section>
-{:else}
-  <p class="mb-8 rounded border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
-    No campaigns yet. Create one below or join one with a code.
-  </p>
-{/if}
+  {/if}
+</section>
 
 <section class="grid gap-8 md:grid-cols-2">
   <form on:submit={createCampaign} class="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-5">

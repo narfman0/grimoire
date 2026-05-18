@@ -2178,6 +2178,11 @@
                 }}
               >
                 {meta?.name ?? f.slug}
+                {#if !meta}
+                  <span class="ml-1 rounded border border-amber-800/60 bg-amber-950/40 px-1 text-[9px] uppercase tracking-wide text-amber-300">missing</span>
+                {:else if meta.isHomebrew}
+                  <span class="ml-1 rounded border border-indigo-800/60 bg-indigo-950/40 px-1 text-[9px] uppercase tracking-wide text-indigo-300">homebrew</span>
+                {/if}
                 {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
                 {#if describeFeatChoices(f.slug)}
                   <span class="ml-1 text-[10px] text-emerald-300/80">{describeFeatChoices(f.slug)}</span>
@@ -2220,7 +2225,7 @@
             {#each data.featOptions as opt}
               {@const taken = document.feats.some((f) => f.slug === opt.slug)}
               <option value={opt.slug} disabled={taken}>
-                {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if taken} · already taken{/if}
+                {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if opt.isHomebrew} · homebrew{/if}{#if taken} · already taken{/if}
               </option>
             {/each}
           </select>

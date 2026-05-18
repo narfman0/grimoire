@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import type { CharacterDocument } from '$lib/rules/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -78,8 +79,69 @@ export const load: PageServerLoad = async ({ locals }) => {
       .sort((a, b) => b.joinedAt - a.joinedAt);
   }
 
+  // User-owned characters (across all campaigns, including unlinked /
+  // retired). Mirrored from /characters/+page.server.ts so the home hub
+  // shows characters as content, not just a link.
+  const charRows = await db
+    .select({
+      id: schema.characters.id,
+      name: schema.characters.name,
+      document: schema.characters.document,
+      updatedAt: schema.characters.updatedAt
+    })
+    .from(schema.characters)
+    .where(eq(schema.characters.ownerUserId, locals.user.id))
+    .orderBy(desc(schema.characters.updatedAt));
+
+  const charIds = charRows.map((c) => c.id);
+  const links = charIds.length
+    ? await db
+        .select({
+          characterId: schema.campaignCharacters.characterId,
+          campaignCode: schema.campaigns.code,
+          campaignName: schema.campaigns.name
+        })
+        .from(schema.campaignCharacters)
+        .innerJoin(
+          schema.campaigns,
+          eq(schema.campaigns.id, schema.campaignCharacters.campaignId)
+        )
+        .where(inArray(schema.campaignCharacters.characterId, charIds))
+    : [];
+  const linksByChar = new Map<string, Array<{ code: string; name: string }>>();
+  for (const l of links) {
+    const arr = linksByChar.get(l.characterId) ?? [];
+    arr.push({ code: l.campaignCode, name: l.campaignName });
+    linksByChar.set(l.characterId, arr);
+  }
+
+  const characters = charRows.map((c) => {
+    let descLine = '';
+    let totalLevel = 0;
+    if (c.document) {
+      try {
+        const doc = JSON.parse(c.document) as CharacterDocument;
+        const cls = doc.classes
+          .map((k) => `${k.slug}${k.subclass ? ` (${k.subclass})` : ''} ${k.level}`)
+          .join(', ');
+        descLine = `${doc.species?.slug ?? 'unknown'} — ${cls}`;
+        totalLevel = doc.classes.reduce((s, k) => s + k.level, 0);
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      id: c.id,
+      name: c.name,
+      descLine,
+      totalLevel,
+      campaigns: linksByChar.get(c.id) ?? []
+    };
+  });
+
   return {
     user: locals.user,
-    campaigns
+    campaigns,
+    characters
   };
 };
