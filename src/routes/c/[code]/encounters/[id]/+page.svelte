@@ -7,6 +7,7 @@
     clearTurnPlan,
     applyDamage as doApplyDamage,
     applyHeal as doApplyHeal,
+    setParticipantHp,
     type ConnectedEncounter,
     type EncounterSnapshot,
     type ParticipantHp
@@ -354,6 +355,9 @@
   let newMonsterSlug = data.monsterOptions[0]?.slug ?? '';
   let newInitiative: number | null = null;
   let newMaxHp: number | null = null;
+  /** How many copies of the monster/NPC to add. PCs can't be duplicated.
+   *  When > 1 the names are auto-suffixed "#1, #2, …" so they're distinguishable. */
+  let newQuantity = 1;
 
   // When the picked monster changes, pre-fill name + HP from the statblock.
   // Use on:change rather than $: to avoid clobbering DM-overridden values.
@@ -378,30 +382,35 @@
 
   async function addParticipant() {
     if (newKind === 'pc' && !newCharacterId) return;
+    const qty = newKind === 'pc' ? 1 : Math.max(1, Math.min(20, Math.floor(newQuantity || 1)));
+    const baseName =
+      newKind === 'pc'
+        ? (data.campaignCharacters.find((c) => c.id === newCharacterId)?.name ?? newName)
+        : newName;
     busy = true;
     try {
-      const body: Record<string, unknown> = {
-        name: newKind === 'pc'
-          ? (data.campaignCharacters.find((c) => c.id === newCharacterId)?.name ?? newName)
-          : newName,
-        kind: newKind,
-        initiative: newInitiative ?? undefined,
-        maxHp: newMaxHp ?? undefined,
-        currentHp: newMaxHp ?? undefined
-      };
-      if (newKind === 'pc') body.characterId = newCharacterId;
-      if (newKind === 'monster' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
-      const res = await fetch(`/api/encounters/${data.encounter.id}/participants`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (res.ok) {
-        newName = '';
-        newInitiative = null;
-        newMaxHp = null;
-        await invalidateAll();
+      for (let i = 0; i < qty; i++) {
+        const body: Record<string, unknown> = {
+          name: qty > 1 ? `${baseName} #${i + 1}` : baseName,
+          kind: newKind,
+          initiative: newInitiative ?? undefined,
+          maxHp: newMaxHp ?? undefined,
+          currentHp: newMaxHp ?? undefined
+        };
+        if (newKind === 'pc') body.characterId = newCharacterId;
+        if (newKind === 'monster' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
+        const res = await fetch(`/api/encounters/${data.encounter.id}/participants`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) break;
       }
+      newName = '';
+      newInitiative = null;
+      newMaxHp = null;
+      newQuantity = 1;
+      await invalidateAll();
     } finally {
       busy = false;
     }
@@ -432,11 +441,59 @@
     }
   }
 
+  /** Flip the encounter through its staging → live → ended state machine. */
+  async function setEncounterStatus(status: 'staging' | 'live' | 'ended') {
+    if (data.role !== 'dm') return;
+    if (status === 'ended' && !confirm('End this encounter? It becomes read-only history.')) return;
+    busy = true;
+    try {
+      await fetch(`/api/encounters/${data.encounter.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+
   function inputValue(e: Event): string {
     return (e.target as HTMLInputElement).value;
   }
 
   const KINDS: Array<'pc' | 'npc' | 'monster'> = ['pc', 'npc', 'monster'];
+  const COMMON_CONDITIONS = [
+    'blinded', 'charmed', 'deafened', 'frightened', 'grappled',
+    'incapacitated', 'invisible', 'paralyzed', 'petrified', 'poisoned',
+    'prone', 'restrained', 'stunned', 'unconscious'
+  ];
+
+  /** Toggle a condition on a non-PC participant. Writes through Y.Doc when
+   *  sync is open, falls back to REST. PC conditions live on the character
+   *  doc — not editable from the encounter view. */
+  async function toggleCondition(
+    p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] },
+    cond: string
+  ) {
+    const seed = seedFor(p);
+    const current = liveHpMap[p.id]?.conditions ?? seed.conditions;
+    const next = current.includes(cond)
+      ? current.filter((c) => c !== cond)
+      : [...current, cond];
+    if (conn && connStatus === 'open') {
+      setParticipantHp(conn.ydoc, p.id, { ...seed, ...liveHpMap[p.id], conditions: next });
+    } else {
+      await fetch(`/api/participants/${p.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ conditions: next })
+      });
+      await invalidateAll();
+    }
+  }
+
+  let conditionsOpenFor: string | null = null;
 
   async function advanceTurn(direction: 1 | -1) {
     if (data.role !== 'dm') return;
@@ -507,9 +564,42 @@
       {/if}
     </p>
   </div>
-  <a class="text-xs text-slate-400 hover:text-slate-200" href={`/c/${data.campaign.code}/encounters`}>
-    ← all encounters
-  </a>
+  <div class="flex items-center gap-3">
+    {#if data.role === 'dm'}
+      {#if data.encounter.status === 'staging'}
+        <button
+          class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+          disabled={busy || data.participants.length === 0}
+          title={data.participants.length === 0
+            ? 'Add at least one participant first'
+            : 'Flip to live combat'}
+          on:click={() => setEncounterStatus('live')}
+        >
+          ▶ Start encounter
+        </button>
+      {:else if data.encounter.status === 'live'}
+        <button
+          class="rounded border border-slate-600 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
+          disabled={busy}
+          on:click={() => setEncounterStatus('ended')}
+        >
+          ■ End
+        </button>
+      {:else}
+        <button
+          class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
+          disabled={busy}
+          title="Reopen to staging"
+          on:click={() => setEncounterStatus('staging')}
+        >
+          ↺ Reopen
+        </button>
+      {/if}
+    {/if}
+    <a class="text-xs text-slate-400 hover:text-slate-200" href={`/c/${data.campaign.code}/encounters`}>
+      ← all encounters
+    </a>
+  </div>
 </header>
 
 {#if data.encounter.status === 'live' && data.role === 'dm'}
@@ -607,6 +697,55 @@
             <button class="text-xs text-slate-500 hover:text-red-400" on:click={() => removeParticipant(p.id)} disabled={busy}>
               ×
             </button>
+          {/if}
+          {#if p.kind !== 'pc'}
+            {@const conds = liveHpMap[p.id]?.conditions ?? p.conditions}
+            {#if conds.length > 0 || conditionsOpenFor === p.id}
+              <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
+                {#each conds as c}
+                  <button
+                    class="rounded border border-amber-700 bg-amber-950/30 px-1.5 py-0.5 text-amber-200 hover:bg-amber-900/40 disabled:opacity-40"
+                    disabled={busy || data.role !== 'dm'}
+                    title="Remove condition"
+                    on:click={() => toggleCondition(p, c)}
+                  >
+                    {c} ×
+                  </button>
+                {/each}
+                {#if data.role === 'dm' && conditionsOpenFor === p.id}
+                  {#each COMMON_CONDITIONS.filter((c) => !conds.includes(c)) as c}
+                    <button
+                      class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
+                      disabled={busy}
+                      on:click={() => toggleCondition(p, c)}
+                    >
+                      + {c}
+                    </button>
+                  {/each}
+                  <button
+                    class="text-slate-500 hover:text-slate-200"
+                    on:click={() => (conditionsOpenFor = null)}
+                  >
+                    done
+                  </button>
+                {:else if data.role === 'dm'}
+                  <button
+                    class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
+                    on:click={() => (conditionsOpenFor = p.id)}
+                  >
+                    + add
+                  </button>
+                {/if}
+              </div>
+            {:else if data.role === 'dm'}
+              <button
+                class="text-[10px] text-slate-500 hover:text-slate-300"
+                title="Add a condition"
+                on:click={() => (conditionsOpenFor = p.id)}
+              >
+                + cond
+              </button>
+            {/if}
           {/if}
           {#if plan}
             <div class="basis-full pl-12 text-xs text-slate-400">
@@ -722,12 +861,25 @@
             bind:value={newInitiative}
           />
         </label>
+        {#if newKind !== 'pc'}
+          <label class="text-xs">
+            <span class="block text-slate-400">Qty</span>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              class="w-14 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+              bind:value={newQuantity}
+              title="Adding N copies suffixes the names #1, #2, …"
+            />
+          </label>
+        {/if}
         <button
           class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
           on:click={addParticipant}
           disabled={busy || (newKind !== 'pc' && !newName) || (newKind === 'pc' && !newCharacterId)}
         >
-          Add
+          {newKind !== 'pc' && newQuantity > 1 ? `Add ${newQuantity}` : 'Add'}
         </button>
       </div>
       <p class="mt-2 text-xs text-slate-500">

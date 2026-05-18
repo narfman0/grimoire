@@ -887,6 +887,15 @@ function realizeActivity(
           formula: addAbilityToFormula(d.dice, mod),
           type: d.type
         }));
+      } else {
+        // 5etools shape: damage lives at act.damage.parts as a sibling of
+        // act.attack, not inline. Pull from there too. Ability mod typically
+        // isn't added to cantrip damage, so we copy `dice` straight through;
+        // weapon-style spells with the mod still go through the inline path.
+        const parts = (act.damage as { parts?: Array<{ dice: string; type: string }> } | undefined)?.parts;
+        if (parts) {
+          action.damageRolls = parts.map((d) => ({ formula: d.dice, type: d.type }));
+        }
       }
     }
   } else if (type === 'save') {
@@ -917,7 +926,9 @@ function resolveAttackAbility(
 ): AbilityKey {
   const a = attack.ability;
   if (!a) return 'str';
-  if (a === 'spellcasting') return stats.spellcastingAbility ?? 'int';
+  // `spellcasting` is the engine-native marker; `spell` is the 5etools
+  // convention. Both resolve to the caster's spellcasting ability.
+  if (a === 'spellcasting' || a === 'spell') return stats.spellcastingAbility ?? 'int';
   if (a.startsWith('best-of:')) {
     const opts = a.slice('best-of:'.length).split(',') as AbilityKey[];
     const properties = (source.data.properties as string[] | undefined) ?? [];
