@@ -43,14 +43,12 @@ single row or an array of rows. The loader normalizes both shapes.
   "slug": "srd-5.2",                     // pack identifier; primary key in `packs` table
   "name": "System Reference Document 5.2.1",
   "version": "5.2.1",                    // informational; row versions are independent
-  "default_source": "srd-5.2"            // applied to rows that omit `source`
+  "default_source": "srd-5.2",           // applied to rows that omit `source`
+  "author": "narfman0"                   // optional; stored in `packs.author`, shown in marketplace
 }
 ```
 
-Fields deliberately omitted for now: `license`, `publisher`, `attribution`,
-`visibility`. They'll come back when we ship the public API (these gate
-what `/api/content` returns and what UI footers show). Adding fields to
-`meta.json` later is a non-breaking change.
+Adding fields to `meta.json` later is a non-breaking change.
 
 ### Content row file
 
@@ -98,7 +96,8 @@ CREATE TABLE packs (
   name            TEXT NOT NULL,
   version         TEXT NOT NULL,
   default_source  TEXT NOT NULL,
-  loaded_at       INTEGER NOT NULL         -- unix ms of last successful load
+  loaded_at       INTEGER NOT NULL,        -- unix ms of last successful load
+  author          TEXT                     -- from meta.json `author`; nullable
 );
 ```
 
@@ -202,8 +201,8 @@ migration.
 - **CLI commands** (`content:sync`, `content:import`, `content:list`,
   `content:enable`) — none ship at M1.5. The likely first to land is
   `content:validate` for CI, once the validator exists.
-- **`license` / `publisher` / `attribution` / `visibility`** on `meta.json`.
-  Returns when the public API + UI attribution surfaces are built.
+- **`license` / `publisher` / `attribution`** on `meta.json`. Returns when the public API + UI attribution surfaces are built.
+- **`visibility`** on `meta.json` — content rows inserted by the loader already upsert as `'unlisted'` (discoverable by direct link, not in public browse). Full per-pack visibility gating on the API is deferred to the marketplace milestone.
 - **Content hashing** for skip-if-unchanged optimization. Don't need it at
   this scale.
 - **Pack-to-pack dependency declarations**. Alphabetical + FK validation

@@ -79,4 +79,5 @@ slugs that don't resolve to feature rows (transcription gaps).
 | M3 ✅      | Encounter builder, monster picker, live turn sync, planner, resolve + amend, action log |
 | M3.5 ✅    | Multi-target save, reaction + concentration, slots/resources, action-economy, monster derive, feat picker, hover popups |
 | M3.6 ✅    | Character ↔ campaign decoupling (M:N join table, /characters library, link/unlink)    |
+| M3.7 ✅    | Structured homebrew editors for all 11 content kinds; merged spell panel; encounter action-economy foldout with spell casting; pack `author` field + content upserted as `unlisted` (marketplace foundation) |
 | M4        | Shared notes / NPC tracker polish, dice roller broadcast, presence, undo, exporters     |
