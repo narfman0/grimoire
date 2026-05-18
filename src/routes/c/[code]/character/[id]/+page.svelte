@@ -4,9 +4,11 @@
   import Sheet from '$lib/components/Sheet.svelte';
   import HoverPopup from '$lib/components/HoverPopup.svelte';
   import InventoryPicker from '$lib/components/InventoryPicker.svelte';
+  import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
+  import SpellManagerModal from '$lib/components/SpellManagerModal.svelte';
   import { derive } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
-  import type { CharacterDocument, Derived, ContentLookup } from '$lib/rules/types';
+  import { lookupFromMap, type CharacterDocument, type Derived, type ContentLookup } from '$lib/rules/types';
   import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
   import {
     connectEncounterDoc,
@@ -90,10 +92,11 @@
   /** Snapshot from the live Y.Doc — null until first message arrives. */
   let liveDoc: CharacterDocument | null = null;
 
-  // Build a ContentLookup over the shipped contentMap. Lazy via $: so HMR
-  // updates of contentMap (rare) re-thread.
-  $: contentLookup = ((ref) =>
-    data.contentMap[`${ref.kind}/${ref.slug}`]) as ContentLookup;
+  // Build a ContentLookup over the shipped contentMap. The map is keyed by
+  // (kind, slug, authorUserId) so two authors' same-slug homebrew can both
+  // resolve when a character references each via authorUserId on the ref.
+  // `lookupFromMap` handles the null-author fallback for SRD-style refs.
+  $: contentLookup = lookupFromMap(data.contentMap) as ContentLookup;
 
   // The effective document: live Y.Doc snapshot when available, else the
   // SSR document. Falls back gracefully if the sync-server is offline.
@@ -621,7 +624,12 @@
   }
 
   // ---- feats ----
-  let featPickerSlug = data.featOptions[0]?.slug ?? '';
+  // Picker key is `pickerId` (slug+author) so two homebrew feats with the
+  // same slug from different authors are distinct dropdown entries. The
+  // selected option's authorUserId is stamped onto the character document's
+  // ContentRef so the engine resolves the right row even after slug
+  // collisions arrive.
+  let featPickerKey = data.featOptions[0]?.pickerId ?? '';
   let showFeatPicker = false;
 
   /** Heuristic feat budget. 5e baseline: 1 origin feat at L1 + 1 feat slot at
@@ -644,11 +652,24 @@
     return count;
   })();
 
-  function featMeta(slug: string) {
-    return data.featOptions.find((f) => f.slug === slug);
+  /** Resolve an option by (slug, authorUserId). When authorUserId is null/
+   *  undefined we prefer the global row, then any homebrew with that slug —
+   *  matches how buildContentLookup falls back. */
+  function featMeta(slug: string, authorUserId?: string | null) {
+    if (authorUserId != null) {
+      const exact = data.featOptions.find((f) => f.slug === slug && f.authorUserId === authorUserId);
+      if (exact) return exact;
+    }
+    return (
+      data.featOptions.find((f) => f.slug === slug && f.authorUserId === null) ??
+      data.featOptions.find((f) => f.slug === slug)
+    );
+  }
+  function featByPickerId(id: string) {
+    return data.featOptions.find((f) => f.pickerId === id);
   }
 
-  // Draft picks for the currently-selected feat. Reset whenever featPickerSlug
+  // Draft picks for the currently-selected feat. Reset whenever featPickerKey
   // changes so stale picks from a previous feat don't leak in.
   let featDraftAbility = '';
   let featDraftSkillProf = '';
@@ -658,8 +679,8 @@
   let featDraftTool = '';
   let featDraftSpells: string[] = [];
   let featDraftFeature = '';
-  let lastDraftSlug = '';
-  $: if (featPickerSlug !== lastDraftSlug) {
+  let lastDraftKey = '';
+  $: if (featPickerKey !== lastDraftKey) {
     featDraftAbility = '';
     featDraftSkillProf = '';
     featDraftExpertise = '';
@@ -668,9 +689,9 @@
     featDraftTool = '';
     featDraftSpells = [];
     featDraftFeature = '';
-    lastDraftSlug = featPickerSlug;
+    lastDraftKey = featPickerKey;
   }
-  $: pickedFeatChoices = featMeta(featPickerSlug)?.choices ?? null;
+  $: pickedFeatChoices = featByPickerId(featPickerKey)?.choices ?? null;
   /** Skill list restricted to "currently proficient" for the expertise input
    *  when the feat says `allowedSkills: 'proficient'`. Falls back to all
    *  skills if derived isn't ready. */
@@ -679,8 +700,8 @@
     : SKILLS;
 
   async function addFeat() {
-    if (!featPickerSlug) return;
-    const opt = featMeta(featPickerSlug);
+    if (!featPickerKey) return;
+    const opt = featByPickerId(featPickerKey);
     if (!opt) return;
     const choices: Record<string, unknown> = {};
     if (opt.choices?.asi && featDraftAbility) {
@@ -708,19 +729,25 @@
       choices.feature = { feature: featDraftFeature };
     }
     await patchDocument((d) => {
-      if (d.feats.some((f) => f.slug === opt.slug)) return;
+      // Dedupe per (slug, authorUserId) — Alice's and Bob's "alert" coexist.
+      if (d.feats.some((f) => f.slug === opt.slug && (f.authorUserId ?? null) === opt.authorUserId)) return;
       d.feats.push({
         kind: 'feat',
         slug: opt.slug,
+        // Only emit authorUserId when it's a homebrew row; keeps the
+        // document shape minimal for SRD/pack content.
+        ...(opt.authorUserId ? { authorUserId: opt.authorUserId } : {}),
         ...(Object.keys(choices).length > 0 ? { choices } : {})
       });
     });
     showFeatPicker = false;
-    featPickerSlug = '';
+    featPickerKey = '';
   }
-  async function removeFeat(slug: string) {
+  async function removeFeat(slug: string, authorUserId: string | null | undefined) {
     await patchDocument((d) => {
-      d.feats = d.feats.filter((f) => f.slug !== slug);
+      d.feats = d.feats.filter(
+        (f) => !(f.slug === slug && (f.authorUserId ?? null) === (authorUserId ?? null))
+      );
     });
   }
 
@@ -839,6 +866,10 @@
         contentKind: 'item',
         contentSlug: opt.slug,
         version: 1,
+        // Stamp homebrew author so the engine resolves the right row even
+        // when a pack and a subscription share a slug. Pack items stay
+        // unstamped (authorUserId null).
+        ...(opt.authorUserId ? { authorUserId: opt.authorUserId } : {}),
         equipped: false,
         attuned: false
       });
@@ -868,15 +899,28 @@
   }
 
   // ---- spells ----
-  let spellPickerSlug = data.spellOptions[0]?.slug ?? '';
+  let spellManagerOpen = false;
 
-  async function addSpell() {
-    if (!spellPickerSlug) return;
-    const opt = data.spellOptions.find((s) => s.slug === spellPickerSlug);
+  /** Picker emits the (slug,author) key so two same-slug spells from
+   *  different homebrew authors are distinct dropdown entries. We look up
+   *  the option by pickerId, dedupe per (slug, author) on the doc, and
+   *  stamp authorUserId so the engine resolves the right row even after
+   *  slug collisions land. Mirrors the feat add path above. */
+  async function addSpell(pickerId: string) {
+    const opt = data.spellOptions.find((s) => s.pickerId === pickerId);
     if (!opt) return;
     await patchDocument((d) => {
-      if (d.spells.known.some((k) => k.slug === opt.slug)) return; // dedupe
-      d.spells.known.push({ kind: 'spell', slug: opt.slug, version: 1 });
+      if (
+        d.spells.known.some(
+          (k) => k.slug === opt.slug && (k.authorUserId ?? null) === opt.authorUserId
+        )
+      ) return;
+      d.spells.known.push({
+        kind: 'spell',
+        slug: opt.slug,
+        version: 1,
+        ...(opt.authorUserId ? { authorUserId: opt.authorUserId } : {})
+      });
     });
   }
 
@@ -888,56 +932,19 @@
     });
   }
 
-  async function removeSpell(slug: string) {
+  /** Remove by (slug, author) so we don't yank a same-slug spell that
+   *  belongs to a different author. `prepared` is a slug-only list, so
+   *  drop it only when the last known copy of this slug is gone. */
+  async function removeSpell(slug: string, authorUserId: string | null | undefined) {
     await patchDocument((d) => {
-      d.spells.known = d.spells.known.filter((s) => s.slug !== slug);
-      d.spells.prepared = d.spells.prepared.filter((s) => s !== slug);
+      d.spells.known = d.spells.known.filter(
+        (s) => !(s.slug === slug && (s.authorUserId ?? null) === (authorUserId ?? null))
+      );
+      const stillKnown = d.spells.known.some((s) => s.slug === slug);
+      if (!stillKnown) {
+        d.spells.prepared = d.spells.prepared.filter((s) => s !== slug);
+      }
     });
-  }
-
-  function spellMeta(slug: string) {
-    return data.spellOptions.find((s) => s.slug === slug);
-  }
-
-  function levelLabel(level: number): string {
-    if (level === 0) return 'cantrip';
-    if (level === 1) return '1st';
-    if (level === 2) return '2nd';
-    if (level === 3) return '3rd';
-    return `${level}th`;
-  }
-
-  /** Group known spells by level. Cantrips (level 0) are surfaced
-   *  separately since they don't consume slots and aren't "prepared". */
-  $: knownByLevel = (() => {
-    if (!document) return new Map<number, Array<{ slug: string; name: string; school: string }>>();
-    const out = new Map<number, Array<{ slug: string; name: string; school: string }>>();
-    for (const ref of document.spells.known) {
-      const meta = spellMeta(ref.slug);
-      const lvl = meta?.level ?? 99;
-      if (!out.has(lvl)) out.set(lvl, []);
-      out.get(lvl)!.push({
-        slug: ref.slug,
-        name: meta?.name ?? ref.slug,
-        school: meta?.school ?? ''
-      });
-    }
-    for (const arr of out.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
-    return out;
-  })();
-
-  $: knownLevels = [...knownByLevel.keys()].sort((a, b) => a - b);
-
-  /** Picker filter — restrict the dropdown to one level for fast lookup. */
-  let spellPickerLevel: number | 'all' = 'all';
-  $: filteredSpellOptions =
-    spellPickerLevel === 'all'
-      ? data.spellOptions
-      : data.spellOptions.filter((s) => s.level === spellPickerLevel);
-  /** Reset the picked slug when the filter changes if the current pick is no
-   *  longer in the filtered list — avoids stale "Add" submissions. */
-  $: if (spellPickerSlug && !filteredSpellOptions.some((s) => s.slug === spellPickerSlug)) {
-    spellPickerSlug = filteredSpellOptions[0]?.slug ?? '';
   }
 
   $: preparedCount = document?.spells.prepared.length ?? 0;
@@ -1423,6 +1430,9 @@
                         }}
                       />
                       <span class="flex-1 truncate text-slate-300">{p.name}</span>
+                      {#if p.kind !== 'pc' && !p.reveals?.vitals}
+                        <HpBucketBadge value={p.hpBucket} />
+                      {/if}
                       <input
                         type="number"
                         class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[10px]"
@@ -1838,12 +1848,31 @@
     {/if}
   </section>
 
-  <!-- Spell slots + resources (mutable cluster) -->
+  <!-- Spell slots + spellbook header + resources (mutable cluster) -->
   {@const slotLevels = Object.keys(derived.stats.spellSlots).map(Number).sort((a, b) => a - b)}
   {#if slotLevels.length > 0 || derived.resources.length > 0}
     <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
       {#if slotLevels.length > 0}
         <div>
+          {#if derived.stats.spellcastingAbility}
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-semibold text-slate-200">
+                  {preparedCount} prepared · {document.spells.known.length} known
+                </p>
+                <p class="text-xs text-slate-500">
+                  {derived.stats.spellcastingAbility.toUpperCase()} · {(derived.stats.spellAttackBonus ?? 0) >= 0 ? '+' : ''}{derived.stats.spellAttackBonus ?? 0} atk · DC {derived.stats.spellSaveDC ?? 0}
+                </p>
+              </div>
+              <button
+                class="rounded border border-emerald-700 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-900/40"
+                on:click={() => (spellManagerOpen = true)}
+              >
+                Manage spells ▸
+              </button>
+            </div>
+            <hr class="mb-2 border-slate-700" />
+          {/if}
           <h2 class="mb-2 text-sm font-semibold text-slate-200">Spell slots</h2>
           <ul class="space-y-1 text-sm">
             {#each slotLevels as lvl}
@@ -1921,7 +1950,7 @@
       <ul class="flex flex-wrap gap-2 text-sm">
         {#each COMMON_CONDITIONS as cond}
           {@const on = document.conditions.includes(cond)}
-          {@const row = data.contentMap[`condition/${cond}`]}
+          {@const row = contentLookup({ kind: 'condition', slug: cond })}
           {@const cdata = conditionMeta(row)}
           <li>
             <label
@@ -2205,9 +2234,9 @@
       </p>
     {:else if document.feats.length > 0}
       <ul class="mb-3 divide-y divide-slate-800 rounded border border-slate-800">
-        {#each document.feats as f (f.slug)}
-          {@const meta = featMeta(f.slug)}
-          {@const expandedKey = `feat-expand-${f.slug}`}
+        {#each document.feats as f (`${f.slug}|${f.authorUserId ?? ''}`)}
+          {@const meta = featMeta(f.slug, f.authorUserId)}
+          {@const expandedKey = `feat-expand-${f.slug}-${f.authorUserId ?? ''}`}
           <li class="text-xs">
             <div class="flex items-center gap-2 px-2 py-1">
               <button
@@ -2223,6 +2252,8 @@
                     {meta?.name ?? f.slug}
                     {#if !meta}
                       <span class="ml-1 rounded border border-amber-800/60 bg-amber-950/40 px-1 text-[9px] uppercase tracking-wide text-amber-300">missing</span>
+                    {:else if meta.isSubscribed}
+                      <span class="ml-1 rounded border border-sky-800/60 bg-sky-950/40 px-1 text-[9px] uppercase tracking-wide text-sky-300">subscribed</span>
                     {:else if meta.isHomebrew}
                       <span class="ml-1 rounded border border-indigo-800/60 bg-indigo-950/40 px-1 text-[9px] uppercase tracking-wide text-indigo-300">homebrew</span>
                     {/if}
@@ -2255,7 +2286,7 @@
                 class="text-[10px] text-slate-500 hover:text-red-400"
                 disabled={busy}
                 title="Remove feat"
-                on:click={() => removeFeat(f.slug)}
+                on:click={() => removeFeat(f.slug, f.authorUserId)}
               >
                 ×
               </button>
@@ -2278,21 +2309,30 @@
         <div class="flex gap-2">
           <select
             class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1"
-            bind:value={featPickerSlug}
+            bind:value={featPickerKey}
           >
             <option value="">— pick a feat —</option>
             {#each data.featOptions as opt}
-              {@const taken = document.feats.some((f) => f.slug === opt.slug)}
-              <option value={opt.slug} disabled={taken}>
-                {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if opt.isHomebrew} · homebrew{/if}{#if taken} · already taken{/if}
+              {@const taken = document.feats.some(
+                (f) => f.slug === opt.slug && (f.authorUserId ?? null) === opt.authorUserId
+              )}
+              <option value={opt.pickerId} disabled={taken}>
+                {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if opt.isSubscribed} · subscribed{:else if opt.isHomebrew} · homebrew{/if}{#if taken} · already taken{/if}
               </option>
             {/each}
           </select>
           <button
             class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
             disabled={busy ||
-              !featPickerSlug ||
-              document.feats.some((f) => f.slug === featPickerSlug) ||
+              !featPickerKey ||
+              (() => {
+                const opt = featByPickerId(featPickerKey);
+                return opt
+                  ? document.feats.some(
+                      (f) => f.slug === opt.slug && (f.authorUserId ?? null) === opt.authorUserId
+                    )
+                  : true;
+              })() ||
               (!!pickedFeatChoices?.asi && !featDraftAbility) ||
               (!!pickedFeatChoices?.skillProficiency && !featDraftSkillProf) ||
               (!!pickedFeatChoices?.expertise && !featDraftExpertise) ||
@@ -2608,163 +2648,17 @@
     />
   {/if}
 
-  <!-- Spells — grouped by level, cantrips separated, prepared count visible -->
-  {#if derived.stats.spellcastingAbility}
-    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-      <div class="mb-3 flex items-baseline justify-between">
-        <h2 class="text-sm font-semibold text-slate-200">Spells</h2>
-        <span class="text-xs text-slate-500">
-          {preparedCount} prepared · {document.spells.known.length} known
-        </span>
-      </div>
-
-      {#if knownLevels.length === 0}
-        <p class="mb-3 text-xs text-slate-500">
-          Nothing in the spellbook yet. Add one below — toggle "prep" to make it available today.
-        </p>
-      {:else}
-        {#each knownLevels as lvl}
-          {@const entries = knownByLevel.get(lvl) ?? []}
-          <div class="mb-3">
-            <div class="mb-1 flex items-baseline gap-2">
-              <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {levelLabel(lvl)}
-              </h3>
-              {#if lvl > 0 && derived.stats.spellSlots[lvl]}
-                {@const slot = derived.stats.spellSlots[lvl]}
-                <span class="font-mono text-[10px] text-slate-500">
-                  slots {slot.max - slot.used}/{slot.max}
-                </span>
-              {/if}
-              {#if lvl === 0}
-                <span class="text-[10px] text-slate-600">— always available, no prep</span>
-              {/if}
-            </div>
-            <ul class="divide-y divide-slate-800 rounded border border-slate-800">
-              {#each entries as e (e.slug)}
-                {@const prep = document.spells.prepared.includes(e.slug)}
-                {@const meta = spellMeta(e.slug)}
-                <li class="flex items-center gap-2 px-2 py-1 text-xs">
-                  <span class="flex-1 {prep || lvl === 0 ? 'text-slate-200' : 'text-slate-500'}">
-                    <HoverPopup>
-                      <span>
-                        {e.name}
-                        {#if e.school}<span class="ml-1 text-slate-600">· {e.school}</span>{/if}
-                      </span>
-                      <svelte:fragment slot="popup">
-                        <div class="mb-1 font-semibold text-slate-200">{e.name}</div>
-                        <div class="text-slate-400">
-                          {levelLabel(meta?.level ?? lvl)}{#if e.school} · {e.school}{/if}
-                          {#if meta?.ritual} · ritual{/if}
-                          {#if meta?.concentration} · concentration{/if}
-                        </div>
-                        {#if meta?.castingTime}
-                          <div><span class="text-slate-500">Cast:</span> {meta.castingTime}</div>
-                        {/if}
-                        {#if meta?.range}
-                          <div>
-                            <span class="text-slate-500">Range:</span>
-                            {#if typeof meta.range === 'string'}
-                              {meta.range}
-                            {:else if meta.range.value != null}
-                              {meta.range.value}{#if meta.range.units} {meta.range.units}{/if}
-                            {/if}
-                          </div>
-                        {/if}
-                        {#if meta?.components && meta.components.length > 0}
-                          <div><span class="text-slate-500">Components:</span> {meta.components.join(', ').toUpperCase()}</div>
-                        {/if}
-                        {#if meta?.duration}
-                          <div>
-                            <span class="text-slate-500">Duration:</span>
-                            {#if typeof meta.duration === 'string'}
-                              {meta.duration}
-                            {:else if meta.duration.value != null}
-                              {meta.duration.value}{#if meta.duration.units} {meta.duration.units}{/if}
-                            {/if}
-                          </div>
-                        {/if}
-                        {#if meta?.save}
-                          <div>
-                            <span class="text-slate-500">Save:</span>
-                            {meta.save.ability.toUpperCase()}
-                            {#if meta.save.calc === 'spell'} (vs spell DC){:else if meta.save.value} DC {meta.save.value}{/if}
-                          </div>
-                        {/if}
-                        {#if meta?.attackKind}
-                          <div><span class="text-slate-500">Attack:</span> {meta.attackKind}</div>
-                        {/if}
-                        {#if meta?.damage && meta.damage.length > 0}
-                          <div>
-                            <span class="text-slate-500">Damage:</span>
-                            {meta.damage.map((d) => `${d.dice} ${d.type}`).join(' + ')}
-                          </div>
-                        {/if}
-                        {#if meta?.description}
-                          <p class="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap border-t border-slate-800 pt-2 text-slate-300">{meta.description}</p>
-                        {/if}
-                        <div class="mt-1 text-[10px] text-slate-600">{meta?.source ?? ''}</div>
-                      </svelte:fragment>
-                    </HoverPopup>
-                  </span>
-                  {#if lvl > 0}
-                    <label class="flex items-center gap-1 text-[10px] text-slate-400">
-                      <input
-                        type="checkbox"
-                        checked={prep}
-                        disabled={busy}
-                        on:change={(ev) => togglePrepared(e.slug, checkboxChecked(ev))}
-                      />
-                      prep
-                    </label>
-                  {/if}
-                  <button
-                    class="text-[10px] text-slate-500 hover:text-red-400"
-                    disabled={busy}
-                    title="Remove from spellbook"
-                    on:click={() => removeSpell(e.slug)}
-                  >
-                    ×
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </div>
-        {/each}
-      {/if}
-
-      <div class="flex flex-wrap gap-2 border-t border-slate-800 pt-3 text-xs">
-        <label class="flex items-center gap-1">
-          <span class="text-slate-500">Filter:</span>
-          <select
-            class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-            bind:value={spellPickerLevel}
-          >
-            <option value="all">all levels</option>
-            <option value={0}>cantrips</option>
-            {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as l}
-              <option value={l}>{levelLabel(l)}</option>
-            {/each}
-          </select>
-        </label>
-        <select
-          class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-          bind:value={spellPickerSlug}
-        >
-          {#each filteredSpellOptions as opt}
-            <option value={opt.slug}>{opt.name} ({levelLabel(opt.level)}, {opt.school})</option>
-          {/each}
-        </select>
-        <button
-          class="rounded bg-emerald-700 px-3 py-1 text-xs hover:bg-emerald-600 disabled:opacity-50"
-          disabled={busy || !spellPickerSlug}
-          on:click={addSpell}
-        >
-          Add
-        </button>
-      </div>
-    </section>
-  {/if}
+  <SpellManagerModal
+    bind:open={spellManagerOpen}
+    {document}
+    {derived}
+    spellOptions={data.spellOptions}
+    {busy}
+    onAddSpell={(pickerId) => addSpell(pickerId)}
+    onRemoveSpell={(slug, authorUserId) => removeSpell(slug, authorUserId)}
+    onTogglePrepared={(slug, prepared) => togglePrepared(slug, prepared)}
+    onClose={() => (spellManagerOpen = false)}
+  />
 
 {:else}
   <section class="rounded-lg border border-amber-800 bg-amber-950/30 p-6 text-sm">
