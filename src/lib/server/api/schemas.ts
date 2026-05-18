@@ -197,7 +197,8 @@ export const ContentKind = z
     'item',
     'spell',
     'condition',
-    'feature'
+    'feature',
+    'monster'
   ])
   .openapi({ description: 'Content row kind' });
 

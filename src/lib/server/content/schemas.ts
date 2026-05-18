@@ -29,7 +29,8 @@ export const ContentKind = z.enum([
   'item',
   'spell',
   'condition',
-  'feature'
+  'feature',
+  'monster'
 ]);
 export type ContentKind = z.infer<typeof ContentKind>;
 

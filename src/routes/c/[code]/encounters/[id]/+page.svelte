@@ -7,11 +7,33 @@
   let busy = false;
 
   // Add-participant draft state
-  let newKind: 'pc' | 'npc' | 'monster' = 'npc';
+  let newKind: 'pc' | 'npc' | 'monster' = 'monster';
   let newName = '';
   let newCharacterId = data.campaignCharacters[0]?.id ?? '';
+  let newMonsterSlug = data.monsterOptions[0]?.slug ?? '';
   let newInitiative: number | null = null;
   let newMaxHp: number | null = null;
+
+  // When the picked monster changes, pre-fill name + HP from the statblock.
+  // Use on:change rather than $: to avoid clobbering DM-overridden values.
+  function selectMonster(e: Event) {
+    const slug = (e.target as HTMLSelectElement).value;
+    newMonsterSlug = slug;
+    const opt = data.monsterOptions.find((m) => m.slug === slug);
+    if (opt) {
+      newName = opt.name;
+      newMaxHp = opt.maxHp ?? null;
+    }
+  }
+
+  // Initialize defaults from the first monster on mount so the form is filled.
+  $: if (newKind === 'monster' && newMonsterSlug && !newName) {
+    const opt = data.monsterOptions.find((m) => m.slug === newMonsterSlug);
+    if (opt) {
+      newName = opt.name;
+      newMaxHp = opt.maxHp ?? null;
+    }
+  }
 
   async function addParticipant() {
     if (newKind === 'pc' && !newCharacterId) return;
@@ -27,6 +49,7 @@
         currentHp: newMaxHp ?? undefined
       };
       if (newKind === 'pc') body.characterId = newCharacterId;
+      if (newKind === 'monster' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
       const res = await fetch(`/api/encounters/${data.encounter.id}/participants`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -219,10 +242,40 @@
               </select>
             </label>
           {/if}
+        {:else if newKind === 'monster'}
+          <label class="text-xs">
+            <span class="block text-slate-400">From pack</span>
+            {#if data.monsterOptions.length === 0}
+              <p class="text-amber-300">No monsters loaded.</p>
+            {:else}
+              <select
+                class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+                value={newMonsterSlug}
+                on:change={selectMonster}
+              >
+                {#each data.monsterOptions as m}
+                  <option value={m.slug}>{m.name} (CR {m.cr})</option>
+                {/each}
+              </select>
+            {/if}
+          </label>
+          <label class="text-xs">
+            <span class="block text-slate-400">Name (override)</span>
+            <input class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={newName} />
+          </label>
+          <label class="text-xs">
+            <span class="block text-slate-400">Max HP</span>
+            <input
+              type="number"
+              class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+              bind:value={newMaxHp}
+              min="1"
+            />
+          </label>
         {:else}
           <label class="text-xs">
             <span class="block text-slate-400">Name</span>
-            <input class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" placeholder="Goblin" bind:value={newName} />
+            <input class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" placeholder="Captured noble, etc." bind:value={newName} />
           </label>
           <label class="text-xs">
             <span class="block text-slate-400">Max HP</span>
@@ -251,7 +304,9 @@
         </button>
       </div>
       <p class="mt-2 text-xs text-slate-500">
-        Monster-from-pack picker lands in M3.2 (once <code>kind: 'monster'</code> content rows exist).
+        Monsters pre-fill HP from the SRD statblock. Override Max HP for
+        weakened or empowered variants. Full monster-side action resolution
+        (attack rolls, multiattack, etc.) is on the roadmap.
       </p>
     </div>
   {/if}

@@ -1,0 +1,269 @@
+[
+  {
+    "kind": "monster",
+    "slug": "goblin",
+    "version": 1,
+    "name": "Goblin",
+    "data": {
+      "size": "small",
+      "type": "humanoid (goblinoid)",
+      "alignment": "neutral evil",
+      "ac": 15,
+      "acDescription": "leather armor, shield",
+      "hp": { "max": 7, "formula": "2d6" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 8, "dex": 14, "con": 10, "int": 10, "wis": 8, "cha": 8 },
+      "skills": { "stealth": 6 },
+      "senses": { "darkvision": 60, "passivePerception": 9 },
+      "languages": ["Common", "Goblin"],
+      "cr": "1/4",
+      "xp": 50,
+      "traits": [
+        { "name": "Nimble Escape", "text": "Can take the Disengage or Hide action as a bonus action on each of its turns." }
+      ],
+      "actions": [
+        { "name": "Scimitar", "type": "attack", "range": "melee", "attackBonus": 4, "reach": 5, "damage": [{ "dice": "1d6+2", "type": "slashing" }] },
+        { "name": "Shortbow", "type": "attack", "range": "ranged", "attackBonus": 4, "rangeBands": { "normal": 80, "long": 320 }, "damage": [{ "dice": "1d6+2", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "orc",
+    "version": 1,
+    "name": "Orc",
+    "data": {
+      "size": "medium",
+      "type": "humanoid (orc)",
+      "alignment": "chaotic evil",
+      "ac": 13,
+      "acDescription": "hide armor",
+      "hp": { "max": 15, "formula": "2d8+6" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 16, "dex": 12, "con": 16, "int": 7, "wis": 11, "cha": 10 },
+      "skills": { "intimidation": 2 },
+      "senses": { "darkvision": 60, "passivePerception": 10 },
+      "languages": ["Common", "Orc"],
+      "cr": "1/2",
+      "xp": 100,
+      "traits": [
+        { "name": "Aggressive", "text": "As a bonus action, can move up to its speed toward a hostile creature it can see." }
+      ],
+      "actions": [
+        { "name": "Greataxe", "type": "attack", "range": "melee", "attackBonus": 5, "reach": 5, "damage": [{ "dice": "1d12+3", "type": "slashing" }] },
+        { "name": "Javelin", "type": "attack", "range": "melee-or-thrown", "attackBonus": 5, "rangeBands": { "normal": 30, "long": 120 }, "damage": [{ "dice": "1d6+3", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "hobgoblin",
+    "version": 1,
+    "name": "Hobgoblin",
+    "data": {
+      "size": "medium",
+      "type": "humanoid (goblinoid)",
+      "alignment": "lawful evil",
+      "ac": 18,
+      "acDescription": "chain mail, shield",
+      "hp": { "max": 11, "formula": "2d8+2" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 13, "dex": 12, "con": 12, "int": 10, "wis": 10, "cha": 9 },
+      "senses": { "darkvision": 60, "passivePerception": 10 },
+      "languages": ["Common", "Goblin"],
+      "cr": "1/2",
+      "xp": 100,
+      "traits": [
+        { "name": "Martial Advantage", "text": "Once per turn, deals an extra 2d6 damage to a target it hits with a weapon attack if that target is within 5 feet of an ally that isn't incapacitated." }
+      ],
+      "actions": [
+        { "name": "Longsword", "type": "attack", "range": "melee", "attackBonus": 3, "reach": 5, "damage": [{ "dice": "1d8+1", "type": "slashing", "versatile": "1d10+1" }] },
+        { "name": "Longbow", "type": "attack", "range": "ranged", "attackBonus": 3, "rangeBands": { "normal": 150, "long": 600 }, "damage": [{ "dice": "1d8+1", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "skeleton",
+    "version": 1,
+    "name": "Skeleton",
+    "data": {
+      "size": "medium",
+      "type": "undead",
+      "alignment": "lawful evil",
+      "ac": 13,
+      "acDescription": "armor scraps",
+      "hp": { "max": 13, "formula": "2d8+4" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 10, "dex": 14, "con": 15, "int": 6, "wis": 8, "cha": 5 },
+      "vulnerabilities": ["bludgeoning"],
+      "immunities": ["poison-damage", "exhaustion", "poisoned-condition"],
+      "senses": { "darkvision": 60, "passivePerception": 9 },
+      "languages": ["understands languages it knew in life but can't speak"],
+      "cr": "1/4",
+      "xp": 50,
+      "actions": [
+        { "name": "Shortsword", "type": "attack", "range": "melee", "attackBonus": 4, "reach": 5, "damage": [{ "dice": "1d6+2", "type": "piercing" }] },
+        { "name": "Shortbow", "type": "attack", "range": "ranged", "attackBonus": 4, "rangeBands": { "normal": 80, "long": 320 }, "damage": [{ "dice": "1d6+2", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "zombie",
+    "version": 1,
+    "name": "Zombie",
+    "data": {
+      "size": "medium",
+      "type": "undead",
+      "alignment": "neutral evil",
+      "ac": 8,
+      "hp": { "max": 22, "formula": "3d8+9" },
+      "speed": { "walk": 20 },
+      "abilityScores": { "str": 13, "dex": 6, "con": 16, "int": 3, "wis": 6, "cha": 5 },
+      "saves": { "wis": 0 },
+      "immunities": ["poison-damage", "poisoned-condition"],
+      "senses": { "darkvision": 60, "passivePerception": 8 },
+      "languages": ["understands languages it knew in life but can't speak"],
+      "cr": "1/4",
+      "xp": 50,
+      "traits": [
+        { "name": "Undead Fortitude", "text": "If damage reduces the zombie to 0 HP, it must make a CON save (DC = 5 + damage taken) unless the damage is radiant or from a critical hit. On a success, drops to 1 HP instead." }
+      ],
+      "actions": [
+        { "name": "Slam", "type": "attack", "range": "melee", "attackBonus": 3, "reach": 5, "damage": [{ "dice": "1d6+1", "type": "bludgeoning" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "bandit",
+    "version": 1,
+    "name": "Bandit",
+    "data": {
+      "size": "medium",
+      "type": "humanoid (any race)",
+      "alignment": "any non-lawful",
+      "ac": 12,
+      "acDescription": "leather armor",
+      "hp": { "max": 11, "formula": "2d8+2" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 11, "dex": 12, "con": 12, "int": 10, "wis": 10, "cha": 10 },
+      "senses": { "passivePerception": 10 },
+      "languages": ["any one language (usually Common)"],
+      "cr": "1/8",
+      "xp": 25,
+      "actions": [
+        { "name": "Scimitar", "type": "attack", "range": "melee", "attackBonus": 3, "reach": 5, "damage": [{ "dice": "1d6+1", "type": "slashing" }] },
+        { "name": "Light Crossbow", "type": "attack", "range": "ranged", "attackBonus": 3, "rangeBands": { "normal": 80, "long": 320 }, "damage": [{ "dice": "1d8+1", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "wolf",
+    "version": 1,
+    "name": "Wolf",
+    "data": {
+      "size": "medium",
+      "type": "beast",
+      "alignment": "unaligned",
+      "ac": 13,
+      "hp": { "max": 11, "formula": "2d8+2" },
+      "speed": { "walk": 40 },
+      "abilityScores": { "str": 12, "dex": 15, "con": 12, "int": 3, "wis": 12, "cha": 6 },
+      "skills": { "perception": 3, "stealth": 4 },
+      "senses": { "passivePerception": 13 },
+      "languages": [],
+      "cr": "1/4",
+      "xp": 50,
+      "traits": [
+        { "name": "Keen Hearing and Smell", "text": "Has advantage on WIS (Perception) checks that rely on hearing or smell." },
+        { "name": "Pack Tactics", "text": "Has advantage on attacks against a creature if at least one ally is within 5 feet of the target and not incapacitated." }
+      ],
+      "actions": [
+        { "name": "Bite", "type": "attack", "range": "melee", "attackBonus": 4, "reach": 5, "damage": [{ "dice": "2d4+2", "type": "piercing" }], "rider": "Target must succeed on a DC 11 STR save or be knocked prone." }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "ogre",
+    "version": 1,
+    "name": "Ogre",
+    "data": {
+      "size": "large",
+      "type": "giant",
+      "alignment": "chaotic evil",
+      "ac": 11,
+      "acDescription": "hide armor",
+      "hp": { "max": 59, "formula": "7d10+21" },
+      "speed": { "walk": 40 },
+      "abilityScores": { "str": 19, "dex": 8, "con": 16, "int": 5, "wis": 7, "cha": 7 },
+      "senses": { "darkvision": 60, "passivePerception": 8 },
+      "languages": ["Common", "Giant"],
+      "cr": "2",
+      "xp": 450,
+      "actions": [
+        { "name": "Greatclub", "type": "attack", "range": "melee", "attackBonus": 6, "reach": 5, "damage": [{ "dice": "2d8+4", "type": "bludgeoning" }] },
+        { "name": "Javelin", "type": "attack", "range": "melee-or-thrown", "attackBonus": 6, "rangeBands": { "normal": 30, "long": 120 }, "damage": [{ "dice": "2d6+4", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "bugbear",
+    "version": 1,
+    "name": "Bugbear",
+    "data": {
+      "size": "medium",
+      "type": "humanoid (goblinoid)",
+      "alignment": "chaotic evil",
+      "ac": 16,
+      "acDescription": "hide armor, shield",
+      "hp": { "max": 27, "formula": "5d8+5" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 15, "dex": 14, "con": 13, "int": 8, "wis": 11, "cha": 9 },
+      "skills": { "stealth": 6, "survival": 2 },
+      "senses": { "darkvision": 60, "passivePerception": 10 },
+      "languages": ["Common", "Goblin"],
+      "cr": "1",
+      "xp": 200,
+      "traits": [
+        { "name": "Brute", "text": "A melee weapon deals one extra die of its damage when hit (included in the attack)." },
+        { "name": "Surprise Attack", "text": "If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 2d6 damage." }
+      ],
+      "actions": [
+        { "name": "Morningstar", "type": "attack", "range": "melee", "attackBonus": 4, "reach": 5, "damage": [{ "dice": "2d8+2", "type": "piercing" }] },
+        { "name": "Javelin", "type": "attack", "range": "melee-or-thrown", "attackBonus": 4, "rangeBands": { "normal": 30, "long": 120 }, "damage": [{ "dice": "2d6+2", "type": "piercing" }] }
+      ]
+    }
+  },
+  {
+    "kind": "monster",
+    "slug": "kobold",
+    "version": 1,
+    "name": "Kobold",
+    "data": {
+      "size": "small",
+      "type": "humanoid (kobold)",
+      "alignment": "lawful evil",
+      "ac": 12,
+      "hp": { "max": 5, "formula": "2d6-2" },
+      "speed": { "walk": 30 },
+      "abilityScores": { "str": 7, "dex": 15, "con": 9, "int": 8, "wis": 7, "cha": 8 },
+      "senses": { "darkvision": 60, "passivePerception": 8 },
+      "languages": ["Common", "Draconic"],
+      "cr": "1/8",
+      "xp": 25,
+      "traits": [
+        { "name": "Sunlight Sensitivity", "text": "Disadvantage on attack rolls and WIS (Perception) checks that rely on sight when in sunlight." },
+        { "name": "Pack Tactics", "text": "Advantage on attacks against a creature if at least one ally is within 5 feet and not incapacitated." }
+      ],
+      "actions": [
+        { "name": "Dagger", "type": "attack", "range": "melee", "attackBonus": 4, "reach": 5, "damage": [{ "dice": "1d4+2", "type": "piercing" }] },
+        { "name": "Sling", "type": "attack", "range": "ranged", "attackBonus": 4, "rangeBands": { "normal": 30, "long": 120 }, "damage": [{ "dice": "1d4+2", "type": "bludgeoning" }] }
+      ]
+    }
+  }
+]

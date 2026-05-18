@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .from(schema.participants)
     .where(eq(schema.participants.encounterId, enc.id));
 
-  // Characters in this campaign — for "add PC" picker in M3.2
+  // Characters in this campaign — for "add PC" picker
   const charRows = await db
     .select({
       id: schema.characters.id,
@@ -37,6 +37,35 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     })
     .from(schema.characters)
     .where(eq(schema.characters.campaignId, m.campaignId));
+
+  // Monsters from loaded packs — for the "add monster" picker.
+  const monsterRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'monster'));
+
+  const monsterOptions = monsterRows
+    .map((r) => {
+      const data = JSON.parse(r.data as string) as {
+        cr?: string;
+        hp?: { max?: number };
+        ac?: number;
+      };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        cr: data.cr ?? '?',
+        maxHp: data.hp?.max ?? null,
+        ac: data.ac ?? null
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return {
     campaign,
@@ -69,6 +98,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         sortOrder: p.sortOrder
       }))
       .sort((a, b) => (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) || a.sortOrder - b.sortOrder),
-    campaignCharacters: charRows
+    campaignCharacters: charRows,
+    monsterOptions
   };
 };
