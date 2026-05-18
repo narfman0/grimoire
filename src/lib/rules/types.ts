@@ -61,10 +61,18 @@ export interface CharacterDocument {
   modifierToggles: Record<string, boolean>;
   /** Per-resource counter keyed by resource id (see derive().resources[].id). */
   resourcesSpent?: Record<string, number>;
+  /** Whether the character has already used their action slot this turn.
+   *  Set when a plan with cost='action' resolves; resets on turn-rise. */
+  actionUsedThisRound?: boolean;
+  /** Whether the character has already used their bonus action this turn. */
+  bonusActionUsedThisRound?: boolean;
   /** Whether the character has already used their reaction in the current
    *  round. Auto-resets when their turn comes back around (planner watches
    *  encounter Y.Doc activeParticipantId for the rising edge), or on any rest. */
   reactionUsedThisRound?: boolean;
+  /** Feet of movement already consumed this turn. Capped at the character's
+   *  walking speed; resets on turn-rise. */
+  movementUsedThisRound?: number;
   /** Active concentration target. v0: free-text label declared by the player;
    *  ends voluntarily, on long rest, or when a new concentration starts.
    *  Damage-triggered CON saves are DM-adjudicated. */

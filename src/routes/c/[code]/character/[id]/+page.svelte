@@ -180,21 +180,38 @@
   $: recencyRank = new Map((data.recentActionIds ?? []).map((id, i) => [id, i]));
   $: actionOptions = derived
     ? (derived.actions ?? [])
-        .map((a) => ({
-          id: a.id,
-          name: a.name,
-          costLabel: costLabel(a.cost),
-          attackBonus: a.attackBonus ?? null,
-          range: a.range,
-          isFavorite: favorites.has(a.id),
-          recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY
-        }))
+        .map((a) => {
+          const slot = slotForCost(a.cost);
+          const unavailable =
+            (slot === 'action' && document?.actionUsedThisRound) ||
+            (slot === 'bonus' && document?.bonusActionUsedThisRound) ||
+            (slot === 'reaction' && document?.reactionUsedThisRound);
+          return {
+            id: a.id,
+            name: a.name,
+            costLabel: costLabel(a.cost),
+            attackBonus: a.attackBonus ?? null,
+            range: a.range,
+            isFavorite: favorites.has(a.id),
+            recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY,
+            slot,
+            unavailable: !!unavailable
+          };
+        })
         .sort((a, b) => {
           if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+          if (a.unavailable !== b.unavailable) return a.unavailable ? 1 : -1;
           if (a.recency !== b.recency) return a.recency - b.recency;
           return a.name.localeCompare(b.name);
         })
     : [];
+
+  /** Walking speed in feet — used as the movement budget. Falls back to 30. */
+  $: walkSpeed = derived?.stats.speeds.walk ?? 30;
+  $: movementUsed = document?.movementUsedThisRound ?? 0;
+  $: movementRemaining = Math.max(0, walkSpeed - movementUsed);
+  $: actionUsed = document?.actionUsedThisRound === true;
+  $: bonusUsed = document?.bonusActionUsedThisRound === true;
 
   async function toggleFavoriteAction(actionId: string) {
     await patchDocument((d) => {
@@ -298,6 +315,18 @@
         resolveError = `log: ${res.status} ${(await res.text()).slice(0, 200)}`;
         return;
       }
+      // Consume the action-economy slot the resolved action takes. The cost
+      // lives on the derived action; look it up by id, mark the slot. DM can
+      // toggle back manually if they decided the action is free.
+      const resolvedAction = (derived?.actions ?? []).find((a) => a.id === myPlan.actionId);
+      const slot = resolvedAction ? slotForCost(resolvedAction.cost) : null;
+      if (slot) {
+        await patchDocument((d) => {
+          if (slot === 'action') d.actionUsedThisRound = true;
+          else if (slot === 'bonus') d.bonusActionUsedThisRound = true;
+          else if (slot === 'reaction') d.reactionUsedThisRound = true;
+        });
+      }
       // Clear the plan now that the action has been resolved.
       clearTurnPlan(encConn.ydoc, selfId);
       planActionId = '';
@@ -330,11 +359,23 @@
   // avoid clobbering a manual mark-as-used during the same turn.
   let prevIsMyTurn = false;
   $: {
-    if (isMyTurn && !prevIsMyTurn && document?.reactionUsedThisRound) {
-      // Fire-and-forget; busy state stays untouched for this background reset.
-      patchDocument((d) => {
-        d.reactionUsedThisRound = false;
-      }).catch(() => {});
+    if (isMyTurn && !prevIsMyTurn) {
+      // Action-economy reset on turn-rise: action, bonus, reaction, movement
+      // all replenish at the start of the player's turn. Fire-and-forget so
+      // busy state stays untouched for this background reset.
+      const needsReset =
+        document?.actionUsedThisRound ||
+        document?.bonusActionUsedThisRound ||
+        document?.reactionUsedThisRound ||
+        (document?.movementUsedThisRound ?? 0) > 0;
+      if (needsReset) {
+        patchDocument((d) => {
+          d.actionUsedThisRound = false;
+          d.bonusActionUsedThisRound = false;
+          d.reactionUsedThisRound = false;
+          d.movementUsedThisRound = 0;
+        }).catch(() => {});
+      }
     }
     prevIsMyTurn = isMyTurn;
   }
@@ -449,6 +490,39 @@
     await patchDocument((d) => {
       d.reactionUsedThisRound = !d.reactionUsedThisRound;
     });
+  }
+
+  // ---- action-economy slots (M3.7) ----
+  async function toggleAction() {
+    await patchDocument((d) => {
+      d.actionUsedThisRound = !d.actionUsedThisRound;
+    });
+  }
+  async function toggleBonusAction() {
+    await patchDocument((d) => {
+      d.bonusActionUsedThisRound = !d.bonusActionUsedThisRound;
+    });
+  }
+  async function adjustMovement(deltaFt: number) {
+    await patchDocument((d) => {
+      const cur = d.movementUsedThisRound ?? 0;
+      d.movementUsedThisRound = Math.max(0, cur + deltaFt);
+    });
+  }
+  async function resetMovement() {
+    await patchDocument((d) => {
+      d.movementUsedThisRound = 0;
+    });
+  }
+
+  /** Inspect an action's cost and return which slot it consumes (or null
+   *  for `free` / unrecognized shapes). Drives both consumption-on-resolve
+   *  and the grey-out logic in the picker. */
+  function slotForCost(cost: unknown): 'action' | 'bonus' | 'reaction' | null {
+    if (cost === 'action') return 'action';
+    if (cost === 'bonus') return 'bonus';
+    if (cost === 'reaction') return 'reaction';
+    return null;
   }
 
   let concDraft = '';
@@ -754,7 +828,10 @@
     if (!derived) return;
     await patchDocument((d) => {
       resetResourcesByPer(d, 'short-rest');
+      d.actionUsedThisRound = false;
+      d.bonusActionUsedThisRound = false;
       d.reactionUsedThisRound = false;
+      d.movementUsedThisRound = 0;
     });
     restingShort = true;
     restNote = 'Short rest — short-rest resources restored. Spend hit dice below as needed.';
@@ -778,7 +855,10 @@
       resetResourcesByPer(d, 'long-rest');
       resetResourcesByPer(d, 'short-rest');
       resetSpellSlots(d);
+      d.actionUsedThisRound = false;
+      d.bonusActionUsedThisRound = false;
       d.reactionUsedThisRound = false;
+      d.movementUsedThisRound = 0;
       d.concentrating = null;
       // Toggles (Reckless, GWM…) are per-turn / per-attack choices — don't
       // reset them on rest. Conditions like "frightened" generally end on a
@@ -995,7 +1075,7 @@
             <li
               class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-800/40 {planActionId === a.id
                 ? 'bg-emerald-950/40'
-                : ''}"
+                : ''} {a.unavailable ? 'opacity-50' : ''}"
             >
               <button
                 class="text-base leading-none {a.isFavorite ? 'text-amber-300' : 'text-slate-600 hover:text-slate-400'}"
@@ -1006,12 +1086,18 @@
               </button>
               <button
                 class="flex-1 text-left {planActionId === a.id ? 'text-emerald-200' : 'text-slate-200'}"
+                title={a.unavailable ? `${a.slot} slot already used this turn — pick anyway to override` : ''}
                 on:click={() => (planActionId = a.id)}
               >
                 {a.name}
                 {#if a.costLabel}<span class="text-slate-500"> ({a.costLabel})</span>{/if}
                 {#if a.attackBonus != null}<span class="text-slate-400"> +{a.attackBonus}</span>{/if}
-                {#if Number.isFinite(a.recency) && !a.isFavorite}
+                {#if a.unavailable}
+                  <span class="ml-1 rounded bg-slate-800 px-1 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                    {a.slot} used
+                  </span>
+                {/if}
+                {#if Number.isFinite(a.recency) && !a.isFavorite && !a.unavailable}
                   <span class="text-[10px] text-slate-600"> · recent</span>
                 {/if}
               </button>
@@ -1183,8 +1269,30 @@
     </div>
   </section>
 
-  <!-- Reaction + concentration (compact row above slots/resources) -->
-  <section class="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/30 p-3 text-sm">
+  <!-- Action economy + concentration (compact row above slots/resources) -->
+  <section class="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/30 p-3 text-sm">
+    <!-- Action pill -->
+    <button
+      class="rounded border px-2 py-1 text-xs font-medium transition-colors {actionUsed
+        ? 'border-slate-700 bg-slate-950 text-slate-500 hover:text-slate-300'
+        : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
+      disabled={busy}
+      title={actionUsed ? 'Action used this turn — click to restore' : 'Action available — click to mark used'}
+      on:click={toggleAction}
+    >
+      ◉ Action: {actionUsed ? 'used' : 'ready'}
+    </button>
+    <!-- Bonus action pill -->
+    <button
+      class="rounded border px-2 py-1 text-xs font-medium transition-colors {bonusUsed
+        ? 'border-slate-700 bg-slate-950 text-slate-500 hover:text-slate-300'
+        : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
+      disabled={busy}
+      title={bonusUsed ? 'Bonus action used — click to restore' : 'Bonus action available — click to mark used'}
+      on:click={toggleBonusAction}
+    >
+      ✦ Bonus: {bonusUsed ? 'used' : 'ready'}
+    </button>
     <!-- Reaction pill -->
     <button
       class="rounded border px-2 py-1 text-xs font-medium transition-colors {reactionUsed
@@ -1198,6 +1306,37 @@
     >
       ⚡ Reaction: {reactionUsed ? 'used' : 'ready'}
     </button>
+    <!-- Movement counter -->
+    <span class="flex items-center gap-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs">
+      <span class="text-slate-500">→ Move:</span>
+      <span class="font-mono {movementRemaining === 0 ? 'text-slate-500' : 'text-emerald-200'}">
+        {movementRemaining}/{walkSpeed} ft
+      </span>
+      <button
+        class="ml-1 rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40"
+        title="−5 ft"
+        disabled={busy || movementRemaining === 0}
+        on:click={() => adjustMovement(5)}
+      >
+        −5
+      </button>
+      <button
+        class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40"
+        title="+5 ft (refund)"
+        disabled={busy || movementUsed === 0}
+        on:click={() => adjustMovement(-5)}
+      >
+        +5
+      </button>
+      <button
+        class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40"
+        title="Reset movement to full"
+        disabled={busy || movementUsed === 0}
+        on:click={resetMovement}
+      >
+        ↺
+      </button>
+    </span>
 
     <!-- Concentration -->
     {#if document.concentrating}
