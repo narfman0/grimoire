@@ -251,7 +251,7 @@
         // Check if single target is concentrating and took real damage.
         if (
           resolveTargetId &&
-          (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'failed-save') &&
+          (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'failed-save' || resolveHit === 'saved') &&
           typeof resolveDamage === 'number' &&
           resolveDamage > 0
         ) {
@@ -720,7 +720,7 @@
   let expandedParticipants = new Set<string>();
   function toggleExpand(id: string) {
     if (expandedParticipants.has(id)) expandedParticipants.delete(id);
-    else expandedParticipants.add(id);
+    else { expandedParticipants.add(id); ensureEconomy(id); }
     expandedParticipants = expandedParticipants; // trigger reactivity
   }
 
@@ -1296,8 +1296,7 @@
               {/if}
             </div>
           {/if}
-          {#if expandedParticipants.has(p.id)}
-            {@const econ = ensureEconomy(p.id)}
+          {#if expandedParticipants.has(p.id) && roundEconomy[p.id]}
             <div class="basis-full bg-slate-900/60 border-t border-slate-800 px-4 py-3 mt-1 rounded-b text-xs">
               <div class="mb-2 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Action Economy</div>
               <div class="grid grid-cols-2 gap-2">
@@ -1315,7 +1314,7 @@
                         <button
                           class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-emerald-600 hover:text-emerald-200"
                           on:click={() => {
-                            econ.action = a.name;
+                            ensureEconomy(p.id).action = a.name;
                             roundEconomy = roundEconomy;
                           }}
                         >
@@ -1327,7 +1326,7 @@
                   <input
                     class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
                     placeholder="pick action…"
-                    bind:value={econ.action}
+                    bind:value={roundEconomy[p.id].action}
                     on:input={() => (roundEconomy = roundEconomy)}
                   />
                   {#if data.participantSpells?.[p.id]?.length}
@@ -1340,7 +1339,7 @@
                             {#each group.spells as spell}
                               <button
                                 class="rounded border border-violet-800/60 bg-violet-950/40 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-800/60"
-                                on:click={() => { econ.action = spell.name; roundEconomy = roundEconomy; }}
+                                on:click={() => { roundEconomy[p.id].action = spell.name; roundEconomy = roundEconomy; }}
                               >
                                 {spell.name}
                               </button>
@@ -1355,7 +1354,7 @@
                       <span class="text-[10px] text-slate-500">Cast at slot:</span>
                       <select
                         class="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px]"
-                        bind:value={econ.slotLevel}
+                        bind:value={roundEconomy[p.id].slotLevel}
                         on:change={() => (roundEconomy = roundEconomy)}
                       >
                         {#each [1,2,3,4,5,6,7,8,9] as lvl}
@@ -1373,7 +1372,7 @@
                       <button
                         class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
                         on:click={() => {
-                          econ.bonusAction = ba;
+                          roundEconomy[p.id].bonusAction = ba;
                           roundEconomy = roundEconomy;
                         }}
                       >
@@ -1384,7 +1383,7 @@
                   <input
                     class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
                     placeholder="pick…"
-                    bind:value={econ.bonusAction}
+                    bind:value={roundEconomy[p.id].bonusAction}
                     on:input={() => (roundEconomy = roundEconomy)}
                   />
                 </div>
@@ -1398,7 +1397,7 @@
                       max={p.statblock?.speeds?.walk ?? p.statblock?.speeds?.fly ?? p.statblock?.speeds?.swim ?? 999}
                       class="w-16 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[11px]"
                       placeholder="0"
-                      bind:value={econ.movement}
+                      bind:value={roundEconomy[p.id].movement}
                       on:input={() => (roundEconomy = roundEconomy)}
                     />
                     <span class="text-slate-500">ft</span>
@@ -1415,7 +1414,7 @@
                   <input
                     class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
                     placeholder="pick…"
-                    bind:value={econ.reaction}
+                    bind:value={roundEconomy[p.id].reaction}
                     on:input={() => (roundEconomy = roundEconomy)}
                   />
                 </div>
@@ -1426,7 +1425,7 @@
                 <input
                   class="flex-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
                   placeholder="object interaction, communicate, etc."
-                  bind:value={econ.freeActions}
+                  bind:value={roundEconomy[p.id].freeActions}
                   on:input={() => (roundEconomy = roundEconomy)}
                 />
               </div>
@@ -1760,7 +1759,7 @@
     </span>
     <button
       class="rounded border border-red-700 bg-red-900/40 px-2 py-0.5 text-xs text-red-200 hover:bg-red-900/70"
-      on:click={() => dropConcentration(concSavePrompt!.participantId)}
+      on:click={() => dropConcentration(concSavePrompt?.participantId ?? '')}
     >
       Fail save (drop)
     </button>
