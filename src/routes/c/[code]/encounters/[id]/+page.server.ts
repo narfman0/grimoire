@@ -1,9 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { SESSION_COOKIE } from '$lib/server/auth/sessions';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
+import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -29,6 +30,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .limit(1);
   if (encRows.length === 0) throw error(404, 'encounter not found in this campaign');
   const enc = encRows[0];
+
+  // Players can't reach a staging encounter — it's the DM's draft and the
+  // name alone can spoil ("Final Boss Room"). 404 mirrors what they see in
+  // the encounter list.
+  const isDM = m.role === 'dm';
+  if (!isDM && enc.status === 'staging') throw error(404, 'encounter not found in this campaign');
 
   const partRows = await db
     .select()
@@ -164,6 +171,57 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   const partyLevelSum = partyLevels.reduce((s, l) => s + l, 0);
   const partyAvgLevel = partySize > 0 ? partyLevelSum / partySize : 0;
 
+  // For PC participants, load their prepared spell list for the action economy foldout.
+  const pcParticipants = partRows.filter(p => p.kind === 'pc' && p.characterId);
+  const participantSpells: Record<string, Array<{slug: string; name: string; level: number}>> = {};
+
+  if (pcParticipants.length > 0) {
+    const spellCharRows = await db
+      .select({ id: schema.characters.id, document: schema.characters.document })
+      .from(schema.characters)
+      .where(inArray(schema.characters.id, pcParticipants.map(p => p.characterId!)));
+
+    for (const char of spellCharRows) {
+      const participant = pcParticipants.find(p => p.characterId === char.id);
+      if (!participant || !char.document) continue;
+      try {
+        const doc = JSON.parse(char.document) as { spells?: { known?: Array<{slug: string}>; prepared?: string[] } };
+        const prepared = new Set(doc.spells?.prepared ?? []);
+        const known = doc.spells?.known ?? [];
+        participantSpells[participant.id] = known
+          .filter(k => prepared.has(k.slug))
+          .map(k => ({ slug: k.slug, name: k.slug, level: 0 }));
+      } catch {
+        // ignore malformed doc
+      }
+    }
+
+    const allSlugs = Object.values(participantSpells).flat().map(s => s.slug);
+    if (allSlugs.length > 0) {
+      const spellContent = await db
+        .select({ slug: schema.content.slug, name: schema.content.name, data: schema.content.data })
+        .from(schema.content)
+        .where(and(eq(schema.content.kind, 'spell'), inArray(schema.content.slug, allSlugs)));
+
+      const spellMeta = new Map(spellContent.map(s => {
+        let level = 0;
+        try {
+          const d = JSON.parse(s.data as string) as { level?: number };
+          level = d.level ?? 0;
+        } catch { /* ignore */ }
+        return [s.slug, { name: s.name, level }];
+      }));
+
+      for (const [partId, spells] of Object.entries(participantSpells)) {
+        participantSpells[partId] = spells.map(s => ({
+          ...s,
+          name: spellMeta.get(s.slug)?.name ?? s.slug,
+          level: spellMeta.get(s.slug)?.level ?? 0
+        })).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+      }
+    }
+  }
+
   // Monsters from loaded packs — for the "add monster" picker.
   const monsterRows = await db
     .select({
@@ -212,36 +270,95 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       createdAt: enc.createdAt.getTime(),
       endedAt: enc.endedAt ? enc.endedAt.getTime() : null
     },
-    participants: partRows
-      .map((p) => ({
-        id: p.id,
-        encounterId: p.encounterId,
-        characterId: p.characterId,
-        name: p.name,
-        kind: p.kind,
-        statblockSlug: p.statblockSlug,
-        statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
-        statblockActions: p.statblockSlug ? statblockActions.get(p.statblockSlug) ?? [] : [],
-        statblock: p.statblockSlug
-          ? monsterStatblocks.get(p.statblockSlug) ?? null
-          : p.statblockJson
-            ? monsterDerive(JSON.parse(p.statblockJson) as Record<string, unknown>)
-            : null,
-        initiative: p.initiative,
-        dexScore: dexForParticipant(p),
-        currentHp: p.currentHp,
-        maxHp: p.maxHp,
-        tempHp: p.tempHp,
-        conditions: JSON.parse(p.conditionsJson) as string[],
-        sortOrder: p.sortOrder
-      }))
-      // Initiative tiebreaker per RAW: higher Dex first. Then add-order.
-      .sort(
-        (a, b) =>
-          (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) ||
-          b.dexScore - a.dexScore ||
-          a.sortOrder - b.sortOrder
-      ),
+    participants: (() => {
+      // Always assemble the DM-shaped row first; then for player viewers,
+      // redact name/HP/AC/statblock per the reveal flags and drop hidden
+      // entries. The label slot ("Enemy 1") is by *visible position* in
+      // initiative order, so it stays stable as reveals flip.
+      const fullRows = partRows
+        .map((p) => {
+          const reveals: ParticipantReveals = parseReveals(p.revealsJson);
+          const statblock = p.statblockSlug
+            ? monsterStatblocks.get(p.statblockSlug) ?? null
+            : p.statblockJson
+              ? monsterDerive(JSON.parse(p.statblockJson) as Record<string, unknown>)
+              : null;
+          return {
+            id: p.id,
+            encounterId: p.encounterId,
+            characterId: p.characterId,
+            name: p.name,
+            kind: p.kind,
+            statblockSlug: p.statblockSlug,
+            statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
+            statblockActions: p.statblockSlug ? statblockActions.get(p.statblockSlug) ?? [] : [],
+            statblock,
+            initiative: p.initiative,
+            dexScore: dexForParticipant(p),
+            currentHp: p.currentHp,
+            maxHp: p.maxHp,
+            tempHp: p.tempHp,
+            conditions: JSON.parse(p.conditionsJson) as string[],
+            sortOrder: p.sortOrder,
+            reveals,
+            hpBucket: hpBucket(p.currentHp, p.maxHp),
+            // placeholder fills in below after the initiative sort, so
+            // "Enemy N" matches the player's visible order.
+            placeholderName: p.name
+          };
+        })
+        .sort(
+          (a, b) =>
+            (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) ||
+            b.dexScore - a.dexScore ||
+            a.sortOrder - b.sortOrder
+        );
+
+      if (isDM) {
+        // DM sees everything. Compute placeholders anyway (unused by DM UI)
+        // for shape symmetry with the player branch.
+        let idx = 0;
+        for (const r of fullRows) {
+          if (r.kind === 'pc') r.placeholderName = r.name;
+          else r.placeholderName = `Enemy ${++idx}`;
+        }
+        return fullRows;
+      }
+
+      // Player branch: drop `hidden`; redact per-flag; PC participants
+      // (party members) always render fully.
+      const visible = fullRows.filter((r) => r.kind === 'pc' || !r.reveals.hidden);
+      let idx = 0;
+      return visible.map((r) => {
+        if (r.kind === 'pc') {
+          return r;
+        }
+        const placeholder = r.reveals.identity ? r.name : `Enemy ${++idx}`;
+        return {
+          ...r,
+          name: r.reveals.identity ? r.name : placeholder,
+          placeholderName: placeholder,
+          statblockSlug: r.reveals.combat ? r.statblockSlug : null,
+          statblockJson: r.reveals.combat ? r.statblockJson : null,
+          statblockActions: r.reveals.combat ? r.statblockActions : [],
+          statblock: r.reveals.combat
+            ? r.statblock
+            : r.reveals.vitals && r.statblock
+              ? // vitals reveals AC only; surface a minimal statblock so the
+                // UI can show AC without leaking attacks/traits.
+                ({ ac: r.statblock.ac } as MonsterDerived)
+              : null,
+          // Note: maxHp + currentHp stay shipped to players because the
+          // client computes the live HP bucket from them as Y.Doc HP changes
+          // flow through. The display layer is responsible for not showing
+          // the raw numbers when `reveals.vitals` is false. See the Y.Doc
+          // leak caveat in src/lib/realtime/encounter-doc.ts.
+          currentHp: r.currentHp,
+          maxHp: r.maxHp,
+          tempHp: r.tempHp
+        };
+      });
+    })(),
     campaignCharacters: charRows.map((r) => ({ id: r.id, name: r.name })),
     party: {
       size: partySize,
@@ -249,6 +366,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       avgLevel: partyAvgLevel
     },
     monsterOptions,
+    participantSpells,
     actionLog: logRows.map((r) => ({
       id: r.id,
       round: r.round,

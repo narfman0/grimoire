@@ -730,19 +730,36 @@
     movement: number;
     reaction: string;
     freeActions: string;
+    slotLevel: number;
   }
   let roundEconomy: Record<string, RoundEconomyEntry> = {};
 
   function ensureEconomy(id: string): RoundEconomyEntry {
     if (!roundEconomy[id]) {
-      roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '' };
+      roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '', slotLevel: 1 };
     }
     return roundEconomy[id];
   }
 
   function resetEconomy(id: string) {
-    roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '' };
+    roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '', slotLevel: 1 };
     roundEconomy = roundEconomy;
+  }
+
+  type SpellEntry = { slug: string; name: string; level: number };
+  function groupByLevel(spells: SpellEntry[]) {
+    const groups = new Map<number, SpellEntry[]>();
+    for (const s of spells) {
+      if (!groups.has(s.level)) groups.set(s.level, []);
+      groups.get(s.level)!.push(s);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a - b).map(([level, spells]) => ({ level, spells }));
+  }
+
+  function isSpellAction(participantId: string): boolean {
+    const spells = data.participantSpells?.[participantId] ?? [];
+    const action = roundEconomy[participantId]?.action ?? '';
+    return action !== '' && spells.some(s => s.name === action);
   }
 
   // Track previous active to reset economy on turn change.
@@ -1313,6 +1330,40 @@
                     bind:value={econ.action}
                     on:input={() => (roundEconomy = roundEconomy)}
                   />
+                  {#if data.participantSpells?.[p.id]?.length}
+                    <div class="mt-2 border-t border-slate-800 pt-2">
+                      <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Spells</div>
+                      {#each groupByLevel(data.participantSpells[p.id]) as group}
+                        <div class="mb-1">
+                          <span class="text-[10px] text-slate-600">{group.level === 0 ? 'Cantrip' : `Level ${group.level}`}</span>
+                          <div class="flex flex-wrap gap-1 mt-0.5">
+                            {#each group.spells as spell}
+                              <button
+                                class="rounded border border-violet-800/60 bg-violet-950/40 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-800/60"
+                                on:click={() => { econ.action = spell.name; roundEconomy = roundEconomy; }}
+                              >
+                                {spell.name}
+                              </button>
+                            {/each}
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                  {#if isSpellAction(p.id)}
+                    <div class="mt-2 flex items-center gap-1.5">
+                      <span class="text-[10px] text-slate-500">Cast at slot:</span>
+                      <select
+                        class="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px]"
+                        bind:value={econ.slotLevel}
+                        on:change={() => (roundEconomy = roundEconomy)}
+                      >
+                        {#each [1,2,3,4,5,6,7,8,9] as lvl}
+                          <option value={lvl}>L{lvl}</option>
+                        {/each}
+                      </select>
+                    </div>
+                  {/if}
                 </div>
                 <!-- Bonus action slot -->
                 <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
