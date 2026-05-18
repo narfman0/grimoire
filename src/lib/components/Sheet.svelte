@@ -245,17 +245,3 @@
   </section>
 {/if}
 
-{#if resources.length > 0}
-  <section class="mt-6 text-sm text-slate-300">
-    <h2 class="mb-2 text-sm font-semibold text-slate-300">Resources</h2>
-    <ul class="grid gap-1 md:grid-cols-2">
-      {#each resources as r}
-        <li class="rounded border border-slate-800 px-2 py-1">
-          <span class="font-semibold">{r.name}:</span>
-          <span class="font-mono">{r.max - r.used} / {r.max}</span>
-          <span class="text-xs text-slate-500">per {r.per}</span>
-        </li>
-      {/each}
-    </ul>
-  </section>
-{/if}
