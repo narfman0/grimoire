@@ -1608,9 +1608,88 @@
 {/if}
 
 {#if document && derived}
-  <!-- ===== Stats / saves / skills / actions (read-only) — sits above the
-       in-encounter mutable cluster so the static stuff is the first thing
-       a player sees. ===== -->
+  <!-- ===== Action economy panel (top of page) ===== -->
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+    <div class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Action Economy</div>
+    <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <!-- Action card -->
+      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+        <div class="mb-1.5 text-[10px] text-slate-500">⚔ Action</div>
+        <button
+          class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {actionUsed
+            ? 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
+            : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
+          disabled={busy}
+          on:click={toggleAction}
+        >
+          {actionUsed ? 'used' : 'ready'}
+        </button>
+      </div>
+      <!-- Bonus action card -->
+      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+        <div class="mb-1.5 text-[10px] text-slate-500">✦ Bonus Action</div>
+        <button
+          class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {bonusUsed
+            ? 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
+            : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
+          disabled={busy}
+          on:click={toggleBonusAction}
+        >
+          {bonusUsed ? 'used' : 'ready'}
+        </button>
+      </div>
+      <!-- Movement card -->
+      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+        <div class="mb-1.5 text-[10px] text-slate-500">💨 Movement</div>
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="font-mono {movementRemaining === 0 ? 'text-slate-500' : 'text-emerald-200'}">{movementRemaining}/{walkSpeed} ft</span>
+          <button class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40" disabled={busy || movementRemaining === 0} on:click={() => adjustMovement(5)}>−5</button>
+          <button class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40" disabled={busy || movementUsed === 0} on:click={() => adjustMovement(-5)}>+5</button>
+          <button class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40" disabled={busy || movementUsed === 0} on:click={resetMovement}>↺</button>
+        </div>
+      </div>
+      <!-- Reaction card -->
+      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+        <div class="mb-1.5 text-[10px] text-slate-500">↩ Reaction</div>
+        <button
+          class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {reactionUsed
+            ? 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
+            : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
+          disabled={busy}
+          on:click={toggleReaction}
+        >
+          {reactionUsed ? 'used' : 'ready'}
+        </button>
+      </div>
+    </div>
+    <!-- Concentration row -->
+    <div class="mt-2">
+      {#if document.concentrating}
+        <div class="flex items-center gap-2 rounded border border-indigo-700 bg-indigo-950/40 px-2 py-1 text-xs text-indigo-200">
+          <span>🌀 Concentrating:</span>
+          <span class="font-semibold">{document.concentrating.label}</span>
+          {#if document.concentrating.sinceRound != null}
+            <span class="text-indigo-400/70">(since R{document.concentrating.sinceRound})</span>
+          {/if}
+          <button class="ml-1 rounded border border-indigo-700 px-1.5 py-0 text-[10px] hover:bg-indigo-900/40 disabled:opacity-40" disabled={busy} on:click={endConcentration}>drop</button>
+        </div>
+      {:else}
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-slate-500">🌀 Concentrate on</span>
+          <input
+            class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+            placeholder="bless, hex, hold person…"
+            maxlength="80"
+            bind:value={concDraft}
+            on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); startConcentration(); } }}
+          />
+          <button class="rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-800 disabled:opacity-40" disabled={busy || concDraft.trim() === ''} on:click={startConcentration}>start</button>
+        </div>
+      {/if}
+    </div>
+  </section>
+
+  <!-- ===== Stats / saves / skills / actions (read-only) ===== -->
   <Sheet derived={derived} />
 
   <!-- ===== Edit panel: HP / hit dice / conditions / toggles / rest ===== -->
@@ -1733,118 +1812,6 @@
     </div>
   </section>
 
-  <!-- Action economy + concentration (compact row above slots/resources) -->
-  <section class="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/30 p-3 text-sm">
-    <!-- Action pill -->
-    <button
-      class="rounded border px-2 py-1 text-xs font-medium transition-colors {actionUsed
-        ? 'border-slate-700 bg-slate-950 text-slate-500 hover:text-slate-300'
-        : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
-      disabled={busy}
-      title={actionUsed ? 'Action used this turn — click to restore' : 'Action available — click to mark used'}
-      on:click={toggleAction}
-    >
-      ◉ Action: {actionUsed ? 'used' : 'ready'}
-    </button>
-    <!-- Bonus action pill -->
-    <button
-      class="rounded border px-2 py-1 text-xs font-medium transition-colors {bonusUsed
-        ? 'border-slate-700 bg-slate-950 text-slate-500 hover:text-slate-300'
-        : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
-      disabled={busy}
-      title={bonusUsed ? 'Bonus action used — click to restore' : 'Bonus action available — click to mark used'}
-      on:click={toggleBonusAction}
-    >
-      ✦ Bonus: {bonusUsed ? 'used' : 'ready'}
-    </button>
-    <!-- Reaction pill -->
-    <button
-      class="rounded border px-2 py-1 text-xs font-medium transition-colors {reactionUsed
-        ? 'border-slate-700 bg-slate-950 text-slate-500 hover:text-slate-300'
-        : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
-      disabled={busy}
-      title={reactionUsed
-        ? 'Reaction used this round. Click to mark available again.'
-        : 'Reaction available. Click to mark used.'}
-      on:click={toggleReaction}
-    >
-      ⚡ Reaction: {reactionUsed ? 'used' : 'ready'}
-    </button>
-    <!-- Movement counter -->
-    <span class="flex items-center gap-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs">
-      <span class="text-slate-500">→ Move:</span>
-      <span class="font-mono {movementRemaining === 0 ? 'text-slate-500' : 'text-emerald-200'}">
-        {movementRemaining}/{walkSpeed} ft
-      </span>
-      <button
-        class="ml-1 rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40"
-        title="−5 ft"
-        disabled={busy || movementRemaining === 0}
-        on:click={() => adjustMovement(5)}
-      >
-        −5
-      </button>
-      <button
-        class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40"
-        title="+5 ft (refund)"
-        disabled={busy || movementUsed === 0}
-        on:click={() => adjustMovement(-5)}
-      >
-        +5
-      </button>
-      <button
-        class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40"
-        title="Reset movement to full"
-        disabled={busy || movementUsed === 0}
-        on:click={resetMovement}
-      >
-        ↺
-      </button>
-    </span>
-
-    <!-- Concentration -->
-    {#if document.concentrating}
-      <span
-        class="flex items-center gap-2 rounded border border-indigo-700 bg-indigo-950/40 px-2 py-1 text-xs text-indigo-200"
-      >
-        <span>🌀 Concentrating:</span>
-        <span class="font-semibold">{document.concentrating.label}</span>
-        {#if document.concentrating.sinceRound != null}
-          <span class="text-indigo-400/70">(since R{document.concentrating.sinceRound})</span>
-        {/if}
-        <button
-          class="ml-1 rounded border border-indigo-700 px-1.5 py-0 text-[10px] hover:bg-indigo-900/40 disabled:opacity-40"
-          disabled={busy}
-          on:click={endConcentration}
-        >
-          drop
-        </button>
-      </span>
-    {:else}
-      <span class="flex items-center gap-1">
-        <span class="text-xs text-slate-500">🌀 Concentrate on</span>
-        <input
-          class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-          placeholder="bless, hex, hold person…"
-          maxlength="80"
-          bind:value={concDraft}
-          on:keydown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              startConcentration();
-            }
-          }}
-        />
-        <button
-          class="rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-800 disabled:opacity-40"
-          disabled={busy || concDraft.trim() === ''}
-          on:click={startConcentration}
-        >
-          start
-        </button>
-      </span>
-    {/if}
-  </section>
 
   <!-- Spell slots + spellbook header + resources (mutable cluster) -->
   {@const slotLevels = Object.keys(derived.stats.spellSlots).map(Number).sort((a, b) => a - b)}
