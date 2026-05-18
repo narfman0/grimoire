@@ -20,14 +20,15 @@ function lookup(): ContentLookup {
 // --- Data integrity: verify pack content has mechanical data populated -------
 
 describe('Xanathar spell activities', () => {
-	it('toll-the-dead is loaded with an activity', () => {
-		// Note: spell agent misclassified as "heal" — it should be "save" (WIS save, necrotic).
-		// Activity type will be corrected in a data-quality pass; for now just verify populated.
+	it('toll-the-dead is loaded with a save activity (WIS save, necrotic)', () => {
 		const row = PACKS.get('spell/toll-the-dead');
 		expect(row).toBeDefined();
 		const activities = row!.data.activities as unknown[];
-		expect(activities).toBeDefined();
 		expect(activities.length).toBeGreaterThan(0);
+		const act = activities[0] as Record<string, unknown>;
+		expect(act.type).toBe('save');
+		const save = act.save as Record<string, unknown>;
+		expect(save.ability).toBe('wisdom');
 	});
 
 	it('chaos-bolt is loaded with an attack activity', () => {
