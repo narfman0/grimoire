@@ -34,6 +34,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .from(schema.participants)
     .where(eq(schema.participants.encounterId, enc.id));
 
+  // M3.5b: action log entries for this encounter — chronological.
+  const logRows = await db
+    .select()
+    .from(schema.actionLog)
+    .where(eq(schema.actionLog.encounterId, enc.id))
+    .orderBy(schema.actionLog.createdAt);
+
   // Characters in this campaign — for "add PC" picker
   const charRows = await db
     .select({
@@ -105,6 +112,25 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       }))
       .sort((a, b) => (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) || a.sortOrder - b.sortOrder),
     campaignCharacters: charRows,
-    monsterOptions
+    monsterOptions,
+    actionLog: logRows.map((r) => ({
+      id: r.id,
+      round: r.round,
+      participantId: r.participantId,
+      targetParticipantId: r.targetParticipantId,
+      actionId: r.actionId,
+      actionLabel: r.actionLabel,
+      submittedByUserId: r.submittedByUserId,
+      submitterRole: r.submitterRole,
+      isAmendment: r.isAmendment,
+      amendsLogId: r.amendsLogId,
+      attackRoll: r.attackRoll,
+      damageRoll: r.damageRoll,
+      hit: r.hit,
+      targetHpBefore: r.targetHpBefore,
+      targetHpAfter: r.targetHpAfter,
+      notes: r.notes,
+      createdAt: r.createdAt.getTime()
+    }))
   };
 };

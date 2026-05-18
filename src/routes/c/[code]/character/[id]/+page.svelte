@@ -8,9 +8,12 @@
   import {
     connectEncounterDoc,
     setTurnPlan,
+    clearTurnPlan,
+    applyDamage as applyEncDamage,
     type ConnectedEncounter,
     type EncounterSnapshot,
-    type TurnPlan
+    type TurnPlan,
+    type ParticipantHp
   } from '$lib/realtime/encounter-doc';
   import type { PageData } from './$types';
 
@@ -95,6 +98,20 @@
   let planNotes = '';
   let planSubmitting = false;
 
+  // ---- M3.5c: resolve flow ----
+  // The player can resolve their own plan: optionally declare what they
+  // rolled (attack total, damage total, hit/miss), apply HP to a non-PC
+  // target via the Y.Doc, and append to the encounter's action_log.
+  // PC targets aren't auto-damaged here — the target's own sheet is the
+  // source of truth for PC HP.
+  let resolveOpen = false;
+  let resolveAttack: number | null = null;
+  let resolveDamage: number | null = null;
+  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' = '';
+  let resolveNotes = '';
+  let resolveSubmitting = false;
+  let resolveError: string | null = null;
+
   onMount(() => {
     if (!data.syncToken) return;
     conn = connectCharacterDoc({ token: data.syncToken, characterId: data.character.id });
@@ -169,6 +186,94 @@
       setTurnPlan(encConn.ydoc, data.liveEncounter.selfParticipantId, plan);
     } finally {
       planSubmitting = false;
+    }
+  }
+
+  function openResolve() {
+    if (!myPlan) return;
+    resolveOpen = true;
+    resolveAttack = null;
+    resolveDamage = null;
+    resolveHit = '';
+    resolveNotes = '';
+    resolveError = null;
+  }
+
+  function resolveTargetParticipant() {
+    if (!data.liveEncounter || !myPlan?.targetParticipantId) return null;
+    return data.liveEncounter.participants.find((p) => p.id === myPlan!.targetParticipantId) ?? null;
+  }
+
+  async function submitResolve() {
+    if (!encConn || !data.liveEncounter || !myPlan) return;
+    const round = encState?.round ?? 0;
+    const selfId = data.liveEncounter.selfParticipantId;
+    const target = resolveTargetParticipant();
+    resolveSubmitting = true;
+    resolveError = null;
+
+    // Apply HP to the target via Y.Doc when:
+    //   - target exists, is non-PC (has maxHp on the participants row)
+    //   - hit ∈ {hit, crit}
+    //   - damage roll declared
+    // The PC case is intentionally not auto-applied — the target player's
+    // sheet is the source of truth there.
+    let targetHpBefore: number | null = null;
+    let targetHpAfter: number | null = null;
+    if (
+      target &&
+      target.kind !== 'pc' &&
+      typeof resolveDamage === 'number' &&
+      resolveDamage > 0 &&
+      (resolveHit === 'hit' || resolveHit === 'crit')
+    ) {
+      const seed: ParticipantHp = {
+        currentHp:
+          (encState?.participantHp[target.id]?.currentHp ?? null) ??
+          (target as { currentHp: number | null }).currentHp ?? null,
+        tempHp:
+          encState?.participantHp[target.id]?.tempHp ??
+          (target as { tempHp?: number }).tempHp ??
+          0,
+        conditions:
+          encState?.participantHp[target.id]?.conditions ??
+          ((target as { conditions?: string[] }).conditions ?? [])
+      };
+      targetHpBefore = seed.currentHp;
+      const next = applyEncDamage(encConn.ydoc, target.id, resolveDamage, seed);
+      targetHpAfter = next.currentHp;
+    }
+
+    try {
+      const res = await fetch(`/api/encounters/${data.liveEncounter.id}/log`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          participantId: selfId,
+          targetParticipantId: myPlan.targetParticipantId,
+          actionId: myPlan.actionId,
+          actionLabel: myPlan.actionLabel,
+          round,
+          attackRoll: resolveAttack,
+          damageRoll: resolveDamage,
+          hit: resolveHit || null,
+          targetHpBefore,
+          targetHpAfter,
+          notes: resolveNotes.slice(0, 500) || null
+        })
+      });
+      if (!res.ok) {
+        resolveError = `log: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        return;
+      }
+      // Clear the plan now that the action has been resolved.
+      clearTurnPlan(encConn.ydoc, selfId);
+      planActionId = '';
+      planTargetId = null;
+      planNotes = '';
+      resolveOpen = false;
+    } finally {
+      resolveSubmitting = false;
     }
   }
 
@@ -664,19 +769,100 @@
 
     {#if myPlan}
       <div class="mb-3 rounded border border-slate-700 bg-slate-950/60 p-2 text-xs">
-        <span class="font-semibold text-slate-300">Broadcast plan:</span>
-        <span class="ml-1 text-emerald-200">{myPlan.actionLabel}</span>
-        {#if myPlan.targetParticipantId}
-          {@const tgt = data.liveEncounter.participants.find((p) => p.id === myPlan.targetParticipantId)}
-          {#if tgt}
-            <span class="text-slate-400"> → </span>
-            <span class="text-slate-200">{tgt.name}</span>
+        <div class="flex items-baseline justify-between gap-2">
+          <div>
+            <span class="font-semibold text-slate-300">Broadcast plan:</span>
+            <span class="ml-1 text-emerald-200">{myPlan.actionLabel}</span>
+            {#if myPlan.targetParticipantId}
+              {@const tgt = data.liveEncounter.participants.find((p) => p.id === myPlan.targetParticipantId)}
+              {#if tgt}
+                <span class="text-slate-400"> → </span>
+                <span class="text-slate-200">{tgt.name}</span>
+              {/if}
+            {/if}
+            {#if myPlan.notes}
+              <p class="mt-1 text-slate-400">“{myPlan.notes}”</p>
+            {/if}
+          </div>
+          {#if !resolveOpen}
+            <button
+              class="rounded border border-emerald-700 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/40"
+              on:click={openResolve}
+            >
+              Resolve
+            </button>
           {/if}
-        {/if}
-        {#if myPlan.notes}
-          <p class="mt-1 text-slate-400">“{myPlan.notes}”</p>
-        {/if}
+        </div>
       </div>
+
+      {#if resolveOpen}
+        <div class="mb-3 rounded border border-emerald-800 bg-emerald-950/30 p-3 text-xs">
+          <p class="mb-2 text-slate-300">
+            Declare what you rolled (optional). HP applies automatically to non-PC
+            targets when you mark hit/crit and provide damage; the log captures
+            whatever you submit and the DM can amend.
+          </p>
+          <div class="flex flex-wrap items-end gap-2">
+            <label>
+              <span class="block text-slate-400">Attack total</span>
+              <input
+                type="number"
+                class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+                placeholder="d20+mod"
+                bind:value={resolveAttack}
+              />
+            </label>
+            <label>
+              <span class="block text-slate-400">Damage</span>
+              <input
+                type="number"
+                class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+                placeholder="rolled"
+                bind:value={resolveDamage}
+              />
+            </label>
+            <label>
+              <span class="block text-slate-400">Outcome</span>
+              <select
+                class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+                bind:value={resolveHit}
+              >
+                <option value="">— let DM decide —</option>
+                <option value="hit">hit</option>
+                <option value="crit">crit</option>
+                <option value="miss">miss</option>
+                <option value="fumble">fumble</option>
+              </select>
+            </label>
+            <label class="flex-1">
+              <span class="block text-slate-400">Notes</span>
+              <input
+                class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+                placeholder="advantage, hex, etc."
+                maxlength="500"
+                bind:value={resolveNotes}
+              />
+            </label>
+            <button
+              class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+              on:click={submitResolve}
+              disabled={resolveSubmitting}
+            >
+              {resolveSubmitting ? 'Submitting…' : 'Submit'}
+            </button>
+            <button
+              class="rounded border border-slate-700 px-2 py-1 text-xs hover:bg-slate-800"
+              on:click={() => (resolveOpen = false)}
+              disabled={resolveSubmitting}
+            >
+              Cancel
+            </button>
+          </div>
+          {#if resolveError}
+            <p class="mt-2 text-red-300">{resolveError}</p>
+          {/if}
+        </div>
+      {/if}
     {/if}
 
     {#if actionOptions.length === 0}

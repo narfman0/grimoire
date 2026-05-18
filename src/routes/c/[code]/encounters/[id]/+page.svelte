@@ -76,6 +76,168 @@
 
   let hpInputs: Record<string, number> = {};
 
+  // ---- DM resolve flow (M3.5c) ----
+  // The DM can resolve any participant's plan (or no-plan) directly: pick
+  // an action label (defaults to the plan's), declare rolls, apply HP. We
+  // route through the same /log endpoint as players; submitter_role is set
+  // server-side from the caller's membership.
+  let resolveForParticipantId: string | null = null;
+  let resolveActionId = '';
+  let resolveActionLabel = '';
+  let resolveTargetId: string | null = null;
+  let resolveAttack: number | null = null;
+  let resolveDamage: number | null = null;
+  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' = '';
+  let resolveNotes = '';
+  let resolveSubmitting = false;
+  let resolveError: string | null = null;
+
+  function openResolve(p: { id: string; name: string }) {
+    resolveForParticipantId = p.id;
+    const plan = livePlans[p.id];
+    if (plan) {
+      resolveActionId = plan.actionId;
+      resolveActionLabel = plan.actionLabel;
+      resolveTargetId = plan.targetParticipantId;
+      resolveNotes = plan.notes;
+    } else {
+      resolveActionId = 'dm-adhoc';
+      resolveActionLabel = 'Ad-hoc';
+      resolveTargetId = null;
+      resolveNotes = '';
+    }
+    resolveAttack = null;
+    resolveDamage = null;
+    resolveHit = '';
+    resolveError = null;
+  }
+
+  function closeResolve() {
+    resolveForParticipantId = null;
+    resolveError = null;
+  }
+
+  async function submitDmResolve() {
+    if (!conn || !resolveForParticipantId) return;
+    const round = liveState?.round ?? data.encounter.round;
+    const target = resolveTargetId
+      ? data.participants.find((p) => p.id === resolveTargetId) ?? null
+      : null;
+
+    let targetHpBefore: number | null = null;
+    let targetHpAfter: number | null = null;
+    if (
+      target &&
+      target.kind !== 'pc' &&
+      typeof resolveDamage === 'number' &&
+      resolveDamage > 0 &&
+      (resolveHit === 'hit' || resolveHit === 'crit')
+    ) {
+      const seed = seedFor(target);
+      targetHpBefore = seed.currentHp;
+      const next = doApplyDamage(conn.ydoc, target.id, resolveDamage, seed);
+      targetHpAfter = next.currentHp;
+    }
+
+    resolveSubmitting = true;
+    try {
+      const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          participantId: resolveForParticipantId,
+          targetParticipantId: resolveTargetId,
+          actionId: resolveActionId,
+          actionLabel: resolveActionLabel,
+          round,
+          attackRoll: resolveAttack,
+          damageRoll: resolveDamage,
+          hit: resolveHit || null,
+          targetHpBefore,
+          targetHpAfter,
+          notes: resolveNotes.slice(0, 500) || null
+        })
+      });
+      if (!res.ok) {
+        resolveError = `log: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        return;
+      }
+      // Clear the plan if there was one.
+      if (livePlans[resolveForParticipantId]) {
+        clearTurnPlan(conn.ydoc, resolveForParticipantId);
+      }
+      closeResolve();
+      await invalidateAll(); // refresh log view
+    } finally {
+      resolveSubmitting = false;
+    }
+  }
+
+  // ---- DM amend (M3.5c) ----
+  // Amendments are new log rows; we pre-fill the form from the prior entry
+  // and POST with amendsLogId set. We optionally revert HP by applying the
+  // reverse delta if the original wrote a damage change.
+  let amendingLogId: string | null = null;
+
+  function openAmend(entry: (typeof data.actionLog)[number]) {
+    amendingLogId = entry.id;
+    resolveForParticipantId = entry.participantId;
+    resolveActionId = entry.actionId;
+    resolveActionLabel = entry.actionLabel;
+    resolveTargetId = entry.targetParticipantId;
+    resolveAttack = entry.attackRoll;
+    resolveDamage = entry.damageRoll;
+    resolveHit = (entry.hit ?? '') as typeof resolveHit;
+    resolveNotes = entry.notes ?? '';
+    resolveError = null;
+  }
+
+  /** Group log entries: originals (top-level) and amendments by amendsLogId. */
+  $: logOriginals = data.actionLog.filter((e) => !e.isAmendment);
+  $: amendsByOriginal = (() => {
+    const m = new Map<string, typeof data.actionLog>();
+    for (const e of data.actionLog) {
+      if (!e.isAmendment || !e.amendsLogId) continue;
+      const arr = m.get(e.amendsLogId) ?? [];
+      arr.push(e);
+      m.set(e.amendsLogId, arr);
+    }
+    return m;
+  })();
+
+  async function submitAmend() {
+    if (!conn || !amendingLogId || !resolveForParticipantId) return;
+    const round = liveState?.round ?? data.encounter.round;
+    resolveSubmitting = true;
+    try {
+      const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          participantId: resolveForParticipantId,
+          targetParticipantId: resolveTargetId,
+          actionId: resolveActionId,
+          actionLabel: resolveActionLabel,
+          round,
+          attackRoll: resolveAttack,
+          damageRoll: resolveDamage,
+          hit: resolveHit || null,
+          notes: resolveNotes.slice(0, 500) || null,
+          amendsLogId: amendingLogId
+        })
+      });
+      if (!res.ok) {
+        resolveError = `amend: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        return;
+      }
+      amendingLogId = null;
+      closeResolve();
+      await invalidateAll();
+    } finally {
+      resolveSubmitting = false;
+    }
+  }
+
   function dmDamage(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }) {
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
     if (n === 0 || !conn) return;
@@ -376,7 +538,13 @@
               {/if}
               {#if data.role === 'dm'}
                 <button
-                  class="ml-2 text-[10px] text-slate-500 hover:text-red-400"
+                  class="ml-2 rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-900/40"
+                  on:click={() => openResolve(p)}
+                >
+                  resolve
+                </button>
+                <button
+                  class="ml-1 text-[10px] text-slate-500 hover:text-red-400"
                   on:click={() => clearPlan(p.id)}
                 >
                   clear
@@ -484,9 +652,184 @@
   {/if}
 </section>
 
+{#if resolveForParticipantId && data.role === 'dm'}
+  {@const acting = data.participants.find((q) => q.id === resolveForParticipantId)}
+  <section
+    class="mb-6 rounded-lg border p-4 {amendingLogId
+      ? 'border-amber-700 bg-amber-950/30'
+      : 'border-emerald-700 bg-emerald-950/30'}"
+  >
+    <h2 class="mb-3 text-sm font-semibold">
+      {amendingLogId ? 'Amend log entry' : 'Resolve turn'}
+      {#if acting}
+        — <span class="text-slate-200">{acting.name}</span>
+      {/if}
+    </h2>
+    <div class="flex flex-wrap items-end gap-2 text-sm">
+      <label class="text-xs">
+        <span class="block text-slate-400">Action label</span>
+        <input
+          class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+          bind:value={resolveActionLabel}
+        />
+      </label>
+      <label class="text-xs">
+        <span class="block text-slate-400">Target</span>
+        <select
+          class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+          bind:value={resolveTargetId}
+        >
+          <option value={null}>— none —</option>
+          {#each data.participants as q}
+            {#if q.id !== resolveForParticipantId}
+              <option value={q.id}>{q.name} ({q.kind})</option>
+            {/if}
+          {/each}
+        </select>
+      </label>
+      <label class="text-xs">
+        <span class="block text-slate-400">Attack</span>
+        <input
+          type="number"
+          class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+          bind:value={resolveAttack}
+        />
+      </label>
+      <label class="text-xs">
+        <span class="block text-slate-400">Damage</span>
+        <input
+          type="number"
+          class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+          bind:value={resolveDamage}
+        />
+      </label>
+      <label class="text-xs">
+        <span class="block text-slate-400">Outcome</span>
+        <select
+          class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+          bind:value={resolveHit}
+        >
+          <option value="">—</option>
+          <option value="hit">hit</option>
+          <option value="crit">crit</option>
+          <option value="miss">miss</option>
+          <option value="fumble">fumble</option>
+        </select>
+      </label>
+      <label class="flex-1 text-xs">
+        <span class="block text-slate-400">Notes</span>
+        <input
+          class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+          maxlength="500"
+          bind:value={resolveNotes}
+        />
+      </label>
+      <button
+        class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+        on:click={amendingLogId ? submitAmend : submitDmResolve}
+        disabled={resolveSubmitting}
+      >
+        {resolveSubmitting ? '…' : amendingLogId ? 'Save amendment' : 'Submit'}
+      </button>
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs hover:bg-slate-800"
+        on:click={() => {
+          amendingLogId = null;
+          closeResolve();
+        }}
+        disabled={resolveSubmitting}
+      >
+        Cancel
+      </button>
+    </div>
+    {#if resolveError}
+      <p class="mt-2 text-xs text-red-300">{resolveError}</p>
+    {/if}
+    <p class="mt-2 text-xs text-slate-500">
+      Damage auto-applies to non-PC targets on hit/crit. PC HP changes happen
+      on the target player's sheet. Amendments don't auto-revert HP yet — adjust
+      with the ±buttons separately.
+    </p>
+  </section>
+{/if}
+
+{#if data.actionLog.length > 0}
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+    <h2 class="mb-3 text-sm font-semibold text-slate-200">
+      Action log ({data.actionLog.length})
+    </h2>
+    <ol class="space-y-2 text-xs">
+      {#each logOriginals as entry (entry.id)}
+        {@const actor = data.participants.find((p) => p.id === entry.participantId)}
+        {@const target = data.participants.find((p) => p.id === entry.targetParticipantId)}
+        {@const amends = amendsByOriginal.get(entry.id) ?? []}
+        <li class="rounded border border-slate-800 bg-slate-950/50 p-2">
+          <div class="flex flex-wrap items-baseline gap-2">
+            <span class="font-mono text-slate-500">R{entry.round}</span>
+            <span class="font-semibold text-slate-200">{actor?.name ?? '—'}</span>
+            <span class="text-slate-400">{entry.actionLabel}</span>
+            {#if target}
+              <span class="text-slate-500">→</span>
+              <span class="text-slate-200">{target.name}</span>
+            {/if}
+            {#if entry.hit}
+              <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{entry.hit}</span>
+            {/if}
+            {#if entry.attackRoll != null}
+              <span class="text-slate-500">atk {entry.attackRoll}</span>
+            {/if}
+            {#if entry.damageRoll != null}
+              <span class="text-red-300">dmg {entry.damageRoll}</span>
+            {/if}
+            {#if entry.targetHpBefore != null && entry.targetHpAfter != null}
+              <span class="font-mono text-[10px] text-slate-500">
+                hp {entry.targetHpBefore}→{entry.targetHpAfter}
+              </span>
+            {/if}
+            <span class="ml-auto text-[10px] text-slate-600">
+              {entry.submitterRole}
+            </span>
+            {#if data.role === 'dm'}
+              <button
+                class="text-[10px] text-amber-300 hover:text-amber-200"
+                on:click={() => openAmend(entry)}
+              >
+                amend
+              </button>
+            {/if}
+          </div>
+          {#if entry.notes}
+            <p class="mt-1 text-slate-400 italic">“{entry.notes}”</p>
+          {/if}
+          {#each amends as amend (amend.id)}
+            <div class="ml-4 mt-1 rounded border-l-2 border-amber-700 bg-amber-950/20 p-1.5 pl-2">
+              <div class="flex flex-wrap items-baseline gap-2">
+                <span class="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">amend</span>
+                <span class="text-slate-400">{amend.actionLabel}</span>
+                {#if amend.hit}
+                  <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{amend.hit}</span>
+                {/if}
+                {#if amend.attackRoll != null}
+                  <span class="text-slate-500">atk {amend.attackRoll}</span>
+                {/if}
+                {#if amend.damageRoll != null}
+                  <span class="text-red-300">dmg {amend.damageRoll}</span>
+                {/if}
+              </div>
+              {#if amend.notes}
+                <p class="mt-1 text-slate-400 italic">“{amend.notes}”</p>
+              {/if}
+            </div>
+          {/each}
+        </li>
+      {/each}
+    </ol>
+  </section>
+{/if}
+
 <p class="text-xs text-slate-500">
-  M3.3 syncs round + active-turn state across all connected clients via
-  Y.Doc. Per-participant HP still flows through REST (PATCH /api/participants);
-  M3.4 promotes that into the same live channel and surfaces a player
-  turn planner on the character sheet.
+  M3.5: HP syncs live across clients; player & DM can resolve plans; the
+  action log captures every submission, with DM amendments threaded under
+  each original. Heal actions still resolve as damage labels — a future
+  pass adds explicit heal-type resolution + auto-revert on amend.
 </p>
