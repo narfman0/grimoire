@@ -101,22 +101,56 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   // Walk active content and pull in any feature slugs they reference.
   // Features carry their own modifiers/activities; they're loaded just like
-  // any other content kind.
-  const featureRefs: ContentRef[] = [];
+  // any other content kind. We accept two shapes for the references:
+  //   `features`         — engine-native: array of strings or { slug, level }
+  //   `subclassFeatures` — 5etools-imported: array of { level, name, ... }
+  // For the 5etools shape we slugify the `name` and treat it as a feature
+  // ref. If no matching feature row exists in the content map, the lookup
+  // below silently skips it — display-only fields stay available on the
+  // subclass row for the sheet to render, but produce no rules effect.
+  const featureRefs: Array<{ ref: ContentRef; ownerSlug: string; ownerKind: string; level: number }> = [];
   for (const a of active) {
     const features = (a.data.features as Array<string | { slug: string; level?: number; minLevel?: number }> | undefined) ?? [];
     for (const f of features) {
       if (typeof f === 'string') {
-        featureRefs.push({ kind: 'feature', slug: f });
+        featureRefs.push({
+          ref: { kind: 'feature', slug: f },
+          ownerSlug: a.row.slug,
+          ownerKind: a.row.kind,
+          level: 1
+        });
       } else if (f && typeof f === 'object' && 'slug' in f) {
         const featLevel = (f as { level?: number; minLevel?: number }).level ?? (f as { minLevel?: number }).minLevel ?? 1;
         const classLevel = classLevelFor(character, a.row.slug);
         if (a.row.kind === 'class' && classLevel < featLevel) continue;
-        featureRefs.push({ kind: 'feature', slug: f.slug });
+        featureRefs.push({
+          ref: { kind: 'feature', slug: f.slug },
+          ownerSlug: a.row.slug,
+          ownerKind: a.row.kind,
+          level: featLevel
+        });
       }
     }
+    const inlineFeatures =
+      (a.data.subclassFeatures as Array<{ name?: string; level?: number }> | undefined) ?? [];
+    for (const f of inlineFeatures) {
+      if (!f?.name) continue;
+      const slug = slugifyName(f.name);
+      const featLevel = f.level ?? 1;
+      // Subclass features unlock at a per-class level; gate by parent class.
+      if (a.row.kind === 'subclass') {
+        const parentSlug = (a.data.parentClass as string | undefined) ?? '';
+        if (parentSlug && classLevelFor(character, parentSlug) < featLevel) continue;
+      }
+      featureRefs.push({
+        ref: { kind: 'feature', slug },
+        ownerSlug: a.row.slug,
+        ownerKind: a.row.kind,
+        level: featLevel
+      });
+    }
   }
-  for (const r of featureRefs) {
+  for (const { ref: r } of featureRefs) {
     const row = content(r);
     if (!row) continue;
     // Feature applicability: minLevel against owning class/species level.
@@ -514,6 +548,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
 function classLevelFor(character: CharacterDocument, slug: string): number {
   return character.classes.find((c) => c.slug === slug)?.level ?? 0;
+}
+
+/** Lower-case, hyphenate, strip non-[a-z0-9-] — matches the slug convention
+ *  used in feature content rows. Used to map 5etools-imported display names
+ *  ("Divine Fury") to the engine's slugged feature lookups ("divine-fury"). */
+function slugifyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function applyTarget(
