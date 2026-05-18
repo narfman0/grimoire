@@ -244,10 +244,40 @@
   // common at-the-table thing; click a quick-fill to switch.
   let genMethod: 'standard' | 'pointbuy' | 'rolled' = 'rolled';
 
+  function isStandardArrayPermutation(): boolean {
+    const used = abilityKeys.map((ab) => abilities[ab]).sort((a, b) => b - a);
+    return used.join(',') === STANDARD_ARRAY.join(',');
+  }
+
   function fillStandardArray() {
     abilityKeys.forEach((ab, i) => (abilities[ab] = STANDARD_ARRAY[i]));
     abilities = { ...abilities };
     genMethod = 'standard';
+  }
+
+  // When a standard-array slot picks a value already used by another slot,
+  // swap with that slot. Keeps the assignment a valid permutation by
+  // construction so the user can drag values around without bookkeeping.
+  function setStandardAbility(ab: (typeof abilityKeys)[number], next: number) {
+    const prev = abilities[ab];
+    if (prev === next) return;
+    for (const other of abilityKeys) {
+      if (other !== ab && abilities[other] === next) {
+        abilities[other] = prev;
+        break;
+      }
+    }
+    abilities[ab] = next;
+    abilities = { ...abilities };
+  }
+
+  // Switching radio to standard array re-seeds defaults if the current
+  // values aren't a valid permutation — otherwise preserves the assignment.
+  function onMethodChange() {
+    if (genMethod === 'standard' && !isStandardArrayPermutation()) {
+      abilityKeys.forEach((ab, i) => (abilities[ab] = STANDARD_ARRAY[i]));
+      abilities = { ...abilities };
+    }
   }
 
   function fillPointBuyBaseline() {
@@ -434,15 +464,15 @@
     <div class="flex flex-wrap items-center gap-3 text-xs">
       <span class="text-slate-500 mr-1">Method:</span>
       <label class="flex items-center gap-1">
-        <input type="radio" bind:group={genMethod} value="rolled" />
-        <span>Rolled (custom)</span>
+        <input type="radio" bind:group={genMethod} value="rolled" on:change={onMethodChange} />
+        <span>Manual / Rolled</span>
       </label>
       <label class="flex items-center gap-1">
-        <input type="radio" bind:group={genMethod} value="standard" />
+        <input type="radio" bind:group={genMethod} value="standard" on:change={onMethodChange} />
         <span>Standard Array</span>
       </label>
       <label class="flex items-center gap-1">
-        <input type="radio" bind:group={genMethod} value="pointbuy" />
+        <input type="radio" bind:group={genMethod} value="pointbuy" on:change={onMethodChange} />
         <span>Point Buy</span>
       </label>
     </div>
@@ -464,14 +494,26 @@
       {#each abilityKeys as ab}
         <label class="text-sm">
           <span class="mb-1 block text-center text-xs uppercase tracking-wide text-slate-500">{ab}</span>
-          <input
-            type="number"
-            min="3"
-            max="20"
-            class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-center font-mono"
-            bind:value={abilities[ab]}
-            required
-          />
+          {#if genMethod === 'standard'}
+            <select
+              class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-center font-mono"
+              value={abilities[ab]}
+              on:change={(e) => setStandardAbility(ab, Number(e.currentTarget.value))}
+            >
+              {#each STANDARD_ARRAY as v}
+                <option value={v}>{v}</option>
+              {/each}
+            </select>
+          {:else}
+            <input
+              type="number"
+              min="3"
+              max="20"
+              class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-center font-mono"
+              bind:value={abilities[ab]}
+              required
+            />
+          {/if}
         </label>
       {/each}
     </fieldset>
@@ -503,11 +545,11 @@
         </span>
       {:else if genMethod === 'rolled'}
         <span class="mt-1 block text-slate-500">
-          Rolled — type whatever you rolled (3–20). DM verifies. No point-buy validation.
+          Manual / Rolled — type whatever you rolled or were assigned (3–20). DM verifies. No point-buy validation.
         </span>
       {:else}
         <span class="mt-1 block text-slate-500">
-          Standard Array — assign 15/14/13/12/10/8 across the abilities however you like.
+          Standard Array — each slot is locked to 15/14/13/12/10/8. Picking a value swaps it with whichever slot held it.
         </span>
       {/if}
       <span class="mt-1 block">

@@ -60,12 +60,20 @@
   <section class="mb-8">
     <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900/40">
       {#each data.campaigns as c}
-        <li class="flex items-center justify-between px-4 py-3 text-sm">
-          <div>
+        <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          <div class="flex-1">
             <a class="font-medium hover:text-emerald-300" href={`/c/${c.code}`}>{c.name}</a>
             <span class="ml-2 font-mono text-xs text-slate-500">{c.code}</span>
           </div>
-          <span class="text-xs uppercase tracking-wide {c.role === 'dm' ? 'text-amber-300' : 'text-slate-400'}">{c.role}</span>
+          <div class="flex items-center gap-3 text-xs text-slate-500">
+            <span title="Characters in this campaign">
+              {c.characterCount} <span class="text-slate-600">PC{c.characterCount === 1 ? '' : 's'}</span>
+            </span>
+            <span title="Encounters in this campaign">
+              {c.encounterCount} <span class="text-slate-600">enc</span>
+            </span>
+            <span class="rounded bg-slate-800 px-1.5 py-0.5 uppercase tracking-wide {c.role === 'dm' ? 'text-amber-300' : 'text-slate-400'}">{c.role}</span>
+          </div>
         </li>
       {/each}
     </ul>

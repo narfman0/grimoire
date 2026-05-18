@@ -2166,23 +2166,44 @@
       <ul class="mb-3 divide-y divide-slate-800 rounded border border-slate-800">
         {#each document.feats as f (f.slug)}
           {@const meta = featMeta(f.slug)}
-          <li class="flex items-center gap-2 px-2 py-1 text-xs">
-            <span class="flex-1 text-slate-200">
-              {meta?.name ?? f.slug}
-              {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
-              {#if describeFeatChoices(f.slug)}
-                <span class="ml-1 text-[10px] text-emerald-300/80">{describeFeatChoices(f.slug)}</span>
-              {/if}
-              {#if meta?.source}<span class="ml-1 text-[10px] text-slate-600">({meta.source})</span>{/if}
-            </span>
-            <button
-              class="text-[10px] text-slate-500 hover:text-red-400"
-              disabled={busy}
-              title="Remove feat"
-              on:click={() => removeFeat(f.slug)}
-            >
-              ×
-            </button>
+          {@const expandedKey = `feat-expand-${f.slug}`}
+          <li class="text-xs">
+            <div class="flex items-center gap-2 px-2 py-1">
+              <button
+                class="flex-1 text-left text-slate-200 hover:text-slate-100"
+                title={meta?.description ? 'Click to expand mechanic' : ''}
+                on:click={() => {
+                  const el = globalThis.document.getElementById(expandedKey);
+                  if (el) el.hidden = !el.hidden;
+                }}
+              >
+                {meta?.name ?? f.slug}
+                {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
+                {#if describeFeatChoices(f.slug)}
+                  <span class="ml-1 text-[10px] text-emerald-300/80">{describeFeatChoices(f.slug)}</span>
+                {/if}
+                {#if meta?.source}<span class="ml-1 text-[10px] text-slate-600">({meta.source})</span>{/if}
+                {#if meta?.description}
+                  <span class="ml-1 text-[10px] text-slate-600">▾</span>
+                {/if}
+              </button>
+              <button
+                class="text-[10px] text-slate-500 hover:text-red-400"
+                disabled={busy}
+                title="Remove feat"
+                on:click={() => removeFeat(f.slug)}
+              >
+                ×
+              </button>
+            </div>
+            {#if meta?.description}
+              <div id={expandedKey} hidden class="border-t border-slate-800/60 bg-slate-950/40 px-3 py-2">
+                {#if meta.prerequisite}
+                  <p class="mb-1 text-[10px] text-amber-400/80">Prerequisite: {meta.prerequisite}</p>
+                {/if}
+                <p class="text-[11px] leading-relaxed text-slate-400">{meta.description}</p>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>

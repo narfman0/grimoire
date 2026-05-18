@@ -1118,7 +1118,7 @@ function realizeActivity(
   source: ActiveContent,
   character: CharacterDocument,
   stats: StatBlock,
-  _content: ContentLookup
+  content: ContentLookup
 ): Action | null {
   const type = act.type as string | undefined;
   const id = (act.id as string | undefined) ?? `${source.row.kind}/${source.row.slug}/act`;
@@ -1185,6 +1185,39 @@ function realizeActivity(
     const damage = (act.damage as { parts?: Array<{ dice: string; type: string }> } | undefined)?.parts;
     if (damage) {
       action.damageRolls = damage.map((d) => ({ formula: d.dice, type: d.type }));
+    }
+  } else if (type === 'cast-spell') {
+    // Items (and someday monster innate spellcasting) reference a spell by
+    // slug. Inline the referenced spell's primary activity so attack/save/
+    // damage details flow into this Action. The action's sourceContent stays
+    // on the item — the caller can still trace it back to the driftglobe.
+    const ref = act.spell as { slug: string; version?: number } | undefined;
+    if (ref?.slug) {
+      const spellRow = content({ kind: 'spell', slug: ref.slug, version: ref.version });
+      if (spellRow) {
+        const spellActs =
+          (spellRow.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+        const primary = spellActs[0];
+        if (primary) {
+          const inlined = realizeActivity(
+            primary,
+            { ref: { kind: spellRow.kind, slug: spellRow.slug }, row: spellRow, data: spellRow.data },
+            character,
+            stats,
+            content
+          );
+          if (inlined) {
+            action.attackBonus = inlined.attackBonus;
+            action.attackAbility = inlined.attackAbility;
+            action.attackRange = inlined.attackRange;
+            action.damageRolls = inlined.damageRolls;
+            action.saveDC = inlined.saveDC;
+          }
+        }
+        if (!action.range && spellRow.data.range && typeof spellRow.data.range === 'object') {
+          action.range = spellRow.data.range as { value: number; units: string };
+        }
+      }
     }
   }
 

@@ -175,6 +175,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .map((r) => {
       const data = JSON.parse(r.data as string) as {
         category?: string;
+        description?: string;
+        prerequisite?: string;
         choices?: {
           asi?: { bonus?: number; allowedAbilities?: string[] };
           skillProficiency?: { allowedSkills?: string[] };
@@ -191,6 +193,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         name: r.name,
         source: r.source,
         category: data.category ?? '',
+        description: data.description ?? '',
+        prerequisite: data.prerequisite ?? '',
         choices: data.choices ?? null
       };
     })
