@@ -45,9 +45,12 @@ export const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
   campaignId: text('campaign_id')
     .notNull()
-    .references(() => campaigns.id),
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
-  yjsState: blob('yjs_state')
+  body: text('body').notNull().default(''),
+  yjsState: blob('yjs_state'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
 
 // ---------------------------------------------------------------------------

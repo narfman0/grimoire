@@ -76,10 +76,23 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .from(schema.content)
     .where(eq(schema.content.kind, 'subclass'));
 
+  const noteRows = await db
+    .select()
+    .from(schema.notes)
+    .where(eq(schema.notes.campaignId, campaign.id));
+
   return {
     campaign,
     user: locals.user,
     role: membership.role,
+    notes: noteRows
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        updatedAt: n.updatedAt.getTime()
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt),
     characters: characterRows.map((r) => ({
       id: r.id,
       campaignId: r.campaignId,

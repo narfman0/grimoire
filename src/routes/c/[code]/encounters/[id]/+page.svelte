@@ -234,7 +234,22 @@
   }
 
   /** Group log entries: originals (top-level) and amendments by amendsLogId. */
-  $: logOriginals = data.actionLog.filter((e) => !e.isAmendment);
+  // Combat log filters: by participant (incl. ad-hoc DM rows w/ null) and
+  // by round. Defaults to "all" so existing behaviour stays intact.
+  let logFilterParticipantId: string | 'all' = 'all';
+  let logFilterRound: number | 'all' = 'all';
+  $: logRounds = Array.from(new Set(data.actionLog.map((e) => e.round))).sort((a, b) => b - a);
+  /** Sum XP across all non-PC participants whose monster statblock carries
+   *  an xp value. Surfaced in the encounter header as a rough budget gauge. */
+  $: encounterTotalXp = data.participants
+    .filter((p) => p.kind !== 'pc' && p.statblock?.xp != null)
+    .reduce((s, p) => s + (p.statblock?.xp ?? 0), 0);
+  $: logOriginals = data.actionLog.filter((e) => {
+    if (e.isAmendment) return false;
+    if (logFilterParticipantId !== 'all' && e.participantId !== logFilterParticipantId) return false;
+    if (logFilterRound !== 'all' && e.round !== logFilterRound) return false;
+    return true;
+  });
   $: amendsByOriginal = (() => {
     const m = new Map<string, typeof data.actionLog>();
     for (const e of data.actionLog) {
@@ -473,6 +488,30 @@
     }
   }
 
+  /** Auto-roll initiative for every non-PC participant that doesn't already
+   *  have one. PCs are left to roll themselves on their character sheet.
+   *  Formula: d20 + (dex - 10) >> 1 (Math.floor mod). */
+  async function rollInitiativeAll() {
+    if (data.role !== 'dm') return;
+    busy = true;
+    try {
+      for (const p of data.participants) {
+        if (p.kind === 'pc') continue;
+        if (p.initiative != null) continue;
+        const dexMod = Math.floor(((p.dexScore ?? 10) - 10) / 2);
+        const roll = 1 + Math.floor(Math.random() * 20) + dexMod;
+        await fetch(`/api/participants/${p.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ initiative: roll })
+        });
+      }
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+
   async function removeParticipant(id: string) {
     if (!confirm('Remove this participant?')) return;
     busy = true;
@@ -603,6 +642,9 @@
       {#if data.encounter.status === 'live'}
         &middot; round {liveRound}
       {/if}
+      {#if encounterTotalXp > 0}
+        &middot; <span class="text-slate-300">{encounterTotalXp} XP</span>
+      {/if}
       {#if conn}
         <span
           class="ml-2 inline-block h-2 w-2 rounded-full {connStatus === 'open'
@@ -673,7 +715,19 @@
 {/if}
 
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-  <h2 class="mb-3 text-sm font-semibold text-slate-200">Participants ({data.participants.length})</h2>
+  <div class="mb-3 flex items-baseline justify-between">
+    <h2 class="text-sm font-semibold text-slate-200">Participants ({data.participants.length})</h2>
+    {#if data.role === 'dm' && data.participants.some((p) => p.kind !== 'pc' && p.initiative == null)}
+      <button
+        class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+        disabled={busy}
+        title="Roll d20+Dex for every non-PC participant without an initiative"
+        on:click={rollInitiativeAll}
+      >
+        🎲 Roll initiative (NPCs)
+      </button>
+    {/if}
+  </div>
 
   {#if data.participants.length === 0}
     <p class="mb-3 text-sm text-slate-400">No participants yet.</p>
@@ -1210,9 +1264,48 @@
 
 {#if data.actionLog.length > 0}
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-    <h2 class="mb-3 text-sm font-semibold text-slate-200">
-      Action log ({data.actionLog.length})
-    </h2>
+    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="text-sm font-semibold text-slate-200">
+        Action log ({logOriginals.length}{#if logOriginals.length !== data.actionLog.length} of {data.actionLog.length}{/if})
+      </h2>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <label class="flex items-center gap-1">
+          <span class="text-slate-500">Who:</span>
+          <select
+            class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5"
+            bind:value={logFilterParticipantId}
+          >
+            <option value="all">all</option>
+            {#each data.participants as p (p.id)}
+              <option value={p.id}>{p.name}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="flex items-center gap-1">
+          <span class="text-slate-500">Round:</span>
+          <select
+            class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5"
+            bind:value={logFilterRound}
+          >
+            <option value="all">all</option>
+            {#each logRounds as r}
+              <option value={r}>R{r}</option>
+            {/each}
+          </select>
+        </label>
+        {#if logFilterParticipantId !== 'all' || logFilterRound !== 'all'}
+          <button
+            class="text-slate-500 hover:text-slate-200"
+            on:click={() => {
+              logFilterParticipantId = 'all';
+              logFilterRound = 'all';
+            }}
+          >
+            clear
+          </button>
+        {/if}
+      </div>
+    </div>
     <ol class="space-y-2 text-xs">
       {#each logOriginals as entry (entry.id)}
         {@const actor = data.participants.find((p) => p.id === entry.participantId)}

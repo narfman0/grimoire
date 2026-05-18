@@ -20,6 +20,73 @@
   let busy = false;
   let error: string | null = null;
 
+  // ---- Notes ----
+  let noteDraftTitle = '';
+  let noteDraftBody = '';
+  let noteDraftOpen = false;
+  let editingNoteId: string | null = null;
+  let editTitle = '';
+  let editBody = '';
+
+  async function createNote() {
+    if (!noteDraftTitle.trim()) return;
+    busy = true;
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          campaignCode: data.campaign.code,
+          title: noteDraftTitle.trim(),
+          body: noteDraftBody
+        })
+      });
+      if (res.ok) {
+        noteDraftTitle = '';
+        noteDraftBody = '';
+        noteDraftOpen = false;
+        await invalidateAll();
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  function startEditNote(n: { id: string; title: string; body: string }) {
+    editingNoteId = n.id;
+    editTitle = n.title;
+    editBody = n.body;
+  }
+
+  async function saveEditNote() {
+    if (!editingNoteId) return;
+    busy = true;
+    try {
+      const res = await fetch(`/api/notes/${editingNoteId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: editTitle.trim(), body: editBody })
+      });
+      if (res.ok) {
+        editingNoteId = null;
+        await invalidateAll();
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function deleteNote(id: string) {
+    if (!confirm('Delete this note?')) return;
+    busy = true;
+    try {
+      const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+      if (res.ok) await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+
   // Background + its ability bumps are deliberately NOT on the creation form.
   // They're picked on the character sheet (retroactive picker affordance)
   // once the character exists. This keeps creation a single submit with no
@@ -372,6 +439,89 @@
       {error}
     </p>
   {/if}
+  {/if}
+</section>
+
+<section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-200">
+      Notes
+      {#if data.notes.length > 0}<span class="ml-1 text-xs text-slate-500">({data.notes.length})</span>{/if}
+    </h2>
+    <button
+      class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800"
+      on:click={() => (noteDraftOpen = !noteDraftOpen)}
+    >
+      {noteDraftOpen ? '− cancel' : '+ new note'}
+    </button>
+  </div>
+
+  {#if noteDraftOpen}
+    <div class="mb-3 rounded border border-slate-700 bg-slate-950/40 p-2">
+      <input
+        class="mb-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+        placeholder="Title (e.g. NPCs in town, session 7 recap)"
+        bind:value={noteDraftTitle}
+      />
+      <textarea
+        class="mb-2 h-32 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+        placeholder="Body — plain text. Drop anything: NPC names, plot threads, quotes, loot."
+        bind:value={noteDraftBody}
+      ></textarea>
+      <button
+        class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
+        on:click={createNote}
+        disabled={busy || !noteDraftTitle.trim()}
+      >
+        Save note
+      </button>
+    </div>
+  {/if}
+
+  {#if data.notes.length === 0 && !noteDraftOpen}
+    <p class="text-xs text-slate-500">No notes yet. Drop session recaps, NPC names, plot threads here.</p>
+  {:else}
+    <ul class="divide-y divide-slate-800">
+      {#each data.notes as n (n.id)}
+        <li class="py-2">
+          {#if editingNoteId === n.id}
+            <input
+              class="mb-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+              bind:value={editTitle}
+            />
+            <textarea
+              class="mb-2 h-32 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              bind:value={editBody}
+            ></textarea>
+            <div class="flex gap-2">
+              <button
+                class="rounded bg-emerald-600 px-3 py-0.5 text-xs hover:bg-emerald-500 disabled:opacity-40"
+                disabled={busy || !editTitle.trim()}
+                on:click={saveEditNote}
+              >
+                Save
+              </button>
+              <button
+                class="rounded border border-slate-700 px-3 py-0.5 text-xs hover:bg-slate-800"
+                on:click={() => (editingNoteId = null)}
+              >
+                Cancel
+              </button>
+            </div>
+          {:else}
+            <div class="flex items-baseline gap-2">
+              <span class="flex-1 font-medium text-slate-200">{n.title}</span>
+              <span class="text-[10px] text-slate-500">{new Date(n.updatedAt).toLocaleString()}</span>
+              <button class="text-xs text-slate-500 hover:text-slate-300" on:click={() => startEditNote(n)}>edit</button>
+              <button class="text-xs text-slate-500 hover:text-red-400" on:click={() => deleteNote(n.id)}>×</button>
+            </div>
+            {#if n.body}
+              <pre class="mt-1 whitespace-pre-wrap text-xs text-slate-400">{n.body}</pre>
+            {/if}
+          {/if}
+        </li>
+      {/each}
+    </ul>
   {/if}
 </section>
 
