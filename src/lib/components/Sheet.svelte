@@ -55,6 +55,7 @@
   $: triggers = derived.triggers;
   $: resources = derived.resources;
   $: validations = derived.validations;
+  $: nonSpellActions = actions.filter((a) => a.type !== 'cast-spell');
 
   const abilityOrder = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 
@@ -138,7 +139,6 @@
 
 <section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
   <h2 class="mb-3 text-lg font-semibold">Actions</h2>
-  {@const nonSpellActions = actions.filter((a) => a.type !== 'cast-spell')}
   {#if nonSpellActions.length === 0}
     <p class="text-sm text-slate-400">No actions resolved.</p>
   {:else}
