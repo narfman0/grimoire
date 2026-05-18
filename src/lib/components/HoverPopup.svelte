@@ -19,11 +19,11 @@
     <slot />
   </span>
   <span
-    class="pointer-events-none invisible absolute z-50 {width} rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-xs text-slate-300 shadow-lg shadow-slate-900/80 opacity-0 transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 {position === 'right'
-      ? 'left-full ml-2 top-0'
+    class="invisible absolute z-50 {width} rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-xs text-slate-300 shadow-lg shadow-slate-900/80 opacity-0 transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 {position === 'right'
+      ? 'left-full top-0'
       : position === 'above'
-        ? 'bottom-full mb-1 left-0'
-        : 'top-full mt-1 left-0'}"
+        ? 'bottom-full left-0'
+        : 'top-full left-0'}"
   >
     <slot name="popup" />
   </span>

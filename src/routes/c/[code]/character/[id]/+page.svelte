@@ -61,6 +61,24 @@
     return (e.target as HTMLInputElement).checked;
   }
 
+  // Surface condition note + modifiers in the hover popup. SRD conditions
+  // ship `note` (short prose) and `modifiers` (mechanical effects); some
+  // homebrew packs may also ship `description`.
+  function conditionMeta(row: { data?: unknown } | undefined): {
+    description?: string;
+    note?: string;
+    modifiers?: Array<{ target: string; mode: string; value: unknown }>;
+  } {
+    const data = (row?.data ?? {}) as Record<string, unknown>;
+    return {
+      description: typeof data.description === 'string' ? data.description : undefined,
+      note: typeof data.note === 'string' ? data.note : undefined,
+      modifiers: Array.isArray(data.modifiers)
+        ? (data.modifiers as Array<{ target: string; mode: string; value: unknown }>)
+        : undefined
+    };
+  }
+
   // ---- realtime sync (M2.3) ----
   // Y.Doc state from the server replaces the SSR snapshot once the websocket
   // is open. Client runs derive() locally on every Y.Doc update so the
@@ -1903,6 +1921,8 @@
       <ul class="flex flex-wrap gap-2 text-sm">
         {#each COMMON_CONDITIONS as cond}
           {@const on = document.conditions.includes(cond)}
+          {@const row = data.contentMap[`condition/${cond}`]}
+          {@const cdata = conditionMeta(row)}
           <li>
             <label
               class="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs {on
@@ -1916,7 +1936,28 @@
                 on:change={(e) => toggleCondition(cond, checkboxChecked(e))}
                 disabled={busy}
               />
-              <span class="capitalize">{cond}</span>
+              <HoverPopup>
+                <span class="capitalize">{cond}</span>
+                <svelte:fragment slot="popup">
+                  <div class="mb-1 font-semibold capitalize text-slate-200">{row?.name ?? cond}</div>
+                  {#if cdata.description}
+                    <p class="whitespace-pre-wrap text-slate-300">{cdata.description}</p>
+                  {/if}
+                  {#if cdata.note}
+                    <p class="whitespace-pre-wrap text-slate-300">{cdata.note}</p>
+                  {/if}
+                  {#if cdata.modifiers && cdata.modifiers.length > 0}
+                    <ul class="mt-2 list-disc space-y-0.5 border-t border-slate-800 pt-2 pl-4 text-[11px] text-slate-400">
+                      {#each cdata.modifiers as m}
+                        <li><span class="font-mono text-slate-500">{m.target}</span> <span class="text-slate-600">{m.mode}</span> {String(m.value)}</li>
+                      {/each}
+                    </ul>
+                  {/if}
+                  {#if !row}
+                    <p class="text-slate-500">No pack data for this condition.</p>
+                  {/if}
+                </svelte:fragment>
+              </HoverPopup>
             </label>
           </li>
         {/each}
@@ -2171,26 +2212,44 @@
             <div class="flex items-center gap-2 px-2 py-1">
               <button
                 class="flex-1 text-left text-slate-200 hover:text-slate-100"
-                title={meta?.description ? 'Click to expand mechanic' : ''}
+                title={meta?.description ? 'Click to expand mechanic; hover for quick view' : ''}
                 on:click={() => {
                   const el = globalThis.document.getElementById(expandedKey);
                   if (el) el.hidden = !el.hidden;
                 }}
               >
-                {meta?.name ?? f.slug}
-                {#if !meta}
-                  <span class="ml-1 rounded border border-amber-800/60 bg-amber-950/40 px-1 text-[9px] uppercase tracking-wide text-amber-300">missing</span>
-                {:else if meta.isHomebrew}
-                  <span class="ml-1 rounded border border-indigo-800/60 bg-indigo-950/40 px-1 text-[9px] uppercase tracking-wide text-indigo-300">homebrew</span>
-                {/if}
-                {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
-                {#if describeFeatChoices(f.slug)}
-                  <span class="ml-1 text-[10px] text-emerald-300/80">{describeFeatChoices(f.slug)}</span>
-                {/if}
-                {#if meta?.source}<span class="ml-1 text-[10px] text-slate-600">({meta.source})</span>{/if}
-                {#if meta?.description}
-                  <span class="ml-1 text-[10px] text-slate-600">▾</span>
-                {/if}
+                <HoverPopup>
+                  <span>
+                    {meta?.name ?? f.slug}
+                    {#if !meta}
+                      <span class="ml-1 rounded border border-amber-800/60 bg-amber-950/40 px-1 text-[9px] uppercase tracking-wide text-amber-300">missing</span>
+                    {:else if meta.isHomebrew}
+                      <span class="ml-1 rounded border border-indigo-800/60 bg-indigo-950/40 px-1 text-[9px] uppercase tracking-wide text-indigo-300">homebrew</span>
+                    {/if}
+                    {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
+                    {#if describeFeatChoices(f.slug)}
+                      <span class="ml-1 text-[10px] text-emerald-300/80">{describeFeatChoices(f.slug)}</span>
+                    {/if}
+                    {#if meta?.source}<span class="ml-1 text-[10px] text-slate-600">({meta.source})</span>{/if}
+                    {#if meta?.description}
+                      <span class="ml-1 text-[10px] text-slate-600">▾</span>
+                    {/if}
+                  </span>
+                  <svelte:fragment slot="popup">
+                    <div class="mb-1 font-semibold text-slate-200">{meta?.name ?? f.slug}</div>
+                    {#if meta?.category}<div class="text-slate-400">{meta.category}</div>{/if}
+                    {#if meta?.prerequisite}
+                      <div><span class="text-slate-500">Prerequisite:</span> {meta.prerequisite}</div>
+                    {/if}
+                    {#if describeFeatChoices(f.slug)}
+                      <div class="text-emerald-300/80">{describeFeatChoices(f.slug)}</div>
+                    {/if}
+                    {#if meta?.description}
+                      <p class="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap border-t border-slate-800 pt-2 text-slate-300">{meta.description}</p>
+                    {/if}
+                    <div class="mt-1 text-[10px] text-slate-600">{meta?.source ?? ''}</div>
+                  </svelte:fragment>
+                </HoverPopup>
               </button>
               <button
                 class="text-[10px] text-slate-500 hover:text-red-400"
@@ -2488,6 +2547,9 @@
                   {/if}
                   {#if meta?.requiresAttunement}
                     <div class="text-amber-300">Requires attunement</div>
+                  {/if}
+                  {#if meta?.description}
+                    <p class="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap border-t border-slate-800 pt-2 text-slate-300">{meta.description}</p>
                   {/if}
                   <div class="mt-1 text-[10px] text-slate-600">{meta?.source ?? ''}</div>
                 </svelte:fragment>

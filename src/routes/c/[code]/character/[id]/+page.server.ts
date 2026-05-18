@@ -97,6 +97,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         range?: { value?: number; long?: number; units?: string };
         rarity?: string;
         charges?: { max?: number; per?: string };
+        description?: string;
       };
       return {
         slug: r.slug,
@@ -114,7 +115,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         ac: data.ac ?? null,
         range: data.range ?? null,
         rarity: data.rarity ?? '',
-        charges: data.charges ?? null
+        charges: data.charges ?? null,
+        description: typeof data.description === 'string' ? data.description : ''
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
