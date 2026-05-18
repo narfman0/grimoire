@@ -715,6 +715,70 @@
   /** Per-participant flag: which one currently has its inline statblock panel
    *  expanded. Only one open at a time keeps the encounter list tidy. */
   let statblockOpenFor: string | null = null;
+
+  // ---- Action economy foldout (client-side display state only) ----
+  let expandedParticipants = new Set<string>();
+  function toggleExpand(id: string) {
+    if (expandedParticipants.has(id)) expandedParticipants.delete(id);
+    else expandedParticipants.add(id);
+    expandedParticipants = expandedParticipants; // trigger reactivity
+  }
+
+  interface RoundEconomyEntry {
+    action: string;
+    bonusAction: string;
+    movement: number;
+    reaction: string;
+    freeActions: string;
+  }
+  let roundEconomy: Record<string, RoundEconomyEntry> = {};
+
+  function ensureEconomy(id: string): RoundEconomyEntry {
+    if (!roundEconomy[id]) {
+      roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '' };
+    }
+    return roundEconomy[id];
+  }
+
+  function resetEconomy(id: string) {
+    roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '' };
+    roundEconomy = roundEconomy;
+  }
+
+  // Track previous active to reset economy on turn change.
+  let prevActive: string | null = null;
+  $: {
+    const current = liveActive;
+    if (current !== prevActive) {
+      // Reset the economy for the participant whose turn just ended.
+      if (prevActive != null) {
+        resetEconomy(prevActive);
+        expandedParticipants.delete(prevActive);
+      }
+      // Auto-expand the newly active participant.
+      if (current != null) {
+        expandedParticipants.add(current);
+        expandedParticipants = expandedParticipants;
+      }
+      prevActive = current;
+    }
+  }
+
+  // Reactively sync the action slot from the plan for PC participants.
+  $: {
+    for (const p of data.participants) {
+      const plan = livePlans[p.id];
+      if (plan?.actionLabel) {
+        const entry = ensureEconomy(p.id);
+        if (entry.action === '' || entry.action === (livePlans[p.id]?.actionLabel ?? '')) {
+          entry.action = plan.actionLabel;
+          roundEconomy = roundEconomy;
+        }
+      }
+    }
+  }
+
+  const COMMON_BONUS_ACTIONS = ['Offhand attack', 'Dash', 'Disengage', 'Hide', 'Healing Word', 'Hex'];
   function abilityMod(score: number): string {
     const m = Math.floor((score - 10) / 2);
     return (m >= 0 ? '+' : '') + m;
@@ -902,6 +966,13 @@
         {@const isActive = p.id === liveActive}
         {@const plan = livePlans[p.id]}
         <li class="flex flex-wrap items-center gap-3 py-2 text-sm {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}">
+          <button
+            class="text-slate-500 hover:text-slate-300 mr-1 flex-shrink-0"
+            title={expandedParticipants.has(p.id) ? 'Collapse action economy' : 'Expand action economy'}
+            on:click={() => toggleExpand(p.id)}
+          >
+            {expandedParticipants.has(p.id) ? '▼' : '▶'}
+          </button>
           <span class="font-mono text-xs text-slate-500 w-8">
             {#if p.initiative != null}
               {p.initiative}
@@ -1206,6 +1277,108 @@
                   clear
                 </button>
               {/if}
+            </div>
+          {/if}
+          {#if expandedParticipants.has(p.id)}
+            {@const econ = ensureEconomy(p.id)}
+            <div class="basis-full bg-slate-900/60 border-t border-slate-800 px-4 py-3 mt-1 rounded-b text-xs">
+              <div class="mb-2 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Action Economy</div>
+              <div class="grid grid-cols-2 gap-2">
+                <!-- Action slot -->
+                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+                  <div class="mb-1 text-[10px] text-slate-500">⚔ Action</div>
+                  {#if p.kind === 'pc' && plan?.actionLabel}
+                    <div class="mb-1 rounded bg-amber-900/30 px-1.5 py-0.5 text-amber-200 text-[10px]">
+                      planned: {plan.actionLabel}
+                    </div>
+                  {/if}
+                  {#if p.statblock?.actions && p.statblock.actions.length > 0}
+                    <div class="mb-1 flex flex-wrap gap-1">
+                      {#each p.statblock.actions as a}
+                        <button
+                          class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-emerald-600 hover:text-emerald-200"
+                          on:click={() => {
+                            econ.action = a.name;
+                            roundEconomy = roundEconomy;
+                          }}
+                        >
+                          {a.name}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                  <input
+                    class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
+                    placeholder="pick action…"
+                    bind:value={econ.action}
+                    on:input={() => (roundEconomy = roundEconomy)}
+                  />
+                </div>
+                <!-- Bonus action slot -->
+                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+                  <div class="mb-1 text-[10px] text-slate-500">✦ Bonus Action</div>
+                  <div class="mb-1 flex flex-wrap gap-1">
+                    {#each COMMON_BONUS_ACTIONS as ba}
+                      <button
+                        class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                        on:click={() => {
+                          econ.bonusAction = ba;
+                          roundEconomy = roundEconomy;
+                        }}
+                      >
+                        {ba}
+                      </button>
+                    {/each}
+                  </div>
+                  <input
+                    class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
+                    placeholder="pick…"
+                    bind:value={econ.bonusAction}
+                    on:input={() => (roundEconomy = roundEconomy)}
+                  />
+                </div>
+                <!-- Movement slot -->
+                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+                  <div class="mb-1 text-[10px] text-slate-500">💨 Movement</div>
+                  <div class="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max={p.statblock?.speeds?.walk ?? p.statblock?.speeds?.fly ?? p.statblock?.speeds?.swim ?? 999}
+                      class="w-16 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[11px]"
+                      placeholder="0"
+                      bind:value={econ.movement}
+                      on:input={() => (roundEconomy = roundEconomy)}
+                    />
+                    <span class="text-slate-500">ft</span>
+                    {#if p.statblock?.speeds}
+                      <span class="text-slate-600 text-[10px]">
+                        / {Object.entries(p.statblock.speeds).map(([m, ft]) => `${ft}ft${m !== 'walk' ? ' ' + m : ''}`).join(', ')}
+                      </span>
+                    {/if}
+                  </div>
+                </div>
+                <!-- Reaction slot -->
+                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
+                  <div class="mb-1 text-[10px] text-slate-500">↩ Reaction</div>
+                  <input
+                    class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
+                    placeholder="pick…"
+                    bind:value={econ.reaction}
+                    on:input={() => (roundEconomy = roundEconomy)}
+                  />
+                </div>
+              </div>
+              <!-- Free actions row -->
+              <div class="mt-2 flex items-center gap-2">
+                <span class="text-slate-500 whitespace-nowrap">Free Actions:</span>
+                <input
+                  class="flex-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
+                  placeholder="object interaction, communicate, etc."
+                  bind:value={econ.freeActions}
+                  on:input={() => (roundEconomy = roundEconomy)}
+                />
+              </div>
             </div>
           {/if}
         </li>
