@@ -37,6 +37,15 @@
 
   let busy = false;
   let damageInput = 0;
+  // Per-character edit panel (rename + ability scores). Both go through the
+  // same PATCH /api/characters/:id — name as a top-level field, abilities
+  // via a full document write that preserves everything else.
+  let editingMeta = false;
+  let editName = '';
+  let editAbilities: { str: number; dex: number; con: number; int: number; wis: number; cha: number } = {
+    str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10
+  };
+  let editError: string | null = null;
   let healInput = 0;
   let tempHpDraft = data.document?.tempHp ?? 0;
   let restNote: string | null = null;
@@ -547,6 +556,50 @@
     });
   }
 
+  function openMetaEdit() {
+    if (!document) return;
+    editName = data.character.name;
+    editAbilities = { ...document.abilityScores };
+    editError = null;
+    editingMeta = true;
+  }
+
+  async function saveMetaEdit() {
+    if (!document) return;
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      editError = 'name is required';
+      return;
+    }
+    // Validate ability scores in a wide-but-sane range so a typo can't
+    // wedge derive(). 3..30 covers everything from rolled minimums to
+    // monstrous boons.
+    for (const ab of ABILITY_KEYS) {
+      const v = editAbilities[ab];
+      if (!Number.isFinite(v) || v < 3 || v > 30) {
+        editError = `${ab.toUpperCase()} must be 3-30`;
+        return;
+      }
+    }
+    busy = true;
+    try {
+      const nextDoc = { ...document, abilityScores: { ...editAbilities } };
+      const res = await fetch(`/api/characters/${data.character.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: trimmed, document: nextDoc })
+      });
+      if (!res.ok) {
+        editError = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        return;
+      }
+      editingMeta = false;
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+
   async function adjustResource(id: string, delta: number, max: number) {
     // If this resource has an appliesCondition (e.g. Rage → "rage" condition),
     // consuming a charge (delta > 0) also activates the condition so the
@@ -1013,7 +1066,18 @@
 
 <header class="mb-6 flex items-baseline justify-between">
   <div>
-    <h1 class="text-2xl font-semibold">{data.character.name}</h1>
+    <h1 class="flex items-baseline gap-2 text-2xl font-semibold">
+      <span>{data.character.name}</span>
+      {#if document && !editingMeta}
+        <button
+          class="text-xs font-normal text-slate-500 hover:text-emerald-300"
+          title="Rename + edit ability scores"
+          on:click={openMetaEdit}
+        >
+          ✎ edit
+        </button>
+      {/if}
+    </h1>
     <p class="text-sm text-slate-400">
       {#if document}
         {#each document.classes as c, i}
@@ -1041,6 +1105,62 @@
     ← back to {data.campaign.name}
   </a>
 </header>
+
+{#if editingMeta && document}
+  <section class="mb-6 rounded-lg border border-emerald-800 bg-emerald-950/20 p-4">
+    <h2 class="mb-3 text-sm font-semibold text-emerald-200">Edit character</h2>
+    <div class="mb-3">
+      <label class="block text-xs">
+        <span class="mb-1 block text-slate-400">Name</span>
+        <input
+          class="w-full max-w-sm rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+          bind:value={editName}
+          maxlength="120"
+        />
+      </label>
+    </div>
+    <div class="mb-3">
+      <span class="mb-1 block text-xs text-slate-400">Ability scores (3-30)</span>
+      <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {#each ABILITY_KEYS as ab}
+          <label class="text-xs">
+            <span class="block text-center text-[10px] uppercase tracking-wide text-slate-500">{ab}</span>
+            <input
+              type="number"
+              min="3"
+              max="30"
+              class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono"
+              bind:value={editAbilities[ab]}
+            />
+          </label>
+        {/each}
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button
+        class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+        on:click={saveMetaEdit}
+        disabled={busy}
+      >
+        Save
+      </button>
+      <button
+        class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
+        on:click={() => (editingMeta = false)}
+        disabled={busy}
+      >
+        Cancel
+      </button>
+      {#if editError}
+        <span class="text-xs text-red-300">{editError}</span>
+      {/if}
+    </div>
+    <p class="mt-2 text-[10px] text-slate-500">
+      Renames the character + overwrites ability scores. Class / species /
+      subclass + level-up are managed elsewhere on the sheet.
+    </p>
+  </section>
+{/if}
 
 {#if data.liveEncounter}
   <!-- ===== M3.4 turn planner ===== -->
