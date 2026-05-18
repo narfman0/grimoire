@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
+  import MonsterPicker from '$lib/components/MonsterPicker.svelte';
   import {
     connectEncounterDoc,
     setEncounterTurn,
@@ -452,6 +453,36 @@
 
   // Add-participant draft state
   let newKind: 'pc' | 'npc' | 'monster' = 'monster';
+  // ---- encounter rename ----
+  let renamingEncounter = false;
+  let renameValue = data.encounter.name;
+  let encounterName = data.encounter.name;
+
+  async function submitRename() {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === encounterName) { renamingEncounter = false; return; }
+    busy = true;
+    try {
+      const res = await fetch(`/api/encounters/${data.encounter.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed })
+      });
+      if (res.ok) encounterName = trimmed;
+    } finally {
+      busy = false;
+      renamingEncounter = false;
+    }
+  }
+
+  function onRenameKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') submitRename();
+    else if (e.key === 'Escape') renamingEncounter = false;
+  }
+
+  // ---- monster picker ----
+  let showMonsterPicker = false;
+
   let newName = '';
   let newCharacterId = data.campaignCharacters[0]?.id ?? '';
   let newMonsterSlug = data.monsterOptions[0]?.slug ?? '';
@@ -461,25 +492,12 @@
    *  When > 1 the names are auto-suffixed "#1, #2, …" so they're distinguishable. */
   let newQuantity = 1;
 
-  // When the picked monster changes, pre-fill name + HP from the statblock.
-  // Use on:change rather than $: to avoid clobbering DM-overridden values.
-  function selectMonster(e: Event) {
-    const slug = (e.target as HTMLSelectElement).value;
-    newMonsterSlug = slug;
-    const opt = data.monsterOptions.find((m) => m.slug === slug);
-    if (opt) {
-      newName = opt.name;
-      newMaxHp = opt.maxHp ?? null;
-    }
-  }
-
-  // Initialize defaults from the first monster on mount so the form is filled.
-  $: if (newKind === 'monster' && newMonsterSlug && !newName) {
-    const opt = data.monsterOptions.find((m) => m.slug === newMonsterSlug);
-    if (opt) {
-      newName = opt.name;
-      newMaxHp = opt.maxHp ?? null;
-    }
+  function onMonsterPicked(e: CustomEvent<typeof data.monsterOptions[0]>) {
+    const m = e.detail;
+    newMonsterSlug = m.slug;
+    newName = m.name;
+    newMaxHp = m.maxHp ?? null;
+    showMonsterPicker = false;
   }
 
   async function addParticipant() {
@@ -677,7 +695,30 @@
 
 <header class="mb-6 flex items-baseline justify-between">
   <div>
-    <h1 class="text-2xl font-semibold">{data.encounter.name}</h1>
+    {#if renamingEncounter}
+      <div class="flex items-center gap-2">
+        <input
+          class="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-2xl font-semibold text-slate-100 outline-none focus:border-slate-400"
+          bind:value={renameValue}
+          on:keydown={onRenameKeydown}
+          on:blur={submitRename}
+          autofocus
+        />
+        <button class="text-xs text-slate-500 hover:text-slate-300" on:click={submitRename}>save</button>
+        <button class="text-xs text-slate-500 hover:text-slate-300" on:click={() => renamingEncounter = false}>cancel</button>
+      </div>
+    {:else}
+      <h1 class="group flex items-center gap-2 text-2xl font-semibold">
+        {encounterName}
+        {#if data.role === 'dm'}
+          <button
+            class="opacity-0 group-hover:opacity-100 text-sm text-slate-500 hover:text-slate-300 transition-opacity"
+            on:click={() => { renameValue = encounterName; renamingEncounter = true; }}
+            aria-label="Rename encounter"
+          >✎</button>
+        {/if}
+      </h1>
+    {/if}
     <p class="text-sm text-slate-400">
       <span class="rounded border px-1.5 py-0.5 text-xs uppercase tracking-wide
         {data.encounter.status === 'live'
@@ -1098,22 +1139,22 @@
             </label>
           {/if}
         {:else if newKind === 'monster'}
-          <label class="text-xs">
-            <span class="block text-slate-400">From pack</span>
+          <div class="text-xs">
+            <span class="block text-slate-400 mb-1">From pack</span>
             {#if data.monsterOptions.length === 0}
               <p class="text-amber-300">No monsters loaded.</p>
             {:else}
-              <select
-                class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-                value={newMonsterSlug}
-                on:change={selectMonster}
+              <button
+                class="flex items-center gap-1.5 rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                on:click={() => (showMonsterPicker = true)}
               >
-                {#each data.monsterOptions as m}
-                  <option value={m.slug}>{m.name} (CR {m.cr})</option>
-                {/each}
-              </select>
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                {newMonsterSlug ? newName : 'Search monsters…'}
+              </button>
             {/if}
-          </label>
+          </div>
           <label class="text-xs">
             <span class="block text-slate-400">Name (override)</span>
             <input class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={newName} />
@@ -1507,3 +1548,12 @@
   each original. Heal actions still resolve as damage labels — a future
   pass adds explicit heal-type resolution + auto-revert on amend.
 </p>
+
+{#if showMonsterPicker}
+  <MonsterPicker
+    monsters={data.monsterOptions}
+    disabled={busy}
+    on:pick={onMonsterPicked}
+    on:close={() => (showMonsterPicker = false)}
+  />
+{/if}

@@ -223,6 +223,93 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         });
       }
     }
+
+    // Feat choices: feats with `data.choices` declare optional player picks
+    // (Skill Expert: ability +1 / skill prof / expertise; Fey Touched, etc.).
+    // The pick lives on the matching character.feats[i].choices entry.
+    // Synthesise stat-modifiers from the pairing so the rest of derive
+    // sees them as normal grants. Shape:
+    //   data.choices: {
+    //     asi?: { bonus: number; allowedAbilities?: string[] },
+    //     skillProficiency?: { allowedSkills?: string[] },
+    //     expertise?: { allowedSkills?: string[] | 'proficient' }
+    //   }
+    //   feat.choices: {
+    //     asi?: { ability: string },
+    //     skillProficiency?: { skill: string },
+    //     expertise?: { skill: string }
+    //   }
+    if (a.row.kind === 'feat') {
+      const featRef = character.feats.find((f) => f.slug === a.row.slug);
+      const decl = a.data.choices as
+        | {
+            asi?: { bonus?: number; allowedAbilities?: string[] };
+            skillProficiency?: { allowedSkills?: string[] };
+            expertise?: { allowedSkills?: string[] | 'proficient' };
+          }
+        | undefined;
+      const picks = (featRef?.choices as
+        | {
+            asi?: { ability?: string };
+            skillProficiency?: { skill?: string };
+            expertise?: { skill?: string };
+          }
+        | undefined) ?? {};
+      if (decl?.asi && picks.asi?.ability) {
+        const allowed = decl.asi.allowedAbilities ?? ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+        if (allowed.includes(picks.asi.ability)) {
+          allMods.push({
+            id: `feat/${a.row.slug}/asi`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `ability.${picks.asi.ability}`,
+              mode: 'ADD',
+              value: decl.asi.bonus ?? 1
+            }
+          });
+        }
+      }
+      if (decl?.skillProficiency && picks.skillProficiency?.skill) {
+        const allowed = decl.skillProficiency.allowedSkills;
+        if (!allowed || allowed.includes(picks.skillProficiency.skill)) {
+          allMods.push({
+            id: `feat/${a.row.slug}/skill-prof`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `proficiency.skill.${picks.skillProficiency.skill}`,
+              mode: 'OVERRIDE',
+              value: true
+            }
+          });
+        }
+      }
+      if (decl?.expertise && picks.expertise?.skill) {
+        // 'proficient' = restrict to skills the character is already
+        // proficient in. We don't have the resolved skill set yet at this
+        // point in derive, so we let the UI enforce it; the engine just
+        // applies the expertise flag and Phase 2 reads it.
+        const allowed = decl.expertise.allowedSkills;
+        const allowedOk =
+          allowed === 'proficient' || !allowed || (Array.isArray(allowed) && allowed.includes(picks.expertise.skill));
+        if (allowedOk) {
+          allMods.push({
+            id: `feat/${a.row.slug}/expertise`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `expertise.skill.${picks.expertise.skill}`,
+              mode: 'OVERRIDE',
+              value: true
+            }
+          });
+        }
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -285,27 +372,48 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   // (f) Skills
   const skillProficiencies = new Set<string>();
+  const skillExpertise = new Set<string>();
   for (const skill of character.proficienciesChosen.skills ?? []) skillProficiencies.add(skill);
   for (const a of active) {
-    // class/species/background may grant fixed skill proficiencies via stat modifiers
-    // (target=`proficiency.skill.<slug>`). Walk those.
+    // class/species/background/feat may grant fixed skill proficiencies via
+    // stat modifiers. Two prefixes:
+    //   `proficiency.skill.<slug>` — base proficiency
+    //   `expertise.skill.<slug>`   — expertise (doubles proficiency bonus)
+    // Both also flow through the synthesised stat-modifier list `allMods`,
+    // so feat-choice and background-choice picks (which live in allMods,
+    // not a.data.modifiers) are observed.
     const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
     for (const m of mods) {
       if (
         m.kind === 'stat-modifier' &&
         typeof m.target === 'string' &&
-        m.target.startsWith('proficiency.skill.') &&
         m.value === true
       ) {
-        skillProficiencies.add(m.target.slice('proficiency.skill.'.length));
+        if (m.target.startsWith('proficiency.skill.')) {
+          skillProficiencies.add(m.target.slice('proficiency.skill.'.length));
+        } else if (m.target.startsWith('expertise.skill.')) {
+          skillExpertise.add(m.target.slice('expertise.skill.'.length));
+        }
       }
+    }
+  }
+  // Synthesised modifiers (from background-ASI / feat-choice loops) live in
+  // allMods rather than per-content data — pull skill grants from there too.
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier') continue;
+    const target = m.raw.target;
+    if (typeof target !== 'string' || m.raw.value !== true) continue;
+    if (target.startsWith('proficiency.skill.')) {
+      skillProficiencies.add(target.slice('proficiency.skill.'.length));
+    } else if (target.startsWith('expertise.skill.')) {
+      skillExpertise.add(target.slice('expertise.skill.'.length));
     }
   }
   const skills: Record<string, SkillCell> = {};
   for (const skill of SKILLS) {
     const ability = SKILL_ABILITY[skill];
     const proficient = skillProficiencies.has(skill);
-    const expertise = false;
+    const expertise = skillExpertise.has(skill);
     const base =
       abilities[ability].mod +
       (proficient ? proficiencyBonus : 0) +

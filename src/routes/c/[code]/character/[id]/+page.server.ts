@@ -119,12 +119,20 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .where(eq(schema.content.kind, 'feat'));
   const featOptions = featRows
     .map((r) => {
-      const data = JSON.parse(r.data as string) as { category?: string };
+      const data = JSON.parse(r.data as string) as {
+        category?: string;
+        choices?: {
+          asi?: { bonus?: number; allowedAbilities?: string[] };
+          skillProficiency?: { allowedSkills?: string[] };
+          expertise?: { allowedSkills?: string[] | 'proficient' };
+        };
+      };
       return {
         slug: r.slug,
         name: r.name,
         source: r.source,
-        category: data.category ?? ''
+        category: data.category ?? '',
+        choices: data.choices ?? null
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

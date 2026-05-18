@@ -4,6 +4,7 @@
   import Sheet from '$lib/components/Sheet.svelte';
   import InventoryPicker from '$lib/components/InventoryPicker.svelte';
   import { derive } from '$lib/rules';
+  import { SKILLS } from '$lib/rules/skills';
   import type { CharacterDocument, Derived, ContentLookup } from '$lib/rules/types';
   import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
   import {
@@ -627,20 +628,75 @@
   function featMeta(slug: string) {
     return data.featOptions.find((f) => f.slug === slug);
   }
+
+  // Draft picks for the currently-selected feat. Reset whenever featPickerSlug
+  // changes so stale picks from a previous feat don't leak in.
+  let featDraftAbility = '';
+  let featDraftSkillProf = '';
+  let featDraftExpertise = '';
+  let lastDraftSlug = '';
+  $: if (featPickerSlug !== lastDraftSlug) {
+    featDraftAbility = '';
+    featDraftSkillProf = '';
+    featDraftExpertise = '';
+    lastDraftSlug = featPickerSlug;
+  }
+  $: pickedFeatChoices = featMeta(featPickerSlug)?.choices ?? null;
+  /** Skill list restricted to "currently proficient" for the expertise input
+   *  when the feat says `allowedSkills: 'proficient'`. Falls back to all
+   *  skills if derived isn't ready. */
+  $: proficientSkills = derived
+    ? SKILLS.filter((s) => derived.stats.skills[s]?.proficient)
+    : SKILLS;
+
   async function addFeat() {
     if (!featPickerSlug) return;
     const opt = featMeta(featPickerSlug);
     if (!opt) return;
+    const choices: Record<string, unknown> = {};
+    if (opt.choices?.asi && featDraftAbility) {
+      choices.asi = { ability: featDraftAbility };
+    }
+    if (opt.choices?.skillProficiency && featDraftSkillProf) {
+      choices.skillProficiency = { skill: featDraftSkillProf };
+    }
+    if (opt.choices?.expertise && featDraftExpertise) {
+      choices.expertise = { skill: featDraftExpertise };
+    }
     await patchDocument((d) => {
       if (d.feats.some((f) => f.slug === opt.slug)) return;
-      d.feats.push({ kind: 'feat', slug: opt.slug });
+      d.feats.push({
+        kind: 'feat',
+        slug: opt.slug,
+        ...(Object.keys(choices).length > 0 ? { choices } : {})
+      });
     });
     showFeatPicker = false;
+    featPickerSlug = '';
   }
   async function removeFeat(slug: string) {
     await patchDocument((d) => {
       d.feats = d.feats.filter((f) => f.slug !== slug);
     });
+  }
+
+  /** Pick out the player's locked-in choices for an installed feat. Used by
+   *  the list display to show "Skill Expert (Dex / Investigation / Perception)". */
+  function describeFeatChoices(slug: string): string {
+    const f = document?.feats.find((x) => x.slug === slug);
+    const c = f?.choices as
+      | {
+          asi?: { ability?: string };
+          skillProficiency?: { skill?: string };
+          expertise?: { skill?: string };
+        }
+      | undefined;
+    if (!c) return '';
+    const parts: string[] = [];
+    if (c.asi?.ability) parts.push(`+1 ${c.asi.ability.toUpperCase()}`);
+    if (c.skillProficiency?.skill) parts.push(`prof ${c.skillProficiency.skill}`);
+    if (c.expertise?.skill) parts.push(`expertise ${c.expertise.skill}`);
+    return parts.join(' · ');
   }
 
   async function adjustResource(id: string, delta: number, max: number) {
@@ -2078,6 +2134,9 @@
             <span class="flex-1 text-slate-200">
               {meta?.name ?? f.slug}
               {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
+              {#if describeFeatChoices(f.slug)}
+                <span class="ml-1 text-[10px] text-emerald-300/80">{describeFeatChoices(f.slug)}</span>
+              {/if}
               {#if meta?.source}<span class="ml-1 text-[10px] text-slate-600">({meta.source})</span>{/if}
             </span>
             <button
@@ -2094,25 +2153,91 @@
     {/if}
 
     {#if showFeatPicker}
-      <div class="flex gap-2 border-t border-slate-800 pt-3 text-xs">
-        <select
-          class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1"
-          bind:value={featPickerSlug}
-        >
-          {#each data.featOptions as opt}
-            {@const taken = document.feats.some((f) => f.slug === opt.slug)}
-            <option value={opt.slug} disabled={taken}>
-              {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if taken} · already taken{/if}
-            </option>
-          {/each}
-        </select>
-        <button
-          class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
-          disabled={busy || !featPickerSlug || document.feats.some((f) => f.slug === featPickerSlug)}
-          on:click={addFeat}
-        >
-          Add
-        </button>
+      <div class="border-t border-slate-800 pt-3 text-xs">
+        <div class="flex gap-2">
+          <select
+            class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1"
+            bind:value={featPickerSlug}
+          >
+            <option value="">— pick a feat —</option>
+            {#each data.featOptions as opt}
+              {@const taken = document.feats.some((f) => f.slug === opt.slug)}
+              <option value={opt.slug} disabled={taken}>
+                {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if taken} · already taken{/if}
+              </option>
+            {/each}
+          </select>
+          <button
+            class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
+            disabled={busy ||
+              !featPickerSlug ||
+              document.feats.some((f) => f.slug === featPickerSlug) ||
+              (!!pickedFeatChoices?.asi && !featDraftAbility) ||
+              (!!pickedFeatChoices?.skillProficiency && !featDraftSkillProf) ||
+              (!!pickedFeatChoices?.expertise && !featDraftExpertise)}
+            on:click={addFeat}
+          >
+            Add
+          </button>
+        </div>
+
+        {#if pickedFeatChoices}
+          <div class="mt-2 rounded border border-indigo-900/40 bg-slate-950/40 p-2">
+            <p class="mb-2 text-[10px] uppercase tracking-wide text-slate-500">
+              This feat wants you to pick:
+            </p>
+            <div class="flex flex-wrap items-end gap-2">
+              {#if pickedFeatChoices.asi}
+                <label class="text-xs">
+                  <span class="block text-slate-400">
+                    +{pickedFeatChoices.asi.bonus ?? 1} to ability
+                  </span>
+                  <select
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                    bind:value={featDraftAbility}
+                  >
+                    <option value="">—</option>
+                    {#each pickedFeatChoices.asi.allowedAbilities ?? ['str', 'dex', 'con', 'int', 'wis', 'cha'] as ab}
+                      <option value={ab}>{ab.toUpperCase()}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
+              {#if pickedFeatChoices.skillProficiency}
+                <label class="text-xs">
+                  <span class="block text-slate-400">Skill proficiency</span>
+                  <select
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1 capitalize"
+                    bind:value={featDraftSkillProf}
+                  >
+                    <option value="">—</option>
+                    {#each (pickedFeatChoices.skillProficiency.allowedSkills ?? SKILLS) as s}
+                      <option value={s}>
+                        {s}{#if derived?.stats.skills[s]?.proficient} (already proficient){/if}
+                      </option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
+              {#if pickedFeatChoices.expertise}
+                <label class="text-xs">
+                  <span class="block text-slate-400">Expertise</span>
+                  <select
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1 capitalize"
+                    bind:value={featDraftExpertise}
+                  >
+                    <option value="">—</option>
+                    {#each (pickedFeatChoices.expertise.allowedSkills === 'proficient'
+                      ? proficientSkills
+                      : pickedFeatChoices.expertise.allowedSkills ?? SKILLS) as s}
+                      <option value={s}>{s}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </div>
     {/if}
   </section>
