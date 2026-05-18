@@ -53,6 +53,13 @@ export const CreateCampaignRequest = z
   })
   .openapi('CreateCampaignRequest');
 
+export const UpdateCampaignRequest = z
+  .object({
+    name: CampaignName.optional()
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
+  .openapi('UpdateCampaignRequest');
+
 export const CreateCampaignResponse = z
   .object({
     id: Uuid,
@@ -192,6 +199,7 @@ export type TCampaign = z.infer<typeof Campaign>;
 export type TCharacter = z.infer<typeof Character>;
 export type TCharacterDocument = z.infer<typeof CharacterDocument>;
 export type TCreateCampaignRequest = z.infer<typeof CreateCampaignRequest>;
+export type TUpdateCampaignRequest = z.infer<typeof UpdateCampaignRequest>;
 export type TCreateCampaignResponse = z.infer<typeof CreateCampaignResponse>;
 export type TJoinCampaignRequest = z.infer<typeof JoinCampaignRequest>;
 export type TCreateCharacterRequest = z.infer<typeof CreateCharacterRequest>;

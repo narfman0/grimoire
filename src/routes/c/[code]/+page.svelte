@@ -20,6 +20,46 @@
   let busy = false;
   let error: string | null = null;
 
+  // Campaign rename (DM-only). Toggle reveals an inline name input next to
+  // the title; one PATCH updates and reloads the page so the breadcrumb,
+  // header, and tab title pick up the new name.
+  let editingCampaign = false;
+  let editCampaignName = '';
+  let editCampaignError: string | null = null;
+
+  function openCampaignEdit() {
+    editCampaignName = data.campaign.name;
+    editCampaignError = null;
+    editingCampaign = true;
+  }
+  async function saveCampaignName() {
+    const trimmed = editCampaignName.trim();
+    if (!trimmed) {
+      editCampaignError = 'name is required';
+      return;
+    }
+    if (trimmed === data.campaign.name) {
+      editingCampaign = false;
+      return;
+    }
+    busy = true;
+    try {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: trimmed })
+      });
+      if (!res.ok) {
+        editCampaignError = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        return;
+      }
+      editingCampaign = false;
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+
   // ---- Notes ----
   let noteDraftTitle = '';
   let noteDraftBody = '';
@@ -223,7 +263,53 @@
 </script>
 
 <header class="mb-6">
-  <h1 class="text-2xl font-semibold">{data.campaign.name}</h1>
+  {#if editingCampaign && data.role === 'dm'}
+    <div class="flex items-center gap-2">
+      <input
+        class="w-full max-w-md rounded border border-slate-700 bg-slate-950 px-2 py-1 text-2xl font-semibold"
+        maxlength="100"
+        bind:value={editCampaignName}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            saveCampaignName();
+          } else if (e.key === 'Escape') {
+            editingCampaign = false;
+          }
+        }}
+      />
+      <button
+        class="rounded bg-emerald-600 px-3 py-1 text-sm hover:bg-emerald-500 disabled:opacity-40"
+        on:click={saveCampaignName}
+        disabled={busy}
+      >
+        Save
+      </button>
+      <button
+        class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
+        on:click={() => (editingCampaign = false)}
+        disabled={busy}
+      >
+        Cancel
+      </button>
+    </div>
+    {#if editCampaignError}
+      <p class="mt-1 text-xs text-red-300">{editCampaignError}</p>
+    {/if}
+  {:else}
+    <h1 class="flex items-baseline gap-2 text-2xl font-semibold">
+      <span>{data.campaign.name}</span>
+      {#if data.role === 'dm'}
+        <button
+          class="text-xs font-normal text-slate-500 hover:text-emerald-300"
+          title="Rename campaign (DM only)"
+          on:click={openCampaignEdit}
+        >
+          ✎ rename
+        </button>
+      {/if}
+    </h1>
+  {/if}
   <p class="text-sm text-slate-400">
     Code <span class="font-mono">{data.campaign.code}</span> &middot;
     <span class="font-mono">{data.user.username}</span>
