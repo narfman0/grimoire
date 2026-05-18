@@ -300,6 +300,20 @@
       ? encState.activeParticipantId === data.liveEncounter.selfParticipantId
       : false;
 
+  // Rising edge: when the active turn lands on us, reset any reaction that
+  // got marked used during the prior round. We only react to transitions to
+  // avoid clobbering a manual mark-as-used during the same turn.
+  let prevIsMyTurn = false;
+  $: {
+    if (isMyTurn && !prevIsMyTurn && document?.reactionUsedThisRound) {
+      // Fire-and-forget; busy state stays untouched for this background reset.
+      patchDocument((d) => {
+        d.reactionUsedThisRound = false;
+      }).catch(() => {});
+    }
+    prevIsMyTurn = isMyTurn;
+  }
+
   $: tempHpDraft = document?.tempHp ?? 0;
 
   function abilityMod(score: number): number {
@@ -402,6 +416,30 @@
       d.resourcesSpent ??= {};
       const next = Math.max(0, Math.min(max, (d.resourcesSpent[id] ?? 0) + delta));
       d.resourcesSpent[id] = next;
+    });
+  }
+
+  // ---- reaction + concentration (M3.6) ----
+  async function toggleReaction() {
+    await patchDocument((d) => {
+      d.reactionUsedThisRound = !d.reactionUsedThisRound;
+    });
+  }
+
+  let concDraft = '';
+  $: reactionUsed = document?.reactionUsedThisRound === true;
+  async function startConcentration() {
+    const label = concDraft.trim();
+    if (!label) return;
+    const round = encState?.round ?? undefined;
+    await patchDocument((d) => {
+      d.concentrating = { label, ...(round != null ? { sinceRound: round } : {}) };
+    });
+    concDraft = '';
+  }
+  async function endConcentration() {
+    await patchDocument((d) => {
+      d.concentrating = null;
     });
   }
 
@@ -686,6 +724,7 @@
     if (!derived) return;
     await patchDocument((d) => {
       resetResourcesByPer(d, 'short-rest');
+      d.reactionUsedThisRound = false;
     });
     restingShort = true;
     restNote = 'Short rest — short-rest resources restored. Spend hit dice below as needed.';
@@ -704,10 +743,13 @@
         d.hitDiceSpent[c.slug] = Math.max(0, spent - recovered);
       }
       // Reset per-long-rest AND per-short-rest resources (long rest covers
-      // short-rest features too) AND spell slots.
+      // short-rest features too) AND spell slots. Drop concentration and
+      // restore reaction.
       resetResourcesByPer(d, 'long-rest');
       resetResourcesByPer(d, 'short-rest');
       resetSpellSlots(d);
+      d.reactionUsedThisRound = false;
+      d.concentrating = null;
       // Toggles (Reckless, GWM…) are per-turn / per-attack choices — don't
       // reset them on rest. Conditions like "frightened" generally end on a
       // long rest unless the source persists, but we don't track durations
@@ -1092,6 +1134,66 @@
         <p class="mt-2 text-xs text-slate-400">{restNote}</p>
       {/if}
     </div>
+  </section>
+
+  <!-- Reaction + concentration (compact row above slots/resources) -->
+  <section class="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/30 p-3 text-sm">
+    <!-- Reaction pill -->
+    <button
+      class="rounded border px-2 py-1 text-xs font-medium transition-colors {reactionUsed
+        ? 'border-slate-700 bg-slate-950 text-slate-500 hover:text-slate-300'
+        : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
+      disabled={busy}
+      title={reactionUsed
+        ? 'Reaction used this round. Click to mark available again.'
+        : 'Reaction available. Click to mark used.'}
+      on:click={toggleReaction}
+    >
+      ⚡ Reaction: {reactionUsed ? 'used' : 'ready'}
+    </button>
+
+    <!-- Concentration -->
+    {#if document.concentrating}
+      <span
+        class="flex items-center gap-2 rounded border border-indigo-700 bg-indigo-950/40 px-2 py-1 text-xs text-indigo-200"
+      >
+        <span>🌀 Concentrating:</span>
+        <span class="font-semibold">{document.concentrating.label}</span>
+        {#if document.concentrating.sinceRound != null}
+          <span class="text-indigo-400/70">(since R{document.concentrating.sinceRound})</span>
+        {/if}
+        <button
+          class="ml-1 rounded border border-indigo-700 px-1.5 py-0 text-[10px] hover:bg-indigo-900/40 disabled:opacity-40"
+          disabled={busy}
+          on:click={endConcentration}
+        >
+          drop
+        </button>
+      </span>
+    {:else}
+      <span class="flex items-center gap-1">
+        <span class="text-xs text-slate-500">🌀 Concentrate on</span>
+        <input
+          class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+          placeholder="bless, hex, hold person…"
+          maxlength="80"
+          bind:value={concDraft}
+          on:keydown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              startConcentration();
+            }
+          }}
+        />
+        <button
+          class="rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-800 disabled:opacity-40"
+          disabled={busy || concDraft.trim() === ''}
+          on:click={startConcentration}
+        >
+          start
+        </button>
+      </span>
+    {/if}
   </section>
 
   <!-- Spell slots + resources (mutable cluster) -->

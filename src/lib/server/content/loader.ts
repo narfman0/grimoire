@@ -12,6 +12,19 @@ import { ContentRowFileOrArray, PackMeta, type ContentRowFile } from './schemas'
 const DEFAULT_REPO_PACKS_DIR = './content-packs';
 const DEFAULT_EXTRA_PACKS_DIR = '../grimoire-packs';
 
+/** A row's `data` is "skeleton" when it contributes nothing to the rules
+ *  engine — no activities, features, modifiers, or triggers. Display-only
+ *  fields (name, school, range, description, etc.) don't count. */
+function isSkeletonData(data: Record<string, unknown>): boolean {
+  const arr = (v: unknown) => Array.isArray(v) && v.length > 0;
+  return !(
+    arr(data.activities) ||
+    arr(data.features) ||
+    arr(data.modifiers) ||
+    arr(data.triggers)
+  );
+}
+
 interface LoaderResult {
   packsLoaded: number;
   rowsLoaded: number;
@@ -177,6 +190,22 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
         const unchanged =
           prev.name === row.name && prev.data === incomingData && prev.source === incomingSource;
         if (unchanged) {
+          stats.rowsLoaded += 1;
+          continue;
+        }
+
+        // Skeleton-shadow guard: don't let a partially-transcribed override
+        // wipe out a fully-populated row. If the incoming row contributes no
+        // rules (empty activities/features/modifiers/triggers) and the
+        // existing row does, keep the existing one. Lets users fill in
+        // grimoire-packs files gradually without breaking the rules engine.
+        let prevData: Record<string, unknown> = {};
+        try {
+          prevData = JSON.parse(prev.data as string) as Record<string, unknown>;
+        } catch {
+          // fall through; if prev is unparseable, allow overwrite
+        }
+        if (isSkeletonData(row.data) && !isSkeletonData(prevData)) {
           stats.rowsLoaded += 1;
           continue;
         }

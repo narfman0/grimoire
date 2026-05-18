@@ -51,9 +51,26 @@ function walkPack(dir: string, meta: PackMeta, map: Map<string, ContentRow>): vo
         source: row.source ?? meta.default_source,
         data: (row.data as Record<string, unknown>) ?? {}
       };
+      // Skeleton-shadow guard: if a higher-priority pack overrides an SRD
+      // entry but its data carries no rules contribution (empty activities/
+      // features/modifiers/triggers), keep the lower-priority entry. Lets
+      // users transcribe books gradually — half-filled overrides don't
+      // suddenly drop fire-bolt from a wizard's action list, etc.
+      const existing = map.get(key);
+      if (existing && isSkeleton(full.data) && !isSkeleton(existing.data)) continue;
       map.set(key, full);
     }
   }
+}
+
+function isSkeleton(data: Record<string, unknown>): boolean {
+  const arr = (v: unknown) => Array.isArray(v) && v.length > 0;
+  return !(
+    arr(data.activities) ||
+    arr(data.features) ||
+    arr(data.modifiers) ||
+    arr(data.triggers)
+  );
 }
 
 function* walkFiles(dir: string): Generator<string> {
