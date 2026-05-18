@@ -79,20 +79,37 @@ export const content = sqliteTable(
     version: integer('version').notNull(),                          // monotonic per (kind, slug)
     source: text('source').notNull(),                               // 'srd-5.2', 'homebrew', etc.
     scopeId: text('scope_id'),                                      // null = global; campaign UUID for per-campaign rows
+    /** Author of this row when it was created in-app (homebrew). NULL for
+     *  pack-loaded rows (SRD, grimoire-packs). Owner-scoped rows are filtered
+     *  by user when populating pickers; non-owners can still resolve a row to
+     *  render a sheet that already references it. */
+    ownerUserId: text('owner_user_id'),
     packSlug: text('pack_slug')
       .notNull()
       .references(() => packs.slug),
     name: text('name').notNull(),
     data: text('data').notNull(),                                   // JSON serialized to TEXT (portable)
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    /** Stamped on every homebrew edit; null for pack-loaded rows that have
+     *  never been touched in-app. */
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
   },
   (t) => ({
-    // (kind, slug, version, scope_id) is the public identity. NULL scope_id
-    // means "global"; one global row per (kind, slug, version).
-    identity: uniqueIndex('content_identity').on(t.kind, t.slug, t.version, t.scopeId),
+    // (kind, slug, version, scope_id, owner_user_id) is the row identity.
+    // NULL scope_id + NULL owner = global pack content; one row per
+    // (kind, slug, version). NULL scope_id + non-NULL owner = per-user
+    // homebrew, distinct per author.
+    identity: uniqueIndex('content_identity').on(
+      t.kind,
+      t.slug,
+      t.version,
+      t.scopeId,
+      t.ownerUserId
+    ),
     byKindSlug: index('content_lookup').on(t.kind, t.slug),
     byPack: index('content_pack').on(t.packSlug),
-    bySource: index('content_source').on(t.source)
+    bySource: index('content_source').on(t.source),
+    byOwner: index('content_owner').on(t.ownerUserId)
   })
 );
 

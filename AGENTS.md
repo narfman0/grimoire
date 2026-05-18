@@ -32,7 +32,9 @@ Do **not** include Claude / agent attribution trailers in commits for this repo.
 Run before each push:
 
 ```bash
+pnpm check                  # svelte-check (no TS / Svelte errors)
 pnpm build                  # SvelteKit must build clean
+pnpm test                   # vitest — rules engine + items fixtures
 pnpm --filter @grimoire/sync-server build   # if you touched sync-server
 ```
 
@@ -44,8 +46,12 @@ pnpm migrate                # apply locally and sanity-check
 ```
 
 Commit the generated migration in the same commit as the schema change.
+If the new columns need defaults for existing rows (NOT NULL adds, etc.),
+hand-edit the generated SQL to add `DEFAULT (unixepoch() * 1000)` or
+similar — drizzle-kit doesn't infer those.
 
-Tests will arrive with M1. Until then, "builds + boots" is the bar.
+Run `pnpm gaps` after touching pack content; it reports subclass-feature
+slugs that don't resolve to feature rows (transcription gaps).
 
 ## Boundaries
 
@@ -55,16 +61,22 @@ Tests will arrive with M1. Until then, "builds + boots" is the bar.
 - **Don't** auto-summarize what just got committed in chat replies — the diff and commit message are the record.
 - **Don't** hand-write request validation in `+server.ts` handlers — use the Zod schemas in `src/lib/server/api/schemas.ts` via `parseJson` / `parseParams` / `parseSearch`. Those same schemas back the OpenAPI spec; bypassing them breaks the docs.
 - **Don't** add a route without also registering its path in `src/lib/server/api/spec.ts`. The spec is the public contract.
+- **Don't** add a new field on `CharacterDocument` without also adding it to the `CharacterDocument` Zod schema in `schemas.ts`. Zod silently strips unknown keys on PATCH — `feat: persist action-economy + concentration + favorites through PATCH` (`c93b943`) fixed exactly that class of bug.
+- **Don't** filter characters by `characters.campaignId = ?`. Since M3.6 the M:N truth lives in `campaign_characters` — `INNER JOIN` through it. The `campaignId` column is a soft home pointer only; reads must not rely on it for membership.
+- **Don't** reproduce content from copyrighted sources (WotC books, 5etools, wikis) into pack files or commits. SRD 5.2 content (CC-BY 4.0) lives in `content-packs/srd-5.2/`; everything else belongs in the operator-supplied `$GRIMOIRE_PACKS_DIR` and is the user's responsibility to populate from their own legal copies. The engine is content-agnostic — homebrew packs with the same JSON shape work identically.
+- **Don't** display pack `description` / flavor prose in UI you author. The monster statblock view, spell hover popup, and item hover popup deliberately render mechanical fields only (numbers, slugs, names) — the DM consults their own reference for full text.
+- **Don't** shadow the DOM `document` global with a local variable named `document` (the page-local `CharacterDocument`) and then call `document.getElementById(...)`. TypeScript will catch it; if you need the DOM ref, use `globalThis.document.getElementById(...)`.
 
 ## Milestones at a glance
 
-| Milestone | Scope                                                               |
-| --------- | ------------------------------------------------------------------- |
-| M0 ✅      | Scaffold (SvelteKit + Drizzle + Hocuspocus stub + Docker)           |
-| M1 ✅     | Characters CRUD + per-campaign list page + OpenAPI 3.1 spec at `/api` |
-| M1.5 ✅   | Pack loader, `/api/content`, SRD 5.2 tier 1, rules engine v0, vitest |
-| M1.6      | SRD 5.2 tier 2 — fill out species/classes/feats/spells in parallel PRs |
-| M2        | Sheet UI + real-time edits via Y.js / Hocuspocus                    |
-| M3        | D&D Beyond paste-based importer + turn/encounter planner            |
-| M4        | Shared notes, NPCs, dice roller broadcast                           |
-| M5        | Polish (presence, undo, export)                                     |
+| Milestone | Scope                                                                                  |
+| --------- | -------------------------------------------------------------------------------------- |
+| M0 ✅      | Scaffold (SvelteKit + Drizzle + Hocuspocus stub + Docker)                              |
+| M1 ✅      | Characters CRUD + per-campaign list page + OpenAPI 3.1 spec at `/api`                  |
+| M1.5 ✅    | Pack loader, `/api/content`, SRD 5.2 tier 1, rules engine v0, vitest fixtures           |
+| M1.6 ✅    | SRD 5.2 tier 2 — species/class/feat/spell fill-out                                     |
+| M2 ✅      | Editable sheet + Hocuspocus / Y.js HP/condition/toggle sync                            |
+| M3 ✅      | Encounter builder, monster picker, live turn sync, planner, resolve + amend, action log |
+| M3.5 ✅    | Multi-target save, reaction + concentration, slots/resources, action-economy, monster derive, feat picker, hover popups |
+| M3.6 ✅    | Character ↔ campaign decoupling (M:N join table, /characters library, link/unlink)    |
+| M4        | Shared notes / NPC tracker polish, dice roller broadcast, presence, undo, exporters     |

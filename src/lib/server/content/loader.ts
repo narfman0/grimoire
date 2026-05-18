@@ -65,6 +65,16 @@ export async function loadAllPacks(): Promise<LoaderResult> {
     try {
       const raw = await readFile(join(dir, 'meta.json'), 'utf8');
       const meta = PackMeta.parse(JSON.parse(raw));
+      // 'homebrew' is reserved for the in-app user-authored content path
+      // (see drizzle/0009 — synthetic pack row seeded at migration time).
+      // Refuse any on-disk pack claiming that slug so user rows aren't
+      // overwritten or orphan-warned by a same-named filesystem pack.
+      if (meta.slug === 'homebrew') {
+        console.warn(
+          `[grimoire] WARN ignoring on-disk pack at ${dir} — slug 'homebrew' is reserved for in-app authored content`
+        );
+        continue;
+      }
       metas.push({ dir, meta });
     } catch (err) {
       console.error(`[grimoire] failed to read meta.json in ${dir}:`, err);

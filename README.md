@@ -4,141 +4,80 @@ Collaborative D&D 5e campaign manager. Everyone at the table can edit
 every character sheet in real time. Characters can be imported from
 D&D Beyond via paste (no scraping).
 
-Status: **M0 scaffold** — dev environment + bones only. No character
-sheet UI or DDB importer yet.
+Status: **active table use**. Sheet, encounter builder with live turn /
+HP sync, planner + resolve + append-only action log, slots and resources,
+feat picker with player-choice slots, multi-campaign characters via a
+join table. See [Milestones](#milestones).
 
 ## Stack
 
 | Piece           | Choice                                                       |
 | --------------- | ------------------------------------------------------------ |
 | Frontend        | SvelteKit + TypeScript + Tailwind v4                         |
-| Web server      | `@sveltejs/adapter-node` (Vercel adapter swap noted in code) |
+| Web server      | `@sveltejs/adapter-node`                                     |
 | DB              | SQLite via Drizzle ORM (`better-sqlite3`)                    |
 | Realtime sync   | Hocuspocus (Y.js websocket server), separate process         |
 | Hosting (now)   | `srv` via docker compose                                     |
-| Hosting (later) | GCP App Engine or Vercel + a cloud DB                        |
 
-Drizzle schema sticks to portable types (`text`, `integer`, `blob`) so a
-later jump to Postgres is mostly an import swap.
+Drizzle schema stays portable (`text` / `integer` / `blob`) so the Postgres
+swap is mostly an import change.
 
-## Layout
-
-```
-grimoire/
-├── src/                # SvelteKit app
-├── sync-server/        # Hocuspocus websocket server (own pnpm package)
-├── drizzle/            # generated migrations
-├── docs/               # data model + DDB import notes
-├── Dockerfile          # multi-stage; targets `web` and `sync`
-└── docker-compose.yml  # both services + shared sqlite volume
-```
-
-## Quickstart (local)
+## Getting started
 
 ```bash
-pnpm install                         # installs root + sync-server
-pnpm db:generate                     # produces drizzle/0000_*.sql
-pnpm migrate                         # applies it to ./grimoire.db
-pnpm dev                             # SvelteKit on :5173
-pnpm --filter @grimoire/sync-server dev   # Hocuspocus on :47474
+pnpm install
+pnpm migrate         # applies any pending drizzle migrations
+pnpm dev:all         # SvelteKit (:5173) + sync-server (:47474)
 ```
 
-If `better-sqlite3` fails to build, you'll need `python3`, `make`, and a
-C++ toolchain. On Fedora: `sudo dnf install -y python3 make gcc-c++`.
+Open [http://localhost:5173](http://localhost:5173). Sign up, create a
+campaign, share the 6-character code, play.
 
-## Deploy (srv)
+To play from another machine on your LAN, point your browser at
+`http://<host>:5173`. If Vite blocks the host, set
+`VITE_ALLOWED_HOSTS=host,laptop.local,…` in `.env.local` (gitignored).
+
+If `better-sqlite3` fails to build, install a C++ toolchain. On Fedora:
+`sudo dnf install -y python3 make gcc-c++`.
+
+## Deploy
 
 ```bash
-docker compose build
-docker compose up -d
+docker compose build && docker compose up -d
 ```
 
-The compose file exposes `${GRIMOIRE_PORT:-49300}` for the web service
-and `${GRIMOIRE_SYNC_PORT:-49301}` for sync. Both write to a shared
-named volume (`grimoire-data`) holding `grimoire.db`. Drizzle migrations
-run on the web container's startup.
+The compose file exposes `${GRIMOIRE_PORT:-49300}` (web) and
+`${GRIMOIRE_SYNC_PORT:-49301}` (sync), with a shared `grimoire-data`
+volume holding `grimoire.db`. Migrations run on web container startup.
+Don't deploy to Vercel without moving sync-server somewhere
+always-on — serverless can't host long-lived websockets.
 
-## API
+## More
 
-The REST surface is described by an **OpenAPI 3.1** spec generated from Zod
-schemas. The spec is the source of truth: the same schemas validate requests
-at runtime and produce the spec — they can't drift.
-
-- Spec JSON: `GET /api/openapi.json`
-- Interactive docs: `/api` (rendered with [Scalar](https://scalar.com))
-- Schema source: `src/lib/server/api/schemas.ts` (Zod)
-- Path registrations: `src/lib/server/api/spec.ts`
-
-| Method | Path                                       | Purpose                              |
-| ------ | ------------------------------------------ | ------------------------------------ |
-| POST   | `/api/campaigns`                           | Create a campaign                    |
-| GET    | `/api/campaigns/{code}`                    | Fetch campaign metadata              |
-| POST   | `/api/campaigns/{code}/join`               | Set `grimoire_name` cookie; 204      |
-| GET    | `/api/characters?campaign=…`               | List characters (optionally filtered) |
-| POST   | `/api/characters`                          | Create a character                   |
-| GET    | `/api/characters/{id}`                     | Fetch a character                    |
-| PATCH  | `/api/characters/{id}`                     | Update a character                   |
-| DELETE | `/api/characters/{id}`                     | Delete a character; 204              |
-| GET    | `/api/content`                             | List catalog rows (filter, paginate) |
-| GET    | `/api/content/{kind}/{slug}`               | Latest public version                |
-| GET    | `/api/content/{kind}/{slug}/v{version}`    | Pinned version                       |
-| GET    | `/api/content/sources`                     | Public source slugs                  |
-| GET    | `/api/openapi.json`                        | OpenAPI 3.1 spec (JSON)              |
-| (page) | `/`                                        | Create or join                       |
-| (page) | `/c/{code}`                                | Campaign room (character list)       |
-| (page) | `/api`                                     | Scalar API reference                 |
-
-Adding an endpoint = (1) add/extend the Zod schema in `schemas.ts`,
-(2) `registry.registerPath({...})` in `spec.ts`, (3) write the handler using
-`parseJson`/`parseParams`/`parseSearch` from `validate.ts`. Spec updates
-automatically.
-
-## Content layer
-
-D&D content (species, classes, feats, items, spells…) lives in **packs**
-on disk and is loaded into the `content` table at server boot. The pack
-loader walks two roots:
-
-- `./content-packs/` — packs shipped with this repo. **SRD only** (CC-BY 4.0).
-- `$GRIMOIRE_PACKS_DIR` — operator-supplied packs from the separate
-  [grimoire-packs](https://github.com/narfman0/grimoire-packs) repo (private).
-  Non-SRD official content (post-2014 PHB, Tasha's, Wildemount, etc.) and
-  homebrew live here.
-
-Each pack is `{meta.json + any *.json files}`. Each JSON file is a row or
-an array of rows. See `docs/pack-loader.md` and `docs/content-model.md`.
-
-## Rules engine
-
-`src/lib/rules/` — pure-function `derive(character, contentLookup) -> derived`.
-Composes ability scores, AC, HP, saves, skills, spellcasting; assembles
-weapon/spell actions; applies action-modifiers; registers triggers; runs
-soft validations. Vitest fixtures (`pnpm test`) cover a Tortle Chronurgy
-Wizard L5 and a Half-Orc Path of the Zealot Barbarian L3 end-to-end against
-the real on-disk packs. See `docs/rules-engine.md`.
+- **Contributing & conventions** → [AGENTS.md](./AGENTS.md) — workflow,
+  commit format, boundaries, verification before push.
+- **API** → [`/api`](http://localhost:5173/api) (Scalar reference) or
+  `GET /api/openapi.json`. Spec is generated from `src/lib/server/api/spec.ts`
+  + the Zod schemas in `schemas.ts`; runtime validation and docs can't drift.
+- **Architecture** → `docs/` (data model, rules engine, pack loader).
+  Code layout follows from `src/lib/` (rules, server, components) and
+  `src/routes/` (api handlers + pages); both are short directory trees,
+  not worth duplicating here.
+- **Content packs** → SRD 5.2 (CC-BY 4.0) ships in
+  `content-packs/`. Non-SRD content goes in `$GRIMOIRE_PACKS_DIR`
+  (private repo or any local path). The engine is pack-agnostic; homebrew
+  uses the same shape. See `docs/pack-loader.md`.
 
 ## Milestones
 
-- **M0 ✅**: scaffold + landing page + join flow.
-- **M1 ✅**: characters CRUD + per-campaign list page + OpenAPI docs.
-- **M1.5 ✅**: pack loader, public `/api/content`, SRD 5.2 tier 1 seed,
-  rules engine v0, vitest fixtures.
-- **M1.6**: SRD 5.2 tier 2 (full species/class/feat/spell coverage, parallel PRs).
-- **M2**: sheet UI + real-time edits via Hocuspocus / Y.js.
-- **M3**: D&D Beyond paste-based importer + turn/encounter planner.
-
-## Workflow
-
-Commit and push **frequently** straight to `master`. One logical change per
-commit, conventional-commit prefixes (`feat:` / `fix:` / `chore:` / `docs:` /
-`refactor:`), and a `pnpm build` before every push. No long-lived branches for
-solo work; branch + PR only for risky changes (schema migrations, infra spikes).
-
-Full workflow and contributor expectations live in [AGENTS.md](./AGENTS.md).
-
-## Notes
-
-- No tests in M0; "it builds and boots" is the bar. Tests land with real
-  logic in M1+.
-- Don't deploy this to Vercel without first moving sync-server somewhere
-  always-on; Vercel serverless can't host long-lived websockets.
+| | Scope |
+|---|---|
+| M0 ✅ | Scaffold |
+| M1 ✅ | Characters CRUD + per-campaign page + OpenAPI 3.1 |
+| M1.5 ✅ | Pack loader, `/api/content`, SRD 5.2, rules engine v0, vitest |
+| M1.6 ✅ | SRD 5.2 fill-out + content authoring |
+| M2 ✅ | Editable sheet + Y.js HP/condition/toggle sync |
+| M3 ✅ | Encounters, monster picker, live turn sync, planner, resolve + amend, action log |
+| M3.5 ✅ | Multi-target save, reaction/concentration, slots/resources, action-economy, monster derive, feat picker (8 choice slots), hover popups |
+| M3.6 ✅ | Character ↔ campaign decoupling: `campaign_characters` M:N, `/characters` library, link/unlink |
+| M4 | Notes/NPC polish, dice broadcast, presence, undo, exporters |
