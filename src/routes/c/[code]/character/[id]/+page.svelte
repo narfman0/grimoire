@@ -1613,27 +1613,25 @@
        a player sees. ===== -->
   <Sheet derived={derived} />
 
-  <!-- Compact level-up row: one tiny ↑ button per class. Form panel below
-       only renders when a draft is active. -->
-  <section class="mb-6 flex flex-wrap items-center gap-2 text-xs">
-    <span class="text-slate-500">Level up:</span>
-    {#each document.classes as cls}
-      <button
-        class="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
-        disabled={busy || cls.level >= 20}
-        title="Bump {cls.slug} to L{cls.level + 1}"
-        on:click={() => startLevelUp(cls.slug)}
-      >
-        ↑ {cls.slug} L{cls.level}
-      </button>
-    {/each}
-  </section>
-
   <!-- ===== Edit panel: HP / hit dice / conditions / toggles / rest ===== -->
   <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
     <!-- HP -->
     <div>
-      <h2 class="mb-2 text-sm font-semibold text-slate-200">HP</h2>
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold text-slate-200">HP</h2>
+        <span class="flex flex-wrap items-center gap-1">
+          {#each document.classes as cls}
+            <button
+              class="rounded border border-slate-700 px-1.5 py-0 text-[10px] text-slate-400 hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
+              disabled={busy || cls.level >= 20}
+              title="Bump {cls.slug} to L{cls.level + 1}"
+              on:click={() => startLevelUp(cls.slug)}
+            >
+              ↑ {cls.slug} L{cls.level}
+            </button>
+          {/each}
+        </span>
+      </div>
       <div class="text-3xl font-semibold">
         {document.currentHp} / {derived.stats.hp.max}
         {#if document.tempHp > 0}
