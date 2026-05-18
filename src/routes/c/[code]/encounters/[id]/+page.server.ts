@@ -120,14 +120,37 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .where(eq(schema.actionLog.encounterId, enc.id))
     .orderBy(schema.actionLog.createdAt);
 
-  // Characters in this campaign — for "add PC" picker
+  // Characters in this campaign — for "add PC" picker and the party-budget
+  // summary in the encounter header. Document JSON carries `classes[].level`
+  // which we sum into a per-PC total level.
   const charRows = await db
     .select({
       id: schema.characters.id,
-      name: schema.characters.name
+      name: schema.characters.name,
+      document: schema.characters.document
     })
     .from(schema.characters)
     .where(eq(schema.characters.campaignId, m.campaignId));
+
+  // Party makeup — only characters that are participants in this encounter
+  // count toward the budget. Multi-classed PCs sum their class levels.
+  const encounterCharacterIds = new Set(
+    partRows.map((p) => p.characterId).filter((s): s is string => !!s)
+  );
+  const partyLevels: number[] = [];
+  for (const r of charRows) {
+    if (!encounterCharacterIds.has(r.id) || !r.document) continue;
+    try {
+      const doc = JSON.parse(r.document) as { classes?: Array<{ level?: number }> };
+      const total = (doc.classes ?? []).reduce((s, c) => s + (c.level ?? 0), 0);
+      if (total > 0) partyLevels.push(total);
+    } catch {
+      // ignore — char without a parseable doc is excluded from the budget
+    }
+  }
+  const partySize = partyLevels.length;
+  const partyLevelSum = partyLevels.reduce((s, l) => s + l, 0);
+  const partyAvgLevel = partySize > 0 ? partyLevelSum / partySize : 0;
 
   // Monsters from loaded packs — for the "add monster" picker.
   const monsterRows = await db
@@ -203,7 +226,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
           b.dexScore - a.dexScore ||
           a.sortOrder - b.sortOrder
       ),
-    campaignCharacters: charRows,
+    campaignCharacters: charRows.map((r) => ({ id: r.id, name: r.name })),
+    party: {
+      size: partySize,
+      totalLevel: partyLevelSum,
+      avgLevel: partyAvgLevel
+    },
     monsterOptions,
     actionLog: logRows.map((r) => ({
       id: r.id,

@@ -113,6 +113,11 @@
   let resolveAttack: number | null = null;
   let resolveDamage: number | null = null;
   let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' | 'saved' | 'failed-save' = '';
+  /** Multi-target save mode — auto-enabled when the picked action has a
+   *  saveDC. Damage rolled once, per-target save inputs auto-classify
+   *  pass/fail vs the DC. Submit fires one log entry per target. */
+  let multiTargetIds: string[] = [];
+  let targetSaveRolls: Record<string, number | null> = {};
   let resolveNotes = '';
   let resolveSubmitting = false;
   let resolveError: string | null = null;
@@ -264,32 +269,29 @@
     return data.liveEncounter.participants.find((p) => p.id === myPlan!.targetParticipantId) ?? null;
   }
 
-  async function submitResolve() {
-    if (!encConn || !data.liveEncounter || !myPlan) return;
-    const round = encState?.round ?? 0;
-    const selfId = data.liveEncounter.selfParticipantId;
-    const target = resolveTargetParticipant();
-    resolveSubmitting = true;
-    resolveError = null;
-
-    // Apply HP to the target via Y.Doc when:
-    //   - target exists, is non-PC
-    //   - damage roll declared
-    //   - hit ∈ {hit, crit} → damage; hit === 'heal' → healing (capped to maxHp)
-    // PC targets aren't auto-applied here — the target player's sheet
-    // is the source of truth for their HP.
+  /** Apply HP delta + POST one log entry for a single target. Returns ok. */
+  async function applyToTarget(
+    target: { id: string; kind: string; maxHp: number | null } | null,
+    outcome: typeof resolveHit,
+    damage: number | null,
+    attack: number | null,
+    notesText: string,
+    round: number,
+    selfId: string
+  ): Promise<boolean> {
+    if (!encConn || !data.liveEncounter || !myPlan) return false;
     let targetHpBefore: number | null = null;
     let targetHpAfter: number | null = null;
     if (
       target &&
       target.kind !== 'pc' &&
-      typeof resolveDamage === 'number' &&
-      resolveDamage > 0 &&
-      (resolveHit === 'hit' ||
-        resolveHit === 'crit' ||
-        resolveHit === 'heal' ||
-        resolveHit === 'saved' ||
-        resolveHit === 'failed-save')
+      typeof damage === 'number' &&
+      damage > 0 &&
+      (outcome === 'hit' ||
+        outcome === 'crit' ||
+        outcome === 'heal' ||
+        outcome === 'saved' ||
+        outcome === 'failed-save')
     ) {
       const live = encState?.participantHp[target.id];
       const seed: ParticipantHp = {
@@ -298,47 +300,92 @@
         conditions: live?.conditions ?? []
       };
       targetHpBefore = seed.currentHp;
-      // Damage scaling per outcome:
-      //   hit/crit/failed-save → full damage
-      //   saved → half (rounded down) — covers the common DEX/CON-half-on-save pattern
-      //   heal → full healing (flipped)
-      const effectiveAmount = resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+      const effective = outcome === 'saved' ? Math.floor(damage / 2) : damage;
       let next: ParticipantHp;
-      if (effectiveAmount === 0) {
+      if (effective === 0) {
         next = seed;
-      } else if (resolveHit === 'heal') {
-        next = applyEncHeal(encConn.ydoc, target.id, resolveDamage, target.maxHp, seed);
+      } else if (outcome === 'heal') {
+        next = applyEncHeal(encConn.ydoc, target.id, damage, target.maxHp, seed);
       } else {
-        next = applyEncDamage(encConn.ydoc, target.id, effectiveAmount, seed);
+        next = applyEncDamage(encConn.ydoc, target.id, effective, seed);
       }
       targetHpAfter = next.currentHp;
     }
+    const res = await fetch(`/api/encounters/${data.liveEncounter.id}/log`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        participantId: selfId,
+        targetParticipantId: target?.id ?? null,
+        actionId: myPlan.actionId,
+        actionLabel: myPlan.actionLabel,
+        round,
+        attackRoll: attack,
+        damageRoll: damage,
+        hit: outcome || null,
+        targetHpBefore,
+        targetHpAfter,
+        notes: notesText.slice(0, 500) || null
+      })
+    });
+    return res.ok;
+  }
+
+  async function submitResolve() {
+    if (!encConn || !data.liveEncounter || !myPlan) return;
+    const round = encState?.round ?? 0;
+    const selfId = data.liveEncounter.selfParticipantId;
+    resolveSubmitting = true;
+    resolveError = null;
 
     try {
-      const res = await fetch(`/api/encounters/${data.liveEncounter.id}/log`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          participantId: selfId,
-          targetParticipantId: myPlan.targetParticipantId,
-          actionId: myPlan.actionId,
-          actionLabel: myPlan.actionLabel,
+      if (isSaveAction && multiTargetIds.length > 0 && pickedAction?.saveDC) {
+        // Multi-target save: fire one log entry per target with per-target
+        // pass/fail derived from save roll vs DC. If a row's save input is
+        // blank, fall back to the form's outcome (defaults to failed-save).
+        const dc = pickedAction.saveDC.value;
+        for (const tid of multiTargetIds) {
+          const t = data.liveEncounter.participants.find((p) => p.id === tid) ?? null;
+          if (!t) continue;
+          const saveRoll = targetSaveRolls[tid];
+          const perTargetOutcome: typeof resolveHit =
+            typeof saveRoll === 'number'
+              ? saveRoll >= dc
+                ? 'saved'
+                : 'failed-save'
+              : resolveHit || 'failed-save';
+          const ok = await applyToTarget(
+            t,
+            perTargetOutcome,
+            resolveDamage,
+            saveRoll ?? null,
+            resolveNotes,
+            round,
+            selfId
+          );
+          if (!ok) {
+            resolveError = `log entry failed for ${t.name}`;
+            return;
+          }
+        }
+      } else {
+        const target = resolveTargetParticipant();
+        const ok = await applyToTarget(
+          target ? { id: target.id, kind: target.kind, maxHp: target.maxHp } : null,
+          resolveHit,
+          resolveDamage,
+          resolveAttack,
+          resolveNotes,
           round,
-          attackRoll: resolveAttack,
-          damageRoll: resolveDamage,
-          hit: resolveHit || null,
-          targetHpBefore,
-          targetHpAfter,
-          notes: resolveNotes.slice(0, 500) || null
-        })
-      });
-      if (!res.ok) {
-        resolveError = `log: ${res.status} ${(await res.text()).slice(0, 200)}`;
-        return;
+          selfId
+        );
+        if (!ok) {
+          resolveError = 'log entry failed';
+          return;
+        }
       }
-      // Consume the action-economy slot the resolved action takes. The cost
-      // lives on the derived action; look it up by id, mark the slot. DM can
-      // toggle back manually if they decided the action is free.
+
+      // Consume the action-economy slot the resolved action takes.
       const resolvedAction = (derived?.actions ?? []).find((a) => a.id === myPlan.actionId);
       const slot = resolvedAction ? slotForCost(resolvedAction.cost) : null;
       if (slot) {
@@ -353,6 +400,8 @@
       planActionId = '';
       planTargetId = null;
       planNotes = '';
+      multiTargetIds = [];
+      targetSaveRolls = {};
       resolveOpen = false;
     } finally {
       resolveSubmitting = false;
@@ -1055,8 +1104,64 @@
           {#if isSaveAction && pickedAction?.saveDC}
             <p class="mb-2 inline-block rounded bg-indigo-950/40 px-2 py-0.5 text-[11px] text-indigo-200">
               Save DC {pickedAction.saveDC.value} ({pickedAction.saveDC.ability.toUpperCase()})
-              — target rolls a save; full damage on fail, half on success.
+              — each target rolls a save; full damage on fail, half on success.
             </p>
+            <div class="mb-2 rounded border border-indigo-900/50 bg-slate-950/40 p-2">
+              <div class="mb-1 flex items-baseline justify-between">
+                <span class="text-[10px] uppercase tracking-wide text-slate-500">
+                  Targets in the AOE — {multiTargetIds.length} selected
+                </span>
+                {#if multiTargetIds.length === 0}
+                  <span class="text-[10px] text-slate-600">
+                    (none selected → falls back to the single-target picker below)
+                  </span>
+                {/if}
+              </div>
+              <ul class="grid grid-cols-2 gap-1 text-xs">
+                {#each data.liveEncounter.participants as p (p.id)}
+                  {#if p.id !== data.liveEncounter.selfParticipantId}
+                    {@const checked = multiTargetIds.includes(p.id)}
+                    {@const roll = targetSaveRolls[p.id]}
+                    {@const outcome =
+                      typeof roll === 'number' && pickedAction?.saveDC
+                        ? roll >= pickedAction.saveDC.value
+                          ? 'saved'
+                          : 'failed-save'
+                        : null}
+                    <li class="flex items-center gap-1 rounded border border-slate-800 px-1 py-0.5">
+                      <input
+                        type="checkbox"
+                        {checked}
+                        on:change={(e) => {
+                          if (checkboxChecked(e)) {
+                            if (!multiTargetIds.includes(p.id)) multiTargetIds = [...multiTargetIds, p.id];
+                          } else {
+                            multiTargetIds = multiTargetIds.filter((id) => id !== p.id);
+                          }
+                        }}
+                      />
+                      <span class="flex-1 truncate text-slate-300">{p.name}</span>
+                      <input
+                        type="number"
+                        class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[10px]"
+                        placeholder="save"
+                        disabled={!checked}
+                        bind:value={targetSaveRolls[p.id]}
+                      />
+                      {#if outcome}
+                        <span
+                          class="rounded px-1 text-[9px] uppercase {outcome === 'saved'
+                            ? 'bg-emerald-900/40 text-emerald-200'
+                            : 'bg-red-900/40 text-red-200'}"
+                        >
+                          {outcome === 'saved' ? '½' : 'X'}
+                        </span>
+                      {/if}
+                    </li>
+                  {/if}
+                {/each}
+              </ul>
+            </div>
           {/if}
           <div class="flex flex-wrap items-end gap-2">
             <label>

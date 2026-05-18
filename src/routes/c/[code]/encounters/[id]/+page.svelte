@@ -89,6 +89,12 @@
   let resolveActionLabel = '';
   let resolveTargetId: string | null = null;
   let resolveAttack: number | null = null;
+  /** DM multi-target save state. DM types a save DC (no statblock saveDC plumbing
+   *  yet for monster actions), picks AOE targets, enters per-target save rolls.
+   *  Submit fires one log entry per target. */
+  let resolveSaveDC: number | null = null;
+  let resolveMultiTargetIds: string[] = [];
+  let resolveTargetSaveRolls: Record<string, number | null> = {};
   let resolveDamage: number | null = null;
   let resolveHit: HitOutcome = '';
   let resolveNotes = '';
@@ -113,11 +119,17 @@
     resolveDamage = null;
     resolveHit = '';
     resolveError = null;
+    resolveSaveDC = null;
+    resolveMultiTargetIds = [];
+    resolveTargetSaveRolls = {};
   }
 
   function closeResolve() {
     resolveForParticipantId = null;
     resolveError = null;
+    resolveSaveDC = null;
+    resolveMultiTargetIds = [];
+    resolveTargetSaveRolls = {};
   }
 
   /** Pre-fill the resolve form from a statblock action button. DM still
@@ -146,69 +158,99 @@
     resolveHit = '';
   }
 
-  async function submitDmResolve() {
-    if (!conn || !resolveForParticipantId) return;
-    const round = liveState?.round ?? data.encounter.round;
-    const target = resolveTargetId
-      ? data.participants.find((p) => p.id === resolveTargetId) ?? null
+  /** Single-target apply: HP delta via Y.Doc + one log entry. Returns ok. */
+  async function dmApplyToTarget(
+    targetId: string | null,
+    outcome: HitOutcome,
+    damage: number | null,
+    attack: number | null,
+    round: number
+  ): Promise<boolean> {
+    if (!conn || !resolveForParticipantId) return false;
+    const target = targetId
+      ? data.participants.find((p) => p.id === targetId) ?? null
       : null;
-
     let targetHpBefore: number | null = null;
     let targetHpAfter: number | null = null;
     if (
       target &&
       target.kind !== 'pc' &&
-      typeof resolveDamage === 'number' &&
-      resolveDamage > 0 &&
-      (resolveHit === 'hit' ||
-        resolveHit === 'crit' ||
-        resolveHit === 'heal' ||
-        resolveHit === 'saved' ||
-        resolveHit === 'failed-save')
+      typeof damage === 'number' &&
+      damage > 0 &&
+      (outcome === 'hit' ||
+        outcome === 'crit' ||
+        outcome === 'heal' ||
+        outcome === 'saved' ||
+        outcome === 'failed-save')
     ) {
       const seed = seedFor(target);
       targetHpBefore = seed.currentHp;
-      // Saved → half damage (rounded down). Heal flips to applyHeal.
-      const effective = resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+      const effective = outcome === 'saved' ? Math.floor(damage / 2) : damage;
       let next = seed;
-      if (effective > 0 || resolveHit === 'heal') {
+      if (effective > 0 || outcome === 'heal') {
         next =
-          resolveHit === 'heal'
-            ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
+          outcome === 'heal'
+            ? doApplyHeal(conn.ydoc, target.id, damage, target.maxHp, seed)
             : doApplyDamage(conn.ydoc, target.id, effective, seed);
       }
       targetHpAfter = next.currentHp;
     }
+    const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        participantId: resolveForParticipantId,
+        targetParticipantId: targetId,
+        actionId: resolveActionId,
+        actionLabel: resolveActionLabel,
+        round,
+        attackRoll: attack,
+        damageRoll: damage,
+        hit: outcome || null,
+        targetHpBefore,
+        targetHpAfter,
+        notes: resolveNotes.slice(0, 500) || null
+      })
+    });
+    return res.ok;
+  }
 
+  async function submitDmResolve() {
+    if (!conn || !resolveForParticipantId) return;
+    const round = liveState?.round ?? data.encounter.round;
     resolveSubmitting = true;
     try {
-      const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          participantId: resolveForParticipantId,
-          targetParticipantId: resolveTargetId,
-          actionId: resolveActionId,
-          actionLabel: resolveActionLabel,
-          round,
-          attackRoll: resolveAttack,
-          damageRoll: resolveDamage,
-          hit: resolveHit || null,
-          targetHpBefore,
-          targetHpAfter,
-          notes: resolveNotes.slice(0, 500) || null
-        })
-      });
-      if (!res.ok) {
-        resolveError = `log: ${res.status} ${(await res.text()).slice(0, 200)}`;
-        return;
+      if (resolveMultiTargetIds.length > 0 && resolveSaveDC != null) {
+        // Multi-target save: per-target pass/fail from save roll vs DC.
+        for (const tid of resolveMultiTargetIds) {
+          const t = data.participants.find((p) => p.id === tid);
+          if (!t) continue;
+          const saveRoll = resolveTargetSaveRolls[tid];
+          const perTargetOutcome: HitOutcome =
+            typeof saveRoll === 'number'
+              ? saveRoll >= resolveSaveDC
+                ? 'saved'
+                : 'failed-save'
+              : resolveHit || 'failed-save';
+          const ok = await dmApplyToTarget(tid, perTargetOutcome, resolveDamage, saveRoll ?? null, round);
+          if (!ok) {
+            resolveError = `log entry failed for ${t.name}`;
+            return;
+          }
+        }
+      } else {
+        const ok = await dmApplyToTarget(resolveTargetId, resolveHit, resolveDamage, resolveAttack, round);
+        if (!ok) {
+          resolveError = 'log entry failed';
+          return;
+        }
       }
       // Clear the plan if there was one.
       if (livePlans[resolveForParticipantId]) {
         clearTurnPlan(conn.ydoc, resolveForParticipantId);
       }
       closeResolve();
-      await invalidateAll(); // refresh log view
+      await invalidateAll();
     } finally {
       resolveSubmitting = false;
     }
@@ -244,6 +286,8 @@
   $: encounterTotalXp = data.participants
     .filter((p) => p.kind !== 'pc' && p.statblock?.xp != null)
     .reduce((s, p) => s + (p.statblock?.xp ?? 0), 0);
+  $: xpPerChar =
+    data.party.size > 0 ? Math.round(encounterTotalXp / data.party.size) : encounterTotalXp;
   $: logOriginals = data.actionLog.filter((e) => {
     if (e.isAmendment) return false;
     if (logFilterParticipantId !== 'all' && e.participantId !== logFilterParticipantId) return false;
@@ -540,6 +584,10 @@
     }
   }
 
+  function checkboxChecked(e: Event): boolean {
+    return (e.target as HTMLInputElement).checked;
+  }
+
   function inputValue(e: Event): string {
     return (e.target as HTMLInputElement).value;
   }
@@ -644,6 +692,13 @@
       {/if}
       {#if encounterTotalXp > 0}
         &middot; <span class="text-slate-300">{encounterTotalXp} XP</span>
+        {#if data.party.size > 0}
+          <span class="text-slate-500">
+            (vs {data.party.size} PC{data.party.size === 1 ? '' : 's'},
+            avg L{data.party.avgLevel.toFixed(1)} —
+            <span class="text-slate-300">{xpPerChar}/char</span>)
+          </span>
+        {/if}
       {/if}
       {#if conn}
         <span
@@ -1168,6 +1223,77 @@
             {label}
           </button>
         {/each}
+      </div>
+    {/if}
+
+    {#if !amendingLogId}
+      <div class="mb-3 rounded border border-indigo-900/50 bg-slate-950/40 p-2">
+        <div class="mb-1 flex items-center gap-2 text-xs">
+          <span class="text-slate-500">Multi-save (AOE):</span>
+          <label class="flex items-center gap-1">
+            <span class="text-slate-500">DC</span>
+            <input
+              type="number"
+              class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono"
+              placeholder="—"
+              bind:value={resolveSaveDC}
+            />
+          </label>
+          <span class="text-slate-600">
+            {#if resolveMultiTargetIds.length > 0 && resolveSaveDC != null}
+              · {resolveMultiTargetIds.length} target(s) — per-target save vs DC fires N log rows
+            {:else}
+              · enter DC + check targets to fire one row per target; leave blank for single-target
+            {/if}
+          </span>
+        </div>
+        {#if resolveSaveDC != null}
+          <ul class="grid grid-cols-2 gap-1 text-xs">
+            {#each data.participants as q (q.id)}
+              {#if q.id !== resolveForParticipantId}
+                {@const checked = resolveMultiTargetIds.includes(q.id)}
+                {@const roll = resolveTargetSaveRolls[q.id]}
+                {@const outcome =
+                  typeof roll === 'number' && resolveSaveDC != null
+                    ? roll >= resolveSaveDC
+                      ? 'saved'
+                      : 'failed-save'
+                    : null}
+                <li class="flex items-center gap-1 rounded border border-slate-800 px-1 py-0.5">
+                  <input
+                    type="checkbox"
+                    {checked}
+                    on:change={(e) => {
+                      if (checkboxChecked(e)) {
+                        if (!resolveMultiTargetIds.includes(q.id))
+                          resolveMultiTargetIds = [...resolveMultiTargetIds, q.id];
+                      } else {
+                        resolveMultiTargetIds = resolveMultiTargetIds.filter((id) => id !== q.id);
+                      }
+                    }}
+                  />
+                  <span class="flex-1 truncate text-slate-300">{q.name}</span>
+                  <input
+                    type="number"
+                    class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[10px]"
+                    placeholder="save"
+                    disabled={!checked}
+                    bind:value={resolveTargetSaveRolls[q.id]}
+                  />
+                  {#if outcome}
+                    <span
+                      class="rounded px-1 text-[9px] uppercase {outcome === 'saved'
+                        ? 'bg-emerald-900/40 text-emerald-200'
+                        : 'bg-red-900/40 text-red-200'}"
+                    >
+                      {outcome === 'saved' ? '½' : 'X'}
+                    </span>
+                  {/if}
+                </li>
+              {/if}
+            {/each}
+          </ul>
+        {/if}
       </div>
     {/if}
 
