@@ -89,9 +89,10 @@
         error = `Could not create character (${res.status}): ${body.slice(0, 200)}`;
         return;
       }
+      // Only clear the name — each character needs a unique one. Leave
+      // species/class/level/subclass/abilities so a second character can
+      // be created from the same starting form without re-entering.
       newName = '';
-      level = 1;
-      abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
       await invalidateAll();
     } finally {
       busy = false;
@@ -126,16 +127,21 @@
   $: pointBuyCost = abilityKeys.reduce((sum, ab) => sum + (POINT_COSTS[abilities[ab]] ?? NaN), 0);
   $: pointBuyValid = Number.isFinite(pointBuyCost) && pointBuyCost <= POINT_BUDGET;
 
+  // Which generation method the player is using — drives which validator
+  // shows. Defaults to 'rolled' because rolling manually is the most
+  // common at-the-table thing; click a quick-fill to switch.
+  let genMethod: 'standard' | 'pointbuy' | 'rolled' = 'rolled';
+
   function fillStandardArray() {
-    // Default order STR / DEX / CON / INT / WIS / CHA. Player can shuffle by
-    // editing the inputs.
     abilityKeys.forEach((ab, i) => (abilities[ab] = STANDARD_ARRAY[i]));
     abilities = { ...abilities };
+    genMethod = 'standard';
   }
 
   function fillPointBuyBaseline() {
     for (const ab of abilityKeys) abilities[ab] = 8;
     abilities = { ...abilities };
+    genMethod = 'pointbuy';
   }
 
   function fillTens() {
@@ -258,6 +264,22 @@
 
     </div>
 
+    <div class="flex flex-wrap items-center gap-3 text-xs">
+      <span class="text-slate-500 mr-1">Method:</span>
+      <label class="flex items-center gap-1">
+        <input type="radio" bind:group={genMethod} value="rolled" />
+        <span>Rolled (custom)</span>
+      </label>
+      <label class="flex items-center gap-1">
+        <input type="radio" bind:group={genMethod} value="standard" />
+        <span>Standard Array</span>
+      </label>
+      <label class="flex items-center gap-1">
+        <input type="radio" bind:group={genMethod} value="pointbuy" />
+        <span>Point Buy</span>
+      </label>
+    </div>
+
     <div class="flex flex-wrap items-center gap-2 text-xs">
       <span class="text-slate-500 mr-1">Quick fill:</span>
       <button type="button" class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={fillStandardArray}>
@@ -295,23 +317,32 @@
         9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9; max base 15). Custom rolls
         (e.g., 4d6-drop-lowest) allow base 3–17 — DM's responsibility to verify.
       </span>
-      <span class="mt-1 block">
-        {#if Number.isFinite(pointBuyCost)}
-          <span class="text-slate-300">Point Buy:</span>
-          <span class={pointBuyValid ? 'text-emerald-300' : 'text-red-300'}>
-            {pointBuyCost} / {POINT_BUDGET} points used
-          </span>
-          {#if !pointBuyValid && pointBuyCost > POINT_BUDGET}
-            <span class="text-red-300">(over budget — not a valid Point Buy allocation)</span>
+      {#if genMethod === 'pointbuy'}
+        <span class="mt-1 block">
+          {#if Number.isFinite(pointBuyCost)}
+            <span class="text-slate-300">Point Buy:</span>
+            <span class={pointBuyValid ? 'text-emerald-300' : 'text-red-300'}>
+              {pointBuyCost} / {POINT_BUDGET} points used
+            </span>
+            {#if !pointBuyValid && pointBuyCost > POINT_BUDGET}
+              <span class="text-red-300">(over budget)</span>
+            {/if}
+          {:else}
+            <span class="text-red-300">
+              One score is below 8 or above 15 — not a valid Point Buy allocation.
+              Switch method to Rolled or Standard Array if that's intentional.
+            </span>
           {/if}
-        {:else}
-          <span class="text-slate-500">
-            Point Buy: <span class="font-mono">N/A</span> — one of your scores is below 8 or above 15,
-            so you're not on a Point Buy build. (Point Buy maxes out at 15 base; 16+ comes from
-            species/feat/ASI bumps applied later.) Fine for Standard Array or Custom rolls.
-          </span>
-        {/if}
-      </span>
+        </span>
+      {:else if genMethod === 'rolled'}
+        <span class="mt-1 block text-slate-500">
+          Rolled — type whatever you rolled (3–20). DM verifies. No point-buy validation.
+        </span>
+      {:else}
+        <span class="mt-1 block text-slate-500">
+          Standard Array — assign 15/14/13/12/10/8 across the abilities however you like.
+        </span>
+      {/if}
       <span class="mt-1 block">
         Background, equipment, prepared spells, feats, and ASI bumps are picked on the character sheet after creation.
       </span>
