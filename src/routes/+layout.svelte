@@ -1,10 +1,27 @@
 <script lang="ts">
   import '../app.css';
   import { page } from '$app/stores';
+  import { invalidateAll, goto } from '$app/navigation';
   import type { LayoutData } from './$types';
   export let data: LayoutData;
 
   let loggingOut = false;
+  let homebrewOpen = false;
+  let bellOpen = false;
+  let notifications: Array<{
+    id: string;
+    type: string;
+    contentKind: string;
+    contentSlug: string;
+    authorUserId: string;
+    authorUsername: string | null;
+    fromVersion: number | null;
+    toVersion: number;
+    readAt: number | null;
+    createdAt: number;
+  }> = [];
+  let notificationsLoaded = false;
+
   async function logout() {
     loggingOut = true;
     try {
@@ -15,9 +32,42 @@
     }
   }
 
-  // Every page under /c/[code]/* threads { campaign: { code, name } } through
-  // page data, so we can read it here and render a quick "Grimoire · MyGame"
-  // breadcrumb in the global header without an extra layout load.
+  async function openBell() {
+    bellOpen = !bellOpen;
+    if (bellOpen && !notificationsLoaded) {
+      const res = await fetch('/api/notifications');
+      if (res.ok) {
+        const body = (await res.json()) as { notifications: typeof notifications };
+        notifications = body.notifications;
+        notificationsLoaded = true;
+      }
+    }
+  }
+
+  async function markAllRead() {
+    await fetch('/api/notifications/mark-read', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: 'all' })
+    });
+    notifications = notifications.map((n) => ({ ...n, readAt: n.readAt ?? Date.now() }));
+    await invalidateAll();
+  }
+
+  async function openNotification(n: (typeof notifications)[number]) {
+    // Mark this one read regardless of whether navigation succeeds.
+    if (n.readAt === null) {
+      await fetch('/api/notifications/mark-read', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: [n.id] })
+      });
+    }
+    bellOpen = false;
+    await goto('/me/homebrew/subscriptions');
+    await invalidateAll();
+  }
+
   $: campaign = $page.data.campaign as { code: string; name: string } | undefined;
 </script>
 
@@ -39,7 +89,80 @@
       </div>
       <div class="flex items-center gap-3 text-slate-400">
         {#if data.user}
-          <a class="text-xs hover:text-slate-200" href="/me/homebrew/feats">Homebrew</a>
+          <!-- Notifications bell. Server-side count keeps the badge accurate
+               without polling; click loads the full list lazily. -->
+          <div class="relative">
+            <button
+              class="relative text-xs hover:text-slate-200"
+              on:click={openBell}
+              on:blur={() => setTimeout(() => (bellOpen = false), 200)}
+              aria-haspopup="true"
+              aria-expanded={bellOpen}
+              aria-label="Notifications"
+            >
+              <span aria-hidden="true">🔔</span>
+              {#if data.notificationsUnread > 0}
+                <span class="absolute -right-2 -top-1 rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-emerald-950">{data.notificationsUnread}</span>
+              {/if}
+            </button>
+            {#if bellOpen}
+              <div class="absolute right-0 z-30 mt-2 w-72 rounded border border-slate-700 bg-slate-900 text-xs shadow-lg">
+                <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+                  <span class="font-medium text-slate-200">Notifications</span>
+                  {#if data.notificationsUnread > 0}
+                    <button
+                      class="text-[11px] text-emerald-300 hover:text-emerald-200"
+                      on:mousedown={(e) => { e.preventDefault(); markAllRead(); }}
+                    >Mark all read</button>
+                  {/if}
+                </div>
+                <div class="max-h-80 overflow-y-auto">
+                  {#if !notificationsLoaded}
+                    <p class="px-3 py-4 text-slate-500">Loading…</p>
+                  {:else if notifications.length === 0}
+                    <p class="px-3 py-4 text-slate-500">No notifications yet.</p>
+                  {:else}
+                    {#each notifications as n}
+                      <button
+                        type="button"
+                        class="block w-full border-b border-slate-800/60 px-3 py-2 text-left hover:bg-slate-800/50 {n.readAt === null ? 'bg-slate-800/30' : ''}"
+                        on:mousedown={(e) => { e.preventDefault(); openNotification(n); }}
+                      >
+                        <div class="text-slate-200">
+                          <span class="font-medium">{n.authorUsername ?? 'an author'}</span>
+                          published {n.contentKind} <span class="font-mono text-[11px] text-slate-400">{n.contentSlug}</span>
+                          v{n.toVersion}
+                        </div>
+                        <div class="text-[11px] text-slate-500">{new Date(n.createdAt).toLocaleString()}</div>
+                      </button>
+                    {/each}
+                  {/if}
+                </div>
+              </div>
+            {/if}
+          </div>
+
+          <!-- Homebrew menu: hover-/click-driven dropdown with the three core
+               surfaces. Lightweight CSS-only behavior — no popover lib. -->
+          <div class="relative">
+            <button
+              class="text-xs hover:text-slate-200"
+              on:click={() => (homebrewOpen = !homebrewOpen)}
+              on:blur={() => setTimeout(() => (homebrewOpen = false), 120)}
+              aria-haspopup="true"
+              aria-expanded={homebrewOpen}
+            >Homebrew ▾</button>
+            {#if homebrewOpen}
+              <div class="absolute right-0 z-30 mt-1 w-44 rounded border border-slate-700 bg-slate-900 py-1 text-xs shadow-lg">
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/homebrew/browse">Browse marketplace</a>
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew">My library</a>
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew/subscriptions">My subscriptions</a>
+                {#if data.user?.isAdmin}
+                  <a class="block border-t border-slate-800 px-3 py-1 text-amber-300 hover:bg-slate-800" href="/admin/reports">Admin · reports</a>
+                {/if}
+              </div>
+            {/if}
+          </div>
           <span class="font-mono text-xs">{data.user.username}</span>
           <button
             class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:text-slate-200 disabled:opacity-40"

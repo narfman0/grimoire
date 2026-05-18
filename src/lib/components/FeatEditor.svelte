@@ -31,6 +31,7 @@
   export let feat: {
     slug: string;
     name: string;
+    visibility?: 'private' | 'unlisted' | 'public';
     data: {
       category?: string;
       description?: string;
@@ -38,14 +39,14 @@
       modifiers?: Modifier[];
       choices?: Choices;
     };
-  } = { slug: '', name: '', data: {} };
+  } = { slug: '', name: '', visibility: 'private', data: {} };
   /** True when editing an existing row — locks the slug and shows Delete. */
   export let isEdit = false;
   export let busy = false;
   export let errorMessage = '';
 
   const dispatch = createEventDispatcher<{
-    save: { slug: string; name: string; data: Required<typeof feat>['data'] };
+    save: { slug: string; name: string; visibility: 'private' | 'unlisted' | 'public'; data: Required<typeof feat>['data'] };
     cancel: void;
     delete: void;
   }>();
@@ -78,6 +79,7 @@
   // ---- form state (local copies; flushed back into a clean payload on save) ----
   let name = feat.name;
   let slug = feat.slug;
+  let visibility: 'private' | 'unlisted' | 'public' = feat.visibility ?? 'private';
   let category = feat.data.category ?? '';
   let description = feat.data.description ?? '';
   let prerequisite = feat.data.prerequisite ?? '';
@@ -200,7 +202,7 @@
       ...(modifiers.length > 0 ? { modifiers: modifiers.filter((m) => m.target.trim()) } : {}),
       ...(Object.keys(choices).length > 0 ? { choices } : {})
     };
-    dispatch('save', { slug, name, data });
+    dispatch('save', { slug, name, visibility, data });
   }
 </script>
 
@@ -475,6 +477,28 @@
           </label>
         </div>
       {/if}
+    </div>
+  </fieldset>
+
+  <!-- Visibility -->
+  <fieldset class="mt-4 rounded border border-slate-800 p-3">
+    <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Visibility</legend>
+    <div class="space-y-1 text-xs">
+      <label class="block">
+        <input type="radio" bind:group={visibility} value="private" />
+        <span class="ml-1">Private</span>
+        <span class="ml-1 text-slate-500">— only you see it on your characters</span>
+      </label>
+      <label class="block">
+        <input type="radio" bind:group={visibility} value="unlisted" />
+        <span class="ml-1">Unlisted</span>
+        <span class="ml-1 text-slate-500">— anyone with the URL can view, hidden from the marketplace index</span>
+      </label>
+      <label class="block">
+        <input type="radio" bind:group={visibility} value="public" />
+        <span class="ml-1">Public</span>
+        <span class="ml-1 text-slate-500">— surfaced in /homebrew/browse; other users can subscribe or fork</span>
+      </label>
     </div>
   </fieldset>
 

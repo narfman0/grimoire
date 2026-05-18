@@ -6,6 +6,7 @@ import { AddParticipantRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { defaultRevealsFor } from '$lib/realtime/reveals';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -40,6 +41,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   }
 
   const partId = crypto.randomUUID();
+  // DM secrecy default: PCs are revealed (party members know each other);
+  // monster/NPC start fully hidden until the DM reveals via the chip UI.
+  const reveals = defaultRevealsFor(body.kind);
   await db.insert(schema.participants).values({
     id: partId,
     encounterId,
@@ -53,6 +57,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     maxHp: body.maxHp ?? null,
     tempHp: 0,
     conditionsJson: '[]',
+    revealsJson: JSON.stringify(reveals),
     sortOrder: body.sortOrder ?? 0
   });
 

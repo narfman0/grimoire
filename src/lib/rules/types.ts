@@ -11,6 +11,11 @@ export interface ContentRef {
   kind: string;
   slug: string;
   version?: number; // omit → latest
+  /** Author of the homebrew row this ref targets. Omitted/null for pack
+   *  content (SRD, grimoire-packs). Required when the character has chosen
+   *  a row reached through a subscription so the lookup can disambiguate
+   *  two authors' same-slug homebrew on the same sheet. */
+  authorUserId?: string | null;
   choices?: Record<string, unknown>;
 }
 
@@ -26,6 +31,9 @@ export interface InventorySlot {
   contentKind: string;
   contentSlug: string;
   version?: number;
+  /** Homebrew author when the item came from /homebrew/browse (subscription
+   *  or fork that points at someone else's row). Null/absent for pack items. */
+  authorUserId?: string | null;
   equipped: boolean;
   attuned: boolean;
   charges?: number;
@@ -92,6 +100,25 @@ export interface ContentRow {
 }
 
 export type ContentLookup = (ref: ContentRef) => ContentRow | undefined;
+
+/** Stable key for keyed-content maps shipped from server → client. Author
+ *  '_' means "global / pack content"; any other suffix is a user UUID. */
+export function contentMapKey(kind: string, slug: string, authorUserId?: string | null): string {
+  return `${kind}/${slug}/${authorUserId ?? '_'}`;
+}
+
+/** Build a ContentLookup over an author-keyed map (see contentMapKey). The
+ *  server's buildContentLookup populates `map` in that shape; clients that
+ *  receive the shipped map can reuse this helper instead of re-deriving the
+ *  same fallback semantics. */
+export function lookupFromMap(map: Record<string, ContentRow>): ContentLookup {
+  return (ref) => {
+    const exact = map[contentMapKey(ref.kind, ref.slug, ref.authorUserId)];
+    if (exact) return exact;
+    if (ref.authorUserId != null) return map[contentMapKey(ref.kind, ref.slug, null)];
+    return undefined;
+  };
+}
 
 // --- output types ---
 

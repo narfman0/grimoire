@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import type { PageServerLoad } from './$types';
@@ -16,10 +16,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .limit(1);
   const campaign = campaignRows[0];
 
+  // Players never see encounters still in `staging` — the name alone can
+  // spoil ("Final Boss Room"). They see live + ended. DM sees all.
+  const isDM = m.role === 'dm';
+  const where = isDM
+    ? eq(schema.encounters.campaignId, m.campaignId)
+    : and(
+        eq(schema.encounters.campaignId, m.campaignId),
+        inArray(schema.encounters.status, ['live', 'ended'])
+      );
+
   const encounterRows = await db
     .select()
     .from(schema.encounters)
-    .where(eq(schema.encounters.campaignId, m.campaignId))
+    .where(where)
     .orderBy(desc(schema.encounters.createdAt));
 
   return {

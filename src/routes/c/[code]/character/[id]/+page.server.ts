@@ -1,11 +1,12 @@
 import { error, redirect } from '@sveltejs/kit';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { derive } from '$lib/rules';
 import type { CharacterDocument } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { SESSION_COOKIE } from '$lib/server/auth/sessions';
+import { hpBucket, parseReveals } from '$lib/realtime/reveals';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -71,16 +72,52 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   );
   const derived = document ? derive(document, lookup) : null;
 
+  // Picker visibility — the same rule for every kind. Pack rows + character
+  // owner's own homebrew + every author the character owner is subscribed
+  // to. Mirrors buildContentLookup so the picker can't show a slug the
+  // engine won't resolve.
+  const homebrewScope = character.ownerUserId;
+  const subscribedAuthorRows = homebrewScope
+    ? await db
+        .select({ authorUserId: schema.homebrewSubscriptions.authorUserId })
+        .from(schema.homebrewSubscriptions)
+        .where(eq(schema.homebrewSubscriptions.userId, homebrewScope))
+    : [];
+  const subscribedAuthorIds = [...new Set(subscribedAuthorRows.map((r) => r.authorUserId))];
+
+  function pickerOwnerFilter() {
+    const clauses = [isNull(schema.content.ownerUserId)];
+    if (homebrewScope) clauses.push(eq(schema.content.ownerUserId, homebrewScope));
+    if (subscribedAuthorIds.length > 0) {
+      clauses.push(inArray(schema.content.ownerUserId, subscribedAuthorIds));
+    }
+    return or(...clauses);
+  }
+  function homebrewBadge(ownerUserId: string | null) {
+    if (ownerUserId === null) return { isHomebrew: false, isSubscribed: false, authorUserId: null };
+    return {
+      isHomebrew: true,
+      isSubscribed: ownerUserId !== homebrewScope,
+      authorUserId: ownerUserId
+    };
+  }
+  /** Unique picker key — slug+author so two homebrews with the same slug
+   *  from different authors are distinct dropdown entries. */
+  function pickerId(slug: string, ownerUserId: string | null): string {
+    return `${slug}|${ownerUserId ?? ''}`;
+  }
+
   // Item picker options for the inventory section.
   const itemRows = await db
     .select({
       slug: schema.content.slug,
       name: schema.content.name,
       source: schema.content.source,
-      data: schema.content.data
+      data: schema.content.data,
+      ownerUserId: schema.content.ownerUserId
     })
     .from(schema.content)
-    .where(eq(schema.content.kind, 'item'));
+    .where(and(eq(schema.content.kind, 'item'), pickerOwnerFilter()));
 
   const itemOptions = itemRows
     .map((r) => {
@@ -116,7 +153,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         range: data.range ?? null,
         rarity: data.rarity ?? '',
         charges: data.charges ?? null,
-        description: typeof data.description === 'string' ? data.description : ''
+        description: typeof data.description === 'string' ? data.description : '',
+        pickerId: pickerId(r.slug, r.ownerUserId),
+        ...homebrewBadge(r.ownerUserId)
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -126,10 +165,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       slug: schema.content.slug,
       name: schema.content.name,
       source: schema.content.source,
-      data: schema.content.data
+      data: schema.content.data,
+      ownerUserId: schema.content.ownerUserId
     })
     .from(schema.content)
-    .where(eq(schema.content.kind, 'spell'));
+    .where(and(eq(schema.content.kind, 'spell'), pickerOwnerFilter()));
 
   const spellOptions = spellRows
     .map((r) => {
@@ -177,20 +217,15 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
             }
           : null,
         damage,
-        description: typeof data.description === 'string' ? data.description : ''
+        description: typeof data.description === 'string' ? data.description : '',
+        pickerId: pickerId(r.slug, r.ownerUserId),
+        ...homebrewBadge(r.ownerUserId)
       };
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 
-  // Feat picker options. We ship `category` so the picker can group / filter
-  // by Origin / General / Fighting Style / Epic Boon when packs annotate.
-  //
-  // Visibility: pack-loaded rows (owner_user_id IS NULL) are global; in-app
-  // homebrew rows are scoped to the character owner so authored feats appear
-  // in their own characters' pickers across any campaign. Scoped to the
-  // *character owner*, not the viewer — keeps the picker and the rules
-  // engine (buildContentLookup above) in lockstep.
-  const homebrewScope = character.ownerUserId;
+  // Feat picker options. Visibility: pack rows + character-owner's homebrew
+  // + every author the character owner subscribes to (via pickerOwnerFilter).
   const featRows = await db
     .select({
       slug: schema.content.slug,
@@ -200,14 +235,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       ownerUserId: schema.content.ownerUserId
     })
     .from(schema.content)
-    .where(
-      and(
-        eq(schema.content.kind, 'feat'),
-        homebrewScope
-          ? or(isNull(schema.content.ownerUserId), eq(schema.content.ownerUserId, homebrewScope))
-          : isNull(schema.content.ownerUserId)
-      )
-    );
+    .where(and(eq(schema.content.kind, 'feat'), pickerOwnerFilter()));
   const featOptions = featRows
     .map((r) => {
       const data = JSON.parse(r.data as string) as {
@@ -233,7 +261,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         description: data.description ?? '',
         prerequisite: data.prerequisite ?? '',
         choices: data.choices ?? null,
-        isHomebrew: r.ownerUserId !== null
+        pickerId: pickerId(r.slug, r.ownerUserId),
+        ...homebrewBadge(r.ownerUserId)
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -243,10 +272,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       slug: schema.content.slug,
       name: schema.content.name,
       source: schema.content.source,
-      data: schema.content.data
+      data: schema.content.data,
+      ownerUserId: schema.content.ownerUserId
     })
     .from(schema.content)
-    .where(eq(schema.content.kind, 'subclass'));
+    .where(and(eq(schema.content.kind, 'subclass'), pickerOwnerFilter()));
 
   const subclassOptions = subclassRows
     .map((r) => {
@@ -255,7 +285,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         slug: r.slug,
         name: r.name,
         source: r.source,
-        parentClass: data.parentClass ?? ''
+        parentClass: data.parentClass ?? '',
+        pickerId: pickerId(r.slug, r.ownerUserId),
+        ...homebrewBadge(r.ownerUserId)
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -292,7 +324,14 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     id: string;
     name: string;
     selfParticipantId: string;
-    participants: Array<{ id: string; name: string; kind: string; maxHp: number | null }>;
+    participants: Array<{
+      id: string;
+      name: string;
+      kind: string;
+      maxHp: number | null;
+      hpBucket: ReturnType<typeof hpBucket>;
+      reveals: ReturnType<typeof parseReveals>;
+    }>;
   } | null = null;
   if (liveEncMatch) {
     const allParticipants = await db
@@ -300,15 +339,51 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         id: schema.participants.id,
         name: schema.participants.name,
         kind: schema.participants.kind,
-        maxHp: schema.participants.maxHp
+        maxHp: schema.participants.maxHp,
+        currentHp: schema.participants.currentHp,
+        revealsJson: schema.participants.revealsJson
       })
       .from(schema.participants)
       .where(eq(schema.participants.encounterId, liveEncMatch.encId));
+
+    // Project for the requester. The DM sees everything; players get the
+    // same reveal-filtered shape the encounter page uses, with placeholder
+    // names ("Enemy N") in initiative-stable order and HP only as a bucket
+    // unless `vitals` is revealed. Self always renders fully (own PC).
+    const isDM = membership.role === 'dm';
+    const visible = allParticipants.filter(
+      (p) => isDM || p.kind === 'pc' || !parseReveals(p.revealsJson).hidden
+    );
+    let idx = 0;
+    const projected = visible.map((p) => {
+      const reveals = parseReveals(p.revealsJson);
+      const isSelf = p.id === liveEncMatch.partId;
+      if (isDM || isSelf || p.kind === 'pc') {
+        return {
+          id: p.id,
+          name: p.name,
+          kind: p.kind,
+          maxHp: p.maxHp,
+          hpBucket: hpBucket(p.currentHp, p.maxHp),
+          reveals
+        };
+      }
+      const placeholder = reveals.identity ? p.name : `Enemy ${++idx}`;
+      return {
+        id: p.id,
+        name: placeholder,
+        kind: reveals.identity ? p.kind : 'unknown',
+        maxHp: reveals.vitals ? p.maxHp : null,
+        hpBucket: hpBucket(p.currentHp, p.maxHp),
+        reveals
+      };
+    });
+
     liveEncounter = {
       id: liveEncMatch.encId,
       name: liveEncMatch.encName,
       selfParticipantId: liveEncMatch.partId,
-      participants: allParticipants
+      participants: projected
     };
   }
 
@@ -344,10 +419,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       slug: schema.content.slug,
       name: schema.content.name,
       source: schema.content.source,
-      data: schema.content.data
+      data: schema.content.data,
+      ownerUserId: schema.content.ownerUserId
     })
     .from(schema.content)
-    .where(eq(schema.content.kind, 'background'));
+    .where(and(eq(schema.content.kind, 'background'), pickerOwnerFilter()));
 
   const backgroundOptions = backgroundRows
     .map((r) => {
@@ -356,7 +432,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         slug: r.slug,
         name: r.name,
         source: r.source,
-        abilityChoices: d.abilityChoices ?? []
+        abilityChoices: d.abilityChoices ?? [],
+        pickerId: pickerId(r.slug, r.ownerUserId),
+        ...homebrewBadge(r.ownerUserId)
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

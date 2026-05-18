@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { CampaignCode } from '$lib/server/api/schemas';
@@ -29,10 +29,15 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   const m = await getMembershipByCode(locals.user.id, campaign);
   if (!m) throw error(403, 'not a member of this campaign');
 
-  const rows = await db
-    .select()
-    .from(schema.encounters)
-    .where(eq(schema.encounters.campaignId, m.campaignId));
+  // Players never see `staging` encounters (DM drafts).
+  const where =
+    m.role === 'dm'
+      ? eq(schema.encounters.campaignId, m.campaignId)
+      : and(
+          eq(schema.encounters.campaignId, m.campaignId),
+          inArray(schema.encounters.status, ['live', 'ended'])
+        );
+  const rows = await db.select().from(schema.encounters).where(where);
   return json({ encounters: rows.map(serialize) });
 };
 

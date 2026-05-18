@@ -40,6 +40,7 @@ export async function destroySession(cookies: Cookies): Promise<void> {
 export interface SessionUser {
   id: string;
   username: string;
+  isAdmin: boolean;
 }
 
 export async function loadUserFromCookie(cookies: Cookies): Promise<SessionUser | null> {
@@ -49,7 +50,8 @@ export async function loadUserFromCookie(cookies: Cookies): Promise<SessionUser 
   const rows = await db
     .select({
       userId: schema.sessions.userId,
-      username: schema.users.username
+      username: schema.users.username,
+      isAdmin: schema.users.isAdmin
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
@@ -59,5 +61,5 @@ export async function loadUserFromCookie(cookies: Cookies): Promise<SessionUser 
     cookies.delete(SESSION_COOKIE, { path: '/' });
     return null;
   }
-  return { id: rows[0].userId, username: rows[0].username };
+  return { id: rows[0].userId, username: rows[0].username, isAdmin: rows[0].isAdmin };
 }
