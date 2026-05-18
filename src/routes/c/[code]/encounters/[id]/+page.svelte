@@ -5,8 +5,11 @@
     connectEncounterDoc,
     setEncounterTurn,
     clearTurnPlan,
+    applyDamage as doApplyDamage,
+    applyHeal as doApplyHeal,
     type ConnectedEncounter,
-    type EncounterSnapshot
+    type EncounterSnapshot,
+    type ParticipantHp
   } from '$lib/realtime/encounter-doc';
   import type { PageData } from './$types';
 
@@ -49,10 +52,50 @@
   $: liveRound = liveState?.round ?? data.encounter.round;
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
   $: livePlans = liveState?.plans ?? {};
+  $: liveHpMap = liveState?.participantHp ?? {};
 
   function clearPlan(participantId: string) {
     if (!conn) return;
     clearTurnPlan(conn.ydoc, participantId);
+  }
+
+  /** Return live HP for a participant, falling back to the SSR row when the
+   *  Y.Doc hasn't seeded yet (first paint, or sync server offline). */
+  function hpFor(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }):
+    ParticipantHp {
+    const live = liveHpMap[p.id];
+    if (live) return live;
+    return { currentHp: p.currentHp, tempHp: p.tempHp ?? 0, conditions: p.conditions ?? [] };
+  }
+
+  /** Map participant.id → SSR HP seed used when the Y.Doc has no entry yet. */
+  function seedFor(p: { currentHp: number | null; tempHp: number; conditions: string[] }):
+    ParticipantHp {
+    return { currentHp: p.currentHp, tempHp: p.tempHp ?? 0, conditions: p.conditions ?? [] };
+  }
+
+  let hpInputs: Record<string, number> = {};
+
+  function dmDamage(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }) {
+    const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
+    if (n === 0 || !conn) return;
+    doApplyDamage(conn.ydoc, p.id, n, seedFor(p));
+    hpInputs[p.id] = 0;
+    hpInputs = hpInputs;
+  }
+
+  function dmHeal(p: {
+    id: string;
+    currentHp: number | null;
+    maxHp: number | null;
+    tempHp: number;
+    conditions: string[];
+  }) {
+    const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
+    if (n === 0 || !conn) return;
+    doApplyHeal(conn.ydoc, p.id, n, p.maxHp, seedFor(p));
+    hpInputs[p.id] = 0;
+    hpInputs = hpInputs;
   }
 
   // Add-participant draft state
@@ -269,10 +312,39 @@
               {p.name}
             {/if}
           </span>
-          {#if p.currentHp != null && p.maxHp != null}
-            <span class="font-mono text-xs text-slate-400">{p.currentHp} / {p.maxHp}</span>
+          {#if p.maxHp != null}
+            {@const live = hpFor(p)}
+            <span class="font-mono text-xs text-slate-400">
+              {live.currentHp ?? '—'} / {p.maxHp}
+              {#if live.tempHp > 0}
+                <span class="text-emerald-300">+{live.tempHp}</span>
+              {/if}
+            </span>
           {/if}
           {#if data.role === 'dm'}
+            {#if p.maxHp != null && p.kind !== 'pc'}
+              <input
+                type="number"
+                min="0"
+                class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
+                placeholder="±hp"
+                bind:value={hpInputs[p.id]}
+              />
+              <button
+                class="rounded bg-red-700/60 px-1.5 py-0.5 text-xs hover:bg-red-700"
+                title="Apply damage"
+                on:click={() => dmDamage(p)}
+              >
+                −
+              </button>
+              <button
+                class="rounded bg-emerald-700/60 px-1.5 py-0.5 text-xs hover:bg-emerald-700"
+                title="Apply heal"
+                on:click={() => dmHeal(p)}
+              >
+                +
+              </button>
+            {/if}
             <input
               type="number"
               class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"

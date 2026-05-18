@@ -172,6 +172,32 @@ const saveEncounterYjsState = db.prepare<[Buffer, number, string | null, string]
   UPDATE encounters SET yjs_state = ?, round = ?, active_participant_id = ? WHERE id = ?
 `);
 
+// M3.5a: per-participant HP/conditions mirror. We hydrate from these rows on
+// first connect, and on each store-flush we write the live Y.Doc values back
+// so SSR + REST stay authoritative.
+const listParticipants = db.prepare<
+  string,
+  {
+    id: string;
+    kind: string;
+    current_hp: number | null;
+    max_hp: number | null;
+    temp_hp: number;
+    conditions_json: string;
+  }
+>(`
+  SELECT id, kind, current_hp, max_hp, temp_hp, conditions_json
+    FROM participants WHERE encounter_id = ?
+`);
+
+const saveParticipantHp = db.prepare<
+  [number | null, number, string, string]
+>(`
+  UPDATE participants
+     SET current_hp = ?, temp_hp = ?, conditions_json = ?
+   WHERE id = ?
+`);
+
 function parseEncounterId(documentName: string): string | null {
   const m = documentName.match(/^encounter:([0-9a-f-]{36})$/);
   return m ? m[1] : null;
@@ -187,11 +213,31 @@ async function loadEncounterDocument(encounterId: string): Promise<Uint8Array | 
   const row = getEncounterYjsState.get(encounterId);
   if (!row) return null;
   if (row.yjs_state) return new Uint8Array(row.yjs_state);
-  // Seed from the row's current state — first connection ever.
+  // Seed from the row's current state — first connection ever. Also seed
+  // every participant's HP/conditions so the live channel sees them
+  // immediately (M3.5a).
   const doc = new Y.Doc();
   const root = doc.getMap('encounter');
   root.set('round', row.round);
   root.set('activeParticipantId', row.active_participant_id);
+  const hpMap = doc.getMap('participantHp');
+  for (const p of listParticipants.all(encounterId)) {
+    let conditions: string[];
+    try {
+      const parsed = JSON.parse(p.conditions_json);
+      conditions = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      conditions = [];
+    }
+    hpMap.set(
+      p.id,
+      JSON.stringify({
+        currentHp: p.current_hp,
+        tempHp: p.temp_hp,
+        conditions
+      })
+    );
+  }
   return Y.encodeStateAsUpdate(doc);
 }
 
@@ -201,6 +247,30 @@ async function storeEncounterDocument(encounterId: string, document: Y.Doc): Pro
   const round = Number(root.get('round') ?? 0);
   const activeParticipantId = (root.get('activeParticipantId') as string | null | undefined) ?? null;
   saveEncounterYjsState.run(Buffer.from(state), round, activeParticipantId, encounterId);
+
+  // Mirror participant HP/conditions back to the participants table so SSR
+  // and REST reads see the live values. PC participants have currentHp=null
+  // on the row (their HP lives on the character document); we still mirror
+  // tempHp + conditions for them when the live channel updates those.
+  const hpMap = document.getMap('participantHp');
+  for (const [pid, raw] of hpMap.entries()) {
+    if (typeof raw !== 'string') continue;
+    try {
+      const blob = JSON.parse(raw) as {
+        currentHp: number | null;
+        tempHp: number;
+        conditions: string[];
+      };
+      saveParticipantHp.run(
+        blob.currentHp,
+        blob.tempHp,
+        JSON.stringify(blob.conditions ?? []),
+        pid
+      );
+    } catch {
+      // ignore malformed
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
