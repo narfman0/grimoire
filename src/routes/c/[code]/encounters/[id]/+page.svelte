@@ -120,6 +120,21 @@
     resolveError = null;
   }
 
+  /** Pre-fill the resolve form from a statblock action button. DM still
+   *  rolls the dice — we just cache the label and surface the "+X / dXd…"
+   *  reminder so they don't have to scroll back to the statblock. */
+  function pickStatblockAction(a: {
+    name: string;
+    attackBonus?: number;
+    damage?: Array<{ dice: string; type: string }>;
+  }) {
+    const acting = data.participants.find((q) => q.id === resolveForParticipantId);
+    resolveActionLabel = acting ? `${acting.name} — ${a.name}` : a.name;
+    // Leave roll inputs blank so DM types what they actually rolled.
+    resolveAttack = null;
+    resolveDamage = null;
+  }
+
   async function submitDmResolve() {
     if (!conn || !resolveForParticipantId) return;
     const round = liveState?.round ?? data.encounter.round;
@@ -904,6 +919,25 @@
         — <span class="text-slate-200">{acting.name}</span>
       {/if}
     </h2>
+
+    {#if acting && acting.statblockActions && acting.statblockActions.length > 0 && !amendingLogId}
+      <div class="mb-3 flex flex-wrap gap-1 text-xs">
+        <span class="self-center text-slate-500 mr-1">Statblock:</span>
+        {#each acting.statblockActions as a}
+          {@const dmg = (a.damage ?? []).map((d) => `${d.dice} ${d.type}`).join(', ')}
+          <button
+            class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-slate-300 hover:border-emerald-600 hover:text-emerald-200"
+            title="Pre-fill the form. You still roll the dice."
+            on:click={() => pickStatblockAction(a)}
+          >
+            {a.name}
+            {#if a.attackBonus != null}<span class="text-slate-500"> +{a.attackBonus}</span>{/if}
+            {#if dmg}<span class="text-red-300/80"> · {dmg}</span>{/if}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     <div class="flex flex-wrap items-end gap-2 text-sm">
       <label class="text-xs">
         <span class="block text-slate-400">Action label</span>

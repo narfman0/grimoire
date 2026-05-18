@@ -34,6 +34,46 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .from(schema.participants)
     .where(eq(schema.participants.encounterId, enc.id));
 
+  // Pull each unique monster statblock's `actions` so the DM resolve panel
+  // can offer a picker instead of free-text. We only ship the per-action
+  // mechanical bits (name, attackBonus, damage dice, range) — DM rolls,
+  // engine fills HP. Cached by slug to avoid N queries when there are
+  // multiple goblins.
+  const monsterSlugs = Array.from(
+    new Set(partRows.map((p) => p.statblockSlug).filter((s): s is string => !!s))
+  );
+  const statblockActions = new Map<
+    string,
+    Array<{ name: string; attackBonus?: number; range?: string; damage?: Array<{ dice: string; type: string }> }>
+  >();
+  if (monsterSlugs.length > 0) {
+    const rows = await db
+      .select({ slug: schema.content.slug, data: schema.content.data })
+      .from(schema.content)
+      .where(eq(schema.content.kind, 'monster'));
+    for (const r of rows) {
+      if (!monsterSlugs.includes(r.slug)) continue;
+      const data = JSON.parse(r.data as string) as { actions?: unknown };
+      const acts = Array.isArray(data.actions) ? data.actions : [];
+      statblockActions.set(
+        r.slug,
+        acts
+          .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object')
+          .map((a) => ({
+            name: String(a.name ?? ''),
+            attackBonus: typeof a.attackBonus === 'number' ? a.attackBonus : undefined,
+            range: typeof a.range === 'string' ? a.range : undefined,
+            damage: Array.isArray(a.damage)
+              ? (a.damage as Array<Record<string, unknown>>).map((d) => ({
+                  dice: String(d.dice ?? ''),
+                  type: String(d.type ?? '')
+                }))
+              : undefined
+          }))
+      );
+    }
+  }
+
   // M3.5b: action log entries for this encounter — chronological.
   const logRows = await db
     .select()
@@ -103,6 +143,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         kind: p.kind,
         statblockSlug: p.statblockSlug,
         statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
+        statblockActions: p.statblockSlug ? statblockActions.get(p.statblockSlug) ?? [] : [],
         initiative: p.initiative,
         currentHp: p.currentHp,
         maxHp: p.maxHp,

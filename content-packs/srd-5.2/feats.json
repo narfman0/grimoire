@@ -7,7 +7,12 @@
     "data": {
       "category": "origin",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "initiative", "mode": "ADD", "value": "proficiencyBonus" }
+        {
+          "kind": "stat-modifier",
+          "target": "initiative",
+          "mode": "ADD",
+          "value": "proficiencyBonus"
+        }
       ],
       "activities": [
         {
@@ -33,7 +38,10 @@
           "type": "utility",
           "name": "Lucky (Advantage)",
           "cost": "free",
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          },
           "note": "When you roll a d20 for a D20 Test, spend 1 Luck Point to give yourself Advantage on the roll."
         },
         {
@@ -41,10 +49,14 @@
           "type": "utility",
           "name": "Lucky (Disadvantage)",
           "cost": "reaction",
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          },
           "note": "When a creature rolls a d20 for an attack roll against you, spend 1 Luck Point to impose Disadvantage. Shares the Luck Point pool with luck-advantage; v0 models them as separate resources for simplicity."
         }
-      ]
+      ],
+      "modifiers": []
     }
   },
   {
@@ -61,11 +73,15 @@
           "type": "utility",
           "name": "Magic Initiate 1st-Level Spell",
           "cost": "action",
-          "uses": { "max": 1, "per": "long-rest" },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Cast the chosen 1st-level spell once without a spell slot; can also cast it using any spell slot of an appropriate level. Two cantrips are also learned (no resource cost)."
         }
       ],
-      "note": "2024 SRD 5.2 Magic Initiate: two cantrips + one 1st-level spell from the Cleric, Druid, or Wizard list. Spellcasting ability is INT/WIS/CHA (player's choice on selection). Repeatable; different list each time. Modeled here as the Wizard variant; create separate -cleric/-druid feat rows for the other two lists, or have the UI pick the list as a choice attached to a single slug."
+      "note": "2024 SRD 5.2 Magic Initiate: two cantrips + one 1st-level spell from the Cleric, Druid, or Wizard list. Spellcasting ability is INT/WIS/CHA (player's choice on selection). Repeatable; different list each time. Modeled here as the Wizard variant; create separate -cleric/-druid feat rows for the other two lists, or have the UI pick the list as a choice attached to a single slug.",
+      "modifiers": []
     }
   },
   {
@@ -83,13 +99,19 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.proficient": true }
+              {
+                "weapon.proficient": true
+              }
             ]
           },
           "effects": [
-            { "target": "damage.reroll-and-keep-higher", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "damage.reroll-and-keep-higher",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ],
-          "note": "Once per turn when you hit with a weapon, roll the weapon's damage dice twice and use either roll. v0 evaluator does not implement the 'damage.reroll-and-keep-higher' target — this surfaces as a tagged modifier only."
+          "note": "Once per turn when you hit with a weapon, roll the weapon's damage dice twice and use either roll. v0 evaluator does not implement the 'damage.reroll-and-keep-higher' target \u2014 this surfaces as a tagged modifier only."
         }
       ]
     }
@@ -101,8 +123,13 @@
     "name": "Skilled",
     "data": {
       "category": "origin",
-      "skillChoices": { "from": "any", "pick": 3, "includesTools": true },
-      "note": "Gain proficiency in any combination of three skills or tools of your choice. Repeatable. The actual choices live on the character document (character.proficienciesChosen) and are merged in by the engine; no stat-modifier rows are emitted at the feat level because the choice is per-character."
+      "skillChoices": {
+        "from": "any",
+        "pick": 3,
+        "includesTools": true
+      },
+      "note": "Gain proficiency in any combination of three skills or tools of your choice. Repeatable. The actual choices live on the character document (character.proficienciesChosen) and are merged in by the engine; no stat-modifier rows are emitted at the feat level because the choice is per-character.",
+      "modifiers": []
     }
   },
   {
@@ -113,8 +140,18 @@
     "data": {
       "category": "origin",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" },
-        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" }
+        {
+          "kind": "stat-modifier",
+          "target": "hp.max",
+          "mode": "ADD",
+          "value": "totalLevel"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "hp.max",
+          "mode": "ADD",
+          "value": "totalLevel"
+        }
       ],
       "note": "2024 Tough grants +2 HP per character level (HP max increases by 2*characterLevel on take, then +2 each level after). Modeled as two stat-modifiers both targeting hp.max with value 'totalLevel' (1 per level each = +2/level total) since the evaluator doesn't support arithmetic on magic identifiers in v0."
     }
@@ -126,8 +163,15 @@
     "name": "Great Weapon Master",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4, "ability": { "str": 13 } },
-      "abilityChoices": ["str"],
+      "prerequisite": {
+        "level": 4,
+        "ability": {
+          "str": 13
+        }
+      },
+      "abilityChoices": [
+        "str"
+      ],
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -137,13 +181,27 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.property": "heavy" },
-              { "weapon.proficient": true }
+              {
+                "weapon.property": "heavy"
+              },
+              {
+                "weapon.proficient": true
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": "proficiencyBonus" }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "proficiencyBonus"
+            }
           ]
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "ability.str",
+          "mode": "ADD",
+          "value": 1
         }
       ],
       "triggers": [
@@ -151,12 +209,19 @@
           "kind": "trigger",
           "id": "gwm-hew",
           "name": "Hew",
-          "on": ["attack.crit", "attack.reduce-to-zero"],
+          "on": [
+            "attack.crit",
+            "attack.reduce-to-zero"
+          ],
           "scope": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "weapon.classification": "weapon" }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "weapon.classification": "weapon"
+              }
             ]
           },
           "grants": {
@@ -176,8 +241,15 @@
     "name": "Sharpshooter",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4, "ability": { "dex": 13 } },
-      "abilityChoices": ["dex"],
+      "prerequisite": {
+        "level": 4,
+        "ability": {
+          "dex": 13
+        }
+      },
+      "abilityChoices": [
+        "dex"
+      ],
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -186,12 +258,20 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "ranged" },
-              { "attack.classification": "weapon" }
+              {
+                "attack.range": "ranged"
+              },
+              {
+                "attack.classification": "weapon"
+              }
             ]
           },
           "effects": [
-            { "target": "attack.ignores-cover", "mode": "OVERRIDE", "value": "half-and-three-quarters" }
+            {
+              "target": "attack.ignores-cover",
+              "mode": "OVERRIDE",
+              "value": "half-and-three-quarters"
+            }
           ]
         },
         {
@@ -201,12 +281,20 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "ranged" },
-              { "attack.classification": "weapon" }
+              {
+                "attack.range": "ranged"
+              },
+              {
+                "attack.classification": "weapon"
+              }
             ]
           },
           "effects": [
-            { "target": "attack.no-disadvantage.within-5ft", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "attack.no-disadvantage.within-5ft",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -216,16 +304,30 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "ranged" },
-              { "attack.classification": "weapon" }
+              {
+                "attack.range": "ranged"
+              },
+              {
+                "attack.classification": "weapon"
+              }
             ]
           },
           "effects": [
-            { "target": "attack.no-disadvantage.long-range", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "attack.no-disadvantage.long-range",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "ability.dex",
+          "mode": "ADD",
+          "value": 1
         }
       ],
-      "note": "2024 SRD 5.2 Sharpshooter. The 2014 -5/+10 toggle was removed in 2024. v0 evaluator does not implement the cover / range / melee-proximity targets — these surface as tagged modifiers only."
+      "note": "2024 SRD 5.2 Sharpshooter. The 2014 -5/+10 toggle was removed in 2024. v0 evaluator does not implement the cover / range / melee-proximity targets \u2014 these surface as tagged modifiers only."
     }
   },
   {
@@ -235,17 +337,30 @@
     "name": "Polearm Master",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4 },
-      "abilityChoices": ["str", "dex"],
+      "prerequisite": {
+        "level": 4
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
       "triggers": [
         {
           "kind": "trigger",
           "id": "pam-reactive-strike",
           "name": "Reactive Strike",
-          "on": ["enemy.enters-reach"],
+          "on": [
+            "enemy.enters-reach"
+          ],
           "scope": {
             "predicates": [
-              { "wielding.weapon": ["quarterstaff", "spear", "heavy-reach"] }
+              {
+                "wielding.weapon": [
+                  "quarterstaff",
+                  "spear",
+                  "heavy-reach"
+                ]
+              }
             ]
           },
           "grants": {
@@ -266,11 +381,17 @@
             "ability": "best-of:str,dex",
             "classification": "weapon",
             "range": "melee",
-            "damage": [{ "dice": "1d4", "type": "bludgeoning" }]
+            "damage": [
+              {
+                "dice": "1d4",
+                "type": "bludgeoning"
+              }
+            ]
           }
         }
       ],
-      "note": "2024 SRD 5.2 Polearm Master. Pole Strike requires the parent Attack-action attack to have been with a quarterstaff, spear, or heavy+reach weapon (e.g., glaive, halberd, pike). Reactive Strike is a normal melee attack (not an opportunity attack), so Sentinel's Halt does NOT trigger off it."
+      "note": "2024 SRD 5.2 Polearm Master. Pole Strike requires the parent Attack-action attack to have been with a quarterstaff, spear, or heavy+reach weapon (e.g., glaive, halberd, pike). Reactive Strike is a normal melee attack (not an opportunity attack), so Sentinel's Halt does NOT trigger off it.",
+      "modifiers": []
     }
   },
   {
@@ -280,8 +401,23 @@
     "name": "Sentinel",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4, "ability": { "or": [{ "str": 13 }, { "dex": 13 }] } },
-      "abilityChoices": ["str", "dex"],
+      "prerequisite": {
+        "level": 4,
+        "ability": {
+          "or": [
+            {
+              "str": 13
+            },
+            {
+              "dex": 13
+            }
+          ]
+        }
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -290,11 +426,17 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.kind": "opportunity" }
+              {
+                "attack.kind": "opportunity"
+              }
             ]
           },
           "effects": [
-            { "target": "on-hit.target.speed", "mode": "OVERRIDE", "value": 0 }
+            {
+              "target": "on-hit.target.speed",
+              "mode": "OVERRIDE",
+              "value": 0
+            }
           ]
         }
       ],
@@ -303,10 +445,15 @@
           "kind": "trigger",
           "id": "sentinel-guardian",
           "name": "Guardian",
-          "on": ["ally.attacked-within-5ft", "enemy.disengages-within-5ft"],
+          "on": [
+            "ally.attacked-within-5ft",
+            "enemy.disengages-within-5ft"
+          ],
           "scope": {
             "predicates": [
-              { "trigger.creature.within": 5 }
+              {
+                "trigger.creature.within": 5
+              }
             ]
           },
           "grants": {
@@ -326,8 +473,15 @@
     "name": "War Caster",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4, "feature": "spellcasting-or-pact-magic" },
-      "abilityChoices": ["int", "wis", "cha"],
+      "prerequisite": {
+        "level": 4,
+        "feature": "spellcasting-or-pact-magic"
+      },
+      "abilityChoices": [
+        "int",
+        "wis",
+        "cha"
+      ],
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -347,10 +501,14 @@
           "kind": "trigger",
           "id": "war-caster-reactive-spell",
           "name": "Reactive Spell",
-          "on": ["enemy.provokes-opportunity-attack"],
+          "on": [
+            "enemy.provokes-opportunity-attack"
+          ],
           "scope": {
             "predicates": [
-              { "self.has-feature": "spellcasting" }
+              {
+                "self.has-feature": "spellcasting"
+              }
             ]
           },
           "grants": {
@@ -370,9 +528,19 @@
     "name": "Resilient",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4 },
-      "abilityChoices": ["str", "dex", "con", "int", "wis", "cha"],
-      "note": "2024 SRD 5.2 Resilient. Choose one ability you lack save proficiency in; +1 to that ability (max 20) and gain saving-throw proficiency in it. The +1 and save-proficiency are emitted by the engine from character.feats[].choices.ability (analogous to background ASI distribution). No fixed modifiers at the feat level because the ability is per-character."
+      "prerequisite": {
+        "level": 4
+      },
+      "abilityChoices": [
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
+      ],
+      "note": "2024 SRD 5.2 Resilient. Choose one ability you lack save proficiency in; +1 to that ability (max 20) and gain saving-throw proficiency in it. The +1 and save-proficiency are emitted by the engine from character.feats[].choices.ability (analogous to background ASI distribution). No fixed modifiers at the feat level because the ability is per-character.",
+      "modifiers": []
     }
   },
   {
@@ -382,12 +550,22 @@
     "name": "Crafter",
     "data": {
       "category": "origin",
-      "abilityChoices": ["int"],
-      "toolProficiencies": { "from": "artisans-tools", "pick": 3 },
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "shopping.nonmagical-discount", "mode": "OVERRIDE", "value": 0.2 }
+      "abilityChoices": [
+        "int"
       ],
-      "note": "2024 SRD 5.2 Crafter. Gain proficiency with three Artisan's Tools of your choice. Nonmagical items bought from a shop cost 20% less. Craft items in half the time during a Long Rest. v0 evaluator does not implement shopping/crafting hooks — surfaces as a tagged modifier only. The three tool choices live on the character document (character.feats[].choices.tools)."
+      "toolProficiencies": {
+        "from": "artisans-tools",
+        "pick": 3
+      },
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "shopping.nonmagical-discount",
+          "mode": "OVERRIDE",
+          "value": 0.2
+        }
+      ],
+      "note": "2024 SRD 5.2 Crafter. Gain proficiency with three Artisan's Tools of your choice. Nonmagical items bought from a shop cost 20% less. Craft items in half the time during a Long Rest. v0 evaluator does not implement shopping/crafting hooks \u2014 surfaces as a tagged modifier only. The three tool choices live on the character document (character.feats[].choices.tools)."
     }
   },
   {
@@ -410,13 +588,21 @@
           "type": "heal",
           "name": "Healer's Mend",
           "cost": "utilize",
-          "heal": { "amount": "1d6+4" },
-          "scalesWithCharacterLevel": { "perProfBonusIncrease": "+spellMod" },
-          "target": { "affects": "creature", "count": 1 },
+          "heal": {
+            "amount": "1d6+4"
+          },
+          "scalesWithCharacterLevel": {
+            "perProfBonusIncrease": "+spellMod"
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
           "note": "As a Utilize action, spend one charge of a Healer's Kit to restore 1d6 + 4 HP + your character level. A creature can't be healed by this again until it finishes a Short or Long Rest."
         }
       ],
-      "note": "2024 SRD 5.2 Healer. Two uses of a Healer's Kit charge. v0 cannot track Short Rest gating on a per-creature basis — Healer's Mend surfaces as a note."
+      "note": "2024 SRD 5.2 Healer. Two uses of a Healer's Kit charge. v0 cannot track Short Rest gating on a per-creature basis \u2014 Healer's Mend surfaces as a note.",
+      "modifiers": []
     }
   },
   {
@@ -426,7 +612,10 @@
     "name": "Musician",
     "data": {
       "category": "origin",
-      "toolProficiencies": { "from": "musical-instrument", "pick": 3 },
+      "toolProficiencies": {
+        "from": "musical-instrument",
+        "pick": 3
+      },
       "activities": [
         {
           "id": "musician-encouraging",
@@ -436,7 +625,8 @@
           "note": "At the end of a Short or Long Rest, you can give a Musical Instrument performance and bestow Heroic Inspiration on a number of allies up to your Proficiency Bonus who heard the performance."
         }
       ],
-      "note": "2024 SRD 5.2 Musician. Gain proficiency with three Musical Instruments. v0 does not track Heroic Inspiration — surfaces as a note."
+      "note": "2024 SRD 5.2 Musician. Gain proficiency with three Musical Instruments. v0 does not track Heroic Inspiration \u2014 surfaces as a note.",
+      "modifiers": []
     }
   },
   {
@@ -446,7 +636,10 @@
     "name": "Tavern Brawler",
     "data": {
       "category": "origin",
-      "abilityChoices": ["str", "con"],
+      "abilityChoices": [
+        "str",
+        "con"
+      ],
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -456,11 +649,17 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.kind": "unarmed" }
+              {
+                "weapon.kind": "unarmed"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.dice", "mode": "OVERRIDE", "value": "1d4" }
+            {
+              "target": "damage.dice",
+              "mode": "OVERRIDE",
+              "value": "1d4"
+            }
           ]
         },
         {
@@ -471,11 +670,17 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.kind": "improvised" }
+              {
+                "weapon.kind": "improvised"
+              }
             ]
           },
           "effects": [
-            { "target": "weapon.proficient", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "weapon.proficient",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         }
       ],
@@ -484,11 +689,18 @@
           "kind": "trigger",
           "id": "tavern-brawler-push",
           "name": "Push",
-          "on": ["attack.hit"],
+          "on": [
+            "attack.hit"
+          ],
           "scope": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.kind": ["unarmed", "improvised"] }
+              {
+                "weapon.kind": [
+                  "unarmed",
+                  "improvised"
+                ]
+              }
             ]
           },
           "grants": {
@@ -507,10 +719,18 @@
     "name": "Ability Score Improvement",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4 },
+      "prerequisite": {
+        "level": 4
+      },
       "repeatable": true,
-      "choice": { "from": ["ability-bumps"], "pick": 1 },
-      "note": "2024 SRD 5.2 Ability Score Improvement. Increase one ability score by 2, or two ability scores by 1 each (max 20 per ability). Modeled as a `choice` slot resolved per-character: derive.ts reads ASI bump distributions from character.classes[].asis (analogous to background asis). The feat row carries no fixed modifiers because the ability choice is per-character."
+      "choice": {
+        "from": [
+          "ability-bumps"
+        ],
+        "pick": 1
+      },
+      "note": "2024 SRD 5.2 Ability Score Improvement. Increase one ability score by 2, or two ability scores by 1 each (max 20 per ability). Modeled as a `choice` slot resolved per-character: derive.ts reads ASI bump distributions from character.classes[].asis (analogous to background asis). The feat row carries no fixed modifiers because the ability choice is per-character.",
+      "modifiers": []
     }
   },
   {
@@ -520,17 +740,28 @@
     "name": "Charger",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4 },
-      "abilityChoices": ["str", "dex"],
+      "prerequisite": {
+        "level": 4
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
       "triggers": [
         {
           "kind": "trigger",
           "id": "charger-dash-attack",
           "name": "Charge",
-          "on": ["action.dash"],
+          "on": [
+            "action.dash"
+          ],
           "scope": {
             "predicates": [
-              { "self.moved-straight": { "gte": 10 } }
+              {
+                "self.moved-straight": {
+                  "gte": 10
+                }
+              }
             ]
           },
           "grants": {
@@ -540,7 +771,8 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Charger. When you take the Dash action and move at least 10 ft in a straight line, you can use a Bonus Action to make a melee attack OR shove. On hit: +1d8 damage OR push the target 10 ft away. v0 surfaces the option as a trigger; the choice between extra damage and shove is player-side."
+      "note": "2024 SRD 5.2 Charger. When you take the Dash action and move at least 10 ft in a straight line, you can use a Bonus Action to make a melee attack OR shove. On hit: +1d8 damage OR push the target 10 ft away. v0 surfaces the option as a trigger; the choice between extra damage and shove is player-side.",
+      "modifiers": []
     }
   },
   {
@@ -550,17 +782,32 @@
     "name": "Dual Wielder",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4 },
-      "abilityChoices": ["str", "dex"],
+      "prerequisite": {
+        "level": 4
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
       "modifiers": [
-        { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 1, "appliesWhen": { "requires": "wielding:two-melee-weapons" } }
+        {
+          "kind": "stat-modifier",
+          "target": "ac",
+          "mode": "ADD",
+          "value": 1,
+          "appliesWhen": {
+            "requires": "wielding:two-melee-weapons"
+          }
+        }
       ],
       "triggers": [
         {
           "kind": "trigger",
           "id": "dual-wielder-quick-draw",
           "name": "Quick Draw",
-          "on": ["combat.start"],
+          "on": [
+            "combat.start"
+          ],
           "scope": {
             "predicates": []
           },
@@ -570,7 +817,7 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Dual Wielder. Enhanced Dual Wielding: can use two-weapon fighting with weapons that are one-handed (don't need to be Light). +1 AC while wielding a separate melee weapon in each hand. Quick Draw: can draw/stow two weapons when you'd normally draw/stow only one. v0 evaluator does not model the 'one-handed but not Light' allowance — surfaces as a note."
+      "note": "2024 SRD 5.2 Dual Wielder. Enhanced Dual Wielding: can use two-weapon fighting with weapons that are one-handed (don't need to be Light). +1 AC while wielding a separate melee weapon in each hand. Quick Draw: can draw/stow two weapons when you'd normally draw/stow only one. v0 evaluator does not model the 'one-handed but not Light' allowance \u2014 surfaces as a note."
     }
   },
   {
@@ -580,10 +827,26 @@
     "name": "Elemental Adept",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4, "feature": "spellcasting-or-pact-magic" },
-      "abilityChoices": ["int", "wis", "cha"],
+      "prerequisite": {
+        "level": 4,
+        "feature": "spellcasting-or-pact-magic"
+      },
+      "abilityChoices": [
+        "int",
+        "wis",
+        "cha"
+      ],
       "repeatable": true,
-      "choice": { "from": ["acid", "cold", "fire", "lightning", "thunder"], "pick": 1 },
+      "choice": {
+        "from": [
+          "acid",
+          "cold",
+          "fire",
+          "lightning",
+          "thunder"
+        ],
+        "pick": 1
+      },
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -591,13 +854,23 @@
           "name": "Ignore Resistance",
           "defaultEnabled": true,
           "appliesTo": {
-            "activityType": ["cast", "save", "attack"],
+            "activityType": [
+              "cast",
+              "save",
+              "attack"
+            ],
             "predicates": [
-              { "spell.damage-type": "$choice" }
+              {
+                "spell.damage-type": "$choice"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.ignore-resistance", "mode": "OVERRIDE", "value": true }
+            {
+              "target": "damage.ignore-resistance",
+              "mode": "OVERRIDE",
+              "value": true
+            }
           ]
         },
         {
@@ -606,17 +879,27 @@
           "name": "Damage Floor",
           "defaultEnabled": true,
           "appliesTo": {
-            "activityType": ["cast", "save", "attack"],
+            "activityType": [
+              "cast",
+              "save",
+              "attack"
+            ],
             "predicates": [
-              { "spell.damage-type": "$choice" }
+              {
+                "spell.damage-type": "$choice"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.die.min", "mode": "UPGRADE", "value": 2 }
+            {
+              "target": "damage.die.min",
+              "mode": "UPGRADE",
+              "value": 2
+            }
           ]
         }
       ],
-      "note": "2024 SRD 5.2 Elemental Adept. Choose one of: acid, cold, fire, lightning, or thunder. Spells you cast ignore Resistance to that damage type, and when rolling spell damage of that type, treat any 1 on a damage die as a 2. Repeatable; new damage type each time. v0 does not yet implement damage.ignore-resistance or damage.die.min — surfaces as tagged modifiers only. The chosen type lives on the character document."
+      "note": "2024 SRD 5.2 Elemental Adept. Choose one of: acid, cold, fire, lightning, or thunder. Spells you cast ignore Resistance to that damage type, and when rolling spell damage of that type, treat any 1 on a damage die as a 2. Repeatable; new damage type each time. v0 does not yet implement damage.ignore-resistance or damage.die.min \u2014 surfaces as tagged modifiers only. The chosen type lives on the character document."
     }
   },
   {
@@ -626,22 +909,41 @@
     "name": "Mobile",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4 },
-      "abilityChoices": ["str", "dex"],
+      "prerequisite": {
+        "level": 4
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
       "modifiers": [
-        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10 },
-        { "kind": "stat-modifier", "target": "movement.dash-difficult-terrain-no-extra-cost", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "ADD",
+          "value": 10
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "movement.dash-difficult-terrain-no-extra-cost",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "triggers": [
         {
           "kind": "trigger",
           "id": "mobile-no-opportunity",
           "name": "Mobile Evade",
-          "on": ["attack.declare"],
+          "on": [
+            "attack.declare"
+          ],
           "scope": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" }
+              {
+                "attack.range": "melee"
+              }
             ]
           },
           "grants": {
@@ -649,7 +951,7 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Mobile. +10 walking speed. Dashing through Difficult Terrain doesn't cost extra movement on your turn. After making a melee attack vs a creature, you don't provoke Opportunity Attacks from that creature for the rest of your turn. v0 does not model dash-difficult-terrain target — surfaces as tagged modifier."
+      "note": "2024 SRD 5.2 Mobile. +10 walking speed. Dashing through Difficult Terrain doesn't cost extra movement on your turn. After making a melee attack vs a creature, you don't provoke Opportunity Attacks from that creature for the rest of your turn. v0 does not model dash-difficult-terrain target \u2014 surfaces as tagged modifier."
     }
   },
   {
@@ -659,17 +961,28 @@
     "name": "Defensive Duelist",
     "data": {
       "category": "general",
-      "prerequisite": { "level": 4, "ability": { "dex": 13 } },
-      "abilityChoices": ["dex"],
+      "prerequisite": {
+        "level": 4,
+        "ability": {
+          "dex": 13
+        }
+      },
+      "abilityChoices": [
+        "dex"
+      ],
       "triggers": [
         {
           "kind": "trigger",
           "id": "defensive-duelist-parry",
           "name": "Parry",
-          "on": ["attacked.melee.hit"],
+          "on": [
+            "attacked.melee.hit"
+          ],
           "scope": {
             "predicates": [
-              { "wielding.weapon.property": "finesse" }
+              {
+                "wielding.weapon.property": "finesse"
+              }
             ]
           },
           "grants": {
@@ -679,7 +992,15 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Defensive Duelist. When wielding a Finesse weapon and hit by a melee attack, use Reaction to add your Proficiency Bonus to your AC against that attack (possibly turning a hit into a miss)."
+      "note": "2024 SRD 5.2 Defensive Duelist. When wielding a Finesse weapon and hit by a melee attack, use Reaction to add your Proficiency Bonus to your AC against that attack (possibly turning a hit into a miss).",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "ability.dex",
+          "mode": "ADD",
+          "value": 1
+        }
+      ]
     }
   }
 ]
