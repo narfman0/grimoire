@@ -106,6 +106,29 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 
+  // Feat picker options. We ship `category` so the picker can group / filter
+  // by Origin / General / Fighting Style / Epic Boon when packs annotate.
+  const featRows = await db
+    .select({
+      slug: schema.content.slug,
+      name: schema.content.name,
+      source: schema.content.source,
+      data: schema.content.data
+    })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'feat'));
+  const featOptions = featRows
+    .map((r) => {
+      const data = JSON.parse(r.data as string) as { category?: string };
+      return {
+        slug: r.slug,
+        name: r.name,
+        source: r.source,
+        category: data.category ?? ''
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const subclassRows = await db
     .select({
       slug: schema.content.slug,
@@ -248,6 +271,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     spellOptions,
     subclassOptions,
     backgroundOptions,
+    featOptions,
     liveEncounter,
     recentActionIds
   };

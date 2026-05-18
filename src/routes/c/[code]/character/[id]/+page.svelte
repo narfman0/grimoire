@@ -600,6 +600,49 @@
     }
   }
 
+  // ---- feats ----
+  let featPickerSlug = data.featOptions[0]?.slug ?? '';
+  let showFeatPicker = false;
+
+  /** Heuristic feat budget. 5e baseline: 1 origin feat at L1 + 1 feat slot at
+   *  each ASI level (4/8/12/16/19) where the player chooses feat over ASI.
+   *  Fighter gets bonus ASI slots at 6/14; Rogue at 10. We can't tell which
+   *  ASI levels were taken as ability bumps vs feats, so this is the *max*
+   *  feats the player could plausibly have — they override how many to
+   *  actually claim. */
+  $: maxFeats = (() => {
+    if (!document) return 0;
+    let count = 1; // origin feat from background
+    for (const c of document.classes) {
+      const asiLevels: number[] = [4, 8, 12, 16, 19];
+      if (c.slug === 'fighter') asiLevels.push(6, 14);
+      if (c.slug === 'rogue') asiLevels.push(10);
+      for (const lvl of asiLevels) {
+        if (c.level >= lvl) count += 1;
+      }
+    }
+    return count;
+  })();
+
+  function featMeta(slug: string) {
+    return data.featOptions.find((f) => f.slug === slug);
+  }
+  async function addFeat() {
+    if (!featPickerSlug) return;
+    const opt = featMeta(featPickerSlug);
+    if (!opt) return;
+    await patchDocument((d) => {
+      if (d.feats.some((f) => f.slug === opt.slug)) return;
+      d.feats.push({ kind: 'feat', slug: opt.slug });
+    });
+    showFeatPicker = false;
+  }
+  async function removeFeat(slug: string) {
+    await patchDocument((d) => {
+      d.feats = d.feats.filter((f) => f.slug !== slug);
+    });
+  }
+
   async function adjustResource(id: string, delta: number, max: number) {
     // If this resource has an appliesCondition (e.g. Rage → "rage" condition),
     // consuming a charge (delta > 0) also activates the condition so the
@@ -1999,6 +2042,80 @@
       </div>
     </section>
   {/if}
+
+  <!-- Feats -->
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+    <div class="mb-3 flex items-baseline justify-between">
+      <h2 class="text-sm font-semibold text-slate-200">
+        Feats
+        <span class="ml-1 text-xs text-slate-500">
+          {document.feats.length} / {maxFeats} expected
+          {#if document.feats.length > maxFeats}
+            <span class="text-amber-300">· over budget — DM check</span>
+          {:else if document.feats.length < maxFeats}
+            <span class="text-slate-600">· {maxFeats - document.feats.length} slot(s) free</span>
+          {/if}
+        </span>
+      </h2>
+      <button
+        class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800"
+        on:click={() => (showFeatPicker = !showFeatPicker)}
+      >
+        {showFeatPicker ? '− cancel' : '+ add feat'}
+      </button>
+    </div>
+
+    {#if document.feats.length === 0 && !showFeatPicker}
+      <p class="text-xs text-slate-500">
+        No feats yet. 5e gives 1 at L1 (origin feat from background) plus 1 at
+        each ASI level you choose feat over the +2/+1 bump.
+      </p>
+    {:else if document.feats.length > 0}
+      <ul class="mb-3 divide-y divide-slate-800 rounded border border-slate-800">
+        {#each document.feats as f (f.slug)}
+          {@const meta = featMeta(f.slug)}
+          <li class="flex items-center gap-2 px-2 py-1 text-xs">
+            <span class="flex-1 text-slate-200">
+              {meta?.name ?? f.slug}
+              {#if meta?.category}<span class="ml-1 text-slate-600">· {meta.category}</span>{/if}
+              {#if meta?.source}<span class="ml-1 text-[10px] text-slate-600">({meta.source})</span>{/if}
+            </span>
+            <button
+              class="text-[10px] text-slate-500 hover:text-red-400"
+              disabled={busy}
+              title="Remove feat"
+              on:click={() => removeFeat(f.slug)}
+            >
+              ×
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    {#if showFeatPicker}
+      <div class="flex gap-2 border-t border-slate-800 pt-3 text-xs">
+        <select
+          class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1"
+          bind:value={featPickerSlug}
+        >
+          {#each data.featOptions as opt}
+            {@const taken = document.feats.some((f) => f.slug === opt.slug)}
+            <option value={opt.slug} disabled={taken}>
+              {opt.name}{#if opt.category} ({opt.category}){/if} — {opt.source}{#if taken} · already taken{/if}
+            </option>
+          {/each}
+        </select>
+        <button
+          class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
+          disabled={busy || !featPickerSlug || document.feats.some((f) => f.slug === featPickerSlug)}
+          on:click={addFeat}
+        >
+          Add
+        </button>
+      </div>
+    {/if}
+  </section>
 
   <!-- Inventory -->
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
