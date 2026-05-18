@@ -489,6 +489,7 @@
   }
 
   const KINDS: Array<'pc' | 'npc' | 'monster'> = ['pc', 'npc', 'monster'];
+  const STATBLOCK_ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
   const COMMON_CONDITIONS = [
     'blinded', 'charmed', 'deafened', 'frightened', 'grappled',
     'incapacitated', 'invisible', 'paralyzed', 'petrified', 'poisoned',
@@ -520,6 +521,13 @@
   }
 
   let conditionsOpenFor: string | null = null;
+  /** Per-participant flag: which one currently has its inline statblock panel
+   *  expanded. Only one open at a time keeps the encounter list tidy. */
+  let statblockOpenFor: string | null = null;
+  function abilityMod(score: number): string {
+    const m = Math.floor((score - 10) / 2);
+    return (m >= 0 ? '+' : '') + m;
+  }
 
   async function advanceTurn(direction: 1 | -1) {
     if (data.role !== 'dm') return;
@@ -772,6 +780,135 @@
                 + cond
               </button>
             {/if}
+          {/if}
+          {#if p.statblock && data.role === 'dm'}
+            <button
+              class="text-[10px] text-slate-500 hover:text-slate-300"
+              title="Show / hide statblock"
+              on:click={() => (statblockOpenFor = statblockOpenFor === p.id ? null : p.id)}
+            >
+              {statblockOpenFor === p.id ? '− stats' : '+ stats'}
+            </button>
+          {/if}
+          {#if p.statblock && statblockOpenFor === p.id}
+            {@const sb = p.statblock}
+            <div class="basis-full ml-12 mt-1 rounded border border-slate-800 bg-slate-950/60 p-2 text-xs">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-slate-400">
+                {#if sb.size}<span>{sb.size}</span>{/if}
+                {#if sb.type}<span>{sb.type}</span>{/if}
+                {#if sb.alignment}<span>{sb.alignment}</span>{/if}
+                {#if sb.cr != null}<span>CR {sb.cr}</span>{/if}
+                {#if sb.xp != null}<span class="text-slate-500">({sb.xp} XP)</span>{/if}
+                <span class="text-slate-500">·</span>
+                <span><span class="text-slate-500">prof</span> +{sb.proficiencyBonus}</span>
+              </div>
+              <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                {#if sb.ac != null}
+                  <span><span class="text-slate-500">AC</span> {sb.ac}</span>
+                {/if}
+                {#if sb.maxHp != null}
+                  <span><span class="text-slate-500">HP</span> {sb.maxHp}{#if sb.hitDice}<span class="text-slate-500"> ({sb.hitDice})</span>{/if}</span>
+                {/if}
+                {#each Object.entries(sb.speeds) as [mode, ft]}
+                  <span><span class="text-slate-500">{mode}</span> {ft}ft</span>
+                {/each}
+              </div>
+              <div class="mt-2 grid grid-cols-6 gap-1 text-center font-mono">
+                {#each STATBLOCK_ABILITIES as ab}
+                  <div class="rounded border border-slate-800 bg-slate-900/40 px-1 py-0.5">
+                    <div class="text-[10px] uppercase tracking-wide text-slate-500">{ab}</div>
+                    <div class="text-sm">{sb.abilityScores[ab]}</div>
+                    <div class="text-[10px] text-slate-400">
+                      {sb.abilityMods[ab] >= 0 ? '+' : ''}{sb.abilityMods[ab]}
+                    </div>
+                  </div>
+                {/each}
+              </div>
+              {#if Object.keys(sb.skills).length > 0}
+                <div class="mt-2">
+                  <span class="text-slate-500">Skills:</span>
+                  {#each Object.entries(sb.skills) as [skill, bonus], i}
+                    <span class="ml-1 text-slate-300">{skill} {bonus >= 0 ? '+' : ''}{bonus}{#if i < Object.keys(sb.skills).length - 1},{/if}</span>
+                  {/each}
+                </div>
+              {/if}
+              {#if Object.keys(sb.senses).length > 0}
+                <div class="mt-1">
+                  <span class="text-slate-500">Senses:</span>
+                  {#each Object.entries(sb.senses) as [sense, ft]}
+                    <span class="ml-1 text-slate-300">{sense} {ft}ft</span>
+                  {/each}
+                </div>
+              {/if}
+              {#if sb.languages.length > 0}
+                <div class="mt-1">
+                  <span class="text-slate-500">Languages:</span>
+                  <span class="ml-1 text-slate-300">{sb.languages.join(', ')}</span>
+                </div>
+              {/if}
+              {#if sb.damageImmunities.length > 0}
+                <div class="mt-1"><span class="text-slate-500">Damage immune:</span> <span class="text-slate-300">{sb.damageImmunities.join(', ')}</span></div>
+              {/if}
+              {#if sb.damageResistances.length > 0}
+                <div class="mt-1"><span class="text-slate-500">Damage resist:</span> <span class="text-slate-300">{sb.damageResistances.join(', ')}</span></div>
+              {/if}
+              {#if sb.damageVulnerabilities.length > 0}
+                <div class="mt-1"><span class="text-slate-500">Vulnerable:</span> <span class="text-slate-300">{sb.damageVulnerabilities.join(', ')}</span></div>
+              {/if}
+              {#if sb.conditionImmunities.length > 0}
+                <div class="mt-1"><span class="text-slate-500">Condition immune:</span> <span class="text-slate-300">{sb.conditionImmunities.join(', ')}</span></div>
+              {/if}
+              {#if sb.traits.length > 0}
+                <div class="mt-2">
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Traits</div>
+                  <ul class="text-slate-400">
+                    {#each sb.traits as t}
+                      <li>· <span class="text-slate-300">{t.name}</span></li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              {#if sb.actions.length > 0}
+                <div class="mt-2">
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Actions</div>
+                  <ul class="text-slate-400">
+                    {#each sb.actions as a}
+                      <li>
+                        · <span class="text-slate-300">{a.name}</span>
+                        {#if a.attackBonus != null}<span> +{a.attackBonus}</span>{/if}
+                        {#if a.reach != null}<span class="text-slate-500"> reach {a.reach}ft</span>{/if}
+                        {#if a.damage && a.damage.length > 0}
+                          <span class="text-red-300/80"> · {a.damage.map((d) => `${d.dice} ${d.type}`).join(', ')}</span>
+                        {/if}
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              {#if sb.reactions.length > 0}
+                <div class="mt-2">
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Reactions</div>
+                  <ul class="text-slate-400">
+                    {#each sb.reactions as a}
+                      <li>· <span class="text-slate-300">{a.name}</span></li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              {#if sb.legendaryActions.length > 0}
+                <div class="mt-2">
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Legendary actions</div>
+                  <ul class="text-slate-400">
+                    {#each sb.legendaryActions as a}
+                      <li>· <span class="text-slate-300">{a.name}</span></li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              <p class="mt-2 text-[10px] text-slate-500">
+                Statblock view shows mechanical fields only — consult your reference for trait + action effects.
+              </p>
+            </div>
           {/if}
           {#if plan}
             <div class="basis-full pl-12 text-xs text-slate-400">

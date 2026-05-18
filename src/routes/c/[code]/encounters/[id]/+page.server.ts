@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { SESSION_COOKIE } from '$lib/server/auth/sessions';
+import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -46,6 +47,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     string,
     Array<{ name: string; attackBonus?: number; range?: string; damage?: Array<{ dice: string; type: string }> }>
   >();
+  // Full derived statblock per monster slug — UI uses this to render the
+  // inline expandable sheet view next to each non-PC participant.
+  const monsterStatblocks = new Map<string, MonsterDerived>();
   // Dex scores for monster slugs — used as the initiative tiebreaker.
   const monsterDex = new Map<string, number>();
   if (monsterSlugs.length > 0) {
@@ -55,30 +59,20 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       .where(eq(schema.content.kind, 'monster'));
     for (const r of rows) {
       if (!monsterSlugs.includes(r.slug)) continue;
-      const data = JSON.parse(r.data as string) as {
-        actions?: unknown;
-        abilityScores?: { dex?: number };
-      };
-      const acts = Array.isArray(data.actions) ? data.actions : [];
+      const data = JSON.parse(r.data as string) as Record<string, unknown>;
+      const derived = monsterDerive(data);
+      monsterStatblocks.set(r.slug, derived);
+      // Picker shape: extract action subset that the resolve panel needs.
       statblockActions.set(
         r.slug,
-        acts
-          .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object')
-          .map((a) => ({
-            name: String(a.name ?? ''),
-            attackBonus: typeof a.attackBonus === 'number' ? a.attackBonus : undefined,
-            range: typeof a.range === 'string' ? a.range : undefined,
-            damage: Array.isArray(a.damage)
-              ? (a.damage as Array<Record<string, unknown>>).map((d) => ({
-                  dice: String(d.dice ?? ''),
-                  type: String(d.type ?? '')
-                }))
-              : undefined
-          }))
+        derived.actions.map((a) => ({
+          name: a.name,
+          attackBonus: a.attackBonus,
+          range: a.range,
+          damage: a.damage
+        }))
       );
-      if (typeof data.abilityScores?.dex === 'number') {
-        monsterDex.set(r.slug, data.abilityScores.dex);
-      }
+      monsterDex.set(r.slug, derived.abilityScores.dex);
     }
   }
 
@@ -189,6 +183,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         statblockSlug: p.statblockSlug,
         statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
         statblockActions: p.statblockSlug ? statblockActions.get(p.statblockSlug) ?? [] : [],
+        statblock: p.statblockSlug
+          ? monsterStatblocks.get(p.statblockSlug) ?? null
+          : p.statblockJson
+            ? monsterDerive(JSON.parse(p.statblockJson) as Record<string, unknown>)
+            : null,
         initiative: p.initiative,
         dexScore: dexForParticipant(p),
         currentHp: p.currentHp,
