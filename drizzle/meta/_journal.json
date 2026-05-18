@@ -71,6 +71,34 @@
       "when": 1779114931272,
       "tag": "0009_giant_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1779121240689,
+      "tag": "0010_gigantic_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1779128746172,
+      "tag": "0011_careful_blackheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1779139779484,
+      "tag": "0012_remarkable_gressill",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1747611600000,
+      "tag": "0013_pack_author",
+      "breakpoints": true
     }
   ]
 }
