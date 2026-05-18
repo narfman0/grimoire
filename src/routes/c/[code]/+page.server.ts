@@ -23,6 +23,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .limit(1);
   const campaign = campaignRows[0];
 
+  // Characters linked to this campaign via the M:N join table. Post-Phase 1
+  // a character can be linked to N campaigns; the JOIN replaces the old
+  // direct .where(characters.campaignId = ...) scan.
   const characterRows = await db
     .select({
       id: schema.characters.id,
@@ -33,7 +36,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       updatedAt: schema.characters.updatedAt
     })
     .from(schema.characters)
-    .where(eq(schema.characters.campaignId, membership.campaignId));
+    .innerJoin(
+      schema.campaignCharacters,
+      eq(schema.campaignCharacters.characterId, schema.characters.id)
+    )
+    .where(eq(schema.campaignCharacters.campaignId, membership.campaignId));
 
   // Pickers — same as before but auth-gated by membership above.
   const speciesRows = await db

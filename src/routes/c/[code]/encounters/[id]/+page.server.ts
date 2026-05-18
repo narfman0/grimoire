@@ -83,10 +83,16 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   );
   const pcDex = new Map<string, number>();
   if (pcCharIds.length > 0) {
+    // Pull characters linked to this campaign via the M:N join. Post-Phase 1
+    // a character can live in N campaigns; we still scope to *this* one.
     const charRows = await db
       .select({ id: schema.characters.id, document: schema.characters.document })
       .from(schema.characters)
-      .where(eq(schema.characters.campaignId, m.campaignId));
+      .innerJoin(
+        schema.campaignCharacters,
+        eq(schema.campaignCharacters.characterId, schema.characters.id)
+      )
+      .where(eq(schema.campaignCharacters.campaignId, m.campaignId));
     for (const r of charRows) {
       if (!pcCharIds.includes(r.id) || !r.document) continue;
       try {
@@ -120,9 +126,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     .where(eq(schema.actionLog.encounterId, enc.id))
     .orderBy(schema.actionLog.createdAt);
 
-  // Characters in this campaign — for "add PC" picker and the party-budget
-  // summary in the encounter header. Document JSON carries `classes[].level`
-  // which we sum into a per-PC total level.
+  // Characters linked to this campaign — for "add PC" picker and the
+  // party-budget summary in the encounter header. JOIN through
+  // campaign_characters so post-Phase 1 multi-campaign PCs show up
+  // correctly. Document JSON carries `classes[].level` which we sum into
+  // a per-PC total level.
   const charRows = await db
     .select({
       id: schema.characters.id,
@@ -130,7 +138,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       document: schema.characters.document
     })
     .from(schema.characters)
-    .where(eq(schema.characters.campaignId, m.campaignId));
+    .innerJoin(
+      schema.campaignCharacters,
+      eq(schema.campaignCharacters.characterId, schema.characters.id)
+    )
+    .where(eq(schema.campaignCharacters.campaignId, m.campaignId));
 
   // Party makeup — only characters that are participants in this encounter
   // count toward the budget. Multi-classed PCs sum their class levels.

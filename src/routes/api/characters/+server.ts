@@ -89,6 +89,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     document: document ? JSON.stringify({ ...document, id }) : null,
     updatedAt: now
   });
+  // Phase 2: also insert the M:N link row so the new character shows up in
+  // the JOIN'd reads (campaign page, encounter pickers, character sheet).
+  // characters.campaignId is still the soft "home" pointer; this row is
+  // the authoritative "this PC is in this campaign" record.
+  await db.insert(schema.campaignCharacters).values({
+    campaignId: m.campaignId,
+    characterId: id,
+    role: 'player',
+    addedAt: now
+  });
 
   return json({
     id,

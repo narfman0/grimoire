@@ -31,6 +31,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   if (campaignRows.length === 0) throw redirect(303, '/');
   const campaign = campaignRows[0];
 
+  // Post-Phase 1: a character "belongs to" this campaign iff there's a
+  // campaign_characters row pairing them. JOIN through that to enforce
+  // the URL's campaign code matches a link the character actually has.
   const characterRows = await db
     .select({
       id: schema.characters.id,
@@ -40,7 +43,16 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       updatedAt: schema.characters.updatedAt
     })
     .from(schema.characters)
-    .where(and(eq(schema.characters.id, params.id), eq(schema.characters.campaignId, campaign.id)))
+    .innerJoin(
+      schema.campaignCharacters,
+      eq(schema.campaignCharacters.characterId, schema.characters.id)
+    )
+    .where(
+      and(
+        eq(schema.characters.id, params.id),
+        eq(schema.campaignCharacters.campaignId, campaign.id)
+      )
+    )
     .limit(1);
   if (characterRows.length === 0) throw error(404, 'character not found in this campaign');
   const character = characterRows[0];
