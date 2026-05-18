@@ -211,7 +211,64 @@ export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type CampaignMember = typeof campaignMembers.$inferSelect;
 export type NewCampaignMember = typeof campaignMembers.$inferInsert;
+// ---------------------------------------------------------------------------
+// Action log (M3.5b) — append-only audit trail for what happened in combat.
+//
+// Every player- or DM-initiated resolution of a turn writes one row here.
+// Amendments (DM corrects a player's declared roll, retroactively reverts
+// damage, etc.) are *new* rows with `amends_log_id` pointing back at the
+// original. We never mutate prior rows. UI renders the most recent
+// non-amended entry per (logical action) plus any amendments inline so the
+// fight has a complete trail of what was said and what got adjudicated.
+// ---------------------------------------------------------------------------
+
+export const actionLog = sqliteTable(
+  'action_log',
+  {
+    id: text('id').primaryKey(),
+    encounterId: text('encounter_id')
+      .notNull()
+      .references(() => encounters.id, { onDelete: 'cascade' }),
+    round: integer('round').notNull(),
+    /** Acting participant (null only for system/system-style entries). */
+    participantId: text('participant_id').references(() => participants.id, { onDelete: 'set null' }),
+    /** Target participant — null for self / no-target actions. */
+    targetParticipantId: text('target_participant_id').references(() => participants.id, {
+      onDelete: 'set null'
+    }),
+    /** Action slug from derived.actions[].id; opaque here. */
+    actionId: text('action_id').notNull(),
+    /** Display label cached at submit time (e.g. "Longsword (Action)"). */
+    actionLabel: text('action_label').notNull(),
+    /** The user who hit submit (player or DM). */
+    submittedByUserId: text('submitted_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    submitterRole: text('submitter_role').notNull(), // 'player' | 'dm'
+    /** True when this row amends a prior entry. */
+    isAmendment: integer('is_amendment', { mode: 'boolean' }).notNull().default(false),
+    amendsLogId: text('amends_log_id'),
+    /** Player-declared roll values; null when not declared. */
+    attackRoll: integer('attack_roll'),
+    damageRoll: integer('damage_roll'),
+    /** Outcome the submitter declared (or DM amended to). */
+    hit: text('hit'), // 'hit' | 'miss' | 'crit' | 'fumble' | null
+    /** Snapshot of target HP before/after for revertability. Null if no HP
+     *  change happened (utility actions, missed attacks, etc.). */
+    targetHpBefore: integer('target_hp_before'),
+    targetHpAfter: integer('target_hp_after'),
+    notes: text('notes'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byEncounter: index('action_log_encounter').on(t.encounterId, t.createdAt),
+    byAmends: index('action_log_amends').on(t.amendsLogId)
+  })
+);
+
 export type Encounter = typeof encounters.$inferSelect;
 export type NewEncounter = typeof encounters.$inferInsert;
 export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
+export type ActionLogEntry = typeof actionLog.$inferSelect;
+export type NewActionLogEntry = typeof actionLog.$inferInsert;
