@@ -6,6 +6,8 @@
   import MonsterEditor from '$lib/components/MonsterEditor.svelte';
   import BackgroundEditor from '$lib/components/BackgroundEditor.svelte';
   import ConditionEditor from '$lib/components/ConditionEditor.svelte';
+  import SpeciesEditor from '$lib/components/SpeciesEditor.svelte';
+  import SubspeciesEditor from '$lib/components/SubspeciesEditor.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -72,6 +74,10 @@
   <BackgroundEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else if data.kind === 'condition'}
   <ConditionEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
+{:else if data.kind === 'species'}
+  <SpeciesEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
+{:else if data.kind === 'subspecies'}
+  <SubspeciesEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else}
   <GenericContentEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {/if}
