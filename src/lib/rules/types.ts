@@ -131,6 +131,12 @@ export interface StatBlock {
   immunities: Set<string>;
   vulnerabilities: Set<string>;
   senses: Record<string, number>; // darkvision, tremorsense, …
+  /** Languages known. Populated from proficienciesChosen.languages plus any
+   *  `proficiency.language.<slug>` modifier (class/species/feature/feat). */
+  languages: string[];
+  /** Tool proficiencies. Populated from proficienciesChosen.tools plus any
+   *  `proficiency.tool.<slug>` modifier. */
+  tools: string[];
 }
 
 export interface AppliedModifier {

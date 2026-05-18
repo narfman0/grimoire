@@ -634,11 +634,21 @@
   let featDraftAbility = '';
   let featDraftSkillProf = '';
   let featDraftExpertise = '';
+  let featDraftSave = '';
+  let featDraftLanguage = '';
+  let featDraftTool = '';
+  let featDraftSpells: string[] = [];
+  let featDraftFeature = '';
   let lastDraftSlug = '';
   $: if (featPickerSlug !== lastDraftSlug) {
     featDraftAbility = '';
     featDraftSkillProf = '';
     featDraftExpertise = '';
+    featDraftSave = '';
+    featDraftLanguage = '';
+    featDraftTool = '';
+    featDraftSpells = [];
+    featDraftFeature = '';
     lastDraftSlug = featPickerSlug;
   }
   $: pickedFeatChoices = featMeta(featPickerSlug)?.choices ?? null;
@@ -662,6 +672,21 @@
     }
     if (opt.choices?.expertise && featDraftExpertise) {
       choices.expertise = { skill: featDraftExpertise };
+    }
+    if (opt.choices?.savingThrow && featDraftSave) {
+      choices.savingThrow = { ability: featDraftSave };
+    }
+    if (opt.choices?.language && featDraftLanguage) {
+      choices.language = { language: featDraftLanguage };
+    }
+    if (opt.choices?.toolProficiency && featDraftTool) {
+      choices.toolProficiency = { tool: featDraftTool };
+    }
+    if (opt.choices?.spell && featDraftSpells.length > 0) {
+      choices.spell = { spells: featDraftSpells };
+    }
+    if (opt.choices?.feature && featDraftFeature) {
+      choices.feature = { feature: featDraftFeature };
     }
     await patchDocument((d) => {
       if (d.feats.some((f) => f.slug === opt.slug)) return;
@@ -689,13 +714,23 @@
           asi?: { ability?: string };
           skillProficiency?: { skill?: string };
           expertise?: { skill?: string };
+          savingThrow?: { ability?: string };
+          language?: { language?: string };
+          toolProficiency?: { tool?: string };
+          spell?: { spells?: string[] };
+          feature?: { feature?: string };
         }
       | undefined;
     if (!c) return '';
     const parts: string[] = [];
     if (c.asi?.ability) parts.push(`+1 ${c.asi.ability.toUpperCase()}`);
+    if (c.savingThrow?.ability) parts.push(`save prof ${c.savingThrow.ability.toUpperCase()}`);
     if (c.skillProficiency?.skill) parts.push(`prof ${c.skillProficiency.skill}`);
     if (c.expertise?.skill) parts.push(`expertise ${c.expertise.skill}`);
+    if (c.toolProficiency?.tool) parts.push(`tool ${c.toolProficiency.tool}`);
+    if (c.language?.language) parts.push(`language ${c.language.language}`);
+    if (c.spell?.spells?.length) parts.push(`spells: ${c.spell.spells.join(', ')}`);
+    if (c.feature?.feature) parts.push(`feature ${c.feature.feature}`);
     return parts.join(' · ');
   }
 
@@ -2174,7 +2209,14 @@
               document.feats.some((f) => f.slug === featPickerSlug) ||
               (!!pickedFeatChoices?.asi && !featDraftAbility) ||
               (!!pickedFeatChoices?.skillProficiency && !featDraftSkillProf) ||
-              (!!pickedFeatChoices?.expertise && !featDraftExpertise)}
+              (!!pickedFeatChoices?.expertise && !featDraftExpertise) ||
+              (!!pickedFeatChoices?.savingThrow && !featDraftSave) ||
+              (!!pickedFeatChoices?.language && !featDraftLanguage) ||
+              (!!pickedFeatChoices?.toolProficiency && !featDraftTool) ||
+              (!!pickedFeatChoices?.feature && !featDraftFeature) ||
+              (!!pickedFeatChoices?.spell &&
+                pickedFeatChoices.spell.picks != null &&
+                featDraftSpells.length !== pickedFeatChoices.spell.picks)}
             on:click={addFeat}
           >
             Add
@@ -2235,7 +2277,118 @@
                   </select>
                 </label>
               {/if}
+              {#if pickedFeatChoices.savingThrow}
+                <label class="text-xs">
+                  <span class="block text-slate-400">Save proficiency</span>
+                  <select
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                    bind:value={featDraftSave}
+                  >
+                    <option value="">—</option>
+                    {#each pickedFeatChoices.savingThrow.allowedAbilities ?? ['str', 'dex', 'con', 'int', 'wis', 'cha'] as ab}
+                      <option value={ab}>{ab.toUpperCase()}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
+              {#if pickedFeatChoices.language}
+                <label class="text-xs">
+                  <span class="block text-slate-400">Language</span>
+                  {#if pickedFeatChoices.language.allowedLanguages}
+                    <select
+                      class="rounded border border-slate-700 bg-slate-950 px-2 py-1 capitalize"
+                      bind:value={featDraftLanguage}
+                    >
+                      <option value="">—</option>
+                      {#each pickedFeatChoices.language.allowedLanguages as lang}
+                        <option value={lang}>{lang}</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <input
+                      class="w-32 rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                      placeholder="e.g. draconic"
+                      bind:value={featDraftLanguage}
+                    />
+                  {/if}
+                </label>
+              {/if}
+              {#if pickedFeatChoices.toolProficiency}
+                <label class="text-xs">
+                  <span class="block text-slate-400">Tool proficiency</span>
+                  {#if pickedFeatChoices.toolProficiency.allowedTools}
+                    <select
+                      class="rounded border border-slate-700 bg-slate-950 px-2 py-1 capitalize"
+                      bind:value={featDraftTool}
+                    >
+                      <option value="">—</option>
+                      {#each pickedFeatChoices.toolProficiency.allowedTools as tool}
+                        <option value={tool}>{tool}</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <input
+                      class="w-32 rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                      placeholder="e.g. thieves-tools"
+                      bind:value={featDraftTool}
+                    />
+                  {/if}
+                </label>
+              {/if}
+              {#if pickedFeatChoices.feature}
+                <label class="text-xs">
+                  <span class="block text-slate-400">
+                    {pickedFeatChoices.feature.category ?? 'Feature'}
+                  </span>
+                  <select
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                    bind:value={featDraftFeature}
+                  >
+                    <option value="">—</option>
+                    {#each pickedFeatChoices.feature.allowedFeatures ?? [] as fslug}
+                      <option value={fslug}>{fslug}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
             </div>
+            {#if pickedFeatChoices.spell}
+              <div class="mt-2 border-t border-slate-800 pt-2">
+                <span class="text-[10px] uppercase tracking-wide text-slate-500">
+                  Spells{#if pickedFeatChoices.spell.picks} — pick {pickedFeatChoices.spell.picks}{/if}
+                </span>
+                {#if pickedFeatChoices.spell.allowedSpells && pickedFeatChoices.spell.allowedSpells.length > 0}
+                  <ul class="mt-1 grid grid-cols-2 gap-1">
+                    {#each pickedFeatChoices.spell.allowedSpells as slug}
+                      {@const checked = featDraftSpells.includes(slug)}
+                      {@const max = pickedFeatChoices.spell.picks}
+                      {@const atCap = max != null && featDraftSpells.length >= max && !checked}
+                      <li>
+                        <label class="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            {checked}
+                            disabled={atCap}
+                            on:change={(e) => {
+                              if (checkboxChecked(e)) {
+                                if (!featDraftSpells.includes(slug)) featDraftSpells = [...featDraftSpells, slug];
+                              } else {
+                                featDraftSpells = featDraftSpells.filter((s) => s !== slug);
+                              }
+                            }}
+                          />
+                          <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>{slug}</span>
+                        </label>
+                      </li>
+                    {/each}
+                  </ul>
+                {:else}
+                  <p class="mt-1 text-[10px] text-amber-300">
+                    Feat doesn't list allowed spells — pack file needs `allowedSpells: [...]`.
+                  </p>
+                {/if}
+              </div>
+            {/if}
           </div>
         {/if}
       </div>

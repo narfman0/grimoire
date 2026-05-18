@@ -109,6 +109,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // below silently skips it — display-only fields stay available on the
   // subclass row for the sheet to render, but produce no rules effect.
   const featureRefs: Array<{ ref: ContentRef; ownerSlug: string; ownerKind: string; level: number }> = [];
+  /** Refs deferred from feat-choice synthesis (spell + feature picks). Resolved
+   *  in the feature-ref walk below so their modifiers/activities/triggers
+   *  feed back into derive like any other active content. */
+  const deferredRefs: ContentRef[] = [];
   for (const a of active) {
     const features = (a.data.features as Array<string | { slug: string; level?: number; minLevel?: number }> | undefined) ?? [];
     for (const f of features) {
@@ -246,6 +250,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             asi?: { bonus?: number; allowedAbilities?: string[] };
             skillProficiency?: { allowedSkills?: string[] };
             expertise?: { allowedSkills?: string[] | 'proficient' };
+            savingThrow?: { allowedAbilities?: string[] };
+            language?: { allowedLanguages?: string[] };
+            toolProficiency?: { allowedTools?: string[] };
+            spell?: { picks?: number; level?: number; allowedSpells?: string[] };
+            feature?: { allowedFeatures?: string[]; category?: string };
           }
         | undefined;
       const picks = (featRef?.choices as
@@ -253,6 +262,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             asi?: { ability?: string };
             skillProficiency?: { skill?: string };
             expertise?: { skill?: string };
+            savingThrow?: { ability?: string };
+            language?: { language?: string };
+            toolProficiency?: { tool?: string };
+            spell?: { spells?: string[] };
+            feature?: { feature?: string };
           }
         | undefined) ?? {};
       if (decl?.asi && picks.asi?.ability) {
@@ -309,6 +323,106 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           });
         }
       }
+      if (decl?.savingThrow && picks.savingThrow?.ability) {
+        const allowed = decl.savingThrow.allowedAbilities;
+        if (!allowed || allowed.includes(picks.savingThrow.ability)) {
+          allMods.push({
+            id: `feat/${a.row.slug}/save-prof`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `proficiency.save.${picks.savingThrow.ability}`,
+              mode: 'OVERRIDE',
+              value: true
+            }
+          });
+        }
+      }
+      if (decl?.language && picks.language?.language) {
+        const allowed = decl.language.allowedLanguages;
+        if (!allowed || allowed.includes(picks.language.language)) {
+          allMods.push({
+            id: `feat/${a.row.slug}/language`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `proficiency.language.${picks.language.language}`,
+              mode: 'OVERRIDE',
+              value: true
+            }
+          });
+        }
+      }
+      if (decl?.toolProficiency && picks.toolProficiency?.tool) {
+        const allowed = decl.toolProficiency.allowedTools;
+        if (!allowed || allowed.includes(picks.toolProficiency.tool)) {
+          allMods.push({
+            id: `feat/${a.row.slug}/tool-prof`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `proficiency.tool.${picks.toolProficiency.tool}`,
+              mode: 'OVERRIDE',
+              value: true
+            }
+          });
+        }
+      }
+      // Spell + feature picks add new content refs to the active list (not
+      // modifiers). Queued here, resolved alongside the feature-ref walk
+      // below so their modifiers/activities/triggers feed back into derive.
+      if (decl?.spell && Array.isArray(picks.spell?.spells)) {
+        const allowed = decl.spell.allowedSpells;
+        for (const slug of picks.spell.spells) {
+          if (allowed && !allowed.includes(slug)) continue;
+          deferredRefs.push({ kind: 'spell', slug });
+        }
+      }
+      if (decl?.feature && picks.feature?.feature) {
+        const allowed = decl.feature.allowedFeatures;
+        if (!allowed || allowed.includes(picks.feature.feature)) {
+          deferredRefs.push({ kind: 'feature', slug: picks.feature.feature });
+        }
+      }
+    }
+  }
+
+  // Resolve refs deferred from feat-choice synthesis (spell + feature picks).
+  // Push each into active, then re-extract their modifiers/activities/triggers
+  // into allMods so they participate in phases 2+ like any other source.
+  for (const r of deferredRefs) {
+    const row = content(r);
+    if (!row) continue;
+    const data = row.data;
+    const entry: ActiveContent = { ref: r, row, data };
+    active.push(entry);
+    const mods = (data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    for (let i = 0; i < mods.length; i++) {
+      const m = mods[i];
+      const kind = (m.kind as string) ?? 'stat-modifier';
+      if (kind === 'stat-modifier') {
+        allMods.push({ id: `${row.kind}/${row.slug}/mod/${i}`, kind: 'stat-modifier', source: entry, raw: m });
+      } else if (kind === 'action-modifier') {
+        allMods.push({
+          id: (m.id as string) ?? `${row.kind}/${row.slug}/amod/${i}`,
+          kind: 'action-modifier',
+          source: entry,
+          raw: m
+        });
+      }
+    }
+    const triggers = (data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
+    for (let i = 0; i < triggers.length; i++) {
+      const t = triggers[i];
+      allMods.push({
+        id: (t.id as string) ?? `${row.kind}/${row.slug}/trig/${i}`,
+        kind: 'trigger',
+        source: entry,
+        raw: t
+      });
     }
   }
 
@@ -351,13 +465,36 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // (d) Speeds — start from species walk, accumulate
   const speeds = computeSpeeds(active, allMods, character, ctx);
 
-  // (e) Saves — proficient = ability appears in any class's `saves`
+  // (e) Saves — proficient = ability appears in any class's `saves`, OR a
+  // content modifier targets `proficiency.save.<ability>` (feat/feature
+  // grants like Resilient flow through here).
   const saveProficiencies = new Set<AbilityKey>();
   for (const c of character.classes) {
     const classRow = content({ kind: 'class', slug: c.slug });
     if (!classRow) continue;
     const saves = (classRow.data.saves as AbilityKey[] | undefined) ?? [];
     for (const s of saves) saveProficiencies.add(s);
+  }
+  for (const a of active) {
+    const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const m of mods) {
+      if (
+        m.kind === 'stat-modifier' &&
+        typeof m.target === 'string' &&
+        m.target.startsWith('proficiency.save.') &&
+        m.value === true
+      ) {
+        saveProficiencies.add(m.target.slice('proficiency.save.'.length) as AbilityKey);
+      }
+    }
+  }
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier') continue;
+    const target = m.raw.target;
+    if (typeof target !== 'string' || m.raw.value !== true) continue;
+    if (target.startsWith('proficiency.save.')) {
+      saveProficiencies.add(target.slice('proficiency.save.'.length) as AbilityKey);
+    }
   }
   const saves: Record<AbilityKey, { bonus: number; proficient: boolean }> = {} as Record<
     AbilityKey,
@@ -420,6 +557,29 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       (expertise && proficient ? proficiencyBonus : 0);
     const bonus = applyTarget(allMods, character, `skill.${skill}`, base, ctx) as number;
     skills[skill] = { bonus, ability, proficient, expertise };
+  }
+
+  // (f.5) Languages + tools — explicit picks plus any modifier that targets
+  // `proficiency.language.<slug>` / `proficiency.tool.<slug>` (from
+  // class/species/feature/feat synthesis).
+  const languages = new Set<string>(character.proficienciesChosen.languages ?? []);
+  const tools = new Set<string>(character.proficienciesChosen.tools ?? []);
+  for (const a of active) {
+    const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const m of mods) {
+      if (m.kind !== 'stat-modifier' || m.value !== true) continue;
+      const t = m.target;
+      if (typeof t !== 'string') continue;
+      if (t.startsWith('proficiency.language.')) languages.add(t.slice('proficiency.language.'.length));
+      else if (t.startsWith('proficiency.tool.')) tools.add(t.slice('proficiency.tool.'.length));
+    }
+  }
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier' || m.raw.value !== true) continue;
+    const t = m.raw.target;
+    if (typeof t !== 'string') continue;
+    if (t.startsWith('proficiency.language.')) languages.add(t.slice('proficiency.language.'.length));
+    else if (t.startsWith('proficiency.tool.')) tools.add(t.slice('proficiency.tool.'.length));
   }
 
   // (g) Spellcasting
@@ -486,7 +646,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     resistances,
     immunities,
     vulnerabilities,
-    senses
+    senses,
+    languages: [...languages].sort(),
+    tools: [...tools].sort()
   };
 
   // -------------------------------------------------------------------------

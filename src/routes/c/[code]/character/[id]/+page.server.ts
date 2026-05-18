@@ -125,6 +125,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
           asi?: { bonus?: number; allowedAbilities?: string[] };
           skillProficiency?: { allowedSkills?: string[] };
           expertise?: { allowedSkills?: string[] | 'proficient' };
+          savingThrow?: { allowedAbilities?: string[] };
+          language?: { allowedLanguages?: string[] };
+          toolProficiency?: { allowedTools?: string[] };
+          spell?: { picks?: number; level?: number; allowedSpells?: string[] };
+          feature?: { allowedFeatures?: string[]; category?: string };
         };
       };
       return {
