@@ -51,9 +51,12 @@
   <title>My campaigns — Grimoire</title>
 </svelte:head>
 
-<header class="mb-6">
-  <h1 class="text-2xl font-semibold">My campaigns</h1>
-  <p class="text-sm text-slate-400">Logged in as <span class="font-mono">{data.user.username}</span>.</p>
+<header class="mb-6 flex items-baseline justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold">My campaigns</h1>
+    <p class="text-sm text-slate-400">Logged in as <span class="font-mono">{data.user.username}</span>.</p>
+  </div>
+  <a class="text-xs text-slate-400 hover:text-emerald-300" href="/characters">My characters →</a>
 </header>
 
 {#if data.campaigns.length > 0}
