@@ -131,6 +131,8 @@
   <MonsterEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else if data.kind === 'background'}
   <BackgroundEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
+{:else if data.kind === 'condition'}
+  <ConditionEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else}
   <GenericContentEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {/if}

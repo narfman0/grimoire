@@ -70,6 +70,8 @@
   <MonsterEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else if data.kind === 'background'}
   <BackgroundEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
+{:else if data.kind === 'condition'}
+  <ConditionEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else}
   <GenericContentEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {/if}
