@@ -643,6 +643,41 @@
     return `${level}th`;
   }
 
+  /** Group known spells by level. Cantrips (level 0) are surfaced
+   *  separately since they don't consume slots and aren't "prepared". */
+  $: knownByLevel = (() => {
+    if (!document) return new Map<number, Array<{ slug: string; name: string; school: string }>>();
+    const out = new Map<number, Array<{ slug: string; name: string; school: string }>>();
+    for (const ref of document.spells.known) {
+      const meta = spellMeta(ref.slug);
+      const lvl = meta?.level ?? 99;
+      if (!out.has(lvl)) out.set(lvl, []);
+      out.get(lvl)!.push({
+        slug: ref.slug,
+        name: meta?.name ?? ref.slug,
+        school: meta?.school ?? ''
+      });
+    }
+    for (const arr of out.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
+    return out;
+  })();
+
+  $: knownLevels = [...knownByLevel.keys()].sort((a, b) => a - b);
+
+  /** Picker filter — restrict the dropdown to one level for fast lookup. */
+  let spellPickerLevel: number | 'all' = 'all';
+  $: filteredSpellOptions =
+    spellPickerLevel === 'all'
+      ? data.spellOptions
+      : data.spellOptions.filter((s) => s.level === spellPickerLevel);
+  /** Reset the picked slug when the filter changes if the current pick is no
+   *  longer in the filtered list — avoids stale "Add" submissions. */
+  $: if (spellPickerSlug && !filteredSpellOptions.some((s) => s.slug === spellPickerSlug)) {
+    spellPickerSlug = filteredSpellOptions[0]?.slug ?? '';
+  }
+
+  $: preparedCount = document?.spells.prepared.length ?? 0;
+
   // ---- level up ----
   const ASI_LEVELS = new Set([4, 8, 12, 16, 19]);
   const SUBCLASS_UNLOCK_LEVEL = 3;
@@ -1796,51 +1831,96 @@
     />
   {/if}
 
-  <!-- Spells -->
+  <!-- Spells — grouped by level, cantrips separated, prepared count visible -->
   {#if derived.stats.spellcastingAbility}
     <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-      <h2 class="mb-3 text-sm font-semibold text-slate-200">Spells</h2>
-      <p class="mb-3 text-xs text-slate-500">
-        Spellbook = "known" list. Toggle "prepared" to make a spell available today.
-      </p>
+      <div class="mb-3 flex items-baseline justify-between">
+        <h2 class="text-sm font-semibold text-slate-200">Spells</h2>
+        <span class="text-xs text-slate-500">
+          {preparedCount} prepared · {document.spells.known.length} known
+        </span>
+      </div>
 
-      {#if document.spells.known.length > 0}
-        <ul class="mb-3 divide-y divide-slate-800">
-          {#each document.spells.known as ref}
-            {@const meta = spellMeta(ref.slug)}
-            {@const prep = document.spells.prepared.includes(ref.slug)}
-            <li class="flex items-center justify-between gap-3 py-2 text-sm">
-              <div class="flex-1">
-                <span class="font-medium">{meta?.name ?? ref.slug}</span>
-                {#if meta}
-                  <span class="ml-2 text-xs text-slate-500">{levelLabel(meta.level)} &middot; {meta.school}</span>
-                {/if}
-              </div>
-              <label class="flex items-center gap-1 text-xs text-slate-400">
-                <input
-                  type="checkbox"
-                  checked={prep}
-                  disabled={busy}
-                  on:change={(e) => togglePrepared(ref.slug, checkboxChecked(e))}
-                />
-                prepared
-              </label>
-              <button class="text-xs text-slate-500 hover:text-red-400" disabled={busy} on:click={() => removeSpell(ref.slug)}>
-                ×
-              </button>
-            </li>
-          {/each}
-        </ul>
+      {#if knownLevels.length === 0}
+        <p class="mb-3 text-xs text-slate-500">
+          Nothing in the spellbook yet. Add one below — toggle "prep" to make it available today.
+        </p>
+      {:else}
+        {#each knownLevels as lvl}
+          {@const entries = knownByLevel.get(lvl) ?? []}
+          <div class="mb-3">
+            <div class="mb-1 flex items-baseline gap-2">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {levelLabel(lvl)}
+              </h3>
+              {#if lvl > 0 && derived.stats.spellSlots[lvl]}
+                {@const slot = derived.stats.spellSlots[lvl]}
+                <span class="font-mono text-[10px] text-slate-500">
+                  slots {slot.max - slot.used}/{slot.max}
+                </span>
+              {/if}
+              {#if lvl === 0}
+                <span class="text-[10px] text-slate-600">— always available, no prep</span>
+              {/if}
+            </div>
+            <ul class="divide-y divide-slate-800 rounded border border-slate-800">
+              {#each entries as e (e.slug)}
+                {@const prep = document.spells.prepared.includes(e.slug)}
+                <li class="flex items-center gap-2 px-2 py-1 text-xs">
+                  <span class="flex-1 {prep || lvl === 0 ? 'text-slate-200' : 'text-slate-500'}">
+                    {e.name}
+                    {#if e.school}<span class="ml-1 text-slate-600">· {e.school}</span>{/if}
+                  </span>
+                  {#if lvl > 0}
+                    <label class="flex items-center gap-1 text-[10px] text-slate-400">
+                      <input
+                        type="checkbox"
+                        checked={prep}
+                        disabled={busy}
+                        on:change={(ev) => togglePrepared(e.slug, checkboxChecked(ev))}
+                      />
+                      prep
+                    </label>
+                  {/if}
+                  <button
+                    class="text-[10px] text-slate-500 hover:text-red-400"
+                    disabled={busy}
+                    title="Remove from spellbook"
+                    on:click={() => removeSpell(e.slug)}
+                  >
+                    ×
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/each}
       {/if}
 
-      <div class="flex gap-2">
-        <select class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={spellPickerSlug}>
-          {#each data.spellOptions as opt}
-            <option value={opt.slug}>{opt.name} <span class="text-slate-500">({levelLabel(opt.level)})</span></option>
+      <div class="flex flex-wrap gap-2 border-t border-slate-800 pt-3 text-xs">
+        <label class="flex items-center gap-1">
+          <span class="text-slate-500">Filter:</span>
+          <select
+            class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+            bind:value={spellPickerLevel}
+          >
+            <option value="all">all levels</option>
+            <option value={0}>cantrips</option>
+            {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as l}
+              <option value={l}>{levelLabel(l)}</option>
+            {/each}
+          </select>
+        </label>
+        <select
+          class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+          bind:value={spellPickerSlug}
+        >
+          {#each filteredSpellOptions as opt}
+            <option value={opt.slug}>{opt.name} ({levelLabel(opt.level)}, {opt.school})</option>
           {/each}
         </select>
         <button
-          class="rounded bg-emerald-700 px-3 py-1 text-sm hover:bg-emerald-600 disabled:opacity-50"
+          class="rounded bg-emerald-700 px-3 py-1 text-xs hover:bg-emerald-600 disabled:opacity-50"
           disabled={busy || !spellPickerSlug}
           on:click={addSpell}
         >
