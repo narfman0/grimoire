@@ -8,6 +8,7 @@
   import ConditionEditor from '$lib/components/ConditionEditor.svelte';
   import SpeciesEditor from '$lib/components/SpeciesEditor.svelte';
   import SubspeciesEditor from '$lib/components/SubspeciesEditor.svelte';
+  import FeatureEditor from '$lib/components/FeatureEditor.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -78,6 +79,8 @@
   <SpeciesEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else if data.kind === 'subspecies'}
   <SubspeciesEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
+{:else if data.kind === 'feature'}
+  <FeatureEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else}
   <GenericContentEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {/if}
