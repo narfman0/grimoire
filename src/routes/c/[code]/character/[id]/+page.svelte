@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import Sheet from '$lib/components/Sheet.svelte';
+  import HoverPopup from '$lib/components/HoverPopup.svelte';
   import InventoryPicker from '$lib/components/InventoryPicker.svelte';
   import { derive } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
@@ -2405,7 +2406,66 @@
           {@const meta = itemMeta(slot.contentSlug)}
           <li class="flex items-center justify-between gap-3 py-2 text-sm">
             <div class="flex-1">
-              <span class="font-medium">{meta?.name ?? slot.contentSlug}</span>
+              <HoverPopup>
+                <span class="font-medium">{meta?.name ?? slot.contentSlug}</span>
+                <svelte:fragment slot="popup">
+                  <div class="mb-1 font-semibold text-slate-200">{meta?.name ?? slot.contentSlug}</div>
+                  <div class="text-slate-400">
+                    {meta?.category ?? 'item'}
+                    {#if meta?.weaponType} · {meta.weaponType}{/if}
+                    {#if meta?.armorType} · {meta.armorType}{/if}
+                    {#if meta?.rarity} · {meta.rarity}{/if}
+                  </div>
+                  {#if meta?.damage && meta.damage.length > 0}
+                    <div>
+                      <span class="text-slate-500">Damage:</span>
+                      {meta.damage.map((d) => `${d.dice} ${d.type}`).join(' + ')}
+                    </div>
+                  {/if}
+                  {#if meta?.ac != null}
+                    <div>
+                      <span class="text-slate-500">AC:</span>
+                      {typeof meta.ac === 'number' ? meta.ac : meta.ac.value ?? '?'}
+                      {#if typeof meta.ac !== 'number' && meta.ac.calc} ({meta.ac.calc}){/if}
+                    </div>
+                  {/if}
+                  {#if meta?.range && (meta.range.value != null || meta.range.long != null)}
+                    <div>
+                      <span class="text-slate-500">Range:</span>
+                      {meta.range.value ?? '?'}{#if meta.range.long}/{meta.range.long}{/if}
+                      {#if meta.range.units} {meta.range.units}{/if}
+                    </div>
+                  {/if}
+                  {#if meta?.properties && meta.properties.length > 0}
+                    <div><span class="text-slate-500">Properties:</span> {meta.properties.join(', ')}</div>
+                  {/if}
+                  {#if meta?.charges && meta.charges.max != null}
+                    <div>
+                      <span class="text-slate-500">Charges:</span>
+                      {meta.charges.max}{#if meta.charges.per} / {meta.charges.per}{/if}
+                    </div>
+                  {/if}
+                  {#if meta?.weight != null}
+                    <div><span class="text-slate-500">Weight:</span> {meta.weight} lb</div>
+                  {/if}
+                  {#if meta?.cost}
+                    <div>
+                      <span class="text-slate-500">Cost:</span>
+                      {#if typeof meta.cost === 'string'}
+                        {meta.cost}
+                      {:else if typeof meta.cost === 'number'}
+                        {meta.cost} gp
+                      {:else if meta.cost.value != null}
+                        {meta.cost.value}{#if meta.cost.unit} {meta.cost.unit}{:else} gp{/if}
+                      {/if}
+                    </div>
+                  {/if}
+                  {#if meta?.requiresAttunement}
+                    <div class="text-amber-300">Requires attunement</div>
+                  {/if}
+                  <div class="mt-1 text-[10px] text-slate-600">{meta?.source ?? ''}</div>
+                </svelte:fragment>
+              </HoverPopup>
               {#if meta?.kindHint}
                 <span class="ml-2 text-xs text-slate-500">{meta.kindHint}</span>
               {/if}
@@ -2495,10 +2555,66 @@
             <ul class="divide-y divide-slate-800 rounded border border-slate-800">
               {#each entries as e (e.slug)}
                 {@const prep = document.spells.prepared.includes(e.slug)}
+                {@const meta = spellMeta(e.slug)}
                 <li class="flex items-center gap-2 px-2 py-1 text-xs">
                   <span class="flex-1 {prep || lvl === 0 ? 'text-slate-200' : 'text-slate-500'}">
-                    {e.name}
-                    {#if e.school}<span class="ml-1 text-slate-600">· {e.school}</span>{/if}
+                    <HoverPopup>
+                      <span>
+                        {e.name}
+                        {#if e.school}<span class="ml-1 text-slate-600">· {e.school}</span>{/if}
+                      </span>
+                      <svelte:fragment slot="popup">
+                        <div class="mb-1 font-semibold text-slate-200">{e.name}</div>
+                        <div class="text-slate-400">
+                          {levelLabel(meta?.level ?? lvl)}{#if e.school} · {e.school}{/if}
+                          {#if meta?.ritual} · ritual{/if}
+                          {#if meta?.concentration} · concentration{/if}
+                        </div>
+                        {#if meta?.castingTime}
+                          <div><span class="text-slate-500">Cast:</span> {meta.castingTime}</div>
+                        {/if}
+                        {#if meta?.range}
+                          <div>
+                            <span class="text-slate-500">Range:</span>
+                            {#if typeof meta.range === 'string'}
+                              {meta.range}
+                            {:else if meta.range.value != null}
+                              {meta.range.value}{#if meta.range.units} {meta.range.units}{/if}
+                            {/if}
+                          </div>
+                        {/if}
+                        {#if meta?.components && meta.components.length > 0}
+                          <div><span class="text-slate-500">Components:</span> {meta.components.join(', ').toUpperCase()}</div>
+                        {/if}
+                        {#if meta?.duration}
+                          <div>
+                            <span class="text-slate-500">Duration:</span>
+                            {#if typeof meta.duration === 'string'}
+                              {meta.duration}
+                            {:else if meta.duration.value != null}
+                              {meta.duration.value}{#if meta.duration.units} {meta.duration.units}{/if}
+                            {/if}
+                          </div>
+                        {/if}
+                        {#if meta?.save}
+                          <div>
+                            <span class="text-slate-500">Save:</span>
+                            {meta.save.ability.toUpperCase()}
+                            {#if meta.save.calc === 'spell'} (vs spell DC){:else if meta.save.value} DC {meta.save.value}{/if}
+                          </div>
+                        {/if}
+                        {#if meta?.attackKind}
+                          <div><span class="text-slate-500">Attack:</span> {meta.attackKind}</div>
+                        {/if}
+                        {#if meta?.damage && meta.damage.length > 0}
+                          <div>
+                            <span class="text-slate-500">Damage:</span>
+                            {meta.damage.map((d) => `${d.dice} ${d.type}`).join(' + ')}
+                          </div>
+                        {/if}
+                        <div class="mt-1 text-[10px] text-slate-600">{meta?.source ?? ''}</div>
+                      </svelte:fragment>
+                    </HoverPopup>
                   </span>
                   {#if lvl > 0}
                     <label class="flex items-center gap-1 text-[10px] text-slate-400">

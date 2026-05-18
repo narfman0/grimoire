@@ -71,6 +71,14 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         weaponType?: string;
         armorType?: string;
         requiresAttunement?: boolean | object;
+        weight?: number;
+        cost?: { value?: number; unit?: string } | string | number;
+        damage?: Array<{ dice: string; type: string }>;
+        properties?: string[];
+        ac?: number | { value?: number; calc?: string };
+        range?: { value?: number; long?: number; units?: string };
+        rarity?: string;
+        charges?: { max?: number; per?: string };
       };
       return {
         slug: r.slug,
@@ -78,7 +86,17 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         source: r.source,
         category: data.category ?? 'other',
         kindHint: data.weaponType ?? data.armorType ?? data.category ?? '',
-        requiresAttunement: data.requiresAttunement === true
+        requiresAttunement: data.requiresAttunement === true,
+        weaponType: data.weaponType ?? null,
+        armorType: data.armorType ?? null,
+        weight: typeof data.weight === 'number' ? data.weight : null,
+        cost: data.cost ?? null,
+        damage: data.damage ?? null,
+        properties: data.properties ?? [],
+        ac: data.ac ?? null,
+        range: data.range ?? null,
+        rarity: data.rarity ?? '',
+        charges: data.charges ?? null
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -95,13 +113,49 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 
   const spellOptions = spellRows
     .map((r) => {
-      const data = JSON.parse(r.data as string) as { level?: number; school?: string };
+      const data = JSON.parse(r.data as string) as {
+        level?: number;
+        school?: string;
+        castingTime?: string;
+        range?: { value?: number; units?: string } | string;
+        components?: string[];
+        duration?: string | { value?: number; units?: string; concentration?: boolean };
+        concentration?: boolean;
+        ritual?: boolean;
+        activities?: Array<{
+          attack?: { ability?: string; range?: string };
+          save?: { ability?: string; dc?: { calc?: string; value?: number } };
+          damage?: { parts?: Array<{ dice: string; type: string }> };
+        }>;
+      };
+      const act = data.activities?.[0];
+      // Damage dice shown in popup come from the first activity's damage
+      // block (mechanical numbers, no flavor). Save / attack info same.
+      const damage = act?.damage?.parts ?? null;
+      const isConcentration =
+        data.concentration === true ||
+        (typeof data.duration === 'object' && data.duration?.concentration === true);
       return {
         slug: r.slug,
         name: r.name,
         source: r.source,
         level: data.level ?? 0,
-        school: data.school ?? ''
+        school: data.school ?? '',
+        castingTime: data.castingTime ?? '',
+        range: data.range ?? null,
+        components: data.components ?? [],
+        duration: data.duration ?? null,
+        concentration: isConcentration,
+        ritual: data.ritual === true,
+        attackKind: act?.attack ? `${act.attack.range ?? ''} attack` : null,
+        save: act?.save?.ability
+          ? {
+              ability: act.save.ability,
+              calc: act.save.dc?.calc ?? '',
+              value: act.save.dc?.value ?? null
+            }
+          : null,
+        damage
       };
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
