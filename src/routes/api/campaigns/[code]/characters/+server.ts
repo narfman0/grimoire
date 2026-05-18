@@ -1,0 +1,90 @@
+// Link an existing character into a campaign. The campaign DM (or the
+// character's owner) writes a row into campaign_characters; the character
+// row itself is untouched.
+
+import { json, error } from '@sveltejs/kit';
+import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { db, schema } from '$lib/server/db';
+import { CampaignCode, Uuid } from '$lib/server/api/schemas';
+import { parseJson, parseParams } from '$lib/server/api/validate';
+import { requireMembershipByCode } from '$lib/server/auth/membership';
+import type { RequestHandler } from './$types';
+
+const Params = z.object({ code: CampaignCode });
+const LinkCharacterRequest = z.object({
+  characterId: Uuid,
+  role: z.enum(['player', 'guest']).optional().default('player')
+});
+
+export const POST: RequestHandler = async ({ params, request, locals }) => {
+  if (!locals.user) throw error(401, 'login required');
+  const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
+  const m = await requireMembershipByCode(locals.user, code);
+
+  const body = await parseJson(request, LinkCharacterRequest);
+
+  // The character must belong to the requester. (DMs don't get to drag
+  // other players' PCs into their campaign without permission.)
+  const charRows = await db
+    .select({ id: schema.characters.id, ownerUserId: schema.characters.ownerUserId })
+    .from(schema.characters)
+    .where(eq(schema.characters.id, body.characterId))
+    .limit(1);
+  if (charRows.length === 0) throw error(404, 'character not found');
+  if (charRows[0].ownerUserId !== locals.user.id) {
+    throw error(403, 'you can only link characters you own');
+  }
+
+  // Idempotent — if the link already exists, return 200 with no insert.
+  const existing = await db
+    .select({ campaignId: schema.campaignCharacters.campaignId })
+    .from(schema.campaignCharacters)
+    .where(
+      and(
+        eq(schema.campaignCharacters.campaignId, m.campaignId),
+        eq(schema.campaignCharacters.characterId, body.characterId)
+      )
+    )
+    .limit(1);
+  if (existing.length === 0) {
+    await db.insert(schema.campaignCharacters).values({
+      campaignId: m.campaignId,
+      characterId: body.characterId,
+      role: body.role,
+      addedAt: new Date()
+    });
+  }
+
+  return json({ campaignId: m.campaignId, characterId: body.characterId, role: body.role });
+};
+
+export const DELETE: RequestHandler = async ({ params, request, locals }) => {
+  if (!locals.user) throw error(401, 'login required');
+  const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
+  const m = await requireMembershipByCode(locals.user, code);
+
+  const body = await parseJson(request, z.object({ characterId: Uuid }));
+
+  // Unlink — owner or DM may drop the link. The character row stays.
+  const charRows = await db
+    .select({ ownerUserId: schema.characters.ownerUserId })
+    .from(schema.characters)
+    .where(eq(schema.characters.id, body.characterId))
+    .limit(1);
+  if (charRows.length === 0) throw error(404, 'character not found');
+  const isOwner = charRows[0].ownerUserId === locals.user.id;
+  const isDm = m.role === 'dm';
+  if (!isOwner && !isDm) throw error(403, 'only the owner or DM can unlink');
+
+  await db
+    .delete(schema.campaignCharacters)
+    .where(
+      and(
+        eq(schema.campaignCharacters.campaignId, m.campaignId),
+        eq(schema.campaignCharacters.characterId, body.characterId)
+      )
+    );
+
+  return new Response(null, { status: 204 });
+};

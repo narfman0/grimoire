@@ -88,6 +88,44 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .from(schema.notes)
     .where(eq(schema.notes.campaignId, campaign.id));
 
+  // Phase 4: list of user-owned characters that AREN'T already linked to
+  // this campaign — feeds the "+ link existing" picker. Subquery filter:
+  // owned by current user, id not in this campaign's join rows.
+  const linkedIdsRows = await db
+    .select({ id: schema.campaignCharacters.characterId })
+    .from(schema.campaignCharacters)
+    .where(eq(schema.campaignCharacters.campaignId, membership.campaignId));
+  const linkedIds = new Set(linkedIdsRows.map((r) => r.id));
+  const myCharRows = await db
+    .select({
+      id: schema.characters.id,
+      name: schema.characters.name,
+      document: schema.characters.document
+    })
+    .from(schema.characters)
+    .where(eq(schema.characters.ownerUserId, locals.user.id));
+  const linkableCharacters = myCharRows
+    .filter((c) => !linkedIds.has(c.id))
+    .map((c) => {
+      let descLine = '';
+      if (c.document) {
+        try {
+          const doc = JSON.parse(c.document) as {
+            classes?: Array<{ slug?: string; level?: number }>;
+            species?: { slug?: string };
+          };
+          const cls = (doc.classes ?? [])
+            .map((k) => `${k.slug ?? '?'} ${k.level ?? '?'}`)
+            .join(', ');
+          descLine = `${doc.species?.slug ?? 'unknown'} — ${cls}`;
+        } catch {
+          // ignore
+        }
+      }
+      return { id: c.id, name: c.name, descLine };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     campaign,
     user: locals.user,
@@ -108,6 +146,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       hasDocument: r.document != null,
       updatedAt: r.updatedAt.getTime()
     })),
+    linkableCharacters,
     speciesOptions: speciesRows.map((r) => ({
       slug: r.slug,
       name: r.name,

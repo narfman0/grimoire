@@ -212,9 +212,51 @@
   }
 
   async function deleteCharacter(id: string) {
-    if (!confirm('Delete this character?')) return;
+    if (!confirm('Delete this character entirely? Removes it from every campaign and drops its data.')) return;
     const res = await fetch(`/api/characters/${id}`, { method: 'DELETE' });
     if (res.ok) await invalidateAll();
+  }
+
+  // Phase 4: link an existing user-owned character into this campaign.
+  let showLinkPicker = false;
+  let linkChosenId = '';
+  $: if (!linkChosenId && data.linkableCharacters.length > 0) {
+    linkChosenId = data.linkableCharacters[0].id;
+  }
+  async function linkCharacter() {
+    if (!linkChosenId) return;
+    busy = true;
+    try {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}/characters`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ characterId: linkChosenId, role: 'player' })
+      });
+      if (res.ok) {
+        showLinkPicker = false;
+        linkChosenId = '';
+        await invalidateAll();
+      } else {
+        error = `Could not link character (${res.status})`;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function unlinkCharacter(id: string, name: string) {
+    if (!confirm(`Remove "${name}" from this campaign? The character itself is kept.`)) return;
+    busy = true;
+    try {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}/characters`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ characterId: id })
+      });
+      if (res.ok) await invalidateAll();
+    } finally {
+      busy = false;
+    }
   }
 
   const abilityKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
@@ -348,7 +390,38 @@
 </header>
 
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-  <h2 class="mb-3 text-lg font-semibold">Characters</h2>
+  <div class="mb-3 flex items-baseline justify-between">
+    <h2 class="text-lg font-semibold">Characters</h2>
+    {#if data.linkableCharacters.length > 0}
+      <button
+        class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800"
+        on:click={() => (showLinkPicker = !showLinkPicker)}
+      >
+        {showLinkPicker ? '− cancel' : '↩ link existing'}
+      </button>
+    {/if}
+  </div>
+
+  {#if showLinkPicker && data.linkableCharacters.length > 0}
+    <div class="mb-3 flex flex-wrap gap-2 rounded border border-slate-700 bg-slate-950/40 p-2 text-xs">
+      <span class="self-center text-slate-500">Link an existing character:</span>
+      <select
+        class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1"
+        bind:value={linkChosenId}
+      >
+        {#each data.linkableCharacters as c}
+          <option value={c.id}>{c.name}{#if c.descLine} — {c.descLine}{/if}</option>
+        {/each}
+      </select>
+      <button
+        class="rounded bg-emerald-600 px-3 py-1 hover:bg-emerald-500 disabled:opacity-40"
+        disabled={busy || !linkChosenId}
+        on:click={linkCharacter}
+      >
+        Link
+      </button>
+    </div>
+  {/if}
 
   {#if data.characters.length === 0}
     <p class="mb-4 text-sm text-slate-400">No characters yet. Add the first one below.</p>
@@ -365,12 +438,22 @@
               <span class="ml-2 rounded bg-amber-900/50 px-1.5 py-0.5 text-xs text-amber-200">stub</span>
             {/if}
           </a>
-          <button
-            class="text-xs text-slate-400 hover:text-red-400"
-            on:click={() => deleteCharacter(character.id)}
-          >
-            Delete
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              class="text-xs text-slate-400 hover:text-amber-300"
+              title="Remove from this campaign — character is kept"
+              on:click={() => unlinkCharacter(character.id, character.name)}
+            >
+              Unlink
+            </button>
+            <button
+              class="text-xs text-slate-500 hover:text-red-400"
+              title="Delete entirely — drops the character + all data"
+              on:click={() => deleteCharacter(character.id)}
+            >
+              ✕
+            </button>
+          </div>
         </li>
       {/each}
     </ul>
