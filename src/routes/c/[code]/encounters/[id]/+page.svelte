@@ -2,6 +2,9 @@
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import MonsterPicker from '$lib/components/MonsterPicker.svelte';
+  import RevealChip from '$lib/components/RevealChip.svelte';
+  import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
+  import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
     connectEncounterDoc,
     setEncounterTurn,
@@ -245,6 +248,25 @@
           resolveError = 'log entry failed';
           return;
         }
+        // Check if single target is concentrating and took real damage.
+        if (
+          resolveTargetId &&
+          (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'failed-save') &&
+          typeof resolveDamage === 'number' &&
+          resolveDamage > 0
+        ) {
+          const targetHpEntry = liveHpMap[resolveTargetId];
+          if (targetHpEntry?.concentrating) {
+            const targetParticipant = data.participants.find((p) => p.id === resolveTargetId);
+            const effectiveDamage =
+              resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+            concSavePrompt = {
+              participantName: targetParticipant?.name ?? 'Target',
+              dc: Math.max(10, Math.floor(effectiveDamage / 2)),
+              participantId: resolveTargetId
+            };
+          }
+        }
       }
       // Clear the plan if there was one.
       if (livePlans[resolveForParticipantId]) {
@@ -255,6 +277,16 @@
     } finally {
       resolveSubmitting = false;
     }
+  }
+
+  /** Drop concentration for a participant (called from the CON save callout). */
+  function dropConcentration(participantId: string) {
+    const p = data.participants.find((q) => q.id === participantId);
+    if (!p || !conn || connStatus !== 'open') return;
+    const seed = seedFor(p);
+    const current = liveHpMap[participantId] ?? seed;
+    setParticipantHp(conn.ydoc, participantId, { ...seed, ...current, concentrating: false });
+    concSavePrompt = null;
   }
 
   // ---- DM amend (M3.5c) ----
@@ -405,6 +437,28 @@
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ currentHp, tempHp })
     });
+  }
+
+  // DM reveal toggles. Flips one flag at a time on the server and re-runs
+  // the page load so the redacted player projection is consistent.
+  async function patchReveal(participantId: string, patch: Record<string, boolean>) {
+    busy = true;
+    try {
+      await fetch(`/api/participants/${participantId}/reveals`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch)
+      });
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+  async function revealAll(participantId: string) {
+    await patchReveal(participantId, { identity: true, vitals: true, combat: true, hidden: false });
+  }
+  async function hideAll(participantId: string) {
+    await patchReveal(participantId, { identity: false, vitals: false, combat: false, hidden: false });
   }
 
   async function dmDamage(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }) {
@@ -642,6 +696,21 @@
     }
   }
 
+  /** Toggle the concentrating flag on a non-PC participant via Y.Doc. */
+  function toggleConcentrating(
+    p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }
+  ) {
+    const seed = seedFor(p);
+    const current = liveHpMap[p.id] ?? seed;
+    const next = { ...seed, ...current, concentrating: !current.concentrating };
+    if (conn && connStatus === 'open') {
+      setParticipantHp(conn.ydoc, p.id, next);
+    }
+  }
+
+  // Concentration save callout state: set after a resolve completes, cleared when dismissed.
+  let concSavePrompt: { participantName: string; dc: number; participantId: string } | null = null;
+
   let conditionsOpenFor: string | null = null;
   /** Per-participant flag: which one currently has its inline statblock panel
    *  expanded. Only one open at a time keeps the encounter list tidy. */
@@ -846,20 +915,27 @@
           <span class="flex-1 font-medium">
             {#if p.characterId}
               <a class="hover:text-emerald-300" href={`/c/${data.campaign.code}/character/${p.characterId}`}>
-                {p.name}
+                {p.placeholderName ?? p.name}
               </a>
             {:else}
-              {p.name}
+              {p.placeholderName ?? p.name}
             {/if}
           </span>
-          {#if p.maxHp != null}
-            {@const live = hpFor(p)}
-            <span class="font-mono text-xs text-slate-400">
-              {live.currentHp ?? '—'} / {p.maxHp}
-              {#if live.tempHp > 0}
-                <span class="text-emerald-300">+{live.tempHp}</span>
-              {/if}
-            </span>
+          {#if data.role === 'dm' || p.reveals?.vitals || p.kind === 'pc'}
+            {#if p.maxHp != null}
+              {@const live = hpFor(p)}
+              <span class="font-mono text-xs text-slate-400">
+                {live.currentHp ?? '—'} / {p.maxHp}
+                {#if live.tempHp > 0}
+                  <span class="text-emerald-300">+{live.tempHp}</span>
+                {/if}
+              </span>
+            {/if}
+          {:else}
+            <!-- Player view + vitals hidden: show coarse bucket only. Bucket is
+                 computed live from Y.Doc HP when present, else SSR snapshot. -->
+            {@const live = liveHpMap[p.id]}
+            <HpBucketBadge value={computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null) === 'unknown' ? (p.hpBucket ?? 'unknown') : computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null)} />
           {/if}
           {#if data.role === 'dm'}
             {#if p.maxHp != null && p.kind !== 'pc'}
@@ -898,6 +974,18 @@
             <button class="text-xs text-slate-500 hover:text-red-400" on:click={() => removeParticipant(p.id)} disabled={busy}>
               ×
             </button>
+          {/if}
+          {#if p.kind !== 'pc' && data.role === 'dm' && p.reveals}
+            <!-- DM reveal toggles. Players see whatever the chips have unlocked. -->
+            <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
+              <span class="text-slate-500 mr-1">reveal:</span>
+              <RevealChip label="identity" on={p.reveals.identity} on:toggle={(e) => patchReveal(p.id, { identity: e.detail })} disabled={busy} />
+              <RevealChip label="vitals" on={p.reveals.vitals} on:toggle={(e) => patchReveal(p.id, { vitals: e.detail })} disabled={busy} />
+              <RevealChip label="combat" on={p.reveals.combat} on:toggle={(e) => patchReveal(p.id, { combat: e.detail })} disabled={busy} />
+              <RevealChip label="hidden" tone="danger" on={p.reveals.hidden} on:toggle={(e) => patchReveal(p.id, { hidden: e.detail })} disabled={busy} />
+              <button class="ml-1 text-slate-500 hover:text-emerald-300 underline-offset-2 hover:underline" on:click={() => revealAll(p.id)} disabled={busy}>reveal all</button>
+              <button class="text-slate-500 hover:text-slate-300 underline-offset-2 hover:underline" on:click={() => hideAll(p.id)} disabled={busy}>hide all</button>
+            </div>
           {/if}
           {#if p.kind !== 'pc'}
             {@const conds = liveHpMap[p.id]?.conditions ?? p.conditions}
@@ -948,7 +1036,19 @@
               </button>
             {/if}
           {/if}
-          {#if p.statblock && data.role === 'dm'}
+          {#if p.kind !== 'pc' && data.role === 'dm'}
+            {@const isConc = liveHpMap[p.id]?.concentrating ?? false}
+            <button
+              class="text-[10px] {isConc
+                ? 'rounded border border-violet-600 bg-violet-900/40 px-1.5 py-0.5 text-violet-200 hover:bg-violet-900/60'
+                : 'text-slate-500 hover:text-slate-300'}"
+              title={isConc ? 'Click to clear concentration' : 'Mark as concentrating'}
+              on:click={() => toggleConcentrating(p)}
+            >
+              {isConc ? 'Conc. ×' : '+ conc'}
+            </button>
+          {/if}
+          {#if p.statblock && (data.role === 'dm' || p.reveals?.combat)}
             <button
               class="text-[10px] text-slate-500 hover:text-slate-300"
               title="Show / hide statblock"
@@ -1427,6 +1527,26 @@
       with the ±buttons separately.
     </p>
   </section>
+{/if}
+
+{#if concSavePrompt && data.role === 'dm'}
+  <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-600 bg-amber-950/40 px-4 py-3 text-sm">
+    <span class="text-amber-200">
+      ⚠ <strong>{concSavePrompt.participantName}</strong> is concentrating — CON save DC {concSavePrompt.dc}
+    </span>
+    <button
+      class="rounded border border-red-700 bg-red-900/40 px-2 py-0.5 text-xs text-red-200 hover:bg-red-900/70"
+      on:click={() => dropConcentration(concSavePrompt!.participantId)}
+    >
+      Fail save (drop)
+    </button>
+    <button
+      class="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
+      on:click={() => (concSavePrompt = null)}
+    >
+      Pass / dismiss
+    </button>
+  </div>
 {/if}
 
 {#if data.actionLog.length > 0}

@@ -25,6 +25,19 @@
 // only inside the Y.Doc state blob (no dedicated DB column yet).
 //
 // Mirrors src/lib/realtime/character-doc.ts but keyed off `encounter:<uuid>`.
+//
+// ---------------------------------------------------------------------------
+// DM secrecy / reveals — known limitation:
+// Live HP values flow through "participantHp" to every subscribed client
+// (DMs + players alike). The UI layer enforces reveals — when a player's
+// `reveals.vitals` flag is off, the page renders an HP-bucket badge instead
+// of the raw number. But a determined player using devtools could still
+// read the underlying Y.Map and see exact HP. For trustless secrecy, split
+// "participantHp" into a private (DM-only) map and a public (bucket-only)
+// map, and have the sync-server filter outbound updates per subscriber
+// role. Out of scope for v1; most home tables don't need that level of
+// hardening. See plan §9.
+// ---------------------------------------------------------------------------
 
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
@@ -44,6 +57,9 @@ export interface ParticipantHp {
   currentHp: number | null;
   tempHp: number;
   conditions: string[];
+  /** DM-toggled flag: participant is currently concentrating on a spell/effect.
+   *  Set from the encounter UI; triggers CON save DC callout when damage is dealt. */
+  concentrating?: boolean;
 }
 
 /** A player's broadcast intent for their next turn. */
