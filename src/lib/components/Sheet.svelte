@@ -138,11 +138,12 @@
 
 <section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
   <h2 class="mb-3 text-lg font-semibold">Actions</h2>
-  {#if actions.length === 0}
+  {@const nonSpellActions = actions.filter((a) => a.type !== 'cast-spell')}
+  {#if nonSpellActions.length === 0}
     <p class="text-sm text-slate-400">No actions resolved.</p>
   {:else}
     <ul class="space-y-3">
-      {#each actions as action}
+      {#each nonSpellActions as action}
         <li class="rounded border border-slate-700 bg-slate-950/40 p-3">
           <div class="flex items-baseline justify-between">
             <div>
