@@ -67,7 +67,8 @@ export const packs = sqliteTable('packs', {
   name: text('name').notNull(),
   version: text('version').notNull(),                               // informational
   defaultSource: text('default_source').notNull(),                  // applied to rows that omit `source`
-  loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull()
+  loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull(),
+  author: text('author')
 });
 
 export const content = sqliteTable(
@@ -92,7 +93,19 @@ export const content = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     /** Stamped on every homebrew edit; null for pack-loaded rows that have
      *  never been touched in-app. */
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
+    /** 'private' = only the owner sees it (default for new homebrew).
+     *  'unlisted' = anyone with the URL can view, hidden from browse index.
+     *  'public' = surfaced in /homebrew/browse. Pack-loaded rows are
+     *  backfilled to 'public' since their existing distribution model is
+     *  effectively public. */
+    visibility: text('visibility').notNull().default('private'),
+    /** Null = unpublished draft (mutable). Non-null = published (immutable;
+     *  PATCH spawns a new draft row at version+1). Pack-loaded rows are
+     *  backfilled to their createdAt so subscribers never see them as drafts.
+     *  Drafts are visible only to their owner; subscribers resolve to the
+     *  latest published version (or their pinnedVersion) via buildContentLookup. */
+    publishedAt: integer('published_at', { mode: 'timestamp_ms' })
   },
   (t) => ({
     // (kind, slug, version, scope_id, owner_user_id) is the row identity.
@@ -109,7 +122,8 @@ export const content = sqliteTable(
     byKindSlug: index('content_lookup').on(t.kind, t.slug),
     byPack: index('content_pack').on(t.packSlug),
     bySource: index('content_source').on(t.source),
-    byOwner: index('content_owner').on(t.ownerUserId)
+    byOwner: index('content_owner').on(t.ownerUserId),
+    byVisibility: index('content_visibility').on(t.visibility)
   })
 );
 
@@ -127,6 +141,10 @@ export const users = sqliteTable('users', {
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   email: text('email'), // nullable; required before public-deploy email verification
+  /** Platform admin flag. Granted via SQL today (no UI). Used for moderation
+   *  surfaces (/admin/reports). One bit is enough for v1; promote to a role
+   *  table when we need multiple permission tiers. */
+  isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
 
@@ -244,6 +262,12 @@ export const participants = sqliteTable('participants', {
   maxHp: integer('max_hp'),
   tempHp: integer('temp_hp').notNull().default(0),
   conditionsJson: text('conditions_json').notNull().default('[]'),
+  /** Per-participant DM reveal flags. Shape:
+   *    { identity: bool, vitals: bool, combat: bool, hidden: bool }
+   *  PCs default to all-true; monster/npc default to all-false. Server
+   *  load layers filter player-facing data based on these flags. See
+   *  $lib/realtime/reveals.ts. */
+  revealsJson: text('reveals_json').notNull().default('{}'),
   sortOrder: integer('sort_order').notNull().default(0)
 });
 
@@ -323,3 +347,117 @@ export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
 export type ActionLogEntry = typeof actionLog.$inferSelect;
 export type NewActionLogEntry = typeof actionLog.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Homebrew marketplace — cross-user sharing of content rows.
+//
+// `homebrew_subscriptions`: per-user live-link to another author's row.
+// `(user_id, content_kind, content_slug, author_user_id)` is the primary key.
+// `buildContentLookup` merges every subscribed author's rows into the lookup
+// for the subscribing user so derive() can resolve a character's ContentRef.
+//
+// `content_reports`: open/closed report queue. Admins (`users.is_admin`)
+// read from /admin/reports and either hide the row (sets
+// `content.visibility = 'private'`) or dismiss the report.
+// ---------------------------------------------------------------------------
+
+export const homebrewSubscriptions = sqliteTable(
+  'homebrew_subscriptions',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    contentKind: text('content_kind').notNull(),
+    contentSlug: text('content_slug').notNull(),
+    /** Author whose row this subscription tracks. Slug+kind+author uniquely
+     *  identifies a homebrew row (cf. `content.owner_user_id`). */
+    authorUserId: text('author_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Subscriber-controlled version pin. Null = "track latest published"
+     *  (legacy default). Non-null = pinned to that version regardless of new
+     *  author publishes; subscriber upgrades explicitly via PATCH. */
+    pinnedVersion: integer('pinned_version'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.contentKind, t.contentSlug, t.authorUserId] }),
+    byUser: index('homebrew_subscriptions_by_user').on(t.userId),
+    byAuthor: index('homebrew_subscriptions_by_author').on(t.authorUserId)
+  })
+);
+
+export const contentReports = sqliteTable(
+  'content_reports',
+  {
+    id: text('id').primaryKey(),
+    contentId: text('content_id')
+      .notNull()
+      .references(() => content.id, { onDelete: 'cascade' }),
+    reporterUserId: text('reporter_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Free-text reason from the reporter. API caps at 1000 chars. */
+    reason: text('reason').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    /** Null while the report is open. */
+    resolvedAt: integer('resolved_at', { mode: 'timestamp_ms' }),
+    resolverUserId: text('resolver_user_id').references(() => users.id, {
+      onDelete: 'set null'
+    }),
+    /** 'hidden' = admin set the content back to private; 'dismissed' = no
+     *  action taken. Null until resolved. */
+    resolution: text('resolution')
+  },
+  (t) => ({
+    byOpen: index('content_reports_open').on(t.resolvedAt),
+    byContent: index('content_reports_content').on(t.contentId)
+  })
+);
+
+export type HomebrewSubscription = typeof homebrewSubscriptions.$inferSelect;
+export type NewHomebrewSubscription = typeof homebrewSubscriptions.$inferInsert;
+export type ContentReport = typeof contentReports.$inferSelect;
+export type NewContentReport = typeof contentReports.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Notifications — in-app inbox surfaced as a bell in the global header.
+//
+// v1 only fans out on `homebrew_version_published`: when an author publishes a
+// new version of a row, /api/homebrew/[kind]/[slug]/publish inserts one row
+// here per subscriber whose pinnedVersion differs from the new toVersion.
+// Future event types (takedown, author-delete, etc.) widen `type` without
+// schema changes.
+// ---------------------------------------------------------------------------
+
+export const notifications = sqliteTable(
+  'notifications',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 'homebrew_version_published' is the only emitter in v1. */
+    type: text('type').notNull(),
+    contentKind: text('content_kind').notNull(),
+    contentSlug: text('content_slug').notNull(),
+    authorUserId: text('author_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Version the subscriber was on before this notification fired. Null when
+     *  the pin was tracking latest (NULL pinnedVersion). */
+    fromVersion: integer('from_version'),
+    /** Version the author just published. */
+    toVersion: integer('to_version').notNull(),
+    /** Null = unread; populated when the subscriber dismisses or clicks through. */
+    readAt: integer('read_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byUser: index('notifications_by_user').on(t.userId, t.readAt),
+    byCreated: index('notifications_by_created').on(t.userId, t.createdAt)
+  })
+);
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;

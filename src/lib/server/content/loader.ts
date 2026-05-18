@@ -137,7 +137,8 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
         name: ctx.meta.name,
         version: ctx.meta.version,
         defaultSource: ctx.meta.default_source,
-        loadedAt: now
+        loadedAt: now,
+        author: ctx.meta.author ?? null
       })
       .onConflictDoUpdate({
         target: schema.packs.slug,
@@ -145,7 +146,8 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
           name: ctx.meta.name,
           version: ctx.meta.version,
           defaultSource: ctx.meta.default_source,
-          loadedAt: now
+          loadedAt: now,
+          author: ctx.meta.author ?? null
         }
       })
       .run();
@@ -191,7 +193,8 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
             packSlug: ctx.meta.slug,
             name: row.name,
             data: incomingData,
-            createdAt: now
+            createdAt: now,
+            visibility: 'unlisted'
           })
           .run();
         stats.rowsLoaded += 1;

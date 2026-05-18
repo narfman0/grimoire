@@ -39,7 +39,8 @@ export const PackMeta = z.object({
   slug: PackSlug,
   name: z.string().min(1).max(200),
   version: z.string().min(1).max(64),
-  default_source: z.string().min(1).max(64)
+  default_source: z.string().min(1).max(64),
+  author: z.string().max(200).optional()
 });
 export type PackMeta = z.infer<typeof PackMeta>;
 
@@ -154,3 +155,200 @@ export const FeatHomebrewPatch = z.object({
   data: FeatDataSchema.optional()
 });
 export type FeatHomebrewPatch = z.infer<typeof FeatHomebrewPatch>;
+
+// ---------------------------------------------------------------------------
+// Structured spell/item/monster schemas — anchor on the SRD shapes loaded by
+// the pack loader so a homebrew row round-trips byte-for-byte with what the
+// rules engine / hover popups already read. All three use `.passthrough()`
+// (not `.strict()`) so the editor's JSON sub-textareas can carry fields the
+// engine doesn't validate yet (e.g. activity/action metadata).
+// ---------------------------------------------------------------------------
+
+const RangeSchema = z
+  .object({
+    value: z.number().int().nonnegative().optional(),
+    units: z.string().max(32).optional()
+  })
+  .passthrough();
+
+const SpellComponentsSchema = z
+  .object({
+    verbal: z.boolean().optional(),
+    somatic: z.boolean().optional(),
+    material: z.boolean().optional(),
+    materialDescription: z.string().max(500).optional()
+  })
+  .passthrough();
+
+export const SpellDataSchema = z
+  .object({
+    level: z.number().int().min(0).max(9).optional(),
+    school: z.string().max(32).optional(),
+    castingTime: z.string().max(64).optional(),
+    range: RangeSchema.optional(),
+    components: SpellComponentsSchema.optional(),
+    duration: z.string().max(64).optional(),
+    description: z.string().max(16000).optional(),
+    /** Nested activities/attacks. Edited via a JSON sub-textarea in the
+     *  structured editor; the rules engine validates individual rows. */
+    activities: z.array(z.record(z.string(), z.unknown())).optional()
+  })
+  .passthrough();
+export type SpellData = z.infer<typeof SpellDataSchema>;
+
+const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary', 'artifact'] as const;
+export const Rarity = z.enum(RARITIES);
+
+export const ItemDataSchema = z
+  .object({
+    category: z.string().max(64).optional(),
+    rarity: Rarity.optional(),
+    requiresAttunement: z.boolean().optional(),
+    weight: z.number().nonnegative().optional(),
+    slot: z.string().max(64).optional(),
+    description: z.string().max(16000).optional(),
+    note: z.string().max(2000).optional(),
+    modifiers: z.array(StatModifierSchema).optional()
+  })
+  .passthrough();
+export type ItemData = z.infer<typeof ItemDataSchema>;
+
+const SIZES = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] as const;
+export const MonsterSize = z.enum(SIZES);
+
+const HpSchema = z
+  .object({
+    max: z.number().int().nonnegative().optional(),
+    formula: z.string().max(64).optional()
+  })
+  .passthrough();
+
+export const MonsterDataSchema = z
+  .object({
+    size: MonsterSize.optional(),
+    type: z.string().max(64).optional(),
+    alignment: z.string().max(64).optional(),
+    ac: z.number().int().nonnegative().optional(),
+    acDescription: z.string().max(200).optional(),
+    hp: HpSchema.optional(),
+    speed: z.record(z.string(), z.number().int().nonnegative()).optional(),
+    abilityScores: z.record(Ability, z.number().int().min(1).max(30)).optional(),
+    saves: z.record(Ability, z.number().int()).optional(),
+    vulnerabilities: z.array(z.string()).optional(),
+    immunities: z.array(z.string()).optional(),
+    conditionImmunities: z.array(z.string()).optional(),
+    senses: z.record(z.string(), z.union([z.number().int(), z.string()])).optional(),
+    languages: z.array(z.string()).optional(),
+    cr: z.union([z.number(), z.string()]).optional(),
+    xp: z.number().int().nonnegative().optional(),
+    description: z.string().max(16000).optional(),
+    /** Free-form traits and actions; JSON sub-textareas in the structured
+     *  editor. The engine's monster derive() reads specific fields. */
+    traits: z.array(z.record(z.string(), z.unknown())).optional(),
+    actions: z.array(z.record(z.string(), z.unknown())).optional()
+  })
+  .passthrough();
+export type MonsterData = z.infer<typeof MonsterDataSchema>;
+
+// ---------------------------------------------------------------------------
+// Cross-kind homebrew schemas — registry that the generic /api/homebrew/[kind]
+// CRUD reads to validate POST/PATCH bodies. Kinds with structured editors
+// validate their `data` shape here; kinds without one fall through to
+// `PermissiveData` so the JSON editor can still author them. Once a real
+// schema exists for a kind, swap the entry here and the API enforces it
+// without any other change.
+// ---------------------------------------------------------------------------
+
+const PermissiveData = z.record(z.string(), z.unknown());
+
+export const HOMEBREW_DATA_SCHEMAS = {
+  feat: FeatDataSchema,
+  spell: SpellDataSchema,
+  item: ItemDataSchema,
+  monster: MonsterDataSchema,
+  background: PermissiveData,
+  species: PermissiveData,
+  subspecies: PermissiveData,
+  subclass: PermissiveData,
+  class: PermissiveData,
+  feature: PermissiveData,
+  condition: PermissiveData
+} as const satisfies Record<ContentKind, z.ZodTypeAny>;
+
+export type HomebrewKind = keyof typeof HOMEBREW_DATA_SCHEMAS;
+export const HOMEBREW_KINDS = Object.keys(HOMEBREW_DATA_SCHEMAS) as HomebrewKind[];
+
+export function homebrewSchemaFor(kind: string): z.ZodTypeAny | null {
+  return (HOMEBREW_DATA_SCHEMAS as Record<string, z.ZodTypeAny>)[kind] ?? null;
+}
+
+/** POST /api/homebrew/[kind] body — kind comes from the URL, not the body. */
+export const HomebrewCreate = z.object({
+  slug: Slug,
+  name: z.string().min(1).max(200),
+  data: PermissiveData
+});
+export type HomebrewCreate = z.infer<typeof HomebrewCreate>;
+
+/** PATCH /api/homebrew/[kind]/[slug] body. */
+export const HomebrewPatch = z.object({
+  name: z.string().min(1).max(200).optional(),
+  data: PermissiveData.optional()
+});
+export type HomebrewPatch = z.infer<typeof HomebrewPatch>;
+
+export const Visibility = z.enum(['private', 'unlisted', 'public']);
+export type Visibility = z.infer<typeof Visibility>;
+
+/** PUT /api/homebrew/[kind]/[slug]/visibility body. */
+export const VisibilityPut = z.object({ visibility: Visibility });
+
+/** POST /api/homebrew/[kind]/fork body. Identifies the source row to clone
+ *  and an optional new slug for the caller's copy. */
+export const ForkBody = z.object({
+  /** Source row's slug. */
+  slug: Slug,
+  /** Source row's author. */
+  authorUserId: z.string().min(1),
+  /** Optional new slug for the fork; defaults server-side to
+   *  `{author-username}-{slug}`. Must be unique within (caller, kind). */
+  newSlug: Slug.optional()
+});
+
+/** POST /api/homebrew/subscriptions body. */
+export const SubscriptionCreate = z.object({
+  kind: ContentKind,
+  slug: Slug,
+  authorUserId: z.string().min(1)
+});
+
+/** POST /api/homebrew/reports body. */
+export const ReportCreate = z.object({
+  contentId: z.string().min(1),
+  reason: z.string().min(1).max(1000)
+});
+
+/** PATCH /api/admin/reports/[id] body. */
+export const ReportResolve = z.object({
+  resolution: z.enum(['hidden', 'dismissed'])
+});
+
+/** POST /api/homebrew/[kind]/[slug]/publish body. Publish flips the latest
+ *  draft (publishedAt=null) to a published row; visibility is set in the
+ *  same request because publishing privately doesn't make sense. */
+export const PublishBody = z.object({
+  visibility: z.enum(['public', 'unlisted'])
+});
+
+/** PATCH /api/homebrew/subscriptions/[kind]/[slug]/[authorUserId] body.
+ *  Null `pinnedVersion` = re-subscribe to "track latest published"; a number
+ *  pins explicitly. */
+export const SubscriptionPinPatch = z.object({
+  pinnedVersion: z.number().int().positive().nullable()
+});
+
+/** POST /api/notifications/mark-read body. Either a specific list of
+ *  notification ids or 'all' to clear the caller's full inbox. */
+export const MarkReadBody = z.object({
+  ids: z.union([z.array(z.string().min(1)).max(500), z.literal('all')])
+});
