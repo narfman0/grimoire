@@ -227,17 +227,16 @@
       resolveDamage > 0 &&
       (resolveHit === 'hit' || resolveHit === 'crit')
     ) {
+      // SSR liveEncounter.participants only carries id/name/kind; the HP
+      // seed comes from the Y.Doc snapshot if present, else falls to safe
+      // defaults. Sync-server seeds the map from the participants table
+      // on first load, so by the time the player resolves there's almost
+      // always a Y.Doc value.
+      const live = encState?.participantHp[target.id];
       const seed: ParticipantHp = {
-        currentHp:
-          (encState?.participantHp[target.id]?.currentHp ?? null) ??
-          (target as { currentHp: number | null }).currentHp ?? null,
-        tempHp:
-          encState?.participantHp[target.id]?.tempHp ??
-          (target as { tempHp?: number }).tempHp ??
-          0,
-        conditions:
-          encState?.participantHp[target.id]?.conditions ??
-          ((target as { conditions?: string[] }).conditions ?? [])
+        currentHp: live?.currentHp ?? null,
+        tempHp: live?.tempHp ?? 0,
+        conditions: live?.conditions ?? []
       };
       targetHpBefore = seed.currentHp;
       const next = applyEncDamage(encConn.ydoc, target.id, resolveDamage, seed);
@@ -488,9 +487,10 @@
     asiBumps: Array<{ ability: string; bonus: number }>;
   } | null = null;
 
-  $: subclassOptionsForLevelup = levelingUp
-    ? data.subclassOptions.filter((s) => s.parentClass === levelingUp.classSlug)
-    : [];
+  $: subclassOptionsForLevelup = (() => {
+    const lvl = levelingUp;
+    return lvl ? data.subclassOptions.filter((s) => s.parentClass === lvl.classSlug) : [];
+  })();
 
   function startLevelUp(classSlug: string) {
     if (!document) return;

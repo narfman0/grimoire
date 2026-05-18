@@ -78,8 +78,8 @@ export interface EncounterConnectOptions {
 }
 
 function defaultUrl(): string {
-  if (typeof location === 'undefined') return 'ws://localhost:1234';
-  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:1234`;
+  if (typeof location === 'undefined') return 'ws://localhost:47474';
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:47474`;
 }
 
 function snapshot(ydoc: Y.Doc): EncounterSnapshot | null {

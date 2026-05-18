@@ -60,6 +60,7 @@
     ended: data.encounters.filter((e) => e.status === 'ended')
   };
 
+  const STATUSES = ['live', 'staging', 'ended'] as const;
   const STATUS_LABEL: Record<string, string> = {
     live: 'live',
     staging: 'staging',
@@ -110,7 +111,7 @@
   </section>
 {/if}
 
-{#each ['live', 'staging', 'ended'] as status (status)}
+{#each STATUSES as status (status)}
   {@const items = byStatus[status]}
   {#if items.length > 0}
     <section class="mb-6">

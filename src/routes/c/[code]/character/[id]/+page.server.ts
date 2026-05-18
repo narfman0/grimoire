@@ -45,24 +45,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   if (characterRows.length === 0) throw error(404, 'character not found in this campaign');
   const character = characterRows[0];
 
-  if (!character.document) {
-    return {
-      campaign,
-      user: locals.user,
-      role: membership.role,
-      character: {
-        id: character.id,
-        name: character.name,
-        updatedAt: character.updatedAt.getTime()
-      },
-      document: null,
-      derived: null
-    };
-  }
-
-  const document = JSON.parse(character.document) as CharacterDocument;
+  // Hoist lookups above the "no document" early-return so the page always
+  // sees the same shape. When the character has no document yet, derived
+  // + liveEncounter are null but the picker option lists still load —
+  // simpler client typing, no narrowing-then-undefined cascade.
+  const document = character.document ? (JSON.parse(character.document) as CharacterDocument) : null;
   const { lookup, map: contentMap } = await buildContentLookup();
-  const derived = derive(document, lookup);
+  const derived = document ? derive(document, lookup) : null;
 
   // Item picker options for the inventory section.
   const itemRows = await db
@@ -225,7 +214,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       updatedAt: character.updatedAt.getTime()
     },
     document,
-    derived: serializeDerived(derived),
+    derived: derived ? serializeDerived(derived) : null,
     // Ship the content lookup to the client so derive() can re-run there
     // on every Y.Doc update (M2.3). ~200 KB; revisit when scale matters.
     contentMap,

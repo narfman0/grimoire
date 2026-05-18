@@ -40,7 +40,7 @@ pnpm install                         # installs root + sync-server
 pnpm db:generate                     # produces drizzle/0000_*.sql
 pnpm migrate                         # applies it to ./grimoire.db
 pnpm dev                             # SvelteKit on :5173
-pnpm --filter @grimoire/sync-server dev   # Hocuspocus on :1234
+pnpm --filter @grimoire/sync-server dev   # Hocuspocus on :47474
 ```
 
 If `better-sqlite3` fails to build, you'll need `python3`, `make`, and a

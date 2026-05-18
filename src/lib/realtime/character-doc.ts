@@ -24,7 +24,7 @@ export interface ConnectedDoc {
 }
 
 export interface ConnectOptions {
-  /** Defaults to `ws://${location.hostname}:1234` when run in browser. */
+  /** Defaults to `ws://${location.hostname}:47474` when run in browser. */
   url?: string;
   /** Session id from the grimoire_session cookie (the page needs to expose this — see below). */
   token: string;
@@ -33,8 +33,8 @@ export interface ConnectOptions {
 }
 
 function defaultUrl(): string {
-  if (typeof location === 'undefined') return 'ws://localhost:1234';
-  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:1234`;
+  if (typeof location === 'undefined') return 'ws://localhost:47474';
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:47474`;
 }
 
 /**

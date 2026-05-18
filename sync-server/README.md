@@ -17,7 +17,7 @@ pnpm install            # from the repo root, installs both packages
 pnpm --filter @grimoire/sync-server dev
 ```
 
-Defaults: listens on `:1234`, persists to `../grimoire.db` (override with
+Defaults: listens on `:47474`, persists to `../grimoire.db` (override with
 `DATABASE_URL` and `SYNC_PORT`).
 
 ## Notes

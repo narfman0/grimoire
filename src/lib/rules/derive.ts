@@ -8,7 +8,7 @@
 //
 // Pure function. No I/O, no clock, no random.
 
-import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor } from './evaluate';
+import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor, type EvalContext } from './evaluate';
 import { applyNumericMode, defaultPriority, type Mode } from './modes';
 import { predicateMatches, type PredicateContext } from './predicates';
 import { SKILLS, SKILL_ABILITY } from './skills';
@@ -511,7 +511,7 @@ function applyTarget(
   character: CharacterDocument,
   target: string,
   base: number,
-  ctx: { totalLevel: number; proficiencyBonus: number; rageDamage: number }
+  ctx: EvalContext
 ): number | unknown {
   const targeted = mods.filter(
     (m) => m.kind === 'stat-modifier' && (m.raw.target as string) === target
@@ -551,7 +551,7 @@ function computeAC(
   active: ActiveContent[],
   abilities: Record<AbilityKey, AbilityCell>,
   mods: ActiveModifier[],
-  ctx: { totalLevel: number; proficiencyBonus: number; rageDamage: number }
+  ctx: EvalContext
 ): number {
   // Find equipped armor (category=armor, armorType !== 'shield')
   let armor: ActiveContent | undefined;
@@ -610,7 +610,7 @@ function computeSpeeds(
   active: ActiveContent[],
   mods: ActiveModifier[],
   character: CharacterDocument,
-  ctx: { totalLevel: number; proficiencyBonus: number; rageDamage: number }
+  ctx: EvalContext
 ): Record<string, number> {
   const speeds: Record<string, number> = { walk: 30 };
   // Pull species/subspecies base speeds
@@ -917,7 +917,7 @@ function buildActionContext(action: Action): PredicateContext {
 function applyActionEffect(
   action: Action,
   eff: Record<string, unknown>,
-  ctx: { totalLevel: number; proficiencyBonus: number; rageDamage: number }
+  ctx: EvalContext
 ): void {
   const target = eff.target as string | undefined;
   const mode = ((eff.mode as Mode) ?? 'ADD') as Mode;

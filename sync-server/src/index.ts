@@ -31,7 +31,7 @@ import {
 } from '@hocuspocus/server';
 import * as Y from 'yjs';
 
-const PORT = Number(process.env.SYNC_PORT ?? 1234);
+const PORT = Number(process.env.SYNC_PORT ?? 47474);
 const DB_PATH = process.env.DATABASE_URL ?? './grimoire.db';
 
 interface AuthContext {
