@@ -1905,41 +1905,6 @@
           </ul>
         </div>
       {/if}
-      {#if derived.resources.length > 0}
-        <div>
-          <h2 class="mb-2 text-sm font-semibold text-slate-200">Resources</h2>
-          <ul class="space-y-1 text-sm">
-            {#each derived.resources as r}
-              {@const remaining = r.max - r.used}
-              <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1">
-                <span>
-                  <span class="font-semibold">{r.name}</span>
-                  <span class="ml-1 font-mono text-xs">{remaining} / {r.max}</span>
-                  <span class="ml-1 text-xs text-slate-500">/{r.per}</span>
-                </span>
-                <span class="flex items-center gap-1">
-                  <button
-                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-                    disabled={busy || remaining === 0}
-                    title="Use one"
-                    on:click={() => adjustResource(r.id, 1, r.max)}
-                  >
-                    Use
-                  </button>
-                  <button
-                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-                    disabled={busy || r.used === 0}
-                    title="Restore one"
-                    on:click={() => adjustResource(r.id, -1, r.max)}
-                  >
-                    +1
-                  </button>
-                </span>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
     </section>
   {/if}
 
