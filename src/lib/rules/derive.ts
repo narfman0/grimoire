@@ -283,6 +283,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // (g) Spellcasting
   const spellInfo = computeSpellcasting(character, active, abilities, proficiencyBonus, content);
 
+  // Overlay spell-slot consumption from character.resourcesSpent. Slot keys
+  // use `spell-slot/L<n>` so they don't collide with activity/trigger ids.
+  // Capped at max so a stale spend value can't go negative.
+  const slotSpent = character.resourcesSpent ?? {};
+  for (const [lvlStr, slot] of Object.entries(spellInfo.slots)) {
+    const lvl = Number(lvlStr);
+    const used = slotSpent[`spell-slot/L${lvl}`] ?? 0;
+    spellInfo.slots[lvl] = { max: slot.max, used: Math.min(slot.max, Math.max(0, used)) };
+  }
+
   // (h) Resistances/immunities/vulnerabilities
   const resistances = new Set<string>();
   const immunities = new Set<string>();

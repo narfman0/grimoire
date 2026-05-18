@@ -39,6 +39,9 @@
   let healInput = 0;
   let tempHpDraft = data.document?.tempHp ?? 0;
   let restNote: string | null = null;
+  /** When true, the hit-dice list is visible inline beneath the Rest row.
+   *  Toggled by the Short Rest button; auto-collapses on Long Rest. */
+  let restingShort = false;
 
   // Svelte 4 inline expressions are plain JS — TS `as` casts must live in
   // script-block helpers, not in event handlers.
@@ -671,12 +674,21 @@
     }
   }
 
+  /** Clear all `spell-slot/L<n>` entries from resourcesSpent — used on long rest. */
+  function resetSpellSlots(d: NonNullable<typeof document>) {
+    d.resourcesSpent ??= {};
+    for (const key of Object.keys(d.resourcesSpent)) {
+      if (key.startsWith('spell-slot/L')) d.resourcesSpent[key] = 0;
+    }
+  }
+
   async function shortRest() {
     if (!derived) return;
     await patchDocument((d) => {
       resetResourcesByPer(d, 'short-rest');
     });
-    restNote = 'Short rest — short-rest resources restored. Spend hit dice above as needed.';
+    restingShort = true;
+    restNote = 'Short rest — short-rest resources restored. Spend hit dice below as needed.';
   }
 
   async function longRest() {
@@ -692,15 +704,40 @@
         d.hitDiceSpent[c.slug] = Math.max(0, spent - recovered);
       }
       // Reset per-long-rest AND per-short-rest resources (long rest covers
-      // short-rest features too).
+      // short-rest features too) AND spell slots.
       resetResourcesByPer(d, 'long-rest');
       resetResourcesByPer(d, 'short-rest');
+      resetSpellSlots(d);
       // Toggles (Reckless, GWM…) are per-turn / per-attack choices — don't
       // reset them on rest. Conditions like "frightened" generally end on a
       // long rest unless the source persists, but we don't track durations
       // yet, so leave them — DM adjudicates.
     });
+    restingShort = false;
     restNote = 'Long rest complete.';
+  }
+
+  // Spell-slot consumption keys (matches derive.ts overlay).
+  function slotKey(level: number): string {
+    return `spell-slot/L${level}`;
+  }
+  async function spendSlot(level: number) {
+    if (!derived) return;
+    const slot = derived.stats.spellSlots[level];
+    if (!slot || slot.used >= slot.max) return;
+    await patchDocument((d) => {
+      d.resourcesSpent ??= {};
+      d.resourcesSpent[slotKey(level)] = Math.min(slot.max, (d.resourcesSpent[slotKey(level)] ?? 0) + 1);
+    });
+  }
+  async function restoreSlot(level: number) {
+    if (!derived) return;
+    const slot = derived.stats.spellSlots[level];
+    if (!slot || slot.used <= 0) return;
+    await patchDocument((d) => {
+      d.resourcesSpent ??= {};
+      d.resourcesSpent[slotKey(level)] = Math.max(0, (d.resourcesSpent[slotKey(level)] ?? 0) - 1);
+    });
   }
 </script>
 
@@ -930,6 +967,27 @@
 {/if}
 
 {#if document && derived}
+  <!-- ===== Stats / saves / skills / actions (read-only) — sits above the
+       in-encounter mutable cluster so the static stuff is the first thing
+       a player sees. ===== -->
+  <Sheet derived={derived} />
+
+  <!-- Compact level-up row: one tiny ↑ button per class. Form panel below
+       only renders when a draft is active. -->
+  <section class="mb-6 flex flex-wrap items-center gap-2 text-xs">
+    <span class="text-slate-500">Level up:</span>
+    {#each document.classes as cls}
+      <button
+        class="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
+        disabled={busy || cls.level >= 20}
+        title="Bump {cls.slug} to L{cls.level + 1}"
+        on:click={() => startLevelUp(cls.slug)}
+      >
+        ↑ {cls.slug} L{cls.level}
+      </button>
+    {/each}
+  </section>
+
   <!-- ===== Edit panel: HP / hit dice / conditions / toggles / rest ===== -->
   <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
     <!-- HP -->
@@ -977,36 +1035,16 @@
       </div>
     </div>
 
-    <!-- Hit dice + rests -->
+    <!-- Rests (hit dice surfaces inline when short-resting) -->
     <div>
-      <h2 class="mb-2 text-sm font-semibold text-slate-200">Hit dice</h2>
-      <ul class="space-y-1 text-sm">
-        {#each document.classes as cls}
-          {@const spent = document.hitDiceSpent[cls.slug] ?? 0}
-          {@const remaining = cls.level - spent}
-          <li class="flex items-center justify-between gap-2">
-            <span>
-              <span class="font-mono">{remaining} / {cls.level}</span>
-              <span class="ml-2 capitalize text-slate-400">{cls.slug}</span>
-            </span>
-            <button
-              class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-              disabled={busy || remaining === 0}
-              on:click={() => spendHitDie(cls.slug)}
-            >
-              Spend 1
-            </button>
-          </li>
-        {/each}
-      </ul>
-
-      <div class="mt-4 flex gap-2">
+      <h2 class="mb-2 text-sm font-semibold text-slate-200">Rest</h2>
+      <div class="flex gap-2">
         <button
           class="flex-1 rounded border border-slate-600 px-3 py-2 text-sm hover:bg-slate-800"
           disabled={busy}
           on:click={shortRest}
         >
-          Short rest
+          {restingShort ? 'Short rest — pick hit dice ↓' : 'Short rest'}
         </button>
         <button
           class="flex-1 rounded bg-slate-700 px-3 py-2 text-sm hover:bg-slate-600"
@@ -1017,11 +1055,120 @@
         </button>
       </div>
 
+      {#if restingShort}
+        <div class="mt-3 rounded border border-slate-700 bg-slate-950/40 p-2">
+          <div class="mb-1 flex items-baseline justify-between">
+            <h3 class="text-xs font-semibold text-slate-300">Hit dice</h3>
+            <button
+              class="text-xs text-slate-500 hover:text-slate-300"
+              on:click={() => (restingShort = false)}
+            >
+              done
+            </button>
+          </div>
+          <ul class="space-y-1 text-sm">
+            {#each document.classes as cls}
+              {@const spent = document.hitDiceSpent[cls.slug] ?? 0}
+              {@const remaining = cls.level - spent}
+              <li class="flex items-center justify-between gap-2">
+                <span>
+                  <span class="font-mono">{remaining} / {cls.level}</span>
+                  <span class="ml-2 capitalize text-slate-400">{cls.slug}</span>
+                </span>
+                <button
+                  class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy || remaining === 0}
+                  on:click={() => spendHitDie(cls.slug)}
+                >
+                  Spend 1
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
       {#if restNote}
         <p class="mt-2 text-xs text-slate-400">{restNote}</p>
       {/if}
     </div>
   </section>
+
+  <!-- Spell slots + resources (mutable cluster) -->
+  {@const slotLevels = Object.keys(derived.stats.spellSlots).map(Number).sort((a, b) => a - b)}
+  {#if slotLevels.length > 0 || derived.resources.length > 0}
+    <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
+      {#if slotLevels.length > 0}
+        <div>
+          <h2 class="mb-2 text-sm font-semibold text-slate-200">Spell slots</h2>
+          <ul class="space-y-1 text-sm">
+            {#each slotLevels as lvl}
+              {@const slot = derived.stats.spellSlots[lvl]}
+              {@const remaining = slot.max - slot.used}
+              <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1">
+                <span class="font-mono text-xs">
+                  L{lvl} <span class="ml-1">{remaining} / {slot.max}</span>
+                </span>
+                <span class="flex items-center gap-1">
+                  <button
+                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                    disabled={busy || remaining === 0}
+                    title="Cast — consume one slot"
+                    on:click={() => spendSlot(lvl)}
+                  >
+                    Use
+                  </button>
+                  <button
+                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                    disabled={busy || slot.used === 0}
+                    title="Restore one slot"
+                    on:click={() => restoreSlot(lvl)}
+                  >
+                    +1
+                  </button>
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+      {#if derived.resources.length > 0}
+        <div>
+          <h2 class="mb-2 text-sm font-semibold text-slate-200">Resources</h2>
+          <ul class="space-y-1 text-sm">
+            {#each derived.resources as r}
+              {@const remaining = r.max - r.used}
+              <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1">
+                <span>
+                  <span class="font-semibold">{r.name}</span>
+                  <span class="ml-1 font-mono text-xs">{remaining} / {r.max}</span>
+                  <span class="ml-1 text-xs text-slate-500">/{r.per}</span>
+                </span>
+                <span class="flex items-center gap-1">
+                  <button
+                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                    disabled={busy || remaining === 0}
+                    title="Use one"
+                    on:click={() => adjustResource(r.id, 1, r.max)}
+                  >
+                    Use
+                  </button>
+                  <button
+                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                    disabled={busy || r.used === 0}
+                    title="Restore one"
+                    on:click={() => adjustResource(r.id, -1, r.max)}
+                  >
+                    +1
+                  </button>
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+    </section>
+  {/if}
 
   <!-- Conditions + toggles -->
   <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
@@ -1182,17 +1329,16 @@
     </section>
   {/if}
 
-  <!-- Level up -->
-  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-    <h2 class="mb-3 text-sm font-semibold text-slate-200">Level up</h2>
-    {#if levelingUp}
-      {@const draft = levelingUp}
+  <!-- Level-up draft (only when active; trigger icons live in the compact
+       row up top). -->
+  {#if levelingUp}
+    {@const draft = levelingUp}
+    <section class="mb-6 rounded-lg border border-emerald-800 bg-emerald-950/20 p-4">
+      <h2 class="mb-3 text-sm font-semibold text-emerald-200">
+        Leveling up: <span class="capitalize">{draft.classSlug}</span>
+        → <span class="font-mono">L{draft.newLevel}</span>
+      </h2>
       <div class="space-y-3 text-sm">
-        <p>
-          Bumping <span class="capitalize">{draft.classSlug}</span> to
-          <span class="font-mono">L{draft.newLevel}</span>.
-        </p>
-
         {#if draft.needsSubclass}
           <label class="block">
             <span class="mb-1 block text-xs uppercase tracking-wide text-slate-500">Subclass</span>
@@ -1253,30 +1399,15 @@
             disabled={busy}
             on:click={confirmLevelUp}
           >
-            Confirm level-up
+            Confirm
           </button>
           <button class="rounded border border-slate-600 px-3 py-1 hover:bg-slate-800" disabled={busy} on:click={cancelLevelUp}>
             Cancel
           </button>
         </div>
       </div>
-    {:else}
-      <p class="mb-3 text-xs text-slate-500">
-        Adds 1 level + average HP. Prompts for subclass at L3 and ASI at L4/8/12/16/19.
-      </p>
-      <div class="flex flex-wrap gap-2">
-        {#each document.classes as cls}
-          <button
-            class="rounded border border-slate-600 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
-            disabled={busy || cls.level >= 20}
-            on:click={() => startLevelUp(cls.slug)}
-          >
-            Level up {cls.slug} (L{cls.level} → L{cls.level + 1})
-          </button>
-        {/each}
-      </div>
-    {/if}
-  </section>
+    </section>
+  {/if}
 
   <!-- Inventory -->
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
@@ -1396,44 +1527,6 @@
     </section>
   {/if}
 
-  <!-- Resources (rage, channel divinity, Relentless Endurance, etc.) -->
-  {#if derived.resources.length > 0}
-    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-      <h2 class="mb-3 text-sm font-semibold text-slate-200">Resources</h2>
-      <ul class="grid gap-2 md:grid-cols-2">
-        {#each derived.resources as r}
-          {@const remaining = r.max - r.used}
-          <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-3 py-2">
-            <div>
-              <span class="font-semibold">{r.name}</span>
-              <span class="ml-2 text-xs text-slate-500">per {r.per}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="font-mono">{remaining} / {r.max}</span>
-              <button
-                class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-                disabled={busy || remaining === 0}
-                title="Use one"
-                on:click={() => adjustResource(r.id, 1, r.max)}
-              >
-                Use
-              </button>
-              <button
-                class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-                disabled={busy || r.used === 0}
-                title="Restore one"
-                on:click={() => adjustResource(r.id, -1, r.max)}
-              >
-                +1
-              </button>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  <Sheet derived={derived} />
 {:else}
   <section class="rounded-lg border border-amber-800 bg-amber-950/30 p-6 text-sm">
     <h2 class="text-base font-semibold text-amber-200">No character document</h2>
