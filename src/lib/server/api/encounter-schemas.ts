@@ -86,7 +86,10 @@ export const UpdateParticipantRequest = z
 
 // ---- Action log (M3.5b) ----
 
-export const HitOutcome = z.enum(['hit', 'miss', 'crit', 'fumble', 'heal']);
+/** Outcome the submitter declared. `saved` / `failed-save` apply to save-DC
+ *  actions (Fireball, Hold Person); attack-roll actions use hit/miss/crit/
+ *  fumble. `heal` flips the damageRoll into healing. */
+export const HitOutcome = z.enum(['hit', 'miss', 'crit', 'fumble', 'heal', 'saved', 'failed-save']);
 
 export const ActionLogEntry = z
   .object({

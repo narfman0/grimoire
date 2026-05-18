@@ -112,7 +112,7 @@
   let resolveOpen = false;
   let resolveAttack: number | null = null;
   let resolveDamage: number | null = null;
-  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' = '';
+  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' | 'saved' | 'failed-save' = '';
   let resolveNotes = '';
   let resolveSubmitting = false;
   let resolveError: string | null = null;
@@ -191,6 +191,7 @@
             name: a.name,
             costLabel: costLabel(a.cost),
             attackBonus: a.attackBonus ?? null,
+            saveDC: a.saveDC ?? null,
             range: a.range,
             isFavorite: favorites.has(a.id),
             recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY,
@@ -205,6 +206,13 @@
           return a.name.localeCompare(b.name);
         })
     : [];
+
+  /** The currently-picked or planned action; drives save-vs-attack mode in resolve. */
+  $: pickedAction =
+    actionOptions.find((a) => a.id === planActionId) ??
+    actionOptions.find((a) => a.id === myPlan?.actionId) ??
+    null;
+  $: isSaveAction = !!pickedAction?.saveDC;
 
   /** Walking speed in feet — used as the movement budget. Falls back to 30. */
   $: walkSpeed = derived?.stats.speeds.walk ?? 30;
@@ -277,7 +285,11 @@
       target.kind !== 'pc' &&
       typeof resolveDamage === 'number' &&
       resolveDamage > 0 &&
-      (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'heal')
+      (resolveHit === 'hit' ||
+        resolveHit === 'crit' ||
+        resolveHit === 'heal' ||
+        resolveHit === 'saved' ||
+        resolveHit === 'failed-save')
     ) {
       const live = encState?.participantHp[target.id];
       const seed: ParticipantHp = {
@@ -286,10 +298,19 @@
         conditions: live?.conditions ?? []
       };
       targetHpBefore = seed.currentHp;
-      const next =
-        resolveHit === 'heal'
-          ? applyEncHeal(encConn.ydoc, target.id, resolveDamage, target.maxHp, seed)
-          : applyEncDamage(encConn.ydoc, target.id, resolveDamage, seed);
+      // Damage scaling per outcome:
+      //   hit/crit/failed-save → full damage
+      //   saved → half (rounded down) — covers the common DEX/CON-half-on-save pattern
+      //   heal → full healing (flipped)
+      const effectiveAmount = resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+      let next: ParticipantHp;
+      if (effectiveAmount === 0) {
+        next = seed;
+      } else if (resolveHit === 'heal') {
+        next = applyEncHeal(encConn.ydoc, target.id, resolveDamage, target.maxHp, seed);
+      } else {
+        next = applyEncDamage(encConn.ydoc, target.id, effectiveAmount, seed);
+      }
       targetHpAfter = next.currentHp;
     }
 
@@ -996,13 +1017,21 @@
             targets when you mark hit/crit and provide damage; the log captures
             whatever you submit and the DM can amend.
           </p>
+          {#if isSaveAction && pickedAction?.saveDC}
+            <p class="mb-2 inline-block rounded bg-indigo-950/40 px-2 py-0.5 text-[11px] text-indigo-200">
+              Save DC {pickedAction.saveDC.value} ({pickedAction.saveDC.ability.toUpperCase()})
+              — target rolls a save; full damage on fail, half on success.
+            </p>
+          {/if}
           <div class="flex flex-wrap items-end gap-2">
             <label>
-              <span class="block text-slate-400">Attack total</span>
+              <span class="block text-slate-400">
+                {isSaveAction ? 'Target save roll' : 'Attack total'}
+              </span>
               <input
                 type="number"
                 class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-                placeholder="d20+mod"
+                placeholder={isSaveAction ? 'd20+save' : 'd20+mod'}
                 bind:value={resolveAttack}
               />
             </label>
@@ -1022,10 +1051,15 @@
                 bind:value={resolveHit}
               >
                 <option value="">— let DM decide —</option>
-                <option value="hit">hit</option>
-                <option value="crit">crit</option>
-                <option value="miss">miss</option>
-                <option value="fumble">fumble</option>
+                {#if isSaveAction}
+                  <option value="saved">saved (half)</option>
+                  <option value="failed-save">failed save (full)</option>
+                {:else}
+                  <option value="hit">hit</option>
+                  <option value="crit">crit</option>
+                  <option value="miss">miss</option>
+                  <option value="fumble">fumble</option>
+                {/if}
                 <option value="heal">heal</option>
               </select>
             </label>

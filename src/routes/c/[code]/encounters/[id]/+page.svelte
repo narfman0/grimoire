@@ -13,7 +13,7 @@
     type ParticipantHp
   } from '$lib/realtime/encounter-doc';
 
-  type HitOutcome = '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal';
+  type HitOutcome = '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' | 'saved' | 'failed-save';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -160,14 +160,23 @@
       target.kind !== 'pc' &&
       typeof resolveDamage === 'number' &&
       resolveDamage > 0 &&
-      (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'heal')
+      (resolveHit === 'hit' ||
+        resolveHit === 'crit' ||
+        resolveHit === 'heal' ||
+        resolveHit === 'saved' ||
+        resolveHit === 'failed-save')
     ) {
       const seed = seedFor(target);
       targetHpBefore = seed.currentHp;
-      const next =
-        resolveHit === 'heal'
-          ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
-          : doApplyDamage(conn.ydoc, target.id, resolveDamage, seed);
+      // Saved → half damage (rounded down). Heal flips to applyHeal.
+      const effective = resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+      let next = seed;
+      if (effective > 0 || resolveHit === 'heal') {
+        next =
+          resolveHit === 'heal'
+            ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
+            : doApplyDamage(conn.ydoc, target.id, effective, seed);
+      }
       targetHpAfter = next.currentHp;
     }
 
@@ -277,16 +286,24 @@
       target.kind !== 'pc' &&
       typeof resolveDamage === 'number' &&
       resolveDamage > 0 &&
-      (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'heal')
+      (resolveHit === 'hit' ||
+        resolveHit === 'crit' ||
+        resolveHit === 'heal' ||
+        resolveHit === 'saved' ||
+        resolveHit === 'failed-save')
     ) {
       // Re-read seed *after* the revert so we capture the corrected starting HP.
       const live = liveState?.participantHp[target.id];
       const seed: ParticipantHp = live ?? seedFor(target);
       targetHpBefore = seed.currentHp;
-      const next =
-        resolveHit === 'heal'
-          ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
-          : doApplyDamage(conn.ydoc, target.id, resolveDamage, seed);
+      const effective = resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+      let next = seed;
+      if (effective > 0 || resolveHit === 'heal') {
+        next =
+          resolveHit === 'heal'
+            ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
+            : doApplyDamage(conn.ydoc, target.id, effective, seed);
+      }
       targetHpAfter = next.currentHp;
     }
 
@@ -1149,6 +1166,8 @@
           <option value="crit">crit</option>
           <option value="miss">miss</option>
           <option value="fumble">fumble</option>
+          <option value="saved">saved (half dmg)</option>
+          <option value="failed-save">failed save</option>
           <option value="heal">heal</option>
         </select>
       </label>
