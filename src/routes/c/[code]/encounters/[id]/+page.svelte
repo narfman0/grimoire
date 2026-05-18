@@ -1,10 +1,52 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { onDestroy, onMount } from 'svelte';
+  import {
+    connectEncounterDoc,
+    setEncounterTurn,
+    type ConnectedEncounter,
+    type EncounterSnapshot
+  } from '$lib/realtime/encounter-doc';
   import type { PageData } from './$types';
 
   export let data: PageData;
 
   let busy = false;
+
+  // M3.3 — realtime encounter state. We connect to room `encounter:<id>` and
+  // mirror round + activeParticipantId via a Y.Doc. The DM's "next turn"
+  // button writes to the Y.Doc (one shot); every other connected tab
+  // observes the update within a tick. We fall back to the SSR snapshot
+  // when the sync server is offline.
+  let conn: ConnectedEncounter | null = null;
+  let liveState: EncounterSnapshot | null = null;
+  let connStatus: 'connecting' | 'open' | 'closed' | 'auth-failed' = 'connecting';
+
+  onMount(() => {
+    if (!data.syncToken) return;
+    conn = connectEncounterDoc({ token: data.syncToken, encounterId: data.encounter.id });
+    const unsubState = conn.state.subscribe((v) => (liveState = v));
+    const unsubStatus = conn.status.subscribe((s) => {
+      connStatus = s;
+      // When the server flushed our last update back to the row, the page
+      // data may be stale (participants table HP, etc.). Rare event, but
+      // refresh on (re)connect so SSR-only fields stay accurate.
+      if (s === 'open') invalidateAll().catch(() => {});
+    });
+    return () => {
+      unsubState();
+      unsubStatus();
+    };
+  });
+
+  onDestroy(() => {
+    conn?.destroy();
+    conn = null;
+  });
+
+  // Effective values: prefer Y.Doc snapshot when connected, fall back to SSR.
+  $: liveRound = liveState?.round ?? data.encounter.round;
+  $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
 
   // Add-participant draft state
   let newKind: 'pc' | 'npc' | 'monster' = 'monster';
@@ -101,21 +143,32 @@
     if (data.role !== 'dm') return;
     const ordered = [...data.participants];
     if (ordered.length === 0) return;
-    const idx = ordered.findIndex((p) => p.id === data.encounter.activeParticipantId);
+    const currentActive = liveActive;
+    const currentRound = liveRound;
+    const idx = ordered.findIndex((p) => p.id === currentActive);
     let nextIdx = idx + direction;
     if (nextIdx < 0) nextIdx = ordered.length - 1;
     if (nextIdx >= ordered.length) nextIdx = 0;
     const wrapped = direction === 1 && idx === ordered.length - 1;
-    const newRound = wrapped ? data.encounter.round + 1 : data.encounter.round;
+    const baseRound = currentRound === 0 ? 1 : currentRound;
+    const newRound = wrapped ? baseRound + 1 : baseRound;
+    const nextActive = ordered[nextIdx].id;
+
+    // Preferred path: write via the Y.Doc — propagates to all connected
+    // clients (other DM tabs + players) within a tick, and the sync-server
+    // flushes the change to the encounters row on the next debounced store.
+    if (conn && connStatus === 'open') {
+      setEncounterTurn(conn.ydoc, { round: newRound, activeParticipantId: nextActive });
+      return;
+    }
+
+    // Fallback: REST PATCH when the sync server is offline.
     busy = true;
     try {
       await fetch(`/api/encounters/${data.encounter.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          activeParticipantId: ordered[nextIdx].id,
-          round: newRound === 0 ? 1 : newRound
-        })
+        body: JSON.stringify({ activeParticipantId: nextActive, round: newRound })
       });
       await invalidateAll();
     } finally {
@@ -141,7 +194,17 @@
         {data.encounter.status}
       </span>
       {#if data.encounter.status === 'live'}
-        &middot; round {data.encounter.round}
+        &middot; round {liveRound}
+      {/if}
+      {#if conn}
+        <span
+          class="ml-2 inline-block h-2 w-2 rounded-full {connStatus === 'open'
+            ? 'bg-emerald-500'
+            : connStatus === 'connecting'
+              ? 'bg-amber-500'
+              : 'bg-slate-600'}"
+          title={connStatus === 'open' ? 'live sync connected' : `sync: ${connStatus}`}
+        ></span>
       {/if}
     </p>
   </div>
@@ -160,7 +223,11 @@
       Next turn →
     </button>
     <span class="ml-auto text-xs text-slate-500">
-      v0: M3.3 will sync turn state via Y.Doc + show projected turns.
+      {#if connStatus === 'open'}
+        synced live · others see your turn changes in real time
+      {:else}
+        offline · falling back to REST
+      {/if}
     </span>
   </section>
 {/if}
@@ -173,7 +240,7 @@
   {:else}
     <ul class="mb-3 divide-y divide-slate-800">
       {#each data.participants as p (p.id)}
-        {@const isActive = p.id === data.encounter.activeParticipantId}
+        {@const isActive = p.id === liveActive}
         <li class="flex items-center gap-3 py-2 text-sm {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}">
           <span class="font-mono text-xs text-slate-500 w-8">
             {#if p.initiative != null}
@@ -313,7 +380,8 @@
 </section>
 
 <p class="text-xs text-slate-500">
-  M3.1 ships the basic CRUD. M3.2 adds a monster picker from packs;
-  M3.3 syncs turn state via Y.Doc + projected-turn views; M3.4 surfaces
-  per-player turn planners on the character sheet.
+  M3.3 syncs round + active-turn state across all connected clients via
+  Y.Doc. Per-participant HP still flows through REST (PATCH /api/participants);
+  M3.4 promotes that into the same live channel and surfaces a player
+  turn planner on the character sheet.
 </p>

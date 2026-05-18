@@ -166,6 +166,10 @@ export const encounters = sqliteTable('encounters', {
   round: integer('round').notNull().default(0), // 0 pre-combat, 1+ active round
   activeParticipantId: text('active_participant_id'),
   notesJson: text('notes_json'), // arbitrary DM notes
+  /** Y.Doc state for live encounter sync (round + activeParticipantId
+   *  propagation in M3.3; per-participant HP in M3.4+). Hydrated on demand
+   *  from the row's other columns when no prior state exists. */
+  yjsState: blob('yjs_state'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   endedAt: integer('ended_at', { mode: 'timestamp_ms' })
 });

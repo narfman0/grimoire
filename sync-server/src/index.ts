@@ -1,24 +1,24 @@
 // Grimoire sync-server — Hocuspocus websocket server.
 //
 // Brokers Y.Doc updates between players editing the same character sheet
-// and persists everything to the shared sqlite file the SvelteKit web
-// app uses. Each Y.Doc room name follows `character:<uuid>`.
+// (or watching the same live encounter) and persists everything to the
+// shared sqlite file the SvelteKit web app uses.
+//
+// Rooms:
+//   character:<uuid>  — one Y.Doc per character (M2)
+//   encounter:<uuid>  — one Y.Doc per encounter (M3.3+)
 //
 // Auth: clients pass their grimoire_session cookie value as `token` in
-// the Hocuspocus connect params. We look the session up in the same
-// `sessions` table grimoire's web app reads, verify membership in the
-// character's campaign, and attach the user info to the connection
-// context.
+// the Hocuspocus connect params. We resolve the session, then check
+// membership in the relevant campaign for the requested room.
 //
-// Persistence: Hocuspocus tracks live Y.Doc state in-memory; we hook
-// onStoreDocument (debounced ~3s by Hocuspocus) to write the Y.Doc
-// state into characters.yjs_state as a binary blob. On onLoadDocument
-// we hydrate from yjs_state if present, else from the structural JSON
-// in characters.document.
-//
-// Note: not using @hocuspocus/extension-sqlite — that puts state in its
-// own tables. We persist directly into the existing `characters` table
-// so we have one source of truth aligned with the data model.
+// Persistence: Hocuspocus tracks live Y.Doc state in-memory; onStoreDocument
+// (debounced ~3s) writes binary Y.Doc state into the owning row's
+// `yjs_state` column. For characters we also decode back to the
+// `document` JSON column so SSR/API/rules-engine stay in sync. For
+// encounters we mirror the live keys (round, activeParticipantId) into
+// the encounters table so cold reads + REST PATCH fallbacks see the
+// authoritative state.
 
 import Database from 'better-sqlite3';
 import {
@@ -43,6 +43,10 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// ---------------------------------------------------------------------------
+// Session / membership lookups (shared)
+// ---------------------------------------------------------------------------
+
 const findSession = db.prepare<
   [string, number],
   { user_id: string; username: string }
@@ -52,10 +56,6 @@ const findSession = db.prepare<
     JOIN users u ON u.id = s.user_id
    WHERE s.id = ? AND s.expires_at > ?
    LIMIT 1
-`);
-
-const findCharacterCampaign = db.prepare<string, { campaign_id: string }>(`
-  SELECT campaign_id FROM characters WHERE id = ? LIMIT 1
 `);
 
 const findMembership = db.prepare<[string, string], { role: string }>(`
@@ -70,41 +70,39 @@ function resolveSession(token: string): AuthContext | null {
   return { userId: row.user_id, username: row.username };
 }
 
-function userCanAccessCharacter(userId: string, characterId: string): boolean {
-  const charRow = findCharacterCampaign.get(characterId);
-  if (!charRow) return false;
-  const memberRow = findMembership.get(charRow.campaign_id, userId);
-  return memberRow != null;
-}
+// ---------------------------------------------------------------------------
+// Character room (M2)
+// ---------------------------------------------------------------------------
 
-function parseCharacterId(documentName: string): string | null {
-  const m = documentName.match(/^character:([0-9a-f-]{36})$/);
-  return m ? m[1] : null;
-}
+const findCharacterCampaign = db.prepare<string, { campaign_id: string }>(`
+  SELECT campaign_id FROM characters WHERE id = ? LIMIT 1
+`);
 
-const getYjsState = db.prepare<
+const getCharacterYjsState = db.prepare<
   string,
   { yjs_state: Buffer | null; document: string | null }
 >(`
   SELECT yjs_state, document FROM characters WHERE id = ? LIMIT 1
 `);
 
-const saveYjsState = db.prepare<[Buffer, string, number, string]>(`
+const saveCharacterYjsState = db.prepare<[Buffer, string, number, string]>(`
   UPDATE characters SET yjs_state = ?, document = ?, updated_at = ? WHERE id = ?
 `);
 
-async function loadDocument({
-  documentName
-}: onLoadDocumentPayload): Promise<Uint8Array | null> {
-  const characterId = parseCharacterId(documentName);
-  if (!characterId) return null;
-  const row = getYjsState.get(characterId);
+function parseCharacterId(documentName: string): string | null {
+  const m = documentName.match(/^character:([0-9a-f-]{36})$/);
+  return m ? m[1] : null;
+}
+
+function userCanAccessCharacter(userId: string, characterId: string): boolean {
+  const charRow = findCharacterCampaign.get(characterId);
+  if (!charRow) return false;
+  return findMembership.get(charRow.campaign_id, userId) != null;
+}
+
+async function loadCharacterDocument(characterId: string): Promise<Uint8Array | null> {
+  const row = getCharacterYjsState.get(characterId);
   if (row?.yjs_state) return new Uint8Array(row.yjs_state);
-  // No prior Y.Doc state: hydrate from the JSON snapshot the web app's
-  // PATCH path maintains. For v0 we mirror each top-level field as a
-  // JSON-encoded string inside a single Y.Map called "document".
-  // Per-field CRDT granularity lands when client-side edit handlers
-  // are converted from PATCH to Y.Doc transactions.
   if (row?.document) {
     const doc = new Y.Doc();
     const root = doc.getMap('document');
@@ -118,11 +116,10 @@ async function loadDocument({
 }
 
 /**
- * Decode the Y.Doc back into the CharacterDocument JSON shape the API
- * + SSR + rules engine read. v0 stores each top-level field as a
- * JSON-encoded string under root Y.Map "document".
+ * Decode the character Y.Doc back into CharacterDocument JSON. v0 stores
+ * each top-level field as a JSON-encoded string under root Y.Map "document".
  */
-function decodeDocumentJson(doc: Y.Doc, characterId: string): string {
+function decodeCharacterDocumentJson(doc: Y.Doc, characterId: string): string {
   const root = doc.getMap('document');
   const out: Record<string, unknown> = {};
   for (const [k, v] of root.entries()) {
@@ -136,25 +133,88 @@ function decodeDocumentJson(doc: Y.Doc, characterId: string): string {
       out[k] = v;
     }
   }
-  // Force the document.id to match the row id so a swapped doc can't
-  // claim a different character (same invariant the API enforces).
   out.id = characterId;
   return JSON.stringify(out);
 }
 
-async function storeDocument({
-  documentName,
-  document
-}: onStoreDocumentPayload): Promise<void> {
-  const characterId = parseCharacterId(documentName);
-  if (!characterId) return;
-  // Hocuspocus's Document extends Y.Doc — encode the live state into both
-  // the binary `yjs_state` (live cold-storage) and the `document` JSON
-  // (consumed by the API + SSR + rules engine). Writing both keeps the
-  // two views consistent; the API path also writes both via PATCH.
+async function storeCharacterDocument(characterId: string, document: Y.Doc): Promise<void> {
   const state = Y.encodeStateAsUpdate(document);
-  const docJson = decodeDocumentJson(document, characterId);
-  saveYjsState.run(Buffer.from(state), docJson, Date.now(), characterId);
+  const docJson = decodeCharacterDocumentJson(document, characterId);
+  saveCharacterYjsState.run(Buffer.from(state), docJson, Date.now(), characterId);
+}
+
+// ---------------------------------------------------------------------------
+// Encounter room (M3.3)
+//
+// Y.Doc shape v0: a root Y.Map called "encounter" with two keys:
+//   round (number)            — current round counter (0 = pre-combat)
+//   activeParticipantId       — id of the participant whose turn it is, or null
+//
+// We hydrate from the encounters row when no state exists, and on every
+// store-flush we mirror the two live keys back into the row so REST
+// reads + SSR + the staging→live→ended state machine stay in sync.
+// Per-participant HP/conditions stay on the participants table for M3.3;
+// promoting those into the Y.Doc lands with M3.4+.
+// ---------------------------------------------------------------------------
+
+const findEncounterCampaign = db.prepare<string, { campaign_id: string }>(`
+  SELECT campaign_id FROM encounters WHERE id = ? LIMIT 1
+`);
+
+const getEncounterYjsState = db.prepare<
+  string,
+  { yjs_state: Buffer | null; round: number; active_participant_id: string | null }
+>(`
+  SELECT yjs_state, round, active_participant_id FROM encounters WHERE id = ? LIMIT 1
+`);
+
+const saveEncounterYjsState = db.prepare<[Buffer, number, string | null, string]>(`
+  UPDATE encounters SET yjs_state = ?, round = ?, active_participant_id = ? WHERE id = ?
+`);
+
+function parseEncounterId(documentName: string): string | null {
+  const m = documentName.match(/^encounter:([0-9a-f-]{36})$/);
+  return m ? m[1] : null;
+}
+
+function userCanAccessEncounter(userId: string, encounterId: string): boolean {
+  const encRow = findEncounterCampaign.get(encounterId);
+  if (!encRow) return false;
+  return findMembership.get(encRow.campaign_id, userId) != null;
+}
+
+async function loadEncounterDocument(encounterId: string): Promise<Uint8Array | null> {
+  const row = getEncounterYjsState.get(encounterId);
+  if (!row) return null;
+  if (row.yjs_state) return new Uint8Array(row.yjs_state);
+  // Seed from the row's current state — first connection ever.
+  const doc = new Y.Doc();
+  const root = doc.getMap('encounter');
+  root.set('round', row.round);
+  root.set('activeParticipantId', row.active_participant_id);
+  return Y.encodeStateAsUpdate(doc);
+}
+
+async function storeEncounterDocument(encounterId: string, document: Y.Doc): Promise<void> {
+  const state = Y.encodeStateAsUpdate(document);
+  const root = document.getMap('encounter');
+  const round = Number(root.get('round') ?? 0);
+  const activeParticipantId = (root.get('activeParticipantId') as string | null | undefined) ?? null;
+  saveEncounterYjsState.run(Buffer.from(state), round, activeParticipantId, encounterId);
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch
+// ---------------------------------------------------------------------------
+
+type RoomKind = 'character' | 'encounter';
+
+function classifyRoom(documentName: string): { kind: RoomKind; id: string } | null {
+  const c = parseCharacterId(documentName);
+  if (c) return { kind: 'character', id: c };
+  const e = parseEncounterId(documentName);
+  if (e) return { kind: 'encounter', id: e };
+  return null;
 }
 
 const server = Server.configure({
@@ -162,20 +222,32 @@ const server = Server.configure({
   async onAuthenticate({ token, documentName }: onAuthenticatePayload) {
     const session = resolveSession(token);
     if (!session) throw new Error('invalid session');
-    const characterId = parseCharacterId(documentName);
-    if (!characterId) throw new Error('unknown document name');
-    if (!userCanAccessCharacter(session.userId, characterId)) {
-      throw new Error('not a campaign member');
+    const room = classifyRoom(documentName);
+    if (!room) throw new Error('unknown document name');
+    const ok =
+      room.kind === 'character'
+        ? userCanAccessCharacter(session.userId, room.id)
+        : userCanAccessEncounter(session.userId, room.id);
+    if (!ok) throw new Error('not a campaign member');
+    return session;
+  },
+
+  async onLoadDocument({ documentName }: onLoadDocumentPayload) {
+    const room = classifyRoom(documentName);
+    if (!room) return null;
+    return room.kind === 'character'
+      ? loadCharacterDocument(room.id)
+      : loadEncounterDocument(room.id);
+  },
+
+  async onStoreDocument({ documentName, document }: onStoreDocumentPayload) {
+    const room = classifyRoom(documentName);
+    if (!room) return;
+    if (room.kind === 'character') {
+      await storeCharacterDocument(room.id, document);
+    } else {
+      await storeEncounterDocument(room.id, document);
     }
-    return session; // becomes the connection's context
-  },
-
-  async onLoadDocument(payload: onLoadDocumentPayload) {
-    return loadDocument(payload);
-  },
-
-  async onStoreDocument(payload: onStoreDocumentPayload) {
-    await storeDocument(payload);
   },
 
   async onConnect({ documentName, context }: onConnectPayload) {
