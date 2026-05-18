@@ -2,7 +2,16 @@
   import { invalidateAll } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import Sheet from '$lib/components/Sheet.svelte';
+  import { derive } from '$lib/rules';
+  import type { CharacterDocument, Derived, ContentLookup } from '$lib/rules/types';
   import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
+  import {
+    connectEncounterDoc,
+    setTurnPlan,
+    type ConnectedEncounter,
+    type EncounterSnapshot,
+    type TurnPlan
+  } from '$lib/realtime/encounter-doc';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -74,21 +83,111 @@
     };
   }
 
+  // ---- M3.4: turn planner ----
+  // When this character is a participant in a live encounter, we connect to
+  // the encounter Y.Doc so the player can broadcast a turn plan (action +
+  // target + notes) that the DM sees live on the encounter page.
+  let encConn: ConnectedEncounter | null = null;
+  let encState: EncounterSnapshot | null = null;
+  let unsubEncState: (() => void) | undefined;
+  let planActionId = '';
+  let planTargetId: string | null = null;
+  let planNotes = '';
+  let planSubmitting = false;
+
   onMount(() => {
     if (!data.syncToken) return;
     conn = connectCharacterDoc({ token: data.syncToken, characterId: data.character.id });
     unsubStatus = conn.status.subscribe((s) => (syncStatus = s));
     unsubDoc = conn.document.subscribe((d) => (liveDoc = d));
+
+    if (data.liveEncounter) {
+      encConn = connectEncounterDoc({
+        token: data.syncToken,
+        encounterId: data.liveEncounter.id
+      });
+      unsubEncState = encConn.state.subscribe((s) => {
+        encState = s;
+        // Pre-fill the draft from the existing plan if any (so reload doesn't lose it).
+        if (s && data.liveEncounter) {
+          const existing = s.plans[data.liveEncounter.selfParticipantId];
+          if (existing && !planActionId) {
+            planActionId = existing.actionId;
+            planTargetId = existing.targetParticipantId;
+            planNotes = existing.notes;
+          }
+        }
+      });
+    }
   });
 
   onDestroy(() => {
     unsubStatus?.();
     unsubDoc?.();
     conn?.destroy();
+    unsubEncState?.();
+    encConn?.destroy();
   });
 
-  $: document = data.document;
-  $: derived = data.derived;
+  /** Action cost label shown next to each plan option. */
+  function costLabel(cost: unknown): string {
+    if (cost === 'action') return 'Action';
+    if (cost === 'bonus') return 'Bonus';
+    if (cost === 'reaction') return 'Reaction';
+    if (cost === 'free') return 'Free';
+    if (cost && typeof cost === 'object' && 'uses' in cost) {
+      const c = cost as { uses: number; per: string };
+      return `${c.uses}/${c.per}`;
+    }
+    return String(cost ?? '');
+  }
+
+  /** Flat list of actions available from derived, plus a human label. */
+  $: actionOptions = derived
+    ? (derived.actions ?? []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        costLabel: costLabel(a.cost),
+        attackBonus: a.attackBonus ?? null,
+        range: a.range
+      }))
+    : [];
+
+  function submitPlan() {
+    if (!encConn || !data.liveEncounter) return;
+    const action = actionOptions.find((a) => a.id === planActionId);
+    if (!action) return;
+    planSubmitting = true;
+    try {
+      const plan: TurnPlan = {
+        actionId: action.id,
+        actionLabel: `${action.name} (${action.costLabel})`,
+        targetParticipantId: planTargetId,
+        notes: planNotes.slice(0, 200),
+        updatedAt: Date.now()
+      };
+      setTurnPlan(encConn.ydoc, data.liveEncounter.selfParticipantId, plan);
+    } finally {
+      planSubmitting = false;
+    }
+  }
+
+  $: myPlan =
+    encState && data.liveEncounter
+      ? encState.plans[data.liveEncounter.selfParticipantId] ?? null
+      : null;
+
+  $: encActiveName =
+    encState && data.liveEncounter
+      ? data.liveEncounter.participants.find((p) => p.id === encState!.activeParticipantId)?.name ??
+        null
+      : null;
+
+  $: isMyTurn =
+    encState && data.liveEncounter
+      ? encState.activeParticipantId === data.liveEncounter.selfParticipantId
+      : false;
+
   $: tempHpDraft = document?.tempHp ?? 0;
 
   function abilityMod(score: number): number {
@@ -529,6 +628,114 @@
     ← back to {data.campaign.name}
   </a>
 </header>
+
+{#if data.liveEncounter}
+  <!-- ===== M3.4 turn planner ===== -->
+  <section
+    class="mb-6 rounded-lg border p-4 {isMyTurn
+      ? 'border-emerald-700 bg-emerald-950/30'
+      : 'border-amber-800 bg-amber-950/20'}"
+  >
+    <div class="mb-3 flex items-baseline justify-between">
+      <h2 class="text-sm font-semibold">
+        {#if isMyTurn}
+          <span class="text-emerald-200">▶ Your turn</span>
+        {:else}
+          <span class="text-amber-200">⏳ In encounter</span>
+        {/if}
+        <a
+          class="ml-2 text-xs font-normal text-slate-400 hover:text-slate-200"
+          href={`/c/${data.campaign.code}/encounters/${data.liveEncounter.id}`}
+        >
+          {data.liveEncounter.name}
+        </a>
+      </h2>
+      <p class="text-xs text-slate-400">
+        {#if encState}
+          round {encState.round}
+          {#if encActiveName && !isMyTurn}
+            · waiting on <span class="text-slate-200">{encActiveName}</span>
+          {/if}
+        {:else}
+          connecting…
+        {/if}
+      </p>
+    </div>
+
+    {#if myPlan}
+      <div class="mb-3 rounded border border-slate-700 bg-slate-950/60 p-2 text-xs">
+        <span class="font-semibold text-slate-300">Broadcast plan:</span>
+        <span class="ml-1 text-emerald-200">{myPlan.actionLabel}</span>
+        {#if myPlan.targetParticipantId}
+          {@const tgt = data.liveEncounter.participants.find((p) => p.id === myPlan.targetParticipantId)}
+          {#if tgt}
+            <span class="text-slate-400"> → </span>
+            <span class="text-slate-200">{tgt.name}</span>
+          {/if}
+        {/if}
+        {#if myPlan.notes}
+          <p class="mt-1 text-slate-400">“{myPlan.notes}”</p>
+        {/if}
+      </div>
+    {/if}
+
+    {#if actionOptions.length === 0}
+      <p class="text-xs text-slate-400">
+        No actions resolved from your character sheet yet. Pick up a weapon /
+        prepare a spell first.
+      </p>
+    {:else}
+      <div class="flex flex-wrap items-end gap-2 text-sm">
+        <label class="text-xs">
+          <span class="block text-slate-400">Action</span>
+          <select
+            class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+            bind:value={planActionId}
+          >
+            <option value="">— pick —</option>
+            {#each actionOptions as a}
+              <option value={a.id}>
+                {a.name}
+                {#if a.costLabel}({a.costLabel}){/if}
+                {#if a.attackBonus != null} +{a.attackBonus}{/if}
+              </option>
+            {/each}
+          </select>
+        </label>
+        <label class="text-xs">
+          <span class="block text-slate-400">Target</span>
+          <select
+            class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+            bind:value={planTargetId}
+          >
+            <option value={null}>— none / self —</option>
+            {#each data.liveEncounter.participants as p}
+              {#if p.id !== data.liveEncounter.selfParticipantId}
+                <option value={p.id}>{p.name} <span class="text-slate-500">({p.kind})</span></option>
+              {/if}
+            {/each}
+          </select>
+        </label>
+        <label class="flex-1 text-xs">
+          <span class="block text-slate-400">Notes</span>
+          <input
+            class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+            placeholder="e.g. cast with hex; flank from the south"
+            maxlength="200"
+            bind:value={planNotes}
+          />
+        </label>
+        <button
+          class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+          on:click={submitPlan}
+          disabled={planSubmitting || !planActionId || !encConn}
+        >
+          Broadcast
+        </button>
+      </div>
+    {/if}
+  </section>
+{/if}
 
 {#if document && derived}
   <!-- ===== Edit panel: HP / hit dice / conditions / toggles / rest ===== -->

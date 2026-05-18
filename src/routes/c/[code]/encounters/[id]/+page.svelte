@@ -4,6 +4,7 @@
   import {
     connectEncounterDoc,
     setEncounterTurn,
+    clearTurnPlan,
     type ConnectedEncounter,
     type EncounterSnapshot
   } from '$lib/realtime/encounter-doc';
@@ -47,6 +48,12 @@
   // Effective values: prefer Y.Doc snapshot when connected, fall back to SSR.
   $: liveRound = liveState?.round ?? data.encounter.round;
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
+  $: livePlans = liveState?.plans ?? {};
+
+  function clearPlan(participantId: string) {
+    if (!conn) return;
+    clearTurnPlan(conn.ydoc, participantId);
+  }
 
   // Add-participant draft state
   let newKind: 'pc' | 'npc' | 'monster' = 'monster';
@@ -241,7 +248,8 @@
     <ul class="mb-3 divide-y divide-slate-800">
       {#each data.participants as p (p.id)}
         {@const isActive = p.id === liveActive}
-        <li class="flex items-center gap-3 py-2 text-sm {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}">
+        {@const plan = livePlans[p.id]}
+        <li class="flex flex-wrap items-center gap-3 py-2 text-sm {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}">
           <span class="font-mono text-xs text-slate-500 w-8">
             {#if p.initiative != null}
               {p.initiative}
@@ -278,6 +286,31 @@
             <button class="text-xs text-slate-500 hover:text-red-400" on:click={() => removeParticipant(p.id)} disabled={busy}>
               ×
             </button>
+          {/if}
+          {#if plan}
+            <div class="basis-full pl-12 text-xs text-slate-400">
+              <span class="rounded bg-amber-900/30 px-1.5 py-0.5 text-amber-200">plan</span>
+              <span class="ml-1 text-slate-200">{plan.actionLabel}</span>
+              {#if plan.targetParticipantId}
+                {@const tgt = data.participants.find((q) => q.id === plan.targetParticipantId)}
+                {#if tgt}
+                  <span class="text-slate-500"> → </span>
+                  <span class="text-slate-200">{tgt.name}</span>
+                {/if}
+              {/if}
+              {#if plan.notes}
+                <span class="text-slate-500"> · </span>
+                <span class="italic text-slate-300">{plan.notes}</span>
+              {/if}
+              {#if data.role === 'dm'}
+                <button
+                  class="ml-2 text-[10px] text-slate-500 hover:text-red-400"
+                  on:click={() => clearPlan(p.id)}
+                >
+                  clear
+                </button>
+              {/if}
+            </div>
           {/if}
         </li>
       {/each}

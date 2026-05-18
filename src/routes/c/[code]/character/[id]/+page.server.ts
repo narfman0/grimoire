@@ -139,6 +139,57 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // M3.4: locate the live encounter (if any) this character is a participant
+  // in. The planner section on the sheet connects to that encounter's Y.Doc
+  // and lets the player broadcast a turn plan to the DM. If multiple
+  // encounters are live for this campaign (allowed — split party, etc.),
+  // we pick the most recent. Refresh required if a new encounter goes live
+  // mid-session (we don't push encounter-list changes yet).
+  const liveEncRows = await db
+    .select({
+      encId: schema.encounters.id,
+      encName: schema.encounters.name,
+      encCreatedAt: schema.encounters.createdAt,
+      partId: schema.participants.id,
+      partName: schema.participants.name
+    })
+    .from(schema.encounters)
+    .innerJoin(schema.participants, eq(schema.participants.encounterId, schema.encounters.id))
+    .where(
+      and(
+        eq(schema.encounters.campaignId, campaign.id),
+        eq(schema.encounters.status, 'live'),
+        eq(schema.participants.characterId, character.id)
+      )
+    );
+  const liveEncSorted = [...liveEncRows].sort(
+    (a, b) => b.encCreatedAt.getTime() - a.encCreatedAt.getTime()
+  );
+  const liveEncMatch = liveEncSorted[0] ?? null;
+
+  let liveEncounter: {
+    id: string;
+    name: string;
+    selfParticipantId: string;
+    participants: Array<{ id: string; name: string; kind: string }>;
+  } | null = null;
+  if (liveEncMatch) {
+    const allParticipants = await db
+      .select({
+        id: schema.participants.id,
+        name: schema.participants.name,
+        kind: schema.participants.kind
+      })
+      .from(schema.participants)
+      .where(eq(schema.participants.encounterId, liveEncMatch.encId));
+    liveEncounter = {
+      id: liveEncMatch.encId,
+      name: liveEncMatch.encName,
+      selfParticipantId: liveEncMatch.partId,
+      participants: allParticipants
+    };
+  }
+
   // Background options for the retroactive picker affordance on the sheet
   // (creation form deliberately doesn't ask for these; user picks here).
   const backgroundRows = await db
@@ -181,6 +232,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     itemOptions,
     spellOptions,
     subclassOptions,
-    backgroundOptions
+    backgroundOptions,
+    liveEncounter
   };
 };
