@@ -2638,6 +2638,9 @@
                             {meta.damage.map((d) => `${d.dice} ${d.type}`).join(' + ')}
                           </div>
                         {/if}
+                        {#if meta?.description}
+                          <p class="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap border-t border-slate-800 pt-2 text-slate-300">{meta.description}</p>
+                        {/if}
                         <div class="mt-1 text-[10px] text-slate-600">{meta?.source ?? ''}</div>
                       </svelte:fragment>
                     </HoverPopup>

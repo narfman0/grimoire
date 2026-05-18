@@ -140,6 +140,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         duration?: string | { value?: number; units?: string; concentration?: boolean };
         concentration?: boolean;
         ritual?: boolean;
+        description?: string;
         activities?: Array<{
           attack?: { ability?: string; range?: string };
           save?: { ability?: string; dc?: { calc?: string; value?: number } };
@@ -173,7 +174,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
               value: act.save.dc?.value ?? null
             }
           : null,
-        damage
+        damage,
+        description: typeof data.description === 'string' ? data.description : ''
       };
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
