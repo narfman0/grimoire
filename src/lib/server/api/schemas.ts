@@ -132,7 +132,22 @@ export const CharacterDocument = z
     hitDiceSpent: z.record(z.string(), z.number().int().nonnegative()),
     conditions: z.array(z.string()),
     modifierToggles: z.record(z.string(), z.boolean()),
-    resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional()
+    resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional(),
+    /** Per-turn action-economy slots — auto-reset on turn-rise + rest. */
+    actionUsedThisRound: z.boolean().optional(),
+    bonusActionUsedThisRound: z.boolean().optional(),
+    reactionUsedThisRound: z.boolean().optional(),
+    movementUsedThisRound: z.number().int().nonnegative().optional(),
+    /** Active concentration target — free-text label for v0. */
+    concentrating: z
+      .object({
+        label: z.string(),
+        sinceRound: z.number().int().nonnegative().optional()
+      })
+      .nullable()
+      .optional(),
+    /** Action ids the player has pinned in the planner picker. */
+    favoriteActionIds: z.array(z.string()).optional()
   })
   .openapi('CharacterDocument');
 
