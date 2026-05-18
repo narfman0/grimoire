@@ -5,18 +5,27 @@
   let busy = false;
   let errorMessage = '';
 
-  async function onSave(e: CustomEvent<{ slug: string; name: string; data: Record<string, unknown> }>) {
+  async function onSave(e: CustomEvent<{ slug: string; name: string; visibility: 'private' | 'unlisted' | 'public'; data: Record<string, unknown> }>) {
     busy = true;
     errorMessage = '';
     try {
-      const res = await fetch('/api/homebrew/feats', {
+      const res = await fetch('/api/homebrew/feat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(e.detail)
+        body: JSON.stringify({ slug: e.detail.slug, name: e.detail.name, data: e.detail.data })
       });
       if (!res.ok) {
         errorMessage = (await res.text()) || `HTTP ${res.status}`;
         return;
+      }
+      // Apply non-default visibility via the visibility endpoint (default is
+      // already 'private' so we only PUT when the author chose otherwise).
+      if (e.detail.visibility !== 'private') {
+        await fetch(`/api/homebrew/feat/${encodeURIComponent(e.detail.slug)}/visibility`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ visibility: e.detail.visibility })
+        });
       }
       await goto('/me/homebrew/feats');
     } catch (err) {

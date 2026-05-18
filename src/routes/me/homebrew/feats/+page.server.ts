@@ -12,6 +12,7 @@ export const load: PageServerLoad = async ({ locals }) => {
       slug: schema.content.slug,
       name: schema.content.name,
       data: schema.content.data,
+      visibility: schema.content.visibility,
       updatedAt: schema.content.updatedAt,
       createdAt: schema.content.createdAt
     })
@@ -30,6 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
       return {
         slug: r.slug,
         name: r.name,
+        visibility: r.visibility as 'private' | 'unlisted' | 'public',
         category: data.category ?? '',
         modifierCount: Array.isArray(data.modifiers) ? data.modifiers.length : 0,
         choiceCount: enabledChoices.length,

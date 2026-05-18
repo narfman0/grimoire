@@ -21,6 +21,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     feat: {
       slug: row.slug,
       name: row.name,
+      visibility: row.visibility as 'private' | 'unlisted' | 'public',
       data: JSON.parse(row.data as string)
     }
   };

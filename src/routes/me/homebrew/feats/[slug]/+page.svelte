@@ -7,11 +7,17 @@
   let busy = false;
   let errorMessage = '';
 
-  async function onSave(e: CustomEvent<{ slug: string; name: string; data: Record<string, unknown> }>) {
+  async function onSave(e: CustomEvent<{ slug: string; name: string; visibility: 'private' | 'unlisted' | 'public'; data: Record<string, unknown> }>) {
     busy = true;
     errorMessage = '';
     try {
-      const res = await fetch(`/api/homebrew/feats/${encodeURIComponent(data.feat.slug)}`, {
+      // Confirmation when flipping to public for the first time.
+      if (e.detail.visibility === 'public' && data.feat.visibility !== 'public') {
+        if (!confirm("Make this feat public? Anyone logged in will see it in /homebrew/browse and can subscribe or fork. You can switch it back later.")) {
+          return;
+        }
+      }
+      const res = await fetch(`/api/homebrew/feat/${encodeURIComponent(data.feat.slug)}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: e.detail.name, data: e.detail.data })
@@ -19,6 +25,14 @@
       if (!res.ok) {
         errorMessage = (await res.text()) || `HTTP ${res.status}`;
         return;
+      }
+      if (e.detail.visibility !== data.feat.visibility) {
+        // Use the generic kind endpoint for visibility (works for all kinds).
+        await fetch(`/api/homebrew/feat/${encodeURIComponent(data.feat.slug)}/visibility`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ visibility: e.detail.visibility })
+        });
       }
       await goto('/me/homebrew/feats');
     } catch (err) {
@@ -33,7 +47,7 @@
     busy = true;
     errorMessage = '';
     try {
-      let res = await fetch(`/api/homebrew/feats/${encodeURIComponent(data.feat.slug)}`, {
+      let res = await fetch(`/api/homebrew/feat/${encodeURIComponent(data.feat.slug)}`, {
         method: 'DELETE'
       });
       if (res.status === 409) {
@@ -42,7 +56,7 @@
         if (!confirm(`This feat is used by: ${names}. Delete anyway? (Characters will lose the bonus.)`)) {
           return;
         }
-        res = await fetch(`/api/homebrew/feats/${encodeURIComponent(data.feat.slug)}?force=1`, {
+        res = await fetch(`/api/homebrew/feat/${encodeURIComponent(data.feat.slug)}?force=1`, {
           method: 'DELETE'
         });
       }
