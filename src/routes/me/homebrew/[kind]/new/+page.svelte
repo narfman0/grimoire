@@ -10,6 +10,7 @@
   import SubspeciesEditor from '$lib/components/SubspeciesEditor.svelte';
   import FeatureEditor from '$lib/components/FeatureEditor.svelte';
   import SubclassEditor from '$lib/components/SubclassEditor.svelte';
+  import ClassEditor from '$lib/components/ClassEditor.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -84,6 +85,8 @@
   <FeatureEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else if data.kind === 'subclass'}
   <SubclassEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
+{:else if data.kind === 'class'}
+  <ClassEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {:else}
   <GenericContentEditor item={blank} on:save={onSave} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
 {/if}
