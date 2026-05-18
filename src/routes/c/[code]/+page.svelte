@@ -5,6 +5,11 @@
   export let data: PageData;
 
   let newName = '';
+  // Creation form is collapsed by default — it's a once-per-character action
+  // and shouldn't dominate the campaign overview. Click "+ New character" to
+  // expand. Auto-opens when there are no characters yet so first-run isn't
+  // a dead-end.
+  let showCreateForm = data.characters.length === 0;
   let speciesSlug = data.speciesOptions[0]?.slug ?? '';
   let classSlug = data.classOptions[0]?.slug ?? '';
   let subclassSlug = '';
@@ -190,7 +195,16 @@
 </section>
 
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-  <h2 class="mb-3 text-lg font-semibold">New character</h2>
+  <div class="flex items-center justify-between {showCreateForm ? 'mb-3' : ''}">
+    <h2 class="text-lg font-semibold">New character</h2>
+    <button
+      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
+      on:click={() => (showCreateForm = !showCreateForm)}
+    >
+      {showCreateForm ? '− collapse' : '+ create one'}
+    </button>
+  </div>
+  {#if showCreateForm}
   <form on:submit={createCharacter} class="space-y-4">
     <div class="grid gap-3 md:grid-cols-2">
       <label class="text-sm">
@@ -357,6 +371,7 @@
     <p class="mt-3 rounded border border-red-800 bg-red-950/60 px-3 py-2 text-sm text-red-200">
       {error}
     </p>
+  {/if}
   {/if}
 </section>
 

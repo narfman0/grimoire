@@ -295,15 +295,33 @@
     }
   }
 
-  function dmDamage(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }) {
+  async function patchParticipantHp(participantId: string, currentHp: number, tempHp: number) {
+    await fetch(`/api/participants/${participantId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ currentHp, tempHp })
+    });
+  }
+
+  async function dmDamage(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }) {
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
-    if (n === 0 || !conn) return;
-    doApplyDamage(conn.ydoc, p.id, n, seedFor(p));
+    if (n === 0) return;
+    const seed = seedFor(p);
+    if (conn && connStatus === 'open') {
+      doApplyDamage(conn.ydoc, p.id, n, seed);
+    } else {
+      // REST fallback when sync is offline.
+      const tempAbsorbed = Math.min(seed.tempHp, n);
+      const nextCurrent = seed.currentHp == null ? null : Math.max(0, seed.currentHp - (n - tempAbsorbed));
+      const nextTemp = seed.tempHp - tempAbsorbed;
+      await patchParticipantHp(p.id, nextCurrent ?? 0, nextTemp);
+      await invalidateAll();
+    }
     hpInputs[p.id] = 0;
     hpInputs = hpInputs;
   }
 
-  function dmHeal(p: {
+  async function dmHeal(p: {
     id: string;
     currentHp: number | null;
     maxHp: number | null;
@@ -311,8 +329,20 @@
     conditions: string[];
   }) {
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
-    if (n === 0 || !conn) return;
-    doApplyHeal(conn.ydoc, p.id, n, p.maxHp, seedFor(p));
+    if (n === 0) return;
+    const seed = seedFor(p);
+    if (conn && connStatus === 'open') {
+      doApplyHeal(conn.ydoc, p.id, n, p.maxHp, seed);
+    } else {
+      const capped =
+        seed.currentHp == null
+          ? null
+          : p.maxHp != null
+            ? Math.min(p.maxHp, seed.currentHp + n)
+            : seed.currentHp + n;
+      await patchParticipantHp(p.id, capped ?? 0, seed.tempHp);
+      await invalidateAll();
+    }
     hpInputs[p.id] = 0;
     hpInputs = hpInputs;
   }
