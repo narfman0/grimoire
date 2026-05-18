@@ -182,6 +182,8 @@ export interface Resource {
   used: number;
   per: string;
   sourceContent: { kind: string; slug: string };
+  /** Condition slug auto-applied when the player consumes this resource. */
+  appliesCondition?: string;
 }
 
 export interface ValidationIssue {

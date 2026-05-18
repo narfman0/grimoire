@@ -548,10 +548,19 @@
   }
 
   async function adjustResource(id: string, delta: number, max: number) {
+    // If this resource has an appliesCondition (e.g. Rage → "rage" condition),
+    // consuming a charge (delta > 0) also activates the condition so the
+    // engine's appliesWhen-gated modifiers (resistance, rage damage) light
+    // up without a second click. Restoring (+1) doesn't auto-drop — the
+    // player drops the condition explicitly via the conditions row when
+    // rage actually ends.
+    const r = derived?.resources.find((x) => x.id === id);
+    const cond = delta > 0 ? r?.appliesCondition : undefined;
     await patchDocument((d) => {
       d.resourcesSpent ??= {};
       const next = Math.max(0, Math.min(max, (d.resourcesSpent[id] ?? 0) + delta));
       d.resourcesSpent[id] = next;
+      if (cond && !d.conditions.includes(cond)) d.conditions.push(cond);
     });
   }
 

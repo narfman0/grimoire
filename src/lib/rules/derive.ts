@@ -489,13 +489,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       const max = evaluateValue(uses.max, ctx);
       if (typeof max !== 'number' || max <= 0) continue;
       const id = `${a.row.kind}/${a.row.slug}/${act.id as string}`;
+      const applies = act.appliesCondition;
       resources.push({
         id,
         name: (act.name as string | undefined) ?? (act.id as string),
         max,
         used: Math.min(max, spent[id] ?? 0),
         per: uses.per,
-        sourceContent: { kind: a.row.kind, slug: a.row.slug }
+        sourceContent: { kind: a.row.kind, slug: a.row.slug },
+        ...(typeof applies === 'string' ? { appliesCondition: applies } : {})
       });
     }
     // Triggers with a `limit` are functionally resources too — Relentless
