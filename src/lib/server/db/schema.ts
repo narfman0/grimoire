@@ -140,6 +140,35 @@ export const campaignMembers = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// campaign_characters (Phase 1) — M:N link between campaigns and characters.
+//
+// Replaces the implicit "characters.campaignId = one campaign" relationship
+// with an explicit join so a PC can live in multiple campaigns. The
+// `characters.campaignId` column stays as a soft "home campaign" pointer for
+// now — Phase 4 may relax / repurpose it.
+// ---------------------------------------------------------------------------
+
+export const campaignCharacters = sqliteTable(
+  'campaign_characters',
+  {
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    characterId: text('character_id')
+      .notNull()
+      .references(() => characters.id, { onDelete: 'cascade' }),
+    /** 'player' = the owner is playing it here.  'guest' = borrowed for
+     *  one-shots, retired-character cameos, etc.  Free-text below those
+     *  two for now; UI shows it verbatim. */
+    role: text('role').notNull().default('player'),
+    addedAt: integer('added_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.campaignId, t.characterId] })
+  })
+);
+
+// ---------------------------------------------------------------------------
 // Encounters (M3.1) — combat scenes with participants.
 //
 // An encounter is owned by a campaign and progresses through three states:
@@ -213,6 +242,8 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type CampaignMember = typeof campaignMembers.$inferSelect;
+export type CampaignCharacter = typeof campaignCharacters.$inferSelect;
+export type NewCampaignCharacter = typeof campaignCharacters.$inferInsert;
 export type NewCampaignMember = typeof campaignMembers.$inferInsert;
 // ---------------------------------------------------------------------------
 // Action log (M3.5b) — append-only audit trail for what happened in combat.
