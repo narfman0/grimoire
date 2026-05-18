@@ -141,7 +141,10 @@ export type ActionCost =
   | 'bonus'
   | 'reaction'
   | 'free'
-  | { uses: number; per: 'turn' | 'round' | 'short-rest' | 'long-rest' | 'day' };
+  | { uses: number; per: 'turn' | 'round' | 'short-rest' | 'long-rest' | 'day' }
+  /** Movement-only action (Disengage replaced by movement-style content, etc.).
+   *  `feet` is the cost from the character's movement speed budget for the turn. */
+  | { movement: number };
 
 export interface TriggerDeclaration {
   id: string;

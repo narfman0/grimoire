@@ -152,9 +152,15 @@
     if (cost === 'bonus') return 'Bonus';
     if (cost === 'reaction') return 'Reaction';
     if (cost === 'free') return 'Free';
-    if (cost && typeof cost === 'object' && 'uses' in cost) {
-      const c = cost as { uses: number; per: string };
-      return `${c.uses}/${c.per}`;
+    if (cost && typeof cost === 'object') {
+      if ('movement' in cost) {
+        const c = cost as { movement: number };
+        return `${c.movement} ft move`;
+      }
+      if ('uses' in cost) {
+        const c = cost as { uses: number; per: string };
+        return `${c.uses}/${c.per}`;
+      }
     }
     return String(cost ?? '');
   }
