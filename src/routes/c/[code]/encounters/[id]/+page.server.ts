@@ -46,6 +46,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     string,
     Array<{ name: string; attackBonus?: number; range?: string; damage?: Array<{ dice: string; type: string }> }>
   >();
+  // Dex scores for monster slugs — used as the initiative tiebreaker.
+  const monsterDex = new Map<string, number>();
   if (monsterSlugs.length > 0) {
     const rows = await db
       .select({ slug: schema.content.slug, data: schema.content.data })
@@ -53,7 +55,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       .where(eq(schema.content.kind, 'monster'));
     for (const r of rows) {
       if (!monsterSlugs.includes(r.slug)) continue;
-      const data = JSON.parse(r.data as string) as { actions?: unknown };
+      const data = JSON.parse(r.data as string) as {
+        actions?: unknown;
+        abilityScores?: { dex?: number };
+      };
       const acts = Array.isArray(data.actions) ? data.actions : [];
       statblockActions.set(
         r.slug,
@@ -71,7 +76,47 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
               : undefined
           }))
       );
+      if (typeof data.abilityScores?.dex === 'number') {
+        monsterDex.set(r.slug, data.abilityScores.dex);
+      }
     }
+  }
+
+  // Dex for PCs comes from the character document. Batch-load any character
+  // referenced by a participant so the initiative tiebreaker has a value.
+  const pcCharIds = Array.from(
+    new Set(partRows.map((p) => p.characterId).filter((s): s is string => !!s))
+  );
+  const pcDex = new Map<string, number>();
+  if (pcCharIds.length > 0) {
+    const charRows = await db
+      .select({ id: schema.characters.id, document: schema.characters.document })
+      .from(schema.characters)
+      .where(eq(schema.characters.campaignId, m.campaignId));
+    for (const r of charRows) {
+      if (!pcCharIds.includes(r.id) || !r.document) continue;
+      try {
+        const doc = JSON.parse(r.document) as { abilityScores?: { dex?: number } };
+        if (typeof doc.abilityScores?.dex === 'number') pcDex.set(r.id, doc.abilityScores.dex);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  function dexForParticipant(p: typeof partRows[number]): number {
+    if (p.characterId) return pcDex.get(p.characterId) ?? 10;
+    if (p.statblockSlug) return monsterDex.get(p.statblockSlug) ?? 10;
+    // Ad-hoc NPC: try the inline statblockJson, else default 10.
+    if (p.statblockJson) {
+      try {
+        const d = JSON.parse(p.statblockJson) as { abilityScores?: { dex?: number } };
+        return d.abilityScores?.dex ?? 10;
+      } catch {
+        // fall through
+      }
+    }
+    return 10;
   }
 
   // M3.5b: action log entries for this encounter — chronological.
@@ -145,13 +190,20 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
         statblockActions: p.statblockSlug ? statblockActions.get(p.statblockSlug) ?? [] : [],
         initiative: p.initiative,
+        dexScore: dexForParticipant(p),
         currentHp: p.currentHp,
         maxHp: p.maxHp,
         tempHp: p.tempHp,
         conditions: JSON.parse(p.conditionsJson) as string[],
         sortOrder: p.sortOrder
       }))
-      .sort((a, b) => (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) || a.sortOrder - b.sortOrder),
+      // Initiative tiebreaker per RAW: higher Dex first. Then add-order.
+      .sort(
+        (a, b) =>
+          (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) ||
+          b.dexScore - a.dexScore ||
+          a.sortOrder - b.sortOrder
+      ),
     campaignCharacters: charRows,
     monsterOptions,
     actionLog: logRows.map((r) => ({

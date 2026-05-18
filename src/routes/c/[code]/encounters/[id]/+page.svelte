@@ -135,6 +135,17 @@
     resolveDamage = null;
   }
 
+  /** Standard non-attack action options every creature has. Picking one
+   *  pre-fills the label; no rolls or HP changes. */
+  const COMMON_ACTIONS = ['Dodge', 'Dash', 'Disengage', 'Hide', 'Help', 'Ready', 'Use Object'];
+  function pickCommonAction(label: string) {
+    const acting = data.participants.find((q) => q.id === resolveForParticipantId);
+    resolveActionLabel = acting ? `${acting.name} — ${label}` : label;
+    resolveAttack = null;
+    resolveDamage = null;
+    resolveHit = '';
+  }
+
   async function submitDmResolve() {
     if (!conn || !resolveForParticipantId) return;
     const round = liveState?.round ?? data.encounter.round;
@@ -933,6 +944,20 @@
             {a.name}
             {#if a.attackBonus != null}<span class="text-slate-500"> +{a.attackBonus}</span>{/if}
             {#if dmg}<span class="text-red-300/80"> · {dmg}</span>{/if}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    {#if !amendingLogId}
+      <div class="mb-3 flex flex-wrap gap-1 text-xs">
+        <span class="self-center text-slate-500 mr-1">Common:</span>
+        {#each COMMON_ACTIONS as label}
+          <button
+            class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+            on:click={() => pickCommonAction(label)}
+          >
+            {label}
           </button>
         {/each}
       </div>
