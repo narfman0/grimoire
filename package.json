@@ -15,7 +15,8 @@
     "db:migrate": "node ./scripts/migrate.mjs",
     "migrate": "node ./scripts/migrate.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gaps": "node scripts/content-gaps.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",

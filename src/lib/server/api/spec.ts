@@ -23,6 +23,16 @@ import {
   UpdateCharacterRequest,
   Uuid
 } from './schemas';
+import {
+  ActionLogEntry,
+  AddParticipantRequest,
+  CreateEncounterRequest,
+  Encounter,
+  Participant,
+  SubmitActionLogRequest,
+  UpdateEncounterRequest,
+  UpdateParticipantRequest
+} from './encounter-schemas';
 
 const registry = new OpenAPIRegistry();
 
@@ -41,6 +51,14 @@ registry.register('ContentRow', ContentRow);
 registry.register('ContentList', ContentList);
 registry.register('SourceList', SourceList);
 registry.register('Error', ErrorResponse);
+registry.register('Encounter', Encounter);
+registry.register('Participant', Participant);
+registry.register('CreateEncounterRequest', CreateEncounterRequest);
+registry.register('UpdateEncounterRequest', UpdateEncounterRequest);
+registry.register('AddParticipantRequest', AddParticipantRequest);
+registry.register('UpdateParticipantRequest', UpdateParticipantRequest);
+registry.register('ActionLogEntry', ActionLogEntry);
+registry.register('SubmitActionLogRequest', SubmitActionLogRequest);
 
 const jsonBody = (schema: z.ZodTypeAny) => ({
   content: { 'application/json': { schema } }
@@ -243,6 +261,146 @@ registry.registerPath({
 });
 
 // ---------------------------------------------------------------------------
+// Encounters
+// ---------------------------------------------------------------------------
+
+const EncounterList = z.object({ encounters: z.array(Encounter) }).openapi('EncounterList');
+const ParticipantList = z.object({ participants: z.array(Participant) }).openapi('ParticipantList');
+const ActionLogList = z.object({ entries: z.array(ActionLogEntry) }).openapi('ActionLogList');
+registry.register('EncounterList', EncounterList);
+registry.register('ParticipantList', ParticipantList);
+registry.register('ActionLogList', ActionLogList);
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/encounters',
+  tags: ['encounters'],
+  summary: 'Create an encounter under a campaign (DM only)',
+  request: { body: { required: true, ...jsonBody(CreateEncounterRequest) } },
+  responses: {
+    200: { description: 'Created', ...jsonBody(Encounter) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/encounters/{id}',
+  tags: ['encounters'],
+  summary: 'Fetch an encounter with its participants',
+  request: { params: z.object({ id: Uuid }) },
+  responses: {
+    200: { description: 'OK', ...jsonBody(Encounter.merge(ParticipantList)) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/api/encounters/{id}',
+  tags: ['encounters'],
+  summary: 'Update an encounter (DM only). Status state machine: staging → live → ended.',
+  request: {
+    params: z.object({ id: Uuid }),
+    body: { required: true, ...jsonBody(UpdateEncounterRequest) }
+  },
+  responses: {
+    200: { description: 'OK', ...jsonBody(Encounter) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/api/encounters/{id}',
+  tags: ['encounters'],
+  summary: 'Delete an encounter (DM only). Cascades to participants and log entries.',
+  request: { params: z.object({ id: Uuid }) },
+  responses: {
+    204: { description: 'Deleted' },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/encounters/{id}/participants',
+  tags: ['encounters'],
+  summary: 'Add a participant to an encounter (DM only)',
+  request: {
+    params: z.object({ id: Uuid }),
+    body: { required: true, ...jsonBody(AddParticipantRequest) }
+  },
+  responses: {
+    200: { description: 'Added', ...jsonBody(Participant) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/api/participants/{id}',
+  tags: ['encounters'],
+  summary: 'Update a participant (initiative, HP, conditions). DM only.',
+  request: {
+    params: z.object({ id: Uuid }),
+    body: { required: true, ...jsonBody(UpdateParticipantRequest) }
+  },
+  responses: {
+    200: { description: 'OK', ...jsonBody(Participant) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'delete',
+  path: '/api/participants/{id}',
+  tags: ['encounters'],
+  summary: 'Remove a participant from an encounter (DM only)',
+  request: { params: z.object({ id: Uuid }) },
+  responses: {
+    204: { description: 'Removed' },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/encounters/{id}/log',
+  tags: ['encounters'],
+  summary: 'Read the action log for an encounter (chronological)',
+  request: { params: z.object({ id: Uuid }) },
+  responses: {
+    200: { description: 'OK', ...jsonBody(ActionLogList) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/encounters/{id}/log',
+  tags: ['encounters'],
+  summary: 'Append a resolution to the action log. Amendments require DM; players may only act for characters they own.',
+  request: {
+    params: z.object({ id: Uuid }),
+    body: { required: true, ...jsonBody(SubmitActionLogRequest) }
+  },
+  responses: {
+    201: { description: 'Created', ...jsonBody(ActionLogEntry) },
+    400: errorResponses[400],
+    404: errorResponses[404]
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
 
@@ -261,7 +419,12 @@ export function buildOpenApiDocument() {
     tags: [
       { name: 'campaigns', description: 'Create, fetch, and join campaigns' },
       { name: 'characters', description: 'Per-campaign character sheets (metadata)' },
-      { name: 'content', description: 'Public game-content catalog (SRD 5.2)' }
+      { name: 'content', description: 'Public game-content catalog (SRD 5.2)' },
+      {
+        name: 'encounters',
+        description:
+          'Combat scenes: participants, initiative, turn state, append-only action log.'
+      }
     ]
   });
 }
