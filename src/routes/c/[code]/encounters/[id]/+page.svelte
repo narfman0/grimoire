@@ -11,6 +11,8 @@
     type EncounterSnapshot,
     type ParticipantHp
   } from '$lib/realtime/encounter-doc';
+
+  type HitOutcome = '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -87,7 +89,7 @@
   let resolveTargetId: string | null = null;
   let resolveAttack: number | null = null;
   let resolveDamage: number | null = null;
-  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' = '';
+  let resolveHit: HitOutcome = '';
   let resolveNotes = '';
   let resolveSubmitting = false;
   let resolveError: string | null = null;
@@ -131,11 +133,14 @@
       target.kind !== 'pc' &&
       typeof resolveDamage === 'number' &&
       resolveDamage > 0 &&
-      (resolveHit === 'hit' || resolveHit === 'crit')
+      (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'heal')
     ) {
       const seed = seedFor(target);
       targetHpBefore = seed.currentHp;
-      const next = doApplyDamage(conn.ydoc, target.id, resolveDamage, seed);
+      const next =
+        resolveHit === 'heal'
+          ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
+          : doApplyDamage(conn.ydoc, target.id, resolveDamage, seed);
       targetHpAfter = next.currentHp;
     }
 
@@ -208,6 +213,56 @@
   async function submitAmend() {
     if (!conn || !amendingLogId || !resolveForParticipantId) return;
     const round = liveState?.round ?? data.encounter.round;
+
+    // Revert the prior entry's HP change (if any) before applying the new
+    // outcome. Revert = apply the inverse delta to the *current* live HP,
+    // so amendments don't stack on top of the prior change. Other actions
+    // that hit the target between the original and the amend are preserved.
+    const prior = data.actionLog.find((e) => e.id === amendingLogId);
+    if (
+      prior &&
+      prior.targetParticipantId &&
+      prior.targetHpBefore != null &&
+      prior.targetHpAfter != null
+    ) {
+      const priorTarget = data.participants.find((p) => p.id === prior.targetParticipantId);
+      if (priorTarget && priorTarget.kind !== 'pc') {
+        const delta = prior.targetHpBefore - prior.targetHpAfter;
+        const seed = seedFor(priorTarget);
+        if (delta > 0) {
+          // Prior entry dealt damage → revert with heal
+          doApplyHeal(conn.ydoc, priorTarget.id, delta, priorTarget.maxHp, seed);
+        } else if (delta < 0) {
+          // Prior entry healed → revert with damage
+          doApplyDamage(conn.ydoc, priorTarget.id, -delta, seed);
+        }
+      }
+    }
+
+    // Apply the new outcome (same logic as submitDmResolve).
+    const target = resolveTargetId
+      ? data.participants.find((p) => p.id === resolveTargetId) ?? null
+      : null;
+    let targetHpBefore: number | null = null;
+    let targetHpAfter: number | null = null;
+    if (
+      target &&
+      target.kind !== 'pc' &&
+      typeof resolveDamage === 'number' &&
+      resolveDamage > 0 &&
+      (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'heal')
+    ) {
+      // Re-read seed *after* the revert so we capture the corrected starting HP.
+      const live = liveState?.participantHp[target.id];
+      const seed: ParticipantHp = live ?? seedFor(target);
+      targetHpBefore = seed.currentHp;
+      const next =
+        resolveHit === 'heal'
+          ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
+          : doApplyDamage(conn.ydoc, target.id, resolveDamage, seed);
+      targetHpAfter = next.currentHp;
+    }
+
     resolveSubmitting = true;
     try {
       const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
@@ -222,6 +277,8 @@
           attackRoll: resolveAttack,
           damageRoll: resolveDamage,
           hit: resolveHit || null,
+          targetHpBefore,
+          targetHpAfter,
           notes: resolveNotes.slice(0, 500) || null,
           amendsLogId: amendingLogId
         })
@@ -714,6 +771,7 @@
           <option value="crit">crit</option>
           <option value="miss">miss</option>
           <option value="fumble">fumble</option>
+          <option value="heal">heal</option>
         </select>
       </label>
       <label class="flex-1 text-xs">

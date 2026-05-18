@@ -10,6 +10,7 @@
     setTurnPlan,
     clearTurnPlan,
     applyDamage as applyEncDamage,
+    applyHeal as applyEncHeal,
     type ConnectedEncounter,
     type EncounterSnapshot,
     type TurnPlan,
@@ -107,7 +108,7 @@
   let resolveOpen = false;
   let resolveAttack: number | null = null;
   let resolveDamage: number | null = null;
-  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' = '';
+  let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' = '';
   let resolveNotes = '';
   let resolveSubmitting = false;
   let resolveError: string | null = null;
@@ -219,11 +220,11 @@
     resolveError = null;
 
     // Apply HP to the target via Y.Doc when:
-    //   - target exists, is non-PC (has maxHp on the participants row)
-    //   - hit ∈ {hit, crit}
+    //   - target exists, is non-PC
     //   - damage roll declared
-    // The PC case is intentionally not auto-applied — the target player's
-    // sheet is the source of truth there.
+    //   - hit ∈ {hit, crit} → damage; hit === 'heal' → healing (capped to maxHp)
+    // PC targets aren't auto-applied here — the target player's sheet
+    // is the source of truth for their HP.
     let targetHpBefore: number | null = null;
     let targetHpAfter: number | null = null;
     if (
@@ -231,13 +232,8 @@
       target.kind !== 'pc' &&
       typeof resolveDamage === 'number' &&
       resolveDamage > 0 &&
-      (resolveHit === 'hit' || resolveHit === 'crit')
+      (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'heal')
     ) {
-      // SSR liveEncounter.participants only carries id/name/kind; the HP
-      // seed comes from the Y.Doc snapshot if present, else falls to safe
-      // defaults. Sync-server seeds the map from the participants table
-      // on first load, so by the time the player resolves there's almost
-      // always a Y.Doc value.
       const live = encState?.participantHp[target.id];
       const seed: ParticipantHp = {
         currentHp: live?.currentHp ?? null,
@@ -245,7 +241,10 @@
         conditions: live?.conditions ?? []
       };
       targetHpBefore = seed.currentHp;
-      const next = applyEncDamage(encConn.ydoc, target.id, resolveDamage, seed);
+      const next =
+        resolveHit === 'heal'
+          ? applyEncHeal(encConn.ydoc, target.id, resolveDamage, target.maxHp, seed)
+          : applyEncDamage(encConn.ydoc, target.id, resolveDamage, seed);
       targetHpAfter = next.currentHp;
     }
 
@@ -838,6 +837,7 @@
                 <option value="crit">crit</option>
                 <option value="miss">miss</option>
                 <option value="fumble">fumble</option>
+                <option value="heal">heal</option>
               </select>
             </label>
             <label class="flex-1">

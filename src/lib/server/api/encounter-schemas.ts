@@ -86,7 +86,7 @@ export const UpdateParticipantRequest = z
 
 // ---- Action log (M3.5b) ----
 
-export const HitOutcome = z.enum(['hit', 'miss', 'crit', 'fumble']);
+export const HitOutcome = z.enum(['hit', 'miss', 'crit', 'fumble', 'heal']);
 
 export const ActionLogEntry = z
   .object({

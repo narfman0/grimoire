@@ -160,14 +160,15 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     id: string;
     name: string;
     selfParticipantId: string;
-    participants: Array<{ id: string; name: string; kind: string }>;
+    participants: Array<{ id: string; name: string; kind: string; maxHp: number | null }>;
   } | null = null;
   if (liveEncMatch) {
     const allParticipants = await db
       .select({
         id: schema.participants.id,
         name: schema.participants.name,
-        kind: schema.participants.kind
+        kind: schema.participants.kind,
+        maxHp: schema.participants.maxHp
       })
       .from(schema.participants)
       .where(eq(schema.participants.encounterId, liveEncMatch.encId));
