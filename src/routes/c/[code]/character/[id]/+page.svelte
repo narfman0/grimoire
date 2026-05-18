@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import Sheet from '$lib/components/Sheet.svelte';
+  import InventoryPicker from '$lib/components/InventoryPicker.svelte';
   import { derive } from '$lib/rules';
   import type { CharacterDocument, Derived, ContentLookup } from '$lib/rules/types';
   import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
@@ -169,16 +170,40 @@
     return String(cost ?? '');
   }
 
-  /** Flat list of actions available from derived, plus a human label. */
+  /** Flat list of actions available from derived. Each row carries display
+   *  bits plus a favorite flag (from character.favoriteActionIds) and a
+   *  recencyRank (lower = more recently used, per the page-server's
+   *  action_log lookup). The list is ordered favorites first, then by
+   *  recency, then alphabetical so the planner's picker pre-sorts the
+   *  most-likely-next-action to the top. */
+  $: favorites = new Set(document?.favoriteActionIds ?? []);
+  $: recencyRank = new Map((data.recentActionIds ?? []).map((id, i) => [id, i]));
   $: actionOptions = derived
-    ? (derived.actions ?? []).map((a) => ({
-        id: a.id,
-        name: a.name,
-        costLabel: costLabel(a.cost),
-        attackBonus: a.attackBonus ?? null,
-        range: a.range
-      }))
+    ? (derived.actions ?? [])
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          costLabel: costLabel(a.cost),
+          attackBonus: a.attackBonus ?? null,
+          range: a.range,
+          isFavorite: favorites.has(a.id),
+          recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY
+        }))
+        .sort((a, b) => {
+          if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+          if (a.recency !== b.recency) return a.recency - b.recency;
+          return a.name.localeCompare(b.name);
+        })
     : [];
+
+  async function toggleFavoriteAction(actionId: string) {
+    await patchDocument((d) => {
+      const list = new Set(d.favoriteActionIds ?? []);
+      if (list.has(actionId)) list.delete(actionId);
+      else list.add(actionId);
+      d.favoriteActionIds = [...list];
+    });
+  }
 
   function submitPlan() {
     if (!encConn || !data.liveEncounter) return;
@@ -444,11 +469,11 @@
   }
 
   // ---- inventory ----
-  let pickerSlug = data.itemOptions[0]?.slug ?? '';
+  let showInventoryPicker = false;
 
-  async function addItem() {
-    if (!pickerSlug) return;
-    const opt = data.itemOptions.find((i) => i.slug === pickerSlug);
+  async function addItem(slug: string) {
+    if (!slug) return;
+    const opt = data.itemOptions.find((i) => i.slug === slug);
     if (!opt) return;
     await patchDocument((d) => {
       d.inventory.push({
@@ -459,6 +484,11 @@
         attuned: false
       });
     });
+  }
+
+  function onPickerPick(e: CustomEvent<{ slug: string }>) {
+    showInventoryPicker = false;
+    if (e.detail.slug) addItem(e.detail.slug);
   }
 
   async function setInventoryFlag(index: number, key: 'equipped' | 'attuned', on: boolean) {
@@ -956,23 +986,40 @@
         prepare a spell first.
       </p>
     {:else}
-      <div class="flex flex-wrap items-end gap-2 text-sm">
-        <label class="text-xs">
-          <span class="block text-slate-400">Action</span>
-          <select
-            class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-            bind:value={planActionId}
-          >
-            <option value="">— pick —</option>
-            {#each actionOptions as a}
-              <option value={a.id}>
+      <div class="mb-2">
+        <span class="mb-1 block text-xs text-slate-400">
+          Action <span class="text-slate-600">— ★ pin to top, click row to select</span>
+        </span>
+        <ul class="max-h-48 overflow-y-auto divide-y divide-slate-800 rounded border border-slate-700">
+          {#each actionOptions as a (a.id)}
+            <li
+              class="flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-800/40 {planActionId === a.id
+                ? 'bg-emerald-950/40'
+                : ''}"
+            >
+              <button
+                class="text-base leading-none {a.isFavorite ? 'text-amber-300' : 'text-slate-600 hover:text-slate-400'}"
+                title={a.isFavorite ? 'Unpin' : 'Pin to top'}
+                on:click={() => toggleFavoriteAction(a.id)}
+              >
+                {a.isFavorite ? '★' : '☆'}
+              </button>
+              <button
+                class="flex-1 text-left {planActionId === a.id ? 'text-emerald-200' : 'text-slate-200'}"
+                on:click={() => (planActionId = a.id)}
+              >
                 {a.name}
-                {#if a.costLabel}({a.costLabel}){/if}
-                {#if a.attackBonus != null} +{a.attackBonus}{/if}
-              </option>
-            {/each}
-          </select>
-        </label>
+                {#if a.costLabel}<span class="text-slate-500"> ({a.costLabel})</span>{/if}
+                {#if a.attackBonus != null}<span class="text-slate-400"> +{a.attackBonus}</span>{/if}
+                {#if Number.isFinite(a.recency) && !a.isFavorite}
+                  <span class="text-[10px] text-slate-600"> · recent</span>
+                {/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+      <div class="flex flex-wrap items-end gap-2 text-sm">
         <label class="text-xs">
           <span class="block text-slate-400">Target</span>
           <select
@@ -1556,24 +1603,25 @@
       </ul>
     {/if}
 
-    <div class="flex gap-2">
-      <select
-        class="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={pickerSlug}
-      >
-        {#each data.itemOptions as opt}
-          <option value={opt.slug}>{opt.name} <span class="text-slate-500">({opt.category})</span></option>
-        {/each}
-      </select>
-      <button
-        class="rounded bg-emerald-700 px-3 py-1 text-sm hover:bg-emerald-600 disabled:opacity-50"
-        disabled={busy || !pickerSlug}
-        on:click={addItem}
-      >
-        Add
-      </button>
-    </div>
+    <button
+      class="flex items-center gap-1.5 rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-50"
+      disabled={busy}
+      on:click={() => (showInventoryPicker = true)}
+    >
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Add item…
+    </button>
   </section>
+
+  {#if showInventoryPicker}
+    <InventoryPicker
+      items={data.itemOptions}
+      disabled={busy}
+      on:pick={onPickerPick}
+    />
+  {/if}
 
   <!-- Spells -->
   {#if derived.stats.spellcastingAbility}

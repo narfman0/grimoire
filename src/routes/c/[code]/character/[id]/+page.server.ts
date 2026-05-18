@@ -180,6 +180,31 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     };
   }
 
+  // Recent action ids for the planner's suggester (M3.6). We join action_log
+  // through participants to find rows where this character acted, then keep
+  // the most recent occurrence of each actionId. Cap to ~50 distinct ids
+  // — enough for ordering, small enough to ship in page data.
+  const logRows = await db
+    .select({
+      actionId: schema.actionLog.actionId,
+      createdAt: schema.actionLog.createdAt
+    })
+    .from(schema.actionLog)
+    .innerJoin(
+      schema.participants,
+      eq(schema.actionLog.participantId, schema.participants.id)
+    )
+    .where(eq(schema.participants.characterId, character.id))
+    .orderBy(schema.actionLog.createdAt);
+  const seenAction = new Map<string, number>();
+  for (const r of logRows) {
+    seenAction.set(r.actionId, r.createdAt.getTime());
+  }
+  const recentActionIds = [...seenAction.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 50)
+    .map(([id]) => id);
+
   // Background options for the retroactive picker affordance on the sheet
   // (creation form deliberately doesn't ask for these; user picks here).
   const backgroundRows = await db
@@ -223,6 +248,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     spellOptions,
     subclassOptions,
     backgroundOptions,
-    liveEncounter
+    liveEncounter,
+    recentActionIds
   };
 };

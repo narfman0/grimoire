@@ -69,6 +69,9 @@ export interface CharacterDocument {
    *  ends voluntarily, on long rest, or when a new concentration starts.
    *  Damage-triggered CON saves are DM-adjudicated. */
   concentrating?: { label: string; sinceRound?: number } | null;
+  /** Action ids (derived.actions[].id) the player has pinned. The planner
+   *  surfaces these at the top of the picker. */
+  favoriteActionIds?: string[];
 }
 
 export interface ContentRow {
