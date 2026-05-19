@@ -80,7 +80,25 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   }
 
   // Conditions (e.g. rage, frightened).
-  for (const c of character.conditions) {
+  // Resolve implies chains: a condition may imply other conditions (e.g.
+  // unconscious implies prone + incapacitated). Walk transitively with a
+  // cycle guard so the active condition set is fully expanded before we
+  // push refs.
+  const resolvedConditions = new Set<string>(character.conditions);
+  const conditionQueue = [...character.conditions];
+  while (conditionQueue.length > 0) {
+    const slug = conditionQueue.shift()!;
+    const condRow = content({ kind: 'condition', slug });
+    if (!condRow) continue;
+    const implied = (condRow.data.implies as string[] | undefined) ?? [];
+    for (const imp of implied) {
+      if (!resolvedConditions.has(imp)) {
+        resolvedConditions.add(imp);
+        conditionQueue.push(imp);
+      }
+    }
+  }
+  for (const c of resolvedConditions) {
     refs.push({ ref: { kind: 'condition', slug: c }, sourceKind: 'condition' });
   }
 
@@ -636,7 +654,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     hp: { current: character.currentHp, max: hpMax, temp: character.tempHp },
     speeds,
     proficiencyBonus,
-    initiative: abilities.dex.mod,
+    initiative: applyTarget(allMods, character, 'initiative', abilities.dex.mod, ctx) as number,
     passivePerception: 10 + skills.perception.bonus,
     spellSaveDC: spellInfo.dc,
     spellAttackBonus: spellInfo.attack,
@@ -954,6 +972,34 @@ function computeSpeeds(
   for (const key of Object.keys(speeds)) {
     const v = applyTarget(mods, character, `speed.${key}`, speeds[key], ctx);
     if (typeof v === 'number') speeds[key] = v;
+  }
+  // Apply speed.all modifiers (e.g. exhaustion -5) to every speed key.
+  // We collect ADD values only (OVERRIDE to a specific key wouldn't make
+  // sense applied universally); apply them after per-key modifiers so the
+  // combined result is consistent.
+  const allSpeedMods = mods.filter(
+    (m) => m.kind === 'stat-modifier' && (m.raw.target as string) === 'speed.all'
+  );
+  const eligibleAll = allSpeedMods.filter((m) => {
+    const enabled =
+      character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
+    if (!enabled) return false;
+    const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
+    if (appliesWhen?.condition && !character.conditions.includes(appliesWhen.condition)) return false;
+    return true;
+  });
+  if (eligibleAll.length > 0) {
+    for (const key of Object.keys(speeds)) {
+      let val = speeds[key];
+      for (const m of eligibleAll) {
+        const value = evaluateValue(m.raw.value, ctx);
+        const mode = (m.raw.mode as import('./modes').Mode) ?? 'ADD';
+        if (typeof value === 'number') {
+          val = applyNumericMode(val, mode, value);
+        }
+      }
+      speeds[key] = val;
+    }
   }
   return speeds;
 }
