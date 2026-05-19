@@ -6,7 +6,7 @@ import { SESSION_COOKIE } from '$lib/server/auth/sessions';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import { derive } from '$lib/rules';
-import type { CharacterDocument } from '$lib/rules/types';
+import type { ActionCost, CharacterDocument } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import type { PageServerLoad } from './$types';
 
@@ -204,6 +204,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     vulnerabilities: string[];
   };
   const participantPcStats: Record<string, CompactPcStats> = {};
+  /** Derived action list per PC participant — drives the DM-side action
+   *  chooser so custom/homebrew actions (e.g. racial features) show up in
+   *  the encounter UI, not just on the character sheet. */
+  type PcActionChoice = { id: string; name: string; cost: ActionCost };
+  const participantPcActions: Record<string, PcActionChoice[]> = {};
   /** PC concentration sourced from the character document. Null when the
    *  PC isn't concentrating. Lets the DM see what each PC is concentrating
    *  on inline with the participant row. */
@@ -236,7 +241,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         participantPcConcentrating[participant.id] = doc.concentrating ?? null;
         try {
           const { lookup } = await buildContentLookup(char.ownerUserId ?? undefined);
-          const s = serializeDerived(derive(doc, lookup)).stats;
+          const d = serializeDerived(derive(doc, lookup));
+          const s = d.stats;
+          participantPcActions[participant.id] = (d.actions ?? []).map((a) => ({
+            id: a.id,
+            name: a.name,
+            cost: a.cost
+          }));
           participantPcStats[participant.id] = {
             ac: s.ac,
             hp: s.hp,
@@ -448,6 +459,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     participantSpells,
     participantPcConditions,
     participantPcStats,
+    participantPcActions,
     participantPcConcentrating,
     actionLog: logRows.map((r) => ({
       id: r.id,

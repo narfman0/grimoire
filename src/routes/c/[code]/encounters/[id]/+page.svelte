@@ -7,6 +7,7 @@
   import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import { COMMON_CONDITIONS } from '$lib/rules/conditions';
+  import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
     connectEncounterDoc,
@@ -974,18 +975,17 @@
   }
 
   /** Build the chooser list the ActionEconomyPanel renders for the Action
-   *  slot of one participant. For PCs we mirror the player's broadcast plan
-   *  as a single readonly option so the DM can see intent; for non-PCs we
-   *  enumerate statblock actions plus any prepared spells we know about. */
+   *  slot of one participant. For PCs we enumerate the character's derived
+   *  actions (so custom/homebrew abilities surface here too, matching the
+   *  character sheet); for non-PCs we enumerate statblock actions plus any
+   *  prepared spells we know about. */
   function actionChoicesFor(
-    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string }> } | null },
-    plan: { actionId?: string; actionLabel?: string } | undefined
+    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string }> } | null }
   ): Array<{ id: string; name: string }> {
     if (p.kind === 'pc') {
-      if (plan?.actionId && plan?.actionLabel) {
-        return [{ id: plan.actionId, name: plan.actionLabel }];
-      }
-      return [];
+      return (data.participantPcActions?.[p.id] ?? [])
+        .filter((a) => slotForCost(a.cost) === 'action')
+        .map((a) => ({ id: a.id, name: `${a.name} (${costLabel(a.cost)})` }));
     }
     const choices: Array<{ id: string; name: string }> = [];
     for (const a of p.statblock?.actions ?? []) {
@@ -998,14 +998,12 @@
   }
 
   function bonusChoicesFor(
-    p: { kind: string },
-    plan: { bonusActionId?: string; bonusActionLabel?: string } | undefined
+    p: { id: string; kind: string }
   ): Array<{ id: string; name: string }> {
     if (p.kind === 'pc') {
-      if (plan?.bonusActionId && plan?.bonusActionLabel) {
-        return [{ id: plan.bonusActionId, name: plan.bonusActionLabel }];
-      }
-      return [];
+      return (data.participantPcActions?.[p.id] ?? [])
+        .filter((a) => slotForCost(a.cost) === 'bonus')
+        .map((a) => ({ id: a.id, name: `${a.name} (${costLabel(a.cost)})` }));
     }
     return COMMON_BONUS_ACTIONS.map((b) => ({ id: b, name: b }));
   }
@@ -1340,9 +1338,6 @@
                 +
               </button>
             {/if}
-            <button class="text-xs text-slate-500 hover:text-red-400" on:click={() => removeParticipant(p.id)} disabled={busy}>
-              ×
-            </button>
           {/if}
           {#if data.role === 'dm'}
             <button
@@ -1403,6 +1398,16 @@
           >
             {economyOpenFor === p.id ? '− econ' : '+ econ'}
           </button>
+          {#if data.role === 'dm'}
+            <button
+              class="ml-auto rounded border border-slate-700 px-1.5 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+              title={p.kind === 'pc' ? 'Remove this PC from the encounter' : `Remove ${p.kind} from encounter`}
+              on:click={() => removeParticipant(p.id)}
+              disabled={busy}
+            >
+              ✕
+            </button>
+          {/if}
           {#if condsFor(p).length > 0 || conditionsOpenFor === p.id}
             <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
               {#each condsFor(p) as c}
@@ -1503,6 +1508,14 @@
                 class="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:bg-slate-800"
                 on:click={() => (editMonsterOpenFor = null)}
               >cancel</button>
+              <button
+                class="ml-auto rounded border border-red-800 bg-red-950/40 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-900/60 disabled:opacity-40"
+                disabled={busy}
+                on:click={async () => {
+                  await removeParticipant(p.id);
+                  if (editMonsterOpenFor === p.id) editMonsterOpenFor = null;
+                }}
+              >Remove from encounter</button>
             </div>
           {/if}
           {#if p.statblock && statblockOpenFor === p.id}
@@ -1645,8 +1658,8 @@
                 mode="observer"
                 readonly={isPc}
                 {busy}
-                actionChoices={actionChoicesFor(p, plan)}
-                bonusChoices={bonusChoicesFor(p, plan)}
+                actionChoices={actionChoicesFor(p)}
+                bonusChoices={bonusChoicesFor(p)}
                 plannedActionId={isPc ? (plan?.actionId ?? '') : roundEconomy[p.id].action}
                 plannedBonusActionId={isPc ? (plan?.bonusActionId ?? '') : roundEconomy[p.id].bonusAction}
                 actionUsed={roundEconomy[p.id].actionUsed}

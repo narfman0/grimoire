@@ -117,8 +117,13 @@ function defaultUrl(): string {
 
 function snapshot(ydoc: Y.Doc): EncounterSnapshot | null {
   const root = ydoc.getMap('encounter');
-  if (root.size === 0) return null;
   const plansMap = ydoc.getMap('plans');
+  const hpMap = ydoc.getMap('participantHp');
+  // Pre-sync sentinel: only fall back to SSR when *every* map is empty. The
+  // encounter root can be empty even while plans/participantHp carry data —
+  // checking root.size alone hides player turn-plan broadcasts on the DM's
+  // encounter page until someone first writes a round/activeParticipantId.
+  if (root.size === 0 && plansMap.size === 0 && hpMap.size === 0) return null;
   const plans: Record<string, TurnPlan> = {};
   for (const [pid, raw] of plansMap.entries()) {
     if (typeof raw !== 'string') continue;
@@ -133,7 +138,6 @@ function snapshot(ydoc: Y.Doc): EncounterSnapshot | null {
       // ignore malformed plan
     }
   }
-  const hpMap = ydoc.getMap('participantHp');
   const participantHp: Record<string, ParticipantHp> = {};
   for (const [pid, raw] of hpMap.entries()) {
     if (typeof raw !== 'string') continue;
