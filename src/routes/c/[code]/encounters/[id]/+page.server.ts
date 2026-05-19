@@ -204,6 +204,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
    *  the encounter UI, not just on the character sheet. */
   type PcActionChoice = { id: string; name: string; cost: ActionCost; attackCount?: number };
   const participantPcActions: Record<string, PcActionChoice[]> = {};
+  /** Derived trigger list per PC participant — drives the reaction queue so
+   *  the DM is prompted when a PC trigger fires during turn resolution. */
+  type PcTriggerChoice = { id: string; name: string; on: string[] };
+  const participantPcTriggers: Record<string, PcTriggerChoice[]> = {};
   /** PC concentration sourced from the character document. Null when the
    *  PC isn't concentrating. Lets the DM see what each PC is concentrating
    *  on inline with the participant row. */
@@ -268,6 +272,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
             name: a.name,
             cost: a.cost,
             ...(a.attackCount != null && a.attackCount > 1 ? { attackCount: a.attackCount } : {})
+          }));
+          participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({
+            id: t.id,
+            name: t.name,
+            on: t.on
           }));
           participantPcStats[participant.id] = {
             ac: s.ac,
@@ -479,6 +488,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     participantPcConditions,
     participantPcStats,
     participantPcActions,
+    participantPcTriggers,
     participantPcConcentrating,
     participantPlans,
     participantNonPcConcentrating,

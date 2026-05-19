@@ -282,6 +282,42 @@
           }
         }
       }
+      // Build the set of events that fired from this resolution.
+      const firedEvents: string[] = [];
+      if (resolveHit === 'hit') firedEvents.push('attack.hit');
+      if (resolveHit === 'crit') { firedEvents.push('attack.hit'); firedEvents.push('attack.crit'); }
+      if (resolveHit === 'failed-save') { firedEvents.push('spell.hit'); firedEvents.push('save.failed'); }
+      // Check if any target was reduced to 0 HP.
+      const checkTargets = resolveMultiTargetIds.length > 0 ? resolveMultiTargetIds : (resolveTargetId ? [resolveTargetId] : []);
+      for (const tid of checkTargets) {
+        const hpEntry = liveHpMap[tid];
+        if (hpEntry && hpEntry.currentHp != null && hpEntry.currentHp <= 0) {
+          firedEvents.push('attack.reduce-to-zero');
+          break;
+        }
+      }
+      // For each PC participant whose trigger on[] intersects firedEvents,
+      // add a reaction prompt (skip if reactionUsed already).
+      if (firedEvents.length > 0) {
+        const newPrompts: typeof reactionPrompts = [];
+        for (const participant of data.participants) {
+          if (participant.kind !== 'pc') continue;
+          if (roundEconomy[participant.id]?.reactionUsed) continue;
+          const triggers = data.participantPcTriggers?.[participant.id] ?? [];
+          for (const trigger of triggers) {
+            if (trigger.on.some((ev) => firedEvents.includes(ev))) {
+              newPrompts.push({
+                participantId: participant.id,
+                participantName: participant.name,
+                triggerId: trigger.id,
+                triggerName: trigger.name
+              });
+              break; // one prompt per participant per resolution
+            }
+          }
+        }
+        reactionPrompts = [...reactionPrompts, ...newPrompts];
+      }
       // Clear the plan if there was one.
       if (livePlans[resolveForParticipantId]) {
         conn.clearPlan(resolveForParticipantId).catch(() => {});
@@ -865,6 +901,15 @@
 
   // Concentration save callout state: set after a resolve completes, cleared when dismissed.
   let concSavePrompt: { participantName: string; dc: number; participantId: string } | null = null;
+
+  // Reaction queue: one entry per PC trigger that fires from the resolved action.
+  // Shown one at a time (same position as concSavePrompt) so DM can confirm or skip.
+  let reactionPrompts: Array<{
+    participantId: string;
+    participantName: string;
+    triggerId: string;
+    triggerName: string;
+  }> = [];
 
   let conditionsOpenFor: string | null = null;
   /** Per-participant flag: which one currently has its inline statblock panel
@@ -2037,6 +2082,31 @@
       on:click={() => (concSavePrompt = null)}
     >
       Pass / dismiss
+    </button>
+  </div>
+{/if}
+
+{#if reactionPrompts.length > 0 && data.role === 'dm'}
+  {@const prompt = reactionPrompts[0]}
+  <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-600 bg-amber-950/40 px-4 py-3 text-sm">
+    <span class="text-amber-200">
+      ⚡ <strong>{prompt.participantName}</strong> can use <strong>{prompt.triggerName}</strong> — use their reaction?
+    </span>
+    <button
+      class="rounded border border-emerald-700 bg-emerald-900/40 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/70"
+      on:click={() => {
+        ensureEconomy(prompt.participantId).reactionUsed = true;
+        roundEconomy = roundEconomy;
+        reactionPrompts = reactionPrompts.slice(1);
+      }}
+    >
+      Use reaction
+    </button>
+    <button
+      class="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
+      on:click={() => (reactionPrompts = reactionPrompts.slice(1))}
+    >
+      Skip
     </button>
   </div>
 {/if}
