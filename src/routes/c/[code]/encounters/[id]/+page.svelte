@@ -4,7 +4,7 @@
   import MonsterPicker from '$lib/components/MonsterPicker.svelte';
   import RevealChip from '$lib/components/RevealChip.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
-  import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
+  import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import { COMMON_CONDITIONS } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
@@ -1664,75 +1664,31 @@
               ? (data.participantPcStats?.[p.id]?.speeds ?? { walk: 30 })
               : (p.statblock?.speeds ?? { walk: 30 })}
             {@const walkSpeed = (speeds.walk ?? speeds.fly ?? speeds.swim ?? 30)}
-            <div class="basis-full bg-slate-900/60 border-t border-slate-800 px-4 py-3 mt-1 rounded-b">
-              <div class="mb-2 flex items-center gap-2">
-                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Plan</div>
-                {#if data.role === 'dm' && plan && (plan.actionLabel || plan.bonusActionLabel)}
-                  <button
-                    class="rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-900/40"
-                    on:click={() => openResolve(p)}
-                  >
-                    resolve
-                  </button>
-                  <button
-                    class="text-[10px] text-slate-500 hover:text-red-400"
-                    on:click={() => clearPlan(p.id)}
-                  >
-                    clear
-                  </button>
-                {/if}
-              </div>
-              <ActionEconomyPanel
-                mode="observer"
-                {busy}
-                actionChoices={actionChoicesFor(p)}
-                bonusChoices={bonusChoicesFor(p)}
-                plannedActionId={plan?.actionId ?? ''}
-                plannedBonusActionId={plan?.bonusActionId ?? ''}
-                actionUsed={roundEconomy[p.id].actionUsed}
-                bonusUsed={roundEconomy[p.id].bonusUsed}
-                reactionUsed={roundEconomy[p.id].reactionUsed}
-                {walkSpeed}
-                movementUsed={roundEconomy[p.id].movement}
-                showConcentration={false}
-                participants={data.participants}
-                selfId={p.id}
-                plannedTargetIds={plan?.targetParticipantIds ?? []}
-                plannedBonusTargetIds={plan?.bonusTargetParticipantIds ?? []}
-                on:actionPick={(e) => persistPlan(p, { actionId: e.detail })}
-                on:bonusPick={(e) => persistPlan(p, { bonusActionId: e.detail })}
-                on:targetPick={(e) => persistPlan(p, { targetParticipantIds: e.detail })}
-                on:bonusTargetPick={(e) => persistPlan(p, { bonusTargetParticipantIds: e.detail })}
-                on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
-                on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
-                on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
-                on:movementDelta={(e) => { roundEconomy[p.id].movement = Math.max(0, Math.min(walkSpeed, roundEconomy[p.id].movement + e.detail)); roundEconomy = roundEconomy; }}
-                on:movementReset={() => { roundEconomy[p.id].movement = 0; roundEconomy = roundEconomy; }}
-              />
-              {#if !isPc && isSpellAction(p.id)}
-                <div class="mt-2 flex items-center gap-1.5 text-xs">
-                  <span class="text-[10px] text-slate-500">Cast at slot:</span>
-                  <select
-                    class="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px]"
-                    bind:value={roundEconomy[p.id].slotLevel}
-                    on:change={() => (roundEconomy = roundEconomy)}
-                  >
-                    {#each [1,2,3,4,5,6,7,8,9] as lvl}
-                      <option value={lvl}>L{lvl}</option>
-                    {/each}
-                  </select>
-                </div>
-              {/if}
-              <div class="mt-2 flex items-center gap-2 text-xs">
-                <span class="text-slate-500 whitespace-nowrap">Free Actions:</span>
-                <input
-                  class="flex-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
-                  placeholder="object interaction, communicate, etc."
-                  bind:value={roundEconomy[p.id].freeActions}
-                  on:input={() => (roundEconomy = roundEconomy)}
-                />
-              </div>
-            </div>
+            <PlanPanel
+              participant={p}
+              plan={plan ?? null}
+              role={data.role}
+              participants={data.participants}
+              actionChoices={actionChoicesFor(p)}
+              bonusChoices={bonusChoicesFor(p)}
+              {walkSpeed}
+              {busy}
+              economy={roundEconomy[p.id]}
+              showSlotLevel={!isPc && isSpellAction(p.id)}
+              on:actionPick={(e) => persistPlan(p, { actionId: e.detail })}
+              on:bonusPick={(e) => persistPlan(p, { bonusActionId: e.detail })}
+              on:targetPick={(e) => persistPlan(p, { targetParticipantIds: e.detail })}
+              on:bonusTargetPick={(e) => persistPlan(p, { bonusTargetParticipantIds: e.detail })}
+              on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
+              on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
+              on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
+              on:movementDelta={(e) => { roundEconomy[p.id].movement = Math.max(0, Math.min(walkSpeed, roundEconomy[p.id].movement + e.detail)); roundEconomy = roundEconomy; }}
+              on:movementReset={() => { roundEconomy[p.id].movement = 0; roundEconomy = roundEconomy; }}
+              on:slotLevelChange={(e) => { roundEconomy[p.id].slotLevel = e.detail; roundEconomy = roundEconomy; }}
+              on:freeActionsChange={(e) => { roundEconomy[p.id].freeActions = e.detail; roundEconomy = roundEconomy; }}
+              on:resolve={() => openResolve(p)}
+              on:clear={() => clearPlan(p.id)}
+            />
           {/if}
         </li>
       {/each}
