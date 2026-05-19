@@ -6,7 +6,7 @@
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
-  import { COMMON_CONDITIONS } from '$lib/rules/conditions';
+  import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
@@ -1520,8 +1520,10 @@
             </button>
           {/if}
           {#if condsFor(p).length > 0 || conditionsOpenFor === p.id}
+            {@const activeConds = condsFor(p)}
+            {@const implied = impliedBy(activeConds)}
             <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
-              {#each condsFor(p) as c}
+              {#each activeConds as c}
                 <button
                   class="rounded border border-amber-700 bg-amber-950/30 px-1.5 py-0.5 text-amber-200 hover:bg-amber-900/40 disabled:opacity-40"
                   disabled={busy || data.role !== 'dm'}
@@ -1531,8 +1533,16 @@
                   {c} ×
                 </button>
               {/each}
+              {#each [...implied.entries()] as [c, src]}
+                <span
+                  class="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-500 italic"
+                  title="implied by {src}"
+                >
+                  {c}
+                </span>
+              {/each}
               {#if data.role === 'dm' && conditionsOpenFor === p.id}
-                {#each COMMON_CONDITIONS.filter((c) => !condsFor(p).includes(c)) as c}
+                {#each COMMON_CONDITIONS.filter((c) => !activeConds.includes(c) && !implied.has(c)) as c}
                   <button
                     class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
                     disabled={busy}

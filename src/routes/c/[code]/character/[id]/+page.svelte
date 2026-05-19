@@ -10,7 +10,7 @@
   import { derive } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
-  import { COMMON_CONDITIONS } from '$lib/rules/conditions';
+  import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
   import { lookupFromMap, type CharacterDocument, type Derived, type ContentLookup } from '$lib/rules/types';
   import { connectCharacter, type ConnectedDoc } from '$lib/realtime/character-channel';
   import {
@@ -137,25 +137,7 @@
 
   // Map of condition slug → the slug that directly implies it, for conditions
   // that are active only because another condition implies them.
-  $: impliedConditions = (() => {
-    if (!document) return new Map<string, string>();
-    const result = new Map<string, string>();
-    const visited = new Set(document.conditions);
-    const queue = [...document.conditions];
-    while (queue.length > 0) {
-      const slug = queue.shift()!;
-      const row = contentLookup({ kind: 'condition', slug });
-      const implies = (row?.data?.implies as string[] | undefined) ?? [];
-      for (const imp of implies) {
-        if (!visited.has(imp)) {
-          visited.add(imp);
-          queue.push(imp);
-          result.set(imp, slug);
-        }
-      }
-    }
-    return result;
-  })();
+  $: impliedConditions = document ? impliedBy(document.conditions) : new Map<string, string>();
 
   // Sets aren't JSON-serializable; the server's serializeDerived swaps them
   // for arrays before shipping. Client-side derive() returns Sets, so we
