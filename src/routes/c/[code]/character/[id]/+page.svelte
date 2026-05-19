@@ -12,7 +12,7 @@
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { COMMON_CONDITIONS } from '$lib/rules/conditions';
   import { lookupFromMap, type CharacterDocument, type Derived, type ContentLookup } from '$lib/rules/types';
-  import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
+  import { connectCharacter, type ConnectedDoc } from '$lib/realtime/character-channel';
   import {
     connectEncounter,
     type ConnectedEncounter,
@@ -71,7 +71,7 @@
   // is open. Client runs derive() locally on every Y.Doc update so the
   // displayed stats reflect live HP/conditions/toggles within one tick.
   let conn: ConnectedDoc | null = null;
-  let syncStatus: 'connecting' | 'open' | 'closed' | 'auth-failed' = 'connecting';
+  let syncStatus: 'connecting' | 'open' | 'closed' = 'connecting';
   let unsubStatus: (() => void) | undefined;
   let unsubDoc: (() => void) | undefined;
   /** Snapshot from the live Y.Doc — null until first message arrives. */
@@ -140,8 +140,7 @@
   let resolveError: string | null = null;
 
   onMount(() => {
-    if (!data.syncToken) return;
-    conn = connectCharacterDoc({ token: data.syncToken, characterId: data.character.id });
+    conn = connectCharacter({ characterId: data.character.id, seed: data.document });
     unsubStatus = conn.status.subscribe((s) => (syncStatus = s));
     unsubDoc = conn.document.subscribe((d) => (liveDoc = d));
 
@@ -1254,8 +1253,6 @@
         <span class="rounded bg-emerald-900/40 px-1.5 py-0.5 text-emerald-200">● Live sync connected</span>
       {:else if syncStatus === 'connecting'}
         <span class="rounded bg-slate-800 px-1.5 py-0.5 text-slate-400">○ Sync connecting…</span>
-      {:else if syncStatus === 'auth-failed'}
-        <span class="rounded bg-red-900/40 px-1.5 py-0.5 text-red-200">✕ Sync auth failed</span>
       {:else}
         <span class="rounded bg-amber-900/40 px-1.5 py-0.5 text-amber-200">⚠ Sync offline (edits still persist via API)</span>
       {/if}

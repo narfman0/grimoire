@@ -5,6 +5,7 @@ import { db, schema } from '$lib/server/db';
 import { UpdateCharacterRequest, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { publish } from '$lib/server/realtime/hub';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -84,12 +85,20 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     })
     .where(eq(schema.characters.id, id));
 
+  const parsedDoc = nextDocument ? JSON.parse(nextDocument) : null;
+  publish(`character:${id}`, {
+    type: 'document',
+    name: nextName,
+    document: parsedDoc,
+    updatedAt: now.getTime()
+  });
+
   return json({
     id: existing.id,
     campaignId: existing.campaignId,
     ownerUserId: existing.ownerUserId,
     name: nextName,
-    document: nextDocument ? JSON.parse(nextDocument) : null,
+    document: parsedDoc,
     updatedAt: now.getTime()
   });
 };
