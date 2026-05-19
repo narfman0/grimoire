@@ -531,160 +531,238 @@
           "kind": "stat-modifier",
           "target": "save.str",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "save.dex",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "save.con",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "save.int",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "save.wis",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "save.cha",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.acrobatics",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.animal-handling",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.arcana",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.athletics",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.deception",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.history",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.insight",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.intimidation",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.investigation",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.medicine",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.nature",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.perception",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.performance",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.persuasion",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.religion",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.sleight-of-hand",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.stealth",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "skill.survival",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "initiative",
           "mode": "ADD",
-          "value": -2
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
         },
         {
           "kind": "stat-modifier",
           "target": "speed.all",
           "mode": "ADD",
-          "value": -5
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -5
+          }
         }
       ],
-      "note": "2024 PHB Exhaustion: each level imposes -2 to all D20 Tests (saves, skills, initiative) and -5 ft to all speeds. v0 models a single exhaustion level; stacking tiers are handled via conditionStacks in a later phase."
+      "note": "2024 PHB Exhaustion: each level imposes -2 to all D20 Tests (saves, skills, initiative) and -5 ft to all speeds, stacking per level. Track the level via conditionStacks.exhaustion (1-10). Level 6+ = death (not enforced by engine)."
     }
   }
 ]

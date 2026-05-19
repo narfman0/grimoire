@@ -9,6 +9,9 @@ export interface EvalContext {
   proficiencyBonus: number;
   rageDamage: number;
   classLevels: Record<string, number>;
+  /** Current stack count per stackable condition (e.g. exhaustion 1–10).
+   *  Used by the perConditionStack evaluator shape. */
+  conditionStacks: Record<string, number>;
 }
 
 /**
@@ -40,6 +43,18 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
     const lvl = ctx.classLevels[o.perClass] ?? 0;
     if (lvl < 1) return 0;
     return o.table[Math.min(lvl, o.table.length) - 1] ?? 0;
+  }
+  // perConditionStack: { perConditionStack: "exhaustion", perLevel: -2 }
+  // Evaluates to conditionStacks[slug] * perLevel, or 0 if not stacked.
+  if (
+    value &&
+    typeof value === 'object' &&
+    'perConditionStack' in value &&
+    'perLevel' in value
+  ) {
+    const o = value as { perConditionStack: string; perLevel: number };
+    const stacks = ctx.conditionStacks[o.perConditionStack] ?? 0;
+    return stacks === 0 ? 0 : stacks * o.perLevel;
   }
   return value;
 }

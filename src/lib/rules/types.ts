@@ -65,6 +65,10 @@ export interface CharacterDocument {
   tempHp: number;
   hitDiceSpent: Record<string, number>;
   conditions: string[];
+  /** Stacking level for conditions that accumulate (e.g. exhaustion 1–10).
+   *  Key is the condition slug; value is the current stack count (≥ 1).
+   *  Absence of a key means the condition has no stack (level 0 / off). */
+  conditionStacks?: Record<string, number>;
 
   modifierToggles: Record<string, boolean>;
   /** Per-resource counter keyed by resource id (see derive().resources[].id). */

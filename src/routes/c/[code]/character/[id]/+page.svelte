@@ -577,8 +577,25 @@
   async function toggleCondition(name: string, on: boolean) {
     await patchDocument((d) => {
       const has = d.conditions.includes(name);
-      if (on && !has) d.conditions.push(name);
-      else if (!on && has) d.conditions = d.conditions.filter((c) => c !== name);
+      if (on && !has) {
+        d.conditions.push(name);
+        // For stackable conditions, initialise the stack count to 1 when first toggled on.
+        if (name === 'exhaustion') {
+          if (!d.conditionStacks) d.conditionStacks = {};
+          if (!d.conditionStacks[name]) d.conditionStacks[name] = 1;
+        }
+      } else if (!on && has) {
+        d.conditions = d.conditions.filter((c) => c !== name);
+        // Clear the stack when condition is removed.
+        if (d.conditionStacks) delete d.conditionStacks[name];
+      }
+    });
+  }
+
+  async function setConditionStack(name: string, level: number) {
+    await patchDocument((d) => {
+      if (!d.conditionStacks) d.conditionStacks = {};
+      d.conditionStacks[name] = Math.max(1, Math.min(10, level));
     });
   }
 
@@ -1599,7 +1616,8 @@
           {@const on = document.conditions.includes(cond)}
           {@const row = contentLookup({ kind: 'condition', slug: cond })}
           {@const cdata = conditionMeta(row)}
-          <li>
+          {@const stackLevel = document.conditionStacks?.[cond] ?? 1}
+          <li class="flex items-center gap-1">
             <label
               class="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs {on
                 ? 'border-emerald-600 bg-emerald-900/30 text-emerald-200'
@@ -1635,6 +1653,19 @@
                 </svelte:fragment>
               </HoverPopup>
             </label>
+            {#if on && cond === 'exhaustion'}
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={stackLevel}
+                class="w-12 rounded border border-emerald-700 bg-slate-950 px-1 py-0.5 text-xs text-emerald-200"
+                title="Exhaustion level (1–10)"
+                aria-label="Exhaustion level"
+                on:change={(e) => { const el = e.currentTarget; setConditionStack('exhaustion', parseInt(el.value, 10)); }}
+                disabled={busy}
+              />
+            {/if}
           </li>
         {/each}
       </ul>

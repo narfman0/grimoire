@@ -57,25 +57,39 @@ describe('Prone condition mechanical effects', () => {
 describe('Exhaustion condition: speed.all and d20-test penalties', () => {
   // Locks that speed.all modifiers are applied to every speed key (fixing
   // the previous silent-drop of speed.all ADD modifiers in computeSpeeds).
+  // Exhaustion now uses perConditionStack evaluator; conditionStacks must
+  // be set alongside conditions[] for the numeric penalties to apply.
   it('reduces walk speed by 5 with exhaustion level 1', () => {
-    const character: CharacterDocument = { ...BASE_CHARACTER, conditions: ['exhaustion'] };
+    const character: CharacterDocument = {
+      ...BASE_CHARACTER,
+      conditions: ['exhaustion'],
+      conditionStacks: { exhaustion: 1 }
+    };
     const d = derive(character, lookup());
-    // Human walk speed starts at 30; exhaustion adds -5 via speed.all.
+    // Human walk speed starts at 30; exhaustion level 1 adds -5 via speed.all.
     expect(d.stats.speeds.walk).toBe(25);
   });
 
-  it('applies -2 to all saves with exhaustion', () => {
+  it('applies -2 to all saves with exhaustion level 1', () => {
     const base = derive(BASE_CHARACTER, lookup());
-    const exhausted = derive({ ...BASE_CHARACTER, conditions: ['exhaustion'] }, lookup());
+    const exhausted = derive({
+      ...BASE_CHARACTER,
+      conditions: ['exhaustion'],
+      conditionStacks: { exhaustion: 1 }
+    }, lookup());
 
     for (const ab of ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const) {
       expect(exhausted.stats.saves[ab].bonus).toBe(base.stats.saves[ab].bonus - 2);
     }
   });
 
-  it('applies -2 to skill checks with exhaustion', () => {
+  it('applies -2 to skill checks with exhaustion level 1', () => {
     const base = derive(BASE_CHARACTER, lookup());
-    const exhausted = derive({ ...BASE_CHARACTER, conditions: ['exhaustion'] }, lookup());
+    const exhausted = derive({
+      ...BASE_CHARACTER,
+      conditions: ['exhaustion'],
+      conditionStacks: { exhaustion: 1 }
+    }, lookup());
 
     // Spot-check a few skills
     expect(exhausted.stats.skills.perception.bonus).toBe(base.stats.skills.perception.bonus - 2);
@@ -83,9 +97,13 @@ describe('Exhaustion condition: speed.all and d20-test penalties', () => {
     expect(exhausted.stats.skills.stealth.bonus).toBe(base.stats.skills.stealth.bonus - 2);
   });
 
-  it('applies -2 to initiative with exhaustion', () => {
+  it('applies -2 to initiative with exhaustion level 1', () => {
     const base = derive(BASE_CHARACTER, lookup());
-    const exhausted = derive({ ...BASE_CHARACTER, conditions: ['exhaustion'] }, lookup());
+    const exhausted = derive({
+      ...BASE_CHARACTER,
+      conditions: ['exhaustion'],
+      conditionStacks: { exhaustion: 1 }
+    }, lookup());
     expect(exhausted.stats.initiative).toBe(base.stats.initiative - 2);
   });
 
@@ -112,7 +130,8 @@ describe('Exhaustion condition: speed.all and d20-test penalties', () => {
     const character: CharacterDocument = {
       ...BASE_CHARACTER,
       species: { kind: 'species', slug: 'test-flier' },
-      conditions: ['exhaustion']
+      conditions: ['exhaustion'],
+      conditionStacks: { exhaustion: 1 }
     };
     const d = derive(character, withFlier);
     expect(d.stats.speeds.walk).toBe(25);

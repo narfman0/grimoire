@@ -11,7 +11,8 @@ const ctx = {
   totalLevel: 5,
   proficiencyBonus: 3,
   rageDamage: 2,
-  classLevels: { barbarian: 3, fighter: 2 }
+  classLevels: { barbarian: 3, fighter: 2 },
+  conditionStacks: { exhaustion: 2 }
 };
 
 describe('evaluateValue', () => {
@@ -51,6 +52,27 @@ describe('evaluateValue', () => {
     expect(
       evaluateValue(table, { ...ctx, classLevels: { fighter: 5 } })
     ).toBe(20);
+  });
+
+  // Locks the perConditionStack evaluator contract — exhaustion uses this to
+  // compute stacking -2 per level penalties. A regression would silently apply
+  // the wrong penalty or drop it entirely.
+  it('resolves perConditionStack × perLevel correctly', () => {
+    const formula = { perConditionStack: 'exhaustion', perLevel: -2 };
+    // ctx has conditionStacks.exhaustion = 2 → 2 * -2 = -4
+    expect(evaluateValue(formula, ctx)).toBe(-4);
+  });
+
+  it('returns 0 for perConditionStack when the condition is not stacked', () => {
+    const formula = { perConditionStack: 'frightened', perLevel: -2 };
+    // frightened not in conditionStacks → 0 * -2 = 0
+    expect(evaluateValue(formula, ctx)).toBe(0);
+  });
+
+  it('resolves perConditionStack speed penalty', () => {
+    const formula = { perConditionStack: 'exhaustion', perLevel: -5 };
+    // conditionStacks.exhaustion = 2 → 2 * -5 = -10
+    expect(evaluateValue(formula, ctx)).toBe(-10);
   });
 });
 

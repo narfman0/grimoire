@@ -455,7 +455,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     totalLevel,
     proficiencyBonus,
     rageDamage: rageDamageFor(character, proficiencyBonus),
-    classLevels
+    classLevels,
+    conditionStacks: character.conditionStacks ?? {}
   };
 
   // (a) Ability scores

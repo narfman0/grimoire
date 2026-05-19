@@ -138,6 +138,8 @@ export const CharacterDocument = z
     tempHp: z.number().int().nonnegative(),
     hitDiceSpent: z.record(z.string(), z.number().int().nonnegative()),
     conditions: z.array(z.string()),
+    /** Stacking level for conditions that accumulate (e.g. exhaustion 1–10). */
+    conditionStacks: z.record(z.string(), z.number().int().positive()).optional(),
     modifierToggles: z.record(z.string(), z.boolean()),
     resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional(),
     /** Per-turn action-economy slots — auto-reset on turn-rise + rest. */
