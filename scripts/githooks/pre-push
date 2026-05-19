@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Pre-push gate — mirrors CI so nothing red gets pushed.
+# Install with: ./scripts/install-githooks.sh
+set -euo pipefail
+
+echo "[pre-push] pnpm check"
+pnpm check
+
+echo "[pre-push] pnpm test"
+pnpm test
