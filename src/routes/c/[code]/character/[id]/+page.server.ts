@@ -7,6 +7,7 @@ import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { SESSION_COOKIE } from '$lib/server/auth/sessions';
 import { hpBucket, parseReveals } from '$lib/realtime/reveals';
+import type { TPlanJson } from '$lib/server/api/encounter-schemas';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -335,6 +336,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     id: string;
     name: string;
     selfParticipantId: string;
+    /** Last-broadcast turn plan for *this* PC, loaded from participants.plan_json
+     *  so the planner pre-selects on first paint (refresh-safe). null when the
+     *  player has no active plan. */
+    selfPlan: TPlanJson | null;
     participants: Array<{
       id: string;
       name: string;
@@ -352,10 +357,21 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         kind: schema.participants.kind,
         maxHp: schema.participants.maxHp,
         currentHp: schema.participants.currentHp,
-        revealsJson: schema.participants.revealsJson
+        revealsJson: schema.participants.revealsJson,
+        planJson: schema.participants.planJson
       })
       .from(schema.participants)
       .where(eq(schema.participants.encounterId, liveEncMatch.encId));
+
+    const selfRow = allParticipants.find((p) => p.id === liveEncMatch.partId);
+    let selfPlan: TPlanJson | null = null;
+    if (selfRow?.planJson) {
+      try {
+        selfPlan = JSON.parse(selfRow.planJson) as TPlanJson;
+      } catch {
+        // ignore malformed plan
+      }
+    }
 
     // Project for the requester. The DM sees everything; players get the
     // same reveal-filtered shape the encounter page uses, with placeholder
@@ -394,6 +410,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       id: liveEncMatch.encId,
       name: liveEncMatch.encName,
       selfParticipantId: liveEncMatch.partId,
+      selfPlan,
       participants: projected
     };
   }

@@ -14,16 +14,12 @@
   import { lookupFromMap, type CharacterDocument, type Derived, type ContentLookup } from '$lib/rules/types';
   import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
   import {
-    connectEncounterDoc,
-    setTurnPlan,
-    clearTurnPlan,
-    applyDamage as applyEncDamage,
-    applyHeal as applyEncHeal,
+    connectEncounter,
     type ConnectedEncounter,
     type EncounterSnapshot,
     type TurnPlan,
     type ParticipantHp
-  } from '$lib/realtime/encounter-doc';
+  } from '$lib/realtime/encounter-channel';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -150,13 +146,30 @@
     unsubDoc = conn.document.subscribe((d) => (liveDoc = d));
 
     if (data.liveEncounter) {
-      encConn = connectEncounterDoc({
-        token: data.syncToken,
-        encounterId: data.liveEncounter.id
+      // Seed the channel with the SSR-loaded plan so the chooser pre-selects
+      // the broadcast action on first paint — fixes the refresh-after-pick
+      // case where the local store would otherwise wait on SSE for the
+      // plan to arrive.
+      const seedPlans: Record<string, TurnPlan> = {};
+      const ssrPlan = data.liveEncounter.selfPlan;
+      if (ssrPlan) seedPlans[data.liveEncounter.selfParticipantId] = ssrPlan;
+      encConn = connectEncounter({
+        encounterId: data.liveEncounter.id,
+        seed: { plans: seedPlans }
       });
+      // Pre-fill the draft from the SSR plan immediately so refresh keeps
+      // the prior selection without waiting for an SSE round-trip.
+      if (ssrPlan && !planActionId && !planBonusActionId) {
+        planActionId = ssrPlan.actionId;
+        planBonusActionId = ssrPlan.bonusActionId ?? '';
+        planTargetIds = ssrPlan.targetParticipantIds ?? [];
+        planBonusTargetIds = ssrPlan.bonusTargetParticipantIds ?? [];
+        planNotes = ssrPlan.notes;
+      }
       unsubEncState = encConn.state.subscribe((s) => {
         encState = s;
-        // Pre-fill the draft from the existing plan if any (so reload doesn't lose it).
+        // Plans may also arrive later (another tab broadcasted) — adopt them
+        // when the local draft is still empty so we mirror the latest state.
         if (s && data.liveEncounter) {
           const existing = s.plans[data.liveEncounter.selfParticipantId];
           if (existing && !planActionId && !planBonusActionId) {
@@ -251,34 +264,35 @@
     broadcastPlan();
   }
 
-  /** Push the current planActionId + planBonusActionId (plus target/notes) to
-   *  the encounter Y.Doc. Called by the action / bonus-action choosers on
-   *  every change so the DM sees intent in real time. If both slots are
+  /** Push the current planActionId + planBonusActionId (plus target/notes)
+   *  to the encounter channel. Called by the action / bonus-action choosers
+   *  on every change so the DM sees intent in real time. If both slots are
    *  empty, clear the plan entirely instead of writing a blank record. */
   function broadcastPlan() {
     if (!encConn || !data.liveEncounter) return;
     const action = planActionId ? actionOptions.find((a) => a.id === planActionId) : null;
     const bonus = planBonusActionId ? actionOptions.find((a) => a.id === planBonusActionId) : null;
     if (!action && !bonus) {
-      clearTurnPlan(encConn.ydoc, data.liveEncounter.selfParticipantId);
+      encConn.clearPlan(data.liveEncounter.selfParticipantId).catch(() => {});
       return;
     }
     planSubmitting = true;
-    try {
-      const plan: TurnPlan = {
-        actionId: action?.id ?? '',
-        actionLabel: action ? `${action.name} (${action.costLabel})` : '',
-        bonusActionId: bonus?.id,
-        bonusActionLabel: bonus ? `${bonus.name} (${bonus.costLabel})` : undefined,
-        targetParticipantIds: planTargetIds,
-        bonusTargetParticipantIds: planBonusTargetIds.length > 0 ? planBonusTargetIds : undefined,
-        notes: planNotes.slice(0, 200),
-        updatedAt: Date.now()
-      };
-      setTurnPlan(encConn.ydoc, data.liveEncounter.selfParticipantId, plan);
-    } finally {
-      planSubmitting = false;
-    }
+    const plan: TurnPlan = {
+      actionId: action?.id ?? '',
+      actionLabel: action ? `${action.name} (${action.costLabel})` : '',
+      bonusActionId: bonus?.id,
+      bonusActionLabel: bonus ? `${bonus.name} (${bonus.costLabel})` : undefined,
+      targetParticipantIds: planTargetIds,
+      bonusTargetParticipantIds: planBonusTargetIds.length > 0 ? planBonusTargetIds : undefined,
+      notes: planNotes.slice(0, 200),
+      updatedAt: Date.now()
+    };
+    encConn
+      .setPlan(data.liveEncounter.selfParticipantId, plan)
+      .catch(() => {})
+      .finally(() => {
+        planSubmitting = false;
+      });
   }
 
   function openResolve() {
@@ -333,9 +347,9 @@
       if (effective === 0) {
         next = seed;
       } else if (outcome === 'heal') {
-        next = applyEncHeal(encConn.ydoc, target.id, damage, target.maxHp, seed);
+        next = encConn.applyHeal(target.id, damage, target.maxHp, seed);
       } else {
-        next = applyEncDamage(encConn.ydoc, target.id, effective, seed);
+        next = encConn.applyDamage(target.id, effective, seed);
       }
       targetHpAfter = next.currentHp;
     }
@@ -424,7 +438,7 @@
         });
       }
       // Clear the plan now that the action has been resolved.
-      clearTurnPlan(encConn.ydoc, selfId);
+      encConn.clearPlan(selfId).catch(() => {});
       planActionId = '';
       planTargetIds = [];
       planBonusTargetIds = [];
