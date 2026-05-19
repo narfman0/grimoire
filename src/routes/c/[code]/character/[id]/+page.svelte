@@ -135,6 +135,28 @@
     ? serializeDerivedClient(derive(document, contentLookup))
     : data.derived;
 
+  // Map of condition slug → the slug that directly implies it, for conditions
+  // that are active only because another condition implies them.
+  $: impliedConditions = (() => {
+    if (!document) return new Map<string, string>();
+    const result = new Map<string, string>();
+    const visited = new Set(document.conditions);
+    const queue = [...document.conditions];
+    while (queue.length > 0) {
+      const slug = queue.shift()!;
+      const row = contentLookup({ kind: 'condition', slug });
+      const implies = (row?.data?.implies as string[] | undefined) ?? [];
+      for (const imp of implies) {
+        if (!visited.has(imp)) {
+          visited.add(imp);
+          queue.push(imp);
+          result.set(imp, slug);
+        }
+      }
+    }
+    return result;
+  })();
+
   // Sets aren't JSON-serializable; the server's serializeDerived swaps them
   // for arrays before shipping. Client-side derive() returns Sets, so we
   // do the same swap here for shape parity with the Sheet component.
@@ -1656,26 +1678,33 @@
       <ul class="flex flex-wrap gap-2 text-sm">
         {#each COMMON_CONDITIONS as cond}
           {@const on = document.conditions.includes(cond)}
+          {@const impliedBy = impliedConditions.get(cond)}
           {@const row = contentLookup({ kind: 'condition', slug: cond })}
           {@const cdata = conditionMeta(row)}
           {@const stackLevel = document.conditionStacks?.[cond] ?? 1}
           <li class="flex items-center gap-1">
             <label
-              class="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs {on
-                ? 'border-emerald-600 bg-emerald-900/30 text-emerald-200'
-                : 'border-slate-700 text-slate-400 hover:text-slate-200'}"
+              class="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs {on
+                ? 'cursor-pointer border-emerald-600 bg-emerald-900/30 text-emerald-200'
+                : impliedBy
+                  ? 'cursor-default border-slate-600 bg-slate-800/40 text-slate-500 italic'
+                  : 'cursor-pointer border-slate-700 text-slate-400 hover:text-slate-200'}"
+              title={impliedBy ? `implied by ${impliedBy}` : undefined}
             >
               <input
                 type="checkbox"
                 class="hidden"
                 checked={on}
                 on:change={(e) => toggleCondition(cond, checkboxChecked(e))}
-                disabled={busy}
+                disabled={busy || !!impliedBy}
               />
               <HoverPopup>
                 <span class="capitalize">{cond}</span>
                 <svelte:fragment slot="popup">
                   <div class="mb-1 font-semibold capitalize text-slate-200">{row?.name ?? cond}</div>
+                  {#if impliedBy}
+                    <p class="mb-1 text-xs text-amber-400">Implied by <span class="capitalize">{impliedBy}</span></p>
+                  {/if}
                   {#if cdata.description}
                     <p class="whitespace-pre-wrap text-slate-300">{cdata.description}</p>
                   {/if}
