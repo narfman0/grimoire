@@ -1216,15 +1216,6 @@
         >
           ▶ Start encounter
         </button>
-      {:else}
-        <button
-          class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
-          disabled={busy}
-          title="Reopen to staging"
-          on:click={() => setEncounterStatus('staging')}
-        >
-          ↺ Reopen
-        </button>
       {/if}
     {/if}
     <a class="text-xs text-slate-400 hover:text-slate-200" href={`/c/${data.campaign.code}/encounters`}>
