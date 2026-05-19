@@ -1,75 +1,36 @@
 # data model
 
-Drizzle schema lives in `src/lib/server/db/schema.ts`. Only portable column
-types are used (`text`, `integer`, `blob`) so a Postgres swap stays mechanical.
+Schema lives in `src/lib/server/db/schema.ts`. Only portable column types (`text`, `integer`, `blob`) are used so a Postgres swap is mechanical.
 
 ## Tables
 
 ### `campaigns`
-
-| Column       | Type        | Notes                                                       |
-| ------------ | ----------- | ----------------------------------------------------------- |
-| `id`         | text PK     | UUID                                                        |
-| `code`       | text UNIQUE | 6-char base32 (no `0/O/1/I/L`). Shared with players.        |
-| `name`       | text        | Display name                                                |
-| `created_at` | integer     | Unix ms                                                     |
+Campaign rooms. Identified publicly by a short `code` shared with players.
 
 ### `characters`
+Character records. The mutable state (HP, conditions, spells, inventory) lives in `characters.document` as a JSON blob, mutated via REST PATCH. The `campaign_id` column is a soft home-pointer; actual campaign membership is tracked in `campaign_characters`.
 
-| Column        | Type    | Notes                                              |
-| ------------- | ------- | -------------------------------------------------- |
-| `id`          | text PK | UUID                                               |
-| `campaign_id` | text FK | → `campaigns.id`                                   |
-| `name`        | text    | Character name (also lives inside the Y.Doc).      |
-| `yjs_state`   | blob    | Latest compacted Y.Doc snapshot (for cold reads).  |
-| `updated_at`  | integer | Unix ms                                            |
+### `campaign_characters`
+M:N join between campaigns and characters. A character can belong to multiple campaigns. Always join through this table to determine membership — do not filter by `characters.campaign_id`.
 
-### `yjs_updates`
+### `content`
+The game-content catalog: species, classes, feats, spells, items, etc. Each row has a `kind`, `slug`, `version`, and a `data` JSON blob whose shape depends on `kind`. Rows are immutable once referenced by a character — edits create a new version. See `docs/content-model.md`.
 
-Append-only journal of Y.Doc deltas. Hocuspocus's sqlite extension manages
-its own tables today; this column exists so the web app can persist the
-**compacted** snapshot on its side independently of Hocuspocus's internal
-storage. M2 will reconcile these into one source of truth.
+### `packs`
+Metadata for each loaded content pack (`slug`, `name`, `version`, `author`). Populated at server boot by the pack loader.
 
-| Column         | Type           | Notes                          |
-| -------------- | -------------- | ------------------------------ |
-| `id`           | integer PK AI  |                                |
-| `character_id` | text FK        | → `characters.id`              |
-| `update`       | blob           | Raw `Y.encodeStateAsUpdateV2`  |
-| `created_at`   | integer        | Unix ms                        |
+### `users`, `sessions`
+Auth. Users sign up with a username/password; sessions are server-side.
+
+### `encounters`, `participants`, `action_log`
+Encounter state. `encounters` owns the initiative list; `participants` are the combatants; `action_log` is append-only and records every resolved turn.
 
 ### `notes`
+Shared campaign notes scoped to a campaign.
 
-Shared campaign notes (DM-side journal, shared lore, etc.). Same CRDT
-flow as characters but scoped to a campaign rather than a character.
+### `homebrew_subscriptions`, `content_reports`, `notifications`
+Marketplace scaffolding. Not yet surfaced in UI.
 
-| Column        | Type    | Notes                  |
-| ------------- | ------- | ---------------------- |
-| `id`          | text PK | UUID                   |
-| `campaign_id` | text FK | → `campaigns.id`       |
-| `title`       | text    |                        |
-| `yjs_state`   | blob    | Latest Y.Doc snapshot. |
+## Portability
 
-## CRDT flow (M2 sketch)
-
-1. Client opens `/c/:code/character/:id`, the page subscribes to the
-   websocket at `ws://srv:49301/character/<id>`.
-2. Hocuspocus loads any persisted state for that document name from sqlite
-   (its own table), pushes it to the client, and applies subsequent updates.
-3. On disconnect (or on a periodic flush) Hocuspocus compacts and persists.
-4. Independently, the web app reads the compacted snapshot from the
-   `characters.yjs_state` column for non-realtime reads (e.g. campaign
-   index page showing party HP totals). M2 decides whether the web app
-   computes that snapshot from Hocuspocus's table or whether Hocuspocus
-   writes to ours directly via a custom extension.
-
-## Portability notes
-
-When moving to Postgres:
-
-- `drizzle-orm/sqlite-core` → `drizzle-orm/pg-core`
-- `integer('...', { mode: 'timestamp_ms' })` → `timestamp('...', { withTimezone: true })`
-- `blob('...')` → `bytea('...')`
-- `integer().primaryKey({ autoIncrement: true })` → `serial().primaryKey()`
-
-No schema-level joins, triggers, or SQLite-only features are used.
+When moving to Postgres: `drizzle-orm/sqlite-core` → `drizzle-orm/pg-core`. `integer timestamp_ms` → `timestamp with timezone`. `blob` → `bytea`. No SQLite-specific features, triggers, or joins are used.
