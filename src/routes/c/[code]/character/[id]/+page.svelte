@@ -1227,6 +1227,19 @@
   <div>
     <h1 class="flex items-baseline gap-2 text-2xl font-semibold">
       <span>{data.character.name}</span>
+      <span
+        class="inline-block h-1.5 w-1.5 rounded-full {syncStatus === 'open'
+          ? 'bg-emerald-400'
+          : syncStatus === 'connecting'
+            ? 'bg-slate-500'
+            : 'bg-amber-400'}"
+        title={syncStatus === 'open'
+          ? 'Live sync connected'
+          : syncStatus === 'connecting'
+            ? 'Sync connecting…'
+            : 'Sync offline (edits still persist via API)'}
+        aria-label="Live sync status"
+      ></span>
       {#if document && !editingMeta}
         <button
           class="text-xs font-normal text-slate-500 hover:text-emerald-300"
@@ -1246,15 +1259,6 @@
         {#if document.background} &middot; {document.background.slug}{/if}
       {:else}
         no document yet
-      {/if}
-    </p>
-    <p class="mt-1 text-xs">
-      {#if syncStatus === 'open'}
-        <span class="rounded bg-emerald-900/40 px-1.5 py-0.5 text-emerald-200">● Live sync connected</span>
-      {:else if syncStatus === 'connecting'}
-        <span class="rounded bg-slate-800 px-1.5 py-0.5 text-slate-400">○ Sync connecting…</span>
-      {:else}
-        <span class="rounded bg-amber-900/40 px-1.5 py-0.5 text-amber-200">⚠ Sync offline (edits still persist via API)</span>
       {/if}
     </p>
   </div>
