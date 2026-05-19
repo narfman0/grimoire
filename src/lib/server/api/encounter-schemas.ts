@@ -88,6 +88,51 @@ export const UpdateParticipantRequest = z
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateParticipantRequest');
 
+// ---- Turn plans (live channel) ----
+
+/** A player's broadcast intent for their next turn. Mirrors the in-app
+ *  TurnPlan type — kept here so both the request validator and any
+ *  TurnPlan-shaped server payloads share one source of truth. */
+export const PlanJson = z
+  .object({
+    actionId: z.string(),
+    actionLabel: z.string(),
+    bonusActionId: z.string().optional(),
+    bonusActionLabel: z.string().optional(),
+    targetParticipantIds: z.array(z.string()),
+    bonusTargetParticipantIds: z.array(z.string()).optional(),
+    notes: z.string().max(500),
+    updatedAt: z.number().int().nonnegative()
+  })
+  .openapi('PlanJson');
+export type TPlanJson = z.infer<typeof PlanJson>;
+
+export const SetPlanRequest = z
+  .object({
+    plan: PlanJson
+  })
+  .openapi('SetPlanRequest');
+export type TSetPlanRequest = z.infer<typeof SetPlanRequest>;
+
+// ---- Participant HP + conditions (live channel) ----
+
+export const SetHpRequest = z
+  .object({
+    currentHp: z.number().int().nullable().optional(),
+    tempHp: z.number().int().nonnegative().optional(),
+    maxHp: z.number().int().nullable().optional()
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
+  .openapi('SetHpRequest');
+export type TSetHpRequest = z.infer<typeof SetHpRequest>;
+
+export const SetConditionsRequest = z
+  .object({
+    conditions: z.array(z.string())
+  })
+  .openapi('SetConditionsRequest');
+export type TSetConditionsRequest = z.infer<typeof SetConditionsRequest>;
+
 // ---- Action log (M3.5b) ----
 
 /** Outcome the submitter declared. `saved` / `failed-save` apply to save-DC
