@@ -26,6 +26,48 @@
 
   let busy = false;
   let damageInput = 0;
+
+  // Quick-init state: shown when data.document is null (stub character).
+  let initBusy = false;
+  let initError: string | null = null;
+
+  async function quickInit() {
+    initBusy = true;
+    initError = null;
+    try {
+      const minDoc = {
+        id: data.character.id,
+        name: data.character.name,
+        classes: [{ slug: 'fighter', level: 1, hpRolledPerLevel: [10] }],
+        species: { kind: 'species' as const, slug: 'human', version: 1 },
+        feats: [],
+        abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+        proficienciesChosen: {},
+        inventory: [],
+        spells: { known: [], prepared: [] },
+        currentHp: 10,
+        tempHp: 0 as const,
+        hitDiceSpent: {},
+        conditions: [],
+        modifierToggles: {}
+      };
+      const res = await fetch(`/api/characters/${data.character.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ document: minDoc })
+      });
+      if (!res.ok) {
+        initError = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        return;
+      }
+      await invalidateAll();
+    } catch (e) {
+      initError = String(e);
+    } finally {
+      initBusy = false;
+    }
+  }
+
   // Per-character edit panel (rename + ability scores). Both go through the
   // same PATCH /api/characters/:id — name as a top-level field, abilities
   // via a full document write that preserves everything else.
@@ -2341,11 +2383,23 @@
 
 {:else}
   <section class="rounded-lg border border-amber-800 bg-amber-950/30 p-6 text-sm">
-    <h2 class="text-base font-semibold text-amber-200">No character document</h2>
-    <p class="mt-2 text-amber-100">
-      This character was created without a full document. Recreate via the
-      form on the campaign page or POST a document via
-      <code class="text-xs">PATCH /api/characters/{data.character.id}</code>.
+    <h2 class="text-base font-semibold text-amber-200">Set up this character</h2>
+    <p class="mt-2 text-amber-100">This character has no sheet yet.</p>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button
+        class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+        disabled={initBusy}
+        on:click={quickInit}
+      >
+        {initBusy ? '…' : 'Start with a blank sheet'}
+      </button>
+    </div>
+    <p class="mt-3 text-xs text-amber-300/70">
+      Creates a level&nbsp;1 fighter (human, all scores&nbsp;10, 10&nbsp;HP). You can change everything
+      on the sheet afterward.
     </p>
+    {#if initError}
+      <p class="mt-2 text-xs text-red-300">{initError}</p>
+    {/if}
   </section>
 {/if}
