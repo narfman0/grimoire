@@ -2,7 +2,6 @@ import {
   sqliteTable,
   text,
   integer,
-  blob,
   uniqueIndex,
   index,
   primaryKey
@@ -28,17 +27,7 @@ export const characters = sqliteTable('characters', {
   ownerUserId: text('owner_user_id'), // FK to users.id; nullable for legacy/test rows pre-auth
   name: text('name').notNull(),
   document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required
-  yjsState: blob('yjs_state'), // latest compacted Y.Doc snapshot
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
-});
-
-export const yjsUpdates = sqliteTable('yjs_updates', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  characterId: text('character_id')
-    .notNull()
-    .references(() => characters.id),
-  update: blob('update').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
 
 export const notes = sqliteTable('notes', {
@@ -48,7 +37,6 @@ export const notes = sqliteTable('notes', {
     .references(() => campaigns.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
-  yjsState: blob('yjs_state'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
@@ -237,10 +225,6 @@ export const encounters = sqliteTable('encounters', {
   round: integer('round').notNull().default(0), // 0 pre-combat, 1+ active round
   activeParticipantId: text('active_participant_id'),
   notesJson: text('notes_json'), // arbitrary DM notes
-  /** Y.Doc state for live encounter sync (round + activeParticipantId
-   *  propagation in M3.3; per-participant HP in M3.4+). Hydrated on demand
-   *  from the row's other columns when no prior state exists. */
-  yjsState: blob('yjs_state'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   endedAt: integer('ended_at', { mode: 'timestamp_ms' })
 });

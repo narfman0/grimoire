@@ -2,7 +2,6 @@ import { error, redirect } from '@sveltejs/kit';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
-import { SESSION_COOKIE } from '$lib/server/auth/sessions';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import { derive } from '$lib/rules';
@@ -10,14 +9,10 @@ import type { ActionCost, CharacterDocument } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
   if (!locals.user) throw redirect(303, '/login');
   const code = params.code.toUpperCase();
   const m = await requireMembershipByCode(locals.user, code);
-  // Hocuspocus uses the same session id the HTTP layer reads. httpOnly means
-  // client JS can't grab it from document.cookie, so we ship it through page
-  // data for the realtime connection (M3.3).
-  const syncToken = cookies.get(SESSION_COOKIE) ?? '';
 
   const campaignRows = await db
     .select({ id: schema.campaigns.id, code: schema.campaigns.code, name: schema.campaigns.name })
@@ -350,7 +345,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     campaign,
     user: locals.user,
     role: m.role,
-    syncToken,
     encounter: {
       id: enc.id,
       campaignId: enc.campaignId,
@@ -452,10 +446,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
                 ({ ac: r.statblock.ac } as MonsterDerived)
               : null,
           // Note: maxHp + currentHp stay shipped to players because the
-          // client computes the live HP bucket from them as Y.Doc HP changes
+          // client computes the live HP bucket from them as SSE HP updates
           // flow through. The display layer is responsible for not showing
-          // the raw numbers when `reveals.vitals` is false. See the Y.Doc
-          // leak caveat in src/lib/realtime/encounter-doc.ts.
+          // the raw numbers when `reveals.vitals` is false.
           currentHp: r.currentHp,
           maxHp: r.maxHp,
           tempHp: r.tempHp

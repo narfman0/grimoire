@@ -35,7 +35,6 @@ Run before each push:
 pnpm check                  # svelte-check (no TS / Svelte errors)
 pnpm build                  # SvelteKit must build clean
 pnpm test                   # vitest — rules engine + items fixtures
-pnpm --filter @grimoire/sync-server build   # if you touched sync-server
 ```
 
 If you touched the schema:
@@ -56,7 +55,7 @@ slugs that don't resolve to feature rows (transcription gaps).
 ## Boundaries
 
 - **Don't** add Postgres-specific column types — Drizzle schema stays portable so the eventual cloud-DB migration is mechanical.
-- **Don't** put long-lived websocket logic in SvelteKit server routes — that's what `sync-server/` (Hocuspocus) is for. Vercel serverless can't host it.
+- **Live updates** push from `src/lib/server/realtime/hub.ts` over SSE (`/api/encounters/<id>/stream`, `/api/characters/<id>/stream`). Mutations all go through REST handlers; the hub fans out one event per write. No CRDT, no Y.Doc, no separate sync process — keep it that way unless you have a real concurrent-edit use case.
 - **Don't** delete the sqlite file in CI or scripts without a guard.
 - **Don't** auto-summarize what just got committed in chat replies — the diff and commit message are the record.
 - **Don't** hand-write request validation in `+server.ts` handlers — use the Zod schemas in `src/lib/server/api/schemas.ts` via `parseJson` / `parseParams` / `parseSearch`. Those same schemas back the OpenAPI spec; bypassing them breaks the docs.
@@ -71,11 +70,11 @@ slugs that don't resolve to feature rows (transcription gaps).
 
 | Milestone | Scope                                                                                  |
 | --------- | -------------------------------------------------------------------------------------- |
-| M0 ✅      | Scaffold (SvelteKit + Drizzle + Hocuspocus stub + Docker)                              |
+| M0 ✅      | Scaffold (SvelteKit + Drizzle + Docker)                                                |
 | M1 ✅      | Characters CRUD + per-campaign list page + OpenAPI 3.1 spec at `/api`                  |
 | M1.5 ✅    | Pack loader, `/api/content`, SRD 5.2 tier 1, rules engine v0, vitest fixtures           |
 | M1.6 ✅    | SRD 5.2 tier 2 — species/class/feat/spell fill-out                                     |
-| M2 ✅      | Editable sheet + Hocuspocus / Y.js HP/condition/toggle sync                            |
+| M2 ✅      | Editable sheet + REST + SSE HP/condition/toggle sync                                   |
 | M3 ✅      | Encounter builder, monster picker, live turn sync, planner, resolve + amend, action log |
 | M3.5 ✅    | Multi-target save, reaction + concentration, slots/resources, action-economy, monster derive, feat picker, hover popups |
 | M3.6 ✅    | Character ↔ campaign decoupling (M:N join table, /characters library, link/unlink)    |

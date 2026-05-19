@@ -1,7 +1,7 @@
 services:
   # web — SvelteKit (adapter-node) at :3000. Runs drizzle migrations on
-  # boot, then serves the app. Shares the sqlite file with `sync` via
-  # the named volume below.
+  # boot, then serves the app. Live updates flow through SSE on the same
+  # HTTP port; no separate sync process needed.
   web:
     build:
       context: .
@@ -15,26 +15,6 @@ services:
     environment:
       DATABASE_URL: /data/grimoire.db
       NODE_ENV: production
-    volumes:
-      - grimoire-data:/data
-
-  # sync — Hocuspocus websocket broker at :1234. Persists Y.Doc state
-  # into the same sqlite file via the shared volume.
-  sync:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: sync
-    image: grimoire-sync:latest
-    container_name: grimoire-sync
-    restart: unless-stopped
-    depends_on:
-      - web
-    ports:
-      - "${GRIMOIRE_SYNC_PORT:-49301}:1234"
-    environment:
-      DATABASE_URL: /data/grimoire.db
-      SYNC_PORT: "1234"
     volumes:
       - grimoire-data:/data
 

@@ -16,18 +16,18 @@ join table. See [Milestones](#milestones).
 | Frontend        | SvelteKit + TypeScript + Tailwind v4                         |
 | Web server      | `@sveltejs/adapter-node`                                     |
 | DB              | SQLite via Drizzle ORM (`better-sqlite3`)                    |
-| Realtime sync   | Hocuspocus (Y.js websocket server), separate process         |
+| Realtime sync   | REST mutations + SSE fan-out from an in-memory hub           |
 | Hosting (now)   | `srv` via docker compose                                     |
 
-Drizzle schema stays portable (`text` / `integer` / `blob`) so the Postgres
-swap is mostly an import change.
+Drizzle schema stays portable (`text` / `integer`) so the Postgres swap is
+mostly an import change.
 
 ## Getting started
 
 ```bash
 pnpm install
 pnpm migrate         # applies any pending drizzle migrations
-pnpm dev:all         # SvelteKit (:5173) + sync-server (:47474)
+pnpm dev             # SvelteKit (:5173) — SSE rides the same port
 ```
 
 Open [http://localhost:5173](http://localhost:5173). Sign up, create a
@@ -46,11 +46,11 @@ If `better-sqlite3` fails to build, install a C++ toolchain. On Fedora:
 docker compose build && docker compose up -d
 ```
 
-The compose file exposes `${GRIMOIRE_PORT:-49300}` (web) and
-`${GRIMOIRE_SYNC_PORT:-49301}` (sync), with a shared `grimoire-data`
-volume holding `grimoire.db`. Migrations run on web container startup.
-Don't deploy to Vercel without moving sync-server somewhere
-always-on — serverless can't host long-lived websockets.
+The compose file exposes `${GRIMOIRE_PORT:-49300}` (web), with a
+`grimoire-data` volume holding `grimoire.db`. Migrations run on container
+startup. The live channel is plain SSE on the same port — no separate
+sync process. Behind a reverse proxy, make sure `text/event-stream`
+isn't buffered (nginx: `proxy_buffering off;`).
 
 ## More
 
