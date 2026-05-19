@@ -987,12 +987,13 @@
     return action !== '' && spells.some(s => s.name === action);
   }
 
-  /** DM picks an action/bonus/targets for a non-PC. Persist as a TurnPlan so
-   *  it survives refresh. PCs broadcast their own plans through the character
-   *  sheet, so this path is non-PC-only. Changing the action clears its
-   *  targets so a leftover pick doesn't bleed into the next action. */
-  function persistNonPcPlan(
-    p: { id: string; kind: string },
+  /** DM picks an action/bonus/targets for any participant (PC or non-PC).
+   *  Persists as a TurnPlan so it survives refresh and broadcasts to every
+   *  connected viewer (including the PC's own character sheet). Changing the
+   *  action clears its targets so a leftover pick doesn't bleed into the
+   *  next action. */
+  function persistPlan(
+    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string; attackBonus?: number }> } | null },
     next: {
       actionId?: string;
       bonusActionId?: string;
@@ -1000,7 +1001,7 @@
       bonusTargetParticipantIds?: string[];
     }
   ) {
-    if (!conn || p.kind === 'pc') return;
+    if (!conn) return;
     const cur = livePlans[p.id];
     const actionId = next.actionId !== undefined ? next.actionId : (cur?.actionId ?? '');
     const bonusActionId =
@@ -1009,6 +1010,16 @@
       conn.clearPlan(p.id).catch(() => {});
       return;
     }
+    // Look up display labels from the live choice lists so PC plans store
+    // the friendly name ("Longsword (action)") instead of the raw id.
+    const actionLabel =
+      next.actionId !== undefined
+        ? (actionChoicesFor(p).find((c) => c.id === actionId)?.name ?? actionId)
+        : (cur?.actionLabel ?? actionId);
+    const bonusActionLabel =
+      next.bonusActionId !== undefined
+        ? (bonusChoicesFor(p).find((c) => c.id === bonusActionId)?.name ?? bonusActionId)
+        : (cur?.bonusActionLabel ?? bonusActionId);
     const actionChanged = next.actionId !== undefined && next.actionId !== (cur?.actionId ?? '');
     const bonusChanged =
       next.bonusActionId !== undefined && next.bonusActionId !== (cur?.bonusActionId ?? '');
@@ -1027,10 +1038,9 @@
     conn
       .setPlan(p.id, {
         actionId,
-        // Non-PC choice ids round-trip as the action's display name.
-        actionLabel: actionId,
+        actionLabel: actionLabel || actionId,
         bonusActionId: bonusActionId || undefined,
-        bonusActionLabel: bonusActionId || undefined,
+        bonusActionLabel: bonusActionId ? (bonusActionLabel || bonusActionId) : undefined,
         targetParticipantIds,
         bonusTargetParticipantIds,
         notes: cur?.notes ?? '',
@@ -1674,7 +1684,6 @@
               </div>
               <ActionEconomyPanel
                 mode="observer"
-                readonly={isPc}
                 {busy}
                 actionChoices={actionChoicesFor(p)}
                 bonusChoices={bonusChoicesFor(p)}
@@ -1690,10 +1699,10 @@
                 selfId={p.id}
                 plannedTargetIds={plan?.targetParticipantIds ?? []}
                 plannedBonusTargetIds={plan?.bonusTargetParticipantIds ?? []}
-                on:actionPick={(e) => persistNonPcPlan(p, { actionId: e.detail })}
-                on:bonusPick={(e) => persistNonPcPlan(p, { bonusActionId: e.detail })}
-                on:targetPick={(e) => persistNonPcPlan(p, { targetParticipantIds: e.detail })}
-                on:bonusTargetPick={(e) => persistNonPcPlan(p, { bonusTargetParticipantIds: e.detail })}
+                on:actionPick={(e) => persistPlan(p, { actionId: e.detail })}
+                on:bonusPick={(e) => persistPlan(p, { bonusActionId: e.detail })}
+                on:targetPick={(e) => persistPlan(p, { targetParticipantIds: e.detail })}
+                on:bonusTargetPick={(e) => persistPlan(p, { bonusTargetParticipantIds: e.detail })}
                 on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
                 on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
                 on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}

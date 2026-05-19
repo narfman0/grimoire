@@ -31,8 +31,10 @@
   export let movementUsed = 0;
   export let concentrating: { label: string; sinceRound?: number } | null = null;
   export let showConcentration = true;
-  /** Encounter participants offered as target picks. Self is filtered out
-   *  using `selfId`. Empty when no encounter is loaded — picker hides. */
+  /** Encounter participants offered as target picks. Self is included so
+   *  self-targeting picks (heals, buffs, AoE that includes the caster) work;
+   *  `selfId` only labels the row to disambiguate. Empty list hides the
+   *  picker. */
   export let participants: Participant[] = [];
   export let selfId: string | null = null;
   export let plannedTargetIds: string[] = [];
@@ -52,7 +54,10 @@
     bonusTargetPick: string[];
   }>();
 
-  $: pickableTargets = participants.filter((p) => p.id !== selfId);
+  // Self stays in the list so the DM (or a player) can target themselves —
+  // e.g. healing, self-buff, AoE that includes the caster. It's rendered with
+  // a "(self)" suffix so it's still distinguishable from other participants.
+  $: pickableTargets = participants;
   $: plannedAction = actionChoices.find((c) => c.id === plannedActionId) ?? null;
   $: plannedBonus = bonusChoices.find((c) => c.id === plannedBonusActionId) ?? null;
 
@@ -83,42 +88,20 @@
         {/each}
       </select>
       {#if plannedAction && pickableTargets.length > 0}
-        {@const tm = plannedAction.targetMode ?? 'single'}
-        {#if tm === 'self'}
-          <div class="mb-1.5 rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-400">
-            🎯 self
-          </div>
-        {:else if tm === 'single'}
-          <select
-            class="mb-1.5 w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] disabled:opacity-60"
-            value={plannedTargetIds[0] ?? ''}
-            on:change={(e) => {
-              const v = e.currentTarget.value;
-              dispatch('targetPick', v ? [v] : []);
-            }}
-            disabled={locked}
-          >
-            <option value="">— pick target —</option>
-            {#each pickableTargets as p}
-              <option value={p.id}>{p.name}</option>
-            {/each}
-          </select>
-        {:else}
-          <div class="mb-1.5 flex flex-wrap gap-1">
-            {#each pickableTargets as p}
-              {@const on = plannedTargetIds.includes(p.id)}
-              <button
-                class="rounded border px-1.5 py-0.5 text-[10px] {on
-                  ? 'border-emerald-700 bg-emerald-950/40 text-emerald-200'
-                  : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200'}"
-                disabled={locked}
-                on:click={() => dispatch('targetPick', toggleTarget(plannedTargetIds, p.id))}
-              >
-                {p.name}
-              </button>
-            {/each}
-          </div>
-        {/if}
+        <div class="mb-1.5 flex flex-wrap gap-1">
+          {#each pickableTargets as p}
+            {@const on = plannedTargetIds.includes(p.id)}
+            <button
+              class="rounded border px-1.5 py-0.5 text-[10px] {on
+                ? 'border-emerald-700 bg-emerald-950/40 text-emerald-200'
+                : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200'}"
+              disabled={locked}
+              on:click={() => dispatch('targetPick', toggleTarget(plannedTargetIds, p.id))}
+            >
+              {p.name}{p.id === selfId ? ' (self)' : ''}
+            </button>
+          {/each}
+        </div>
       {/if}
       <button
         class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {actionUsed
@@ -145,42 +128,20 @@
         {/each}
       </select>
       {#if plannedBonus && pickableTargets.length > 0}
-        {@const tm = plannedBonus.targetMode ?? 'single'}
-        {#if tm === 'self'}
-          <div class="mb-1.5 rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-400">
-            🎯 self
-          </div>
-        {:else if tm === 'single'}
-          <select
-            class="mb-1.5 w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] disabled:opacity-60"
-            value={plannedBonusTargetIds[0] ?? ''}
-            on:change={(e) => {
-              const v = e.currentTarget.value;
-              dispatch('bonusTargetPick', v ? [v] : []);
-            }}
-            disabled={locked}
-          >
-            <option value="">— pick target —</option>
-            {#each pickableTargets as p}
-              <option value={p.id}>{p.name}</option>
-            {/each}
-          </select>
-        {:else}
-          <div class="mb-1.5 flex flex-wrap gap-1">
-            {#each pickableTargets as p}
-              {@const on = plannedBonusTargetIds.includes(p.id)}
-              <button
-                class="rounded border px-1.5 py-0.5 text-[10px] {on
-                  ? 'border-emerald-700 bg-emerald-950/40 text-emerald-200'
-                  : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200'}"
-                disabled={locked}
-                on:click={() => dispatch('bonusTargetPick', toggleTarget(plannedBonusTargetIds, p.id))}
-              >
-                {p.name}
-              </button>
-            {/each}
-          </div>
-        {/if}
+        <div class="mb-1.5 flex flex-wrap gap-1">
+          {#each pickableTargets as p}
+            {@const on = plannedBonusTargetIds.includes(p.id)}
+            <button
+              class="rounded border px-1.5 py-0.5 text-[10px] {on
+                ? 'border-emerald-700 bg-emerald-950/40 text-emerald-200'
+                : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200'}"
+              disabled={locked}
+              on:click={() => dispatch('bonusTargetPick', toggleTarget(plannedBonusTargetIds, p.id))}
+            >
+              {p.name}{p.id === selfId ? ' (self)' : ''}
+            </button>
+          {/each}
+        </div>
       {/if}
       <button
         class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {bonusUsed
