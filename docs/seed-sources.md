@@ -14,7 +14,7 @@ silently drift.
 | -------------- | ------- | ---------------------------------------------------------- | -------- |
 | `srd-5.2`      | CC-BY 4.0 | **Primary v1 seed.** 9 species, 12 classes (one subclass each), ~48 feats incl. GWM, all SRD spells, weapons, armor, magic items, conditions, basic backgrounds. Released April 2025 by WotC. | This repo, `content-packs/srd-5.2/`. |
 | `srd-5.1`      | OGL 1.0a | Older SRD; broadly similar coverage but **only one feat (Grappler)** and an older rules baseline. Available locally at `~/workspace/dnd-5e-srd` as prose JSON. | This repo if used; preferred to use 5.2 wherever possible. |
-| Non-SRD official | proprietary | Tortle (Tortle Package), Chronurgy Magic (Wildemount), Path of the Zealot (Xanathar's), anything from PHB/Tasha/Xanathar/etc. beyond SRD. | **`grimoire-packs` (separate private repo).** Never this repo. |
+| Non-SRD official | proprietary | Content from PHB, Xanathar's, Tasha's, Wildemount, and other published sourcebooks beyond the SRD. | **`grimoire-packs` (separate private repo).** Never this repo. |
 | `homebrew`     | none    | DM- or player-authored content, scoped to a campaign or user. | `grimoire-packs` or operator's local pack dir. |
 | Third-party SRD-equivalent | varies | Future: Kobold Press CC-BY content, Level Up A5E, etc. Each gets its own `source` slug like `kobold-tob-cc-by`. | This repo only if openly licensed; otherwise `grimoire-packs`. |
 
@@ -168,8 +168,7 @@ campaign settings UI before their content appears in pickers.
    `{type:'bonus', target:'ability.str', value:2}` doesn't extract
    automatically. Budget this honestly — it's hundreds of small JSON
    blobs, not a script run.
-3. For the operator's party content (Tortle, Chronurgy, Zealot), author
-   pack files in **the grimoire-packs repo**, not here.
+3. For non-SRD content, author pack files in **the grimoire-packs repo**, not here.
 4. Use `~/workspace/dnd-5e-srd` (SRD 5.1) prose as a sanity-check source
    for SRD 5.2 rows, but tag the rows themselves `source: 'srd-5.2'`.
 5. Stub `src/lib/server/content/sources.ts` with `srd-5.2` and
