@@ -1247,7 +1247,7 @@
       disabled={busy}
       on:click={() => setEncounterStatus('ended')}
     >
-      ■ End
+      End
     </button>
   </section>
 {/if}
