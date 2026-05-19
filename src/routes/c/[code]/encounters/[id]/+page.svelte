@@ -10,16 +10,12 @@
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
-    connectEncounterDoc,
-    setEncounterTurn,
-    clearTurnPlan,
-    applyDamage as doApplyDamage,
-    applyHeal as doApplyHeal,
-    setParticipantHp,
+    connectEncounter,
     type ConnectedEncounter,
     type EncounterSnapshot,
-    type ParticipantHp
-  } from '$lib/realtime/encounter-doc';
+    type ParticipantHp,
+    type TurnPlan
+  } from '$lib/realtime/encounter-channel';
 
   type HitOutcome = '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' | 'saved' | 'failed-save';
   import type { PageData } from './$types';
@@ -28,24 +24,43 @@
 
   let busy = false;
 
-  // M3.3 — realtime encounter state. We connect to room `encounter:<id>` and
-  // mirror round + activeParticipantId via a Y.Doc. The DM's "next turn"
-  // button writes to the Y.Doc (one shot); every other connected tab
-  // observes the update within a tick. We fall back to the SSR snapshot
-  // when the sync server is offline.
+  // Live encounter state — SSE channel layered on top of the SSR seed so
+  // the chooser, HP widgets, and plan badges render correctly on first
+  // paint without waiting for the stream to catch up.
   let conn: ConnectedEncounter | null = null;
   let liveState: EncounterSnapshot | null = null;
-  let connStatus: 'connecting' | 'open' | 'closed' | 'auth-failed' = 'connecting';
+  let connStatus: 'connecting' | 'open' | 'closed' = 'connecting';
 
   onMount(() => {
-    if (!data.syncToken) return;
-    conn = connectEncounterDoc({ token: data.syncToken, encounterId: data.encounter.id });
+    const seedPlans: Record<string, TurnPlan> = {};
+    for (const [pid, plan] of Object.entries(data.participantPlans ?? {})) {
+      if (plan && typeof plan === 'object') seedPlans[pid] = plan as TurnPlan;
+    }
+    const seedHp: Record<string, ParticipantHp> = {};
+    for (const p of data.participants) {
+      const stats = data.participantPcStats?.[p.id];
+      const conditions = (p.conditions ?? []) as string[];
+      seedHp[p.id] = {
+        currentHp: stats ? stats.hp.current : p.currentHp,
+        tempHp: stats ? stats.hp.temp : (p.tempHp ?? 0),
+        conditions,
+        concentrating: data.participantPcConcentrating?.[p.id] ?? null
+      };
+    }
+    conn = connectEncounter({
+      encounterId: data.encounter.id,
+      seed: {
+        round: data.encounter.round,
+        activeParticipantId: data.encounter.activeParticipantId,
+        plans: seedPlans,
+        participantHp: seedHp
+      }
+    });
     const unsubState = conn.state.subscribe((v) => (liveState = v));
     const unsubStatus = conn.status.subscribe((s) => {
       connStatus = s;
-      // When the server flushed our last update back to the row, the page
-      // data may be stale (participants table HP, etc.). Rare event, but
-      // refresh on (re)connect so SSR-only fields stay accurate.
+      // Refresh SSR-only fields (party makeup, monster picker options) on
+      // reconnect so they don't drift from server truth.
       if (s === 'open') invalidateAll().catch(() => {});
     });
     return () => {
@@ -59,7 +74,7 @@
     conn = null;
   });
 
-  // Effective values: prefer Y.Doc snapshot when connected, fall back to SSR.
+  // Effective values: SSE snapshot when available, fall back to SSR seed.
   $: liveRound = liveState?.round ?? data.encounter.round;
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
   $: livePlans = liveState?.plans ?? {};
@@ -67,7 +82,7 @@
 
   function clearPlan(participantId: string) {
     if (!conn) return;
-    clearTurnPlan(conn.ydoc, participantId);
+    conn.clearPlan(participantId).catch(() => {});
   }
 
   /** Map participant.id → SSR HP seed used when the Y.Doc has no entry yet. */
@@ -189,8 +204,8 @@
       if (effective > 0 || outcome === 'heal') {
         next =
           outcome === 'heal'
-            ? doApplyHeal(conn.ydoc, target.id, damage, target.maxHp, seed)
-            : doApplyDamage(conn.ydoc, target.id, effective, seed);
+            ? conn.applyHeal(target.id, damage, target.maxHp, seed)
+            : conn.applyDamage(target.id, effective, seed);
       }
       targetHpAfter = next.currentHp;
     }
@@ -265,7 +280,7 @@
       }
       // Clear the plan if there was one.
       if (livePlans[resolveForParticipantId]) {
-        clearTurnPlan(conn.ydoc, resolveForParticipantId);
+        conn.clearPlan(resolveForParticipantId).catch(() => {});
       }
       closeResolve();
       await invalidateAll();
@@ -278,9 +293,7 @@
   function dropConcentration(participantId: string) {
     const p = data.participants.find((q) => q.id === participantId);
     if (!p || !conn || connStatus !== 'open') return;
-    const seed = seedFor(p);
-    const current = liveHpMap[participantId] ?? seed;
-    setParticipantHp(conn.ydoc, participantId, { ...seed, ...current, concentrating: null });
+    conn.setLocalConcentration(participantId, null);
     concSavePrompt = null;
   }
 
@@ -354,10 +367,10 @@
         const seed = seedFor(priorTarget);
         if (delta > 0) {
           // Prior entry dealt damage → revert with heal
-          doApplyHeal(conn.ydoc, priorTarget.id, delta, priorTarget.maxHp, seed);
+          conn.applyHeal(priorTarget.id, delta, priorTarget.maxHp, seed);
         } else if (delta < 0) {
           // Prior entry healed → revert with damage
-          doApplyDamage(conn.ydoc, priorTarget.id, -delta, seed);
+          conn.applyDamage(priorTarget.id, -delta, seed);
         }
       }
     }
@@ -388,8 +401,8 @@
       if (effective > 0 || resolveHit === 'heal') {
         next =
           resolveHit === 'heal'
-            ? doApplyHeal(conn.ydoc, target.id, resolveDamage, target.maxHp, seed)
-            : doApplyDamage(conn.ydoc, target.id, effective, seed);
+            ? conn.applyHeal(target.id, resolveDamage, target.maxHp, seed)
+            : conn.applyDamage(target.id, effective, seed);
       }
       targetHpAfter = next.currentHp;
     }
@@ -492,7 +505,7 @@
       const ok = await patchPcHp(p.characterId, nextCurrent ?? 0, nextTemp);
       if (ok) await invalidateAll();
     } else if (conn && connStatus === 'open') {
-      doApplyDamage(conn.ydoc, p.id, n, seed);
+      conn.applyDamage(p.id, n, seed);
     } else {
       await patchParticipantHp(p.id, nextCurrent ?? 0, nextTemp);
       await invalidateAll();
@@ -523,7 +536,7 @@
       const ok = await patchPcHp(p.characterId, capped ?? 0, seed.tempHp);
       if (ok) await invalidateAll();
     } else if (conn && connStatus === 'open') {
-      doApplyHeal(conn.ydoc, p.id, n, p.maxHp, seed);
+      conn.applyHeal(p.id, n, p.maxHp, seed);
     } else {
       await patchParticipantHp(p.id, capped ?? 0, seed.tempHp);
       await invalidateAll();
@@ -747,7 +760,7 @@
       ? current.filter((c) => c !== cond)
       : [...current, cond];
     if (conn && connStatus === 'open') {
-      setParticipantHp(conn.ydoc, p.id, { ...seed, ...liveHpMap[p.id], conditions: next });
+      conn.setConditions(p.id, next).catch(() => {});
     } else {
       await fetch(`/api/participants/${p.id}`, {
         method: 'PATCH',
@@ -797,10 +810,8 @@
       }
       return;
     }
-    const seed = seedFor(p);
-    const current = liveHpMap[p.id] ?? seed;
     if (conn && connStatus === 'open') {
-      setParticipantHp(conn.ydoc, p.id, { ...seed, ...current, concentrating: next });
+      conn.setLocalConcentration(p.id, next);
     }
   }
 
@@ -835,10 +846,8 @@
       }
       return;
     }
-    const seed = seedFor(p);
-    const current = liveHpMap[p.id] ?? seed;
     if (conn && connStatus === 'open') {
-      setParticipantHp(conn.ydoc, p.id, { ...seed, ...current, concentrating: null });
+      conn.setLocalConcentration(p.id, null);
     }
   }
 
@@ -1056,15 +1065,12 @@
     const newRound = wrapped ? baseRound + 1 : baseRound;
     const nextActive = ordered[nextIdx].id;
 
-    // Preferred path: write via the Y.Doc — propagates to all connected
-    // clients (other DM tabs + players) within a tick, and the sync-server
-    // flushes the change to the encounters row on the next debounced store.
-    if (conn && connStatus === 'open') {
-      setEncounterTurn(conn.ydoc, { round: newRound, activeParticipantId: nextActive });
+    if (conn) {
+      await conn.setTurn({ round: newRound, activeParticipantId: nextActive });
       return;
     }
 
-    // Fallback: REST PATCH when the sync server is offline.
+    // Fallback when the channel hasn't initialized (SSR-only mode).
     busy = true;
     try {
       await fetch(`/api/encounters/${data.encounter.id}`, {

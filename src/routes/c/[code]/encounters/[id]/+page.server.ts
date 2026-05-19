@@ -217,6 +217,19 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     { label: string; sinceRound?: number } | null
   > = {};
 
+  /** Persisted plan per participant — read from the new plan_json column so
+   *  SSR can render the chooser's selection without waiting for the SSE
+   *  channel to deliver a 'plan' event. */
+  const participantPlans: Record<string, unknown> = {};
+  for (const p of partRows) {
+    if (!p.planJson) continue;
+    try {
+      participantPlans[p.id] = JSON.parse(p.planJson);
+    } catch {
+      // ignore malformed JSON
+    }
+  }
+
   if (pcParticipants.length > 0) {
     const spellCharRows = await db
       .select({
@@ -461,6 +474,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     participantPcStats,
     participantPcActions,
     participantPcConcentrating,
+    participantPlans,
     actionLog: logRows.map((r) => ({
       id: r.id,
       round: r.round,
