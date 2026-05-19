@@ -1216,14 +1216,6 @@
         >
           ▶ Start encounter
         </button>
-      {:else if data.encounter.status === 'live'}
-        <button
-          class="rounded border border-slate-600 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
-          disabled={busy}
-          on:click={() => setEncounterStatus('ended')}
-        >
-          ■ End
-        </button>
       {:else}
         <button
           class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800 disabled:opacity-40"
@@ -1244,19 +1236,19 @@
 {#if data.encounter.status === 'live' && data.role === 'dm'}
   <section class="mb-6 flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm">
     <span class="text-emerald-200">Turn controls:</span>
-    <button class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={() => advanceTurn(-1)} disabled={busy}>
-      ← Prev
+    <button class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={() => advanceTurn(-1)} disabled={busy} title="Previous turn">
+      ←
     </button>
     <button class="rounded border border-emerald-700 px-2 py-0.5 hover:bg-emerald-900/40" on:click={() => advanceTurn(1)} disabled={busy}>
       Next turn →
     </button>
-    <span class="ml-auto text-xs text-slate-500">
-      {#if connStatus === 'open'}
-        synced live · others see your turn changes in real time
-      {:else}
-        offline · falling back to REST
-      {/if}
-    </span>
+    <button
+      class="ml-auto rounded border border-slate-600 px-2 py-0.5 hover:bg-slate-800 disabled:opacity-40"
+      disabled={busy}
+      on:click={() => setEncounterStatus('ended')}
+    >
+      ■ End
+    </button>
   </section>
 {/if}
 
