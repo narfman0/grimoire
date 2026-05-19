@@ -987,12 +987,18 @@
     return action !== '' && spells.some(s => s.name === action);
   }
 
-  /** DM picks an action/bonus for a non-PC. Persist as a TurnPlan so it
-   *  survives refresh. PCs broadcast their own plans through the character
-   *  sheet, so this path is non-PC-only. */
+  /** DM picks an action/bonus/targets for a non-PC. Persist as a TurnPlan so
+   *  it survives refresh. PCs broadcast their own plans through the character
+   *  sheet, so this path is non-PC-only. Changing the action clears its
+   *  targets so a leftover pick doesn't bleed into the next action. */
   function persistNonPcPlan(
     p: { id: string; kind: string },
-    next: { actionId?: string; bonusActionId?: string }
+    next: {
+      actionId?: string;
+      bonusActionId?: string;
+      targetParticipantIds?: string[];
+      bonusTargetParticipantIds?: string[];
+    }
   ) {
     if (!conn || p.kind === 'pc') return;
     const cur = livePlans[p.id];
@@ -1003,6 +1009,21 @@
       conn.clearPlan(p.id).catch(() => {});
       return;
     }
+    const actionChanged = next.actionId !== undefined && next.actionId !== (cur?.actionId ?? '');
+    const bonusChanged =
+      next.bonusActionId !== undefined && next.bonusActionId !== (cur?.bonusActionId ?? '');
+    const targetParticipantIds =
+      next.targetParticipantIds !== undefined
+        ? next.targetParticipantIds
+        : actionChanged
+          ? []
+          : (cur?.targetParticipantIds ?? []);
+    const bonusTargetParticipantIds =
+      next.bonusTargetParticipantIds !== undefined
+        ? next.bonusTargetParticipantIds
+        : bonusChanged
+          ? []
+          : cur?.bonusTargetParticipantIds;
     conn
       .setPlan(p.id, {
         actionId,
@@ -1010,8 +1031,8 @@
         actionLabel: actionId,
         bonusActionId: bonusActionId || undefined,
         bonusActionLabel: bonusActionId || undefined,
-        targetParticipantIds: cur?.targetParticipantIds ?? [],
-        bonusTargetParticipantIds: cur?.bonusTargetParticipantIds,
+        targetParticipantIds,
+        bonusTargetParticipantIds,
         notes: cur?.notes ?? '',
         updatedAt: Date.now()
       })
@@ -1023,33 +1044,50 @@
    *  actions (so custom/homebrew abilities surface here too, matching the
    *  character sheet); for non-PCs we enumerate statblock actions plus any
    *  prepared spells we know about. */
+  type PlanChoice = {
+    id: string;
+    name: string;
+    targetMode?: 'self' | 'single' | 'multi';
+  };
+
   function actionChoicesFor(
-    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string }> } | null }
-  ): Array<{ id: string; name: string }> {
+    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string; attackBonus?: number }> } | null }
+  ): PlanChoice[] {
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'action')
         .map((a) => ({ id: a.id, name: `${a.name} (${costLabel(a.cost)})` }));
     }
-    const choices: Array<{ id: string; name: string }> = [];
+    const choices: PlanChoice[] = [];
     for (const a of p.statblock?.actions ?? []) {
-      choices.push({ id: a.name, name: a.name });
+      // Attack actions have a single target; everything else (saves, AoEs,
+      // utility) gets the multi picker so the DM can mark every affected
+      // creature.
+      const targetMode: 'single' | 'multi' = a.attackBonus != null ? 'single' : 'multi';
+      choices.push({ id: a.name, name: a.name, targetMode });
     }
     for (const s of data.participantSpells?.[p.id] ?? []) {
-      choices.push({ id: s.name, name: `${s.name} (${s.level === 0 ? 'C' : 'L' + s.level})` });
+      // Spells are heterogeneous (single attacks, AoE saves, buffs) and we
+      // don't have target metadata at this layer, so default to multi —
+      // the picker still works for single-target picks.
+      choices.push({
+        id: s.name,
+        name: `${s.name} (${s.level === 0 ? 'C' : 'L' + s.level})`,
+        targetMode: 'multi'
+      });
     }
     return choices;
   }
 
   function bonusChoicesFor(
     p: { id: string; kind: string }
-  ): Array<{ id: string; name: string }> {
+  ): PlanChoice[] {
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'bonus')
         .map((a) => ({ id: a.id, name: `${a.name} (${costLabel(a.cost)})` }));
     }
-    return COMMON_BONUS_ACTIONS.map((b) => ({ id: b, name: b }));
+    return COMMON_BONUS_ACTIONS.map((b) => ({ id: b, name: b, targetMode: 'single' as const }));
   }
 
   // Track previous active to reset economy on turn change. We deliberately
@@ -1138,30 +1176,18 @@
       </h1>
     {/if}
     <p class="text-sm text-slate-400">
-      <span
-        class="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs uppercase tracking-wide
-        {data.encounter.status === 'live'
-          ? 'border-emerald-700 text-emerald-300'
-          : data.encounter.status === 'staging'
-            ? 'border-slate-700 text-slate-300'
-            : 'border-slate-800 text-slate-500'}"
-        title={conn
-          ? connStatus === 'open'
+      {#if conn}
+        <span
+          class="inline-block h-2 w-2 rounded-full {connStatus === 'open'
+            ? 'bg-emerald-500'
+            : connStatus === 'connecting'
+              ? 'bg-amber-500'
+              : 'bg-slate-600'}"
+          title={connStatus === 'open'
             ? `${data.encounter.status} · live sync connected`
-            : `${data.encounter.status} · sync: ${connStatus}`
-          : data.encounter.status}
-      >
-        {#if conn}
-          <span
-            class="inline-block h-1.5 w-1.5 rounded-full {connStatus === 'open'
-              ? 'bg-emerald-500'
-              : connStatus === 'connecting'
-                ? 'bg-amber-500'
-                : 'bg-slate-600'}"
-          ></span>
-        {/if}
-        {data.encounter.status}
-      </span>
+            : `${data.encounter.status} · sync: ${connStatus}`}
+        ></span>
+      {/if}
       {#if data.encounter.status === 'live'}
         &middot; round {liveRound}
       {/if}
@@ -1306,9 +1332,11 @@
               {/if}
             </span>
           {/if}
-          <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">
-            {p.kind}
-          </span>
+          {#if p.kind === 'npc'}
+            <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">
+              {p.kind}
+            </span>
+          {/if}
           <span class="flex-1 font-medium">
             {#if p.characterId}
               <a class="hover:text-emerald-300" href={`/c/${data.campaign.code}/character/${p.characterId}`}>
@@ -1421,10 +1449,10 @@
           {/if}
           <button
             class="text-[10px] text-slate-500 hover:text-slate-300"
-            title="Show / hide action economy"
+            title="Show / hide plan"
             on:click={() => toggleEconomy(p.id)}
           >
-            {economyOpenFor === p.id ? '− econ' : '+ econ'}
+            {economyOpenFor === p.id ? '− plan' : '+ plan'}
           </button>
           {#if data.role === 'dm'}
             <button
@@ -1637,43 +1665,6 @@
               {/if}
             </div>
           {/if}
-          {#if plan && (plan.actionLabel || plan.bonusActionLabel)}
-            <div class="basis-full pl-12 text-xs text-slate-400">
-              <span class="rounded bg-amber-900/30 px-1.5 py-0.5 text-amber-200">plan</span>
-              {#if plan.actionLabel}
-                <span class="ml-1 text-slate-200">{plan.actionLabel}</span>
-              {/if}
-              {#if plan.bonusActionLabel}
-                <span class="ml-1 text-slate-500">+ bonus</span>
-                <span class="ml-1 text-slate-200">{plan.bonusActionLabel}</span>
-              {/if}
-              {#if plan.targetParticipantIds && plan.targetParticipantIds.length > 0}
-                {@const targetNames = plan.targetParticipantIds.map((tid) => data.participants.find((q) => q.id === tid)?.name).filter(Boolean).join(', ')}
-                {#if targetNames}
-                  <span class="text-slate-500"> → </span>
-                  <span class="text-slate-200">{targetNames}</span>
-                {/if}
-              {/if}
-              {#if plan.notes}
-                <span class="text-slate-500"> · </span>
-                <span class="italic text-slate-300">{plan.notes}</span>
-              {/if}
-              {#if data.role === 'dm'}
-                <button
-                  class="ml-2 rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-900/40"
-                  on:click={() => openResolve(p)}
-                >
-                  resolve
-                </button>
-                <button
-                  class="ml-1 text-[10px] text-slate-500 hover:text-red-400"
-                  on:click={() => clearPlan(p.id)}
-                >
-                  clear
-                </button>
-              {/if}
-            </div>
-          {/if}
           {#if economyOpenFor === p.id && roundEconomy[p.id]}
             {@const isPc = p.kind === 'pc'}
             {@const speeds = isPc
@@ -1681,7 +1672,23 @@
               : (p.statblock?.speeds ?? { walk: 30 })}
             {@const walkSpeed = (speeds.walk ?? speeds.fly ?? speeds.swim ?? 30)}
             <div class="basis-full bg-slate-900/60 border-t border-slate-800 px-4 py-3 mt-1 rounded-b">
-              <div class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Action Economy</div>
+              <div class="mb-2 flex items-center gap-2">
+                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Plan</div>
+                {#if data.role === 'dm' && plan && (plan.actionLabel || plan.bonusActionLabel)}
+                  <button
+                    class="rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-900/40"
+                    on:click={() => openResolve(p)}
+                  >
+                    resolve
+                  </button>
+                  <button
+                    class="text-[10px] text-slate-500 hover:text-red-400"
+                    on:click={() => clearPlan(p.id)}
+                  >
+                    clear
+                  </button>
+                {/if}
+              </div>
               <ActionEconomyPanel
                 mode="observer"
                 readonly={isPc}
@@ -1696,8 +1703,14 @@
                 {walkSpeed}
                 movementUsed={roundEconomy[p.id].movement}
                 showConcentration={false}
+                participants={data.participants}
+                selfId={p.id}
+                plannedTargetIds={plan?.targetParticipantIds ?? []}
+                plannedBonusTargetIds={plan?.bonusTargetParticipantIds ?? []}
                 on:actionPick={(e) => persistNonPcPlan(p, { actionId: e.detail })}
                 on:bonusPick={(e) => persistNonPcPlan(p, { bonusActionId: e.detail })}
+                on:targetPick={(e) => persistNonPcPlan(p, { targetParticipantIds: e.detail })}
+                on:bonusTargetPick={(e) => persistNonPcPlan(p, { bonusTargetParticipantIds: e.detail })}
                 on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
                 on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
                 on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
