@@ -202,7 +202,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   /** Derived action list per PC participant — drives the DM-side action
    *  chooser so custom/homebrew actions (e.g. racial features) show up in
    *  the encounter UI, not just on the character sheet. */
-  type PcActionChoice = { id: string; name: string; cost: ActionCost };
+  type PcActionChoice = { id: string; name: string; cost: ActionCost; attackCount?: number };
   const participantPcActions: Record<string, PcActionChoice[]> = {};
   /** PC concentration sourced from the character document. Null when the
    *  PC isn't concentrating. Lets the DM see what each PC is concentrating
@@ -266,7 +266,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
           participantPcActions[participant.id] = (d.actions ?? []).map((a) => ({
             id: a.id,
             name: a.name,
-            cost: a.cost
+            cost: a.cost,
+            ...(a.attackCount != null && a.attackCount > 1 ? { attackCount: a.attackCount } : {})
           }));
           participantPcStats[participant.id] = {
             ac: s.ac,

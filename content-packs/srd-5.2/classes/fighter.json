@@ -42,7 +42,9 @@
       { "level": 2, "slug": "tactical-mind" },
       { "level": 3, "slug": "fighter-subclass" },
       { "level": 4, "slug": "ability-score-improvement" },
-      { "level": 5, "slug": "extra-attack" }
+      { "level": 5, "slug": "extra-attack" },
+      { "level": 11, "slug": "extra-attack-2" },
+      { "level": 20, "slug": "extra-attack-3" }
     ]
   }
 }

@@ -202,6 +202,9 @@ export interface Action {
    *  `target` field on the spell/feature row or per-activity. */
   targetMode: 'self' | 'single' | 'multi';
   targetCount?: number;
+  /** Number of times this attack action may be made as part of a single
+   *  action (populated by Extra Attack feature; 1 = no extra attacks). */
+  attackCount?: number;
   appliedModifiers: AppliedModifier[];
 }
 

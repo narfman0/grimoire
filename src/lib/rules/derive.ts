@@ -686,6 +686,25 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Aggregate extraAttacks from active features and set attackCount on
+  // main-hand weapon attack actions (type 'attack', cost 'action').
+  // extraAttacks: 1 means one additional attack (2 total); stacking grants
+  // from Fighter L11/L20 accumulate additively so attackCount = 1 + sum.
+  let totalExtraAttacks = 0;
+  for (const a of active) {
+    const extra = a.data.extraAttacks as number | undefined;
+    if (typeof extra === 'number' && extra > 0) {
+      totalExtraAttacks += extra;
+    }
+  }
+  if (totalExtraAttacks > 0) {
+    for (const action of actions) {
+      if (action.type === 'attack' && action.cost === 'action') {
+        action.attackCount = 1 + totalExtraAttacks;
+      }
+    }
+  }
+
   // -------------------------------------------------------------------------
   // PHASE 4 — apply action modifiers
   // -------------------------------------------------------------------------

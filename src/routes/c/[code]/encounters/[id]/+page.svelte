@@ -550,7 +550,8 @@
   }
 
   // Add-participant draft state
-  let newKind: 'pc' | 'npc' | 'monster' = 'monster';
+  let newKind: 'pc' | 'npc' = 'npc';
+  let showAddParticipantModal = false;
   // ---- encounter rename ----
   let renamingEncounter = false;
   let renameValue = data.encounter.name;
@@ -583,18 +584,20 @@
 
   let newName = '';
   let newCharacterId = data.campaignCharacters[0]?.id ?? '';
-  let newMonsterSlug = data.monsterOptions[0]?.slug ?? '';
-  let newInitiative: number | null = null;
-  let newMaxHp: number | null = null;
-  /** How many copies of the monster/NPC to add. PCs can't be duplicated.
-   *  When > 1 the names are auto-suffixed "#1, #2, …" so they're distinguishable. */
+  let newMonsterSlug = '';
+  /** Default HP comes from the statblock; the picker passes it through so
+   *  the new participant row has a non-null currentHp/maxHp without the
+   *  DM needing an extra input. Plain NPCs without a statblock get nulls. */
+  let newDefaultMaxHp: number | null = null;
+  /** How many copies of the NPC to add. PCs can't be duplicated.  When > 1
+   *  the names are auto-suffixed "#1, #2, …" so they're distinguishable. */
   let newQuantity = 1;
 
   function onMonsterPicked(e: CustomEvent<typeof data.monsterOptions[0]>) {
     const m = e.detail;
     newMonsterSlug = m.slug;
     newName = m.name;
-    newMaxHp = m.maxHp ?? null;
+    newDefaultMaxHp = m.maxHp ?? null;
     showMonsterPicker = false;
   }
 
@@ -611,12 +614,11 @@
         const body: Record<string, unknown> = {
           name: qty > 1 ? `${baseName} #${i + 1}` : baseName,
           kind: newKind,
-          initiative: newInitiative ?? undefined,
-          maxHp: newMaxHp ?? undefined,
-          currentHp: newMaxHp ?? undefined
+          maxHp: newDefaultMaxHp ?? undefined,
+          currentHp: newDefaultMaxHp ?? undefined
         };
         if (newKind === 'pc') body.characterId = newCharacterId;
-        if (newKind === 'monster' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
+        if (newKind === 'npc' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
         const res = await fetch(`/api/encounters/${data.encounter.id}/participants`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -625,9 +627,10 @@
         if (!res.ok) break;
       }
       newName = '';
-      newInitiative = null;
-      newMaxHp = null;
+      newMonsterSlug = '';
+      newDefaultMaxHp = null;
       newQuantity = 1;
+      showAddParticipantModal = false;
       await invalidateAll();
     } finally {
       busy = false;
@@ -708,7 +711,7 @@
     return (e.target as HTMLInputElement).value;
   }
 
-  const KINDS: Array<'pc' | 'npc' | 'monster'> = ['pc', 'npc', 'monster'];
+  const KINDS: Array<'pc' | 'npc'> = ['pc', 'npc'];
   /** Live condition list for a participant. PCs source from the SSR-loaded
    *  character document (mirrored in `data.participantPcConditions`); non-PCs
    *  source from the live Y.Doc participantHp blob, falling back to the SSR
@@ -1066,7 +1069,10 @@
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'action')
-        .map((a) => ({ id: a.id, name: `${a.name} (${costLabel(a.cost)})` }));
+        .map((a) => ({
+          id: a.id,
+          name: `${a.name}${a.attackCount != null && a.attackCount > 1 ? ` ×${a.attackCount}` : ''} (${costLabel(a.cost)})`
+        }));
     }
     const choices: PlanChoice[] = [];
     for (const a of p.statblock?.actions ?? []) {
@@ -1254,8 +1260,19 @@
 {/if}
 
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-  <div class="mb-3 flex items-baseline justify-between">
-    <h2 class="text-sm font-semibold text-slate-200">Participants ({data.participants.length})</h2>
+  <div class="mb-3 flex items-baseline justify-between gap-2">
+    <div class="flex items-baseline gap-2">
+      <h2 class="text-sm font-semibold text-slate-200">Participants ({data.participants.length})</h2>
+      {#if data.role === 'dm'}
+        <button
+          class="rounded border border-emerald-700 bg-emerald-950/30 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/40 disabled:opacity-40"
+          disabled={busy}
+          on:click={() => (showAddParticipantModal = true)}
+        >
+          + Add
+        </button>
+      {/if}
+    </div>
     {#if data.role === 'dm' && data.participants.some((p) => p.kind !== 'pc' && p.initiative == null)}
       <button
         class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
@@ -1695,113 +1712,106 @@
     </ul>
   {/if}
 
-  {#if data.role === 'dm'}
-    <div class="rounded border border-slate-800 bg-slate-950/30 p-3 text-sm">
-      <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add participant</h3>
-      <div class="mb-2 flex gap-3">
-        {#each KINDS as k}
-          <label class="flex items-center gap-1 text-xs">
-            <input type="radio" bind:group={newKind} value={k} />
-            <span>{k.toUpperCase()}</span>
-          </label>
-        {/each}
-      </div>
-      <div class="flex flex-wrap items-end gap-2">
-        {#if newKind === 'pc'}
-          {#if data.campaignCharacters.length === 0}
-            <p class="text-xs text-amber-300">No characters in this campaign yet.</p>
-          {:else}
-            <label class="text-xs">
-              <span class="block text-slate-400">Character</span>
-              <select class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={newCharacterId}>
-                {#each data.campaignCharacters as c}
-                  <option value={c.id}>{c.name}</option>
-                {/each}
-              </select>
-            </label>
-          {/if}
-        {:else if newKind === 'monster'}
-          <div class="text-xs">
-            <span class="block text-slate-400 mb-1">From pack</span>
-            {#if data.monsterOptions.length === 0}
-              <p class="text-amber-300">No monsters loaded.</p>
-            {:else}
-              <button
-                class="flex items-center gap-1.5 rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                on:click={() => (showMonsterPicker = true)}
-              >
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-                {newMonsterSlug ? newName : 'Search monsters…'}
-              </button>
-            {/if}
-          </div>
-          <label class="text-xs">
-            <span class="block text-slate-400">Name (override)</span>
-            <input class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={newName} />
-          </label>
-          <label class="text-xs">
-            <span class="block text-slate-400">Max HP</span>
-            <input
-              type="number"
-              class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-              bind:value={newMaxHp}
-              min="1"
-            />
-          </label>
+</section>
+
+{#if showAddParticipantModal && data.role === 'dm'}
+  <!-- Add-participant modal. Triggered by the "+ Add" button next to the
+       Participants header. Backdrop click + Escape both close. -->
+  <button
+    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+    aria-label="Close add-participant"
+    tabindex="-1"
+    on:click={() => (showAddParticipantModal = false)}
+  ></button>
+  <div
+    class="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Add participant"
+  >
+    <div class="mb-3 flex items-baseline justify-between gap-2">
+      <h2 class="text-sm font-semibold text-slate-200">Add participant</h2>
+      <button
+        class="text-xs text-slate-500 hover:text-slate-300"
+        on:click={() => (showAddParticipantModal = false)}
+      >
+        ✕
+      </button>
+    </div>
+    <div class="mb-3 flex gap-3 text-xs">
+      {#each KINDS as k}
+        <label class="flex items-center gap-1">
+          <input type="radio" bind:group={newKind} value={k} />
+          <span>{k.toUpperCase()}</span>
+        </label>
+      {/each}
+    </div>
+    <div class="flex flex-col gap-2">
+      {#if newKind === 'pc'}
+        {#if data.campaignCharacters.length === 0}
+          <p class="text-xs text-amber-300">No characters in this campaign yet.</p>
         {:else}
           <label class="text-xs">
-            <span class="block text-slate-400">Name</span>
-            <input class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" placeholder="Captured noble, etc." bind:value={newName} />
-          </label>
-          <label class="text-xs">
-            <span class="block text-slate-400">Max HP</span>
-            <input
-              type="number"
-              class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-              bind:value={newMaxHp}
-              min="1"
-            />
+            <span class="block text-slate-400">Character</span>
+            <select class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={newCharacterId}>
+              {#each data.campaignCharacters as c}
+                <option value={c.id}>{c.name}</option>
+              {/each}
+            </select>
           </label>
         {/if}
+      {:else}
+        <div class="text-xs">
+          <span class="block text-slate-400 mb-1">Statblock (optional — leave blank for ad-hoc)</span>
+          <button
+            class="flex w-full items-center gap-1.5 rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100"
+            on:click={() => (showMonsterPicker = true)}
+          >
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            {newMonsterSlug ? newName : 'Search…'}
+          </button>
+        </div>
         <label class="text-xs">
-          <span class="block text-slate-400">Initiative</span>
+          <span class="block text-slate-400">Name{newMonsterSlug ? ' (override)' : ''}</span>
           <input
-            type="number"
-            class="w-16 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-            bind:value={newInitiative}
+            class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+            placeholder={newMonsterSlug ? '' : 'Captured noble, etc.'}
+            bind:value={newName}
           />
         </label>
-        {#if newKind !== 'pc'}
-          <label class="text-xs">
-            <span class="block text-slate-400">Qty</span>
-            <input
-              type="number"
-              min="1"
-              max="20"
-              class="w-14 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-              bind:value={newQuantity}
-              title="Adding N copies suffixes the names #1, #2, …"
-            />
-          </label>
-        {/if}
-        <button
-          class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-          on:click={addParticipant}
-          disabled={busy || (newKind !== 'pc' && !newName) || (newKind === 'pc' && !newCharacterId)}
-        >
-          {newKind !== 'pc' && newQuantity > 1 ? `Add ${newQuantity}` : 'Add'}
-        </button>
-      </div>
-      <p class="mt-2 text-xs text-slate-500">
-        Monsters pre-fill HP from the SRD statblock. Override Max HP for
-        weakened or empowered variants. Full monster-side action resolution
-        (attack rolls, multiattack, etc.) is on the roadmap.
-      </p>
+        <label class="text-xs">
+          <span class="block text-slate-400">Quantity</span>
+          <input
+            type="number"
+            min="1"
+            max="20"
+            class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+            bind:value={newQuantity}
+            title="Adding N copies suffixes the names #1, #2, …"
+          />
+        </label>
+      {/if}
     </div>
-  {/if}
-</section>
+    <div class="mt-4 flex items-center justify-end gap-2">
+      <button
+        class="rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800"
+        on:click={() => (showAddParticipantModal = false)}
+        disabled={busy}
+      >
+        Cancel
+      </button>
+      <button
+        class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+        on:click={addParticipant}
+        disabled={busy || (newKind === 'npc' && !newName) || (newKind === 'pc' && !newCharacterId)}
+      >
+        {newKind === 'npc' && newQuantity > 1 ? `Add ${newQuantity}` : 'Add'}
+      </button>
+    </div>
+  </div>
+{/if}
 
 {#if resolveForParticipantId && data.role === 'dm'}
   {@const acting = data.participants.find((q) => q.id === resolveForParticipantId)}
