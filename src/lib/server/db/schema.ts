@@ -68,7 +68,11 @@ export const packs = sqliteTable('packs', {
   version: text('version').notNull(),                               // informational
   defaultSource: text('default_source').notNull(),                  // applied to rows that omit `source`
   loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull(),
-  author: text('author')
+  author: text('author'),
+  /** Rules edition this pack targets ('5e', '5.5e', …). Drives the browse
+   *  edition filter and (later) campaign-scoped pickers. Nullable because
+   *  legacy packs may not declare one yet. */
+  edition: text('edition')
 });
 
 export const content = sqliteTable(

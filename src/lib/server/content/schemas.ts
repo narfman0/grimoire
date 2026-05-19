@@ -40,7 +40,10 @@ export const PackMeta = z.object({
   name: z.string().min(1).max(200),
   version: z.string().min(1).max(64),
   default_source: z.string().min(1).max(64),
-  author: z.string().max(200).optional()
+  author: z.string().max(200).optional(),
+  /** Rules edition this pack targets ('5e', '5.5e', …). Optional for legacy
+   *  packs; the loader leaves the DB column null if unset. */
+  edition: z.string().min(1).max(32).optional()
 });
 export type PackMeta = z.infer<typeof PackMeta>;
 
@@ -171,6 +174,16 @@ const RangeSchema = z
   })
   .passthrough();
 
+/** Opt-in override for the heuristic that picks self / single / multi target
+ *  mode in derive(). Authors set this on spells/features the heuristic gets
+ *  wrong (e.g. Magic Missile is `multi`, Scorching Ray is `multi` with count). */
+const TargetSchema = z
+  .object({
+    mode: z.enum(['self', 'single', 'multi']),
+    count: z.number().int().positive().optional()
+  })
+  .passthrough();
+
 const SpellComponentsSchema = z
   .object({
     verbal: z.boolean().optional(),
@@ -189,6 +202,7 @@ export const SpellDataSchema = z
     components: SpellComponentsSchema.optional(),
     duration: z.string().max(64).optional(),
     description: z.string().max(16000).optional(),
+    target: TargetSchema.optional(),
     /** Nested activities/attacks. Edited via a JSON sub-textarea in the
      *  structured editor; the rules engine validates individual rows. */
     activities: z.array(z.record(z.string(), z.unknown())).optional()

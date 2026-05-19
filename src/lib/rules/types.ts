@@ -116,6 +116,16 @@ export function lookupFromMap(map: Record<string, ContentRow>): ContentLookup {
     const exact = map[contentMapKey(ref.kind, ref.slug, ref.authorUserId)];
     if (exact) return exact;
     if (ref.authorUserId != null) return map[contentMapKey(ref.kind, ref.slug, null)];
+    // Ref has no author hint and no global row matches. Fall back to any
+    // owner-scoped row in the map. Inventory slots authored before we
+    // started stamping authorUserId on add stay un-stamped, so a homebrew
+    // item with no pack-row twin would otherwise silently fail to resolve.
+    // `map` is already scoped by buildContentLookup to (pack + character
+    // owner + subscribed authors), so any leftover match is appropriate.
+    const prefix = `${ref.kind}/${ref.slug}/`;
+    for (const key in map) {
+      if (key.startsWith(prefix)) return map[key];
+    }
     return undefined;
   };
 }
@@ -185,6 +195,13 @@ export interface Action {
   attackAbility?: AbilityKey;
   attackRange?: 'melee' | 'ranged';
   weaponProperties?: string[];
+  /** How the action selects affected creatures. Heuristic in derive(): self
+   *  when range.units === 'self' or range.value === 0 with no attack/save;
+   *  single when there's an attack roll; multi when there's a save DC with
+   *  no attack; single fallback otherwise. Content rows can override via a
+   *  `target` field on the spell/feature row or per-activity. */
+  targetMode: 'self' | 'single' | 'multi';
+  targetCount?: number;
   appliedModifiers: AppliedModifier[];
 }
 

@@ -138,7 +138,8 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
         version: ctx.meta.version,
         defaultSource: ctx.meta.default_source,
         loadedAt: now,
-        author: ctx.meta.author ?? null
+        author: ctx.meta.author ?? null,
+        edition: ctx.meta.edition ?? null
       })
       .onConflictDoUpdate({
         target: schema.packs.slug,
@@ -147,7 +148,8 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
           version: ctx.meta.version,
           defaultSource: ctx.meta.default_source,
           loadedAt: now,
-          author: ctx.meta.author ?? null
+          author: ctx.meta.author ?? null,
+          edition: ctx.meta.edition ?? null
         }
       })
       .run();

@@ -9,7 +9,7 @@
   <h1 class="text-2xl font-semibold">My homebrew</h1>
   <div class="flex items-center gap-3 text-sm">
     <a class="text-xs hover:text-slate-200 text-slate-400" href="/me/homebrew/subscriptions">{data.subscriptionCount} subscription{data.subscriptionCount === 1 ? '' : 's'}</a>
-    <a class="text-xs hover:text-slate-200 text-emerald-300" href="/homebrew/browse">Browse marketplace →</a>
+    <a class="text-xs hover:text-slate-200 text-emerald-300" href="/content/browse">Browse content →</a>
   </div>
 </header>
 

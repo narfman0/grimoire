@@ -5,6 +5,9 @@ import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { SESSION_COOKIE } from '$lib/server/auth/sessions';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
+import { derive } from '$lib/rules';
+import type { CharacterDocument } from '$lib/rules/types';
+import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -151,6 +154,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     )
     .where(eq(schema.campaignCharacters.campaignId, m.campaignId));
 
+  /** Live character name by character.id — lets PC participant rows reflect
+   *  rename in the character sheet without having to re-sync the snapshot
+   *  stored on the participants table. */
+  const charNameById = new Map(charRows.map((r) => [r.id, r.name]));
+
   // Party makeup — only characters that are participants in this encounter
   // count toward the budget. Multi-classed PCs sum their class levels.
   const encounterCharacterIds = new Set(
@@ -171,13 +179,46 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
   const partyLevelSum = partyLevels.reduce((s, l) => s + l, 0);
   const partyAvgLevel = partySize > 0 ? partyLevelSum / partySize : 0;
 
-  // For PC participants, load their prepared spell list for the action economy foldout.
+  // For PC participants, load prepared spell list (action-economy foldout),
+  // current conditions (+cond disclosure), and compact derived stats
+  // (+stats disclosure). One pass over the character rows powers all three.
   const pcParticipants = partRows.filter(p => p.kind === 'pc' && p.characterId);
   const participantSpells: Record<string, Array<{slug: string; name: string; level: number}>> = {};
+  const participantPcConditions: Record<string, string[]> = {};
+  type CompactPcStats = {
+    ac: number;
+    hp: { current: number; max: number; temp: number };
+    abilities: Record<string, { score: number; mod: number }>;
+    saves: Record<string, { bonus: number; proficient: boolean }>;
+    skills: Record<string, { bonus: number; proficient: boolean; expertise: boolean }>;
+    senses: Record<string, number>;
+    speeds: Record<string, number>;
+    passivePerception: number;
+    proficiencyBonus: number;
+    totalLevel: number;
+    spellSaveDC: number | null;
+    spellAttackBonus: number | null;
+    spellcastingAbility: string | null;
+    resistances: string[];
+    immunities: string[];
+    vulnerabilities: string[];
+  };
+  const participantPcStats: Record<string, CompactPcStats> = {};
+  /** PC concentration sourced from the character document. Null when the
+   *  PC isn't concentrating. Lets the DM see what each PC is concentrating
+   *  on inline with the participant row. */
+  const participantPcConcentrating: Record<
+    string,
+    { label: string; sinceRound?: number } | null
+  > = {};
 
   if (pcParticipants.length > 0) {
     const spellCharRows = await db
-      .select({ id: schema.characters.id, document: schema.characters.document })
+      .select({
+        id: schema.characters.id,
+        ownerUserId: schema.characters.ownerUserId,
+        document: schema.characters.document
+      })
       .from(schema.characters)
       .where(inArray(schema.characters.id, pcParticipants.map(p => p.characterId!)));
 
@@ -185,12 +226,38 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
       const participant = pcParticipants.find(p => p.characterId === char.id);
       if (!participant || !char.document) continue;
       try {
-        const doc = JSON.parse(char.document) as { spells?: { known?: Array<{slug: string}>; prepared?: string[] } };
+        const doc = JSON.parse(char.document) as CharacterDocument;
         const prepared = new Set(doc.spells?.prepared ?? []);
         const known = doc.spells?.known ?? [];
         participantSpells[participant.id] = known
           .filter(k => prepared.has(k.slug))
           .map(k => ({ slug: k.slug, name: k.slug, level: 0 }));
+        participantPcConditions[participant.id] = [...(doc.conditions ?? [])];
+        participantPcConcentrating[participant.id] = doc.concentrating ?? null;
+        try {
+          const { lookup } = await buildContentLookup(char.ownerUserId ?? undefined);
+          const s = serializeDerived(derive(doc, lookup)).stats;
+          participantPcStats[participant.id] = {
+            ac: s.ac,
+            hp: s.hp,
+            abilities: s.abilities,
+            saves: s.saves,
+            skills: s.skills,
+            senses: s.senses,
+            speeds: s.speeds,
+            passivePerception: s.passivePerception,
+            proficiencyBonus: s.proficiencyBonus,
+            totalLevel: s.totalLevel,
+            spellSaveDC: s.spellSaveDC,
+            spellAttackBonus: s.spellAttackBonus,
+            spellcastingAbility: s.spellcastingAbility,
+            resistances: s.resistances,
+            immunities: s.immunities,
+            vulnerabilities: s.vulnerabilities
+          };
+        } catch {
+          // derive() throws on malformed docs — skip stats, keep spells/conditions
+        }
       } catch {
         // ignore malformed doc
       }
@@ -283,11 +350,23 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
             : p.statblockJson
               ? monsterDerive(JSON.parse(p.statblockJson) as Record<string, unknown>)
               : null;
+          // PC HP lives on the character document — the participants table
+          // intentionally keeps these null. Backfill from the derived stats
+          // we already computed so HP display + DM HP widgets work for PCs.
+          const pcHp = p.kind === 'pc' ? participantPcStats[p.id]?.hp ?? null : null;
+          const currentHp = pcHp ? pcHp.current : p.currentHp;
+          const maxHp = pcHp ? pcHp.max : p.maxHp;
+          const tempHp = pcHp ? pcHp.temp : p.tempHp;
+          // For PCs, prefer the live character.name over the snapshot stored
+          // on the participants table (which can go stale after a rename).
+          const liveName = p.kind === 'pc' && p.characterId
+            ? charNameById.get(p.characterId) ?? p.name
+            : p.name;
           return {
             id: p.id,
             encounterId: p.encounterId,
             characterId: p.characterId,
-            name: p.name,
+            name: liveName,
             kind: p.kind,
             statblockSlug: p.statblockSlug,
             statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
@@ -295,13 +374,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
             statblock,
             initiative: p.initiative,
             dexScore: dexForParticipant(p),
-            currentHp: p.currentHp,
-            maxHp: p.maxHp,
-            tempHp: p.tempHp,
+            currentHp,
+            maxHp,
+            tempHp,
             conditions: JSON.parse(p.conditionsJson) as string[],
             sortOrder: p.sortOrder,
             reveals,
-            hpBucket: hpBucket(p.currentHp, p.maxHp),
+            hpBucket: hpBucket(currentHp, maxHp),
             // placeholder fills in below after the initiative sort, so
             // "Enemy N" matches the player's visible order.
             placeholderName: p.name
@@ -367,6 +446,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
     },
     monsterOptions,
     participantSpells,
+    participantPcConditions,
+    participantPcStats,
+    participantPcConcentrating,
     actionLog: logRows.map((r) => ({
       id: r.id,
       round: r.round,

@@ -6,8 +6,11 @@
   import InventoryPicker from '$lib/components/InventoryPicker.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import SpellManagerModal from '$lib/components/SpellManagerModal.svelte';
+  import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
   import { derive } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
+  import { costLabel, slotForCost } from '$lib/rules/action-cost';
+  import { COMMON_CONDITIONS } from '$lib/rules/conditions';
   import { lookupFromMap, type CharacterDocument, type Derived, type ContentLookup } from '$lib/rules/types';
   import { connectCharacterDoc, type ConnectedDoc } from '$lib/realtime/character-doc';
   import {
@@ -24,20 +27,6 @@
   import type { PageData } from './$types';
 
   export let data: PageData;
-
-  // Common conditions surfaced as quick checkboxes. Rare ones can be set via API.
-  const COMMON_CONDITIONS = [
-    'rage',
-    'frightened',
-    'prone',
-    'restrained',
-    'unconscious',
-    'poisoned',
-    'charmed',
-    'incapacitated',
-    'invisible',
-    'stunned'
-  ];
 
   let busy = false;
   let damageInput = 0;
@@ -131,7 +120,9 @@
   let encState: EncounterSnapshot | null = null;
   let unsubEncState: (() => void) | undefined;
   let planActionId = '';
-  let planTargetId: string | null = null;
+  let planBonusActionId = '';
+  let planTargetIds: string[] = [];
+  let planBonusTargetIds: string[] = [];
   let planNotes = '';
   let planSubmitting = false;
 
@@ -145,10 +136,8 @@
   let resolveAttack: number | null = null;
   let resolveDamage: number | null = null;
   let resolveHit: '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' | 'saved' | 'failed-save' = '';
-  /** Multi-target save mode — auto-enabled when the picked action has a
-   *  saveDC. Damage rolled once, per-target save inputs auto-classify
-   *  pass/fail vs the DC. Submit fires one log entry per target. */
-  let multiTargetIds: string[] = [];
+  /** Per-target save rolls for the multi-target save resolve mode. Keyed by
+   *  participant id. Target list is sourced from `planTargetIds`. */
   let targetSaveRolls: Record<string, number | null> = {};
   let resolveNotes = '';
   let resolveSubmitting = false;
@@ -170,9 +159,11 @@
         // Pre-fill the draft from the existing plan if any (so reload doesn't lose it).
         if (s && data.liveEncounter) {
           const existing = s.plans[data.liveEncounter.selfParticipantId];
-          if (existing && !planActionId) {
+          if (existing && !planActionId && !planBonusActionId) {
             planActionId = existing.actionId;
-            planTargetId = existing.targetParticipantId;
+            planBonusActionId = existing.bonusActionId ?? '';
+            planTargetIds = existing.targetParticipantIds ?? [];
+            planBonusTargetIds = existing.bonusTargetParticipantIds ?? [];
             planNotes = existing.notes;
           }
         }
@@ -187,25 +178,6 @@
     unsubEncState?.();
     encConn?.destroy();
   });
-
-  /** Action cost label shown next to each plan option. */
-  function costLabel(cost: unknown): string {
-    if (cost === 'action') return 'Action';
-    if (cost === 'bonus') return 'Bonus';
-    if (cost === 'reaction') return 'Reaction';
-    if (cost === 'free') return 'Free';
-    if (cost && typeof cost === 'object') {
-      if ('movement' in cost) {
-        const c = cost as { movement: number };
-        return `${c.movement} ft move`;
-      }
-      if ('uses' in cost) {
-        const c = cost as { uses: number; per: string };
-        return `${c.uses}/${c.per}`;
-      }
-    }
-    return String(cost ?? '');
-  }
 
   /** Flat list of actions available from derived. Each row carries display
    *  bits plus a favorite flag (from character.favoriteActionIds) and a
@@ -230,6 +202,8 @@
             attackBonus: a.attackBonus ?? null,
             saveDC: a.saveDC ?? null,
             range: a.range,
+            targetMode: a.targetMode,
+            targetCount: a.targetCount,
             isFavorite: favorites.has(a.id),
             recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY,
             slot,
@@ -243,6 +217,12 @@
           return a.name.localeCompare(b.name);
         })
     : [];
+
+  /** Action-cost and bonus-cost subsets of actionOptions for the
+   *  player-detail action-economy choosers. Ordered same as actionOptions
+   *  (favorites → recency → name) so the most-likely-next is on top. */
+  $: actionChoices = actionOptions.filter((a) => a.slot === 'action');
+  $: bonusChoices = actionOptions.filter((a) => a.slot === 'bonus');
 
   /** The currently-picked or planned action; drives save-vs-attack mode in resolve. */
   $: pickedAction =
@@ -268,15 +248,30 @@
   }
 
   function submitPlan() {
+    broadcastPlan();
+  }
+
+  /** Push the current planActionId + planBonusActionId (plus target/notes) to
+   *  the encounter Y.Doc. Called by the action / bonus-action choosers on
+   *  every change so the DM sees intent in real time. If both slots are
+   *  empty, clear the plan entirely instead of writing a blank record. */
+  function broadcastPlan() {
     if (!encConn || !data.liveEncounter) return;
-    const action = actionOptions.find((a) => a.id === planActionId);
-    if (!action) return;
+    const action = planActionId ? actionOptions.find((a) => a.id === planActionId) : null;
+    const bonus = planBonusActionId ? actionOptions.find((a) => a.id === planBonusActionId) : null;
+    if (!action && !bonus) {
+      clearTurnPlan(encConn.ydoc, data.liveEncounter.selfParticipantId);
+      return;
+    }
     planSubmitting = true;
     try {
       const plan: TurnPlan = {
-        actionId: action.id,
-        actionLabel: `${action.name} (${action.costLabel})`,
-        targetParticipantId: planTargetId,
+        actionId: action?.id ?? '',
+        actionLabel: action ? `${action.name} (${action.costLabel})` : '',
+        bonusActionId: bonus?.id,
+        bonusActionLabel: bonus ? `${bonus.name} (${bonus.costLabel})` : undefined,
+        targetParticipantIds: planTargetIds,
+        bonusTargetParticipantIds: planBonusTargetIds.length > 0 ? planBonusTargetIds : undefined,
         notes: planNotes.slice(0, 200),
         updatedAt: Date.now()
       };
@@ -297,8 +292,9 @@
   }
 
   function resolveTargetParticipant() {
-    if (!data.liveEncounter || !myPlan?.targetParticipantId) return null;
-    return data.liveEncounter.participants.find((p) => p.id === myPlan!.targetParticipantId) ?? null;
+    const tid = myPlan?.targetParticipantIds?.[0];
+    if (!data.liveEncounter || !tid) return null;
+    return data.liveEncounter.participants.find((p) => p.id === tid) ?? null;
   }
 
   /** Apply HP delta + POST one log entry for a single target. Returns ok. */
@@ -371,12 +367,12 @@
     resolveError = null;
 
     try {
-      if (isSaveAction && multiTargetIds.length > 0 && pickedAction?.saveDC) {
+      if (isSaveAction && planTargetIds.length > 0 && pickedAction?.saveDC) {
         // Multi-target save: fire one log entry per target with per-target
         // pass/fail derived from save roll vs DC. If a row's save input is
         // blank, fall back to the form's outcome (defaults to failed-save).
         const dc = pickedAction.saveDC.value;
-        for (const tid of multiTargetIds) {
+        for (const tid of planTargetIds) {
           const t = data.liveEncounter.participants.find((p) => p.id === tid) ?? null;
           if (!t) continue;
           const saveRoll = targetSaveRolls[tid];
@@ -430,9 +426,9 @@
       // Clear the plan now that the action has been resolved.
       clearTurnPlan(encConn.ydoc, selfId);
       planActionId = '';
-      planTargetId = null;
+      planTargetIds = [];
+      planBonusTargetIds = [];
       planNotes = '';
-      multiTargetIds = [];
       targetSaveRolls = {};
       resolveOpen = false;
     } finally {
@@ -825,16 +821,6 @@
     await patchDocument((d) => {
       d.movementUsedThisRound = 0;
     });
-  }
-
-  /** Inspect an action's cost and return which slot it consumes (or null
-   *  for `free` / unrecognized shapes). Drives both consumption-on-resolve
-   *  and the grey-out logic in the picker. */
-  function slotForCost(cost: unknown): 'action' | 'bonus' | 'reaction' | null {
-    if (cost === 'action') return 'action';
-    if (cost === 'bonus') return 'bonus';
-    if (cost === 'reaction') return 'reaction';
-    return null;
   }
 
   let concDraft = '';
@@ -1324,86 +1310,52 @@
 
 
 {#if document && derived}
-  <!-- ===== Action economy panel (top of page) ===== -->
-  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-    <div class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Action Economy</div>
-    <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
-      <!-- Action card -->
-      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-        <div class="mb-1.5 text-[10px] text-slate-500">⚔ Action</div>
-        <button
-          class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {actionUsed
-            ? 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
-            : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
-          disabled={busy}
-          on:click={toggleAction}
+  <!-- ===== Action economy panel (top of page) =====
+       Only surfaced when this character is a participant in a live
+       encounter — outside of combat the slots don't mean anything, and the
+       chooser would broadcast intent nobody is listening for. -->
+  {#if data.liveEncounter}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold text-slate-200">Action economy</h2>
+        <a
+          class="rounded border border-emerald-700 bg-emerald-950/30 px-2 py-0.5 text-[11px] text-emerald-200 hover:bg-emerald-900/40"
+          href={`/c/${data.campaign.code}/encounters/${data.liveEncounter.id}`}
         >
-          {actionUsed ? 'used' : 'ready'}
-        </button>
+          ↗ {data.liveEncounter.name}
+        </a>
       </div>
-      <!-- Bonus action card -->
-      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-        <div class="mb-1.5 text-[10px] text-slate-500">✦ Bonus Action</div>
-        <button
-          class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {bonusUsed
-            ? 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
-            : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
-          disabled={busy}
-          on:click={toggleBonusAction}
-        >
-          {bonusUsed ? 'used' : 'ready'}
-        </button>
-      </div>
-      <!-- Movement card -->
-      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-        <div class="mb-1.5 text-[10px] text-slate-500">💨 Movement</div>
-        <div class="flex items-center gap-1 flex-wrap">
-          <span class="font-mono {movementRemaining === 0 ? 'text-slate-500' : 'text-emerald-200'}">{movementRemaining}/{walkSpeed} ft</span>
-          <button class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40" disabled={busy || movementRemaining === 0} on:click={() => adjustMovement(5)}>−5</button>
-          <button class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40" disabled={busy || movementUsed === 0} on:click={() => adjustMovement(-5)}>+5</button>
-          <button class="rounded border border-slate-700 px-1 text-[10px] hover:bg-slate-800 disabled:opacity-40" disabled={busy || movementUsed === 0} on:click={resetMovement}>↺</button>
-        </div>
-      </div>
-      <!-- Reaction card -->
-      <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-        <div class="mb-1.5 text-[10px] text-slate-500">↩ Reaction</div>
-        <button
-          class="w-full rounded border px-2 py-1 text-xs font-medium transition-colors {reactionUsed
-            ? 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
-            : 'border-emerald-700 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'}"
-          disabled={busy}
-          on:click={toggleReaction}
-        >
-          {reactionUsed ? 'used' : 'ready'}
-        </button>
-      </div>
-    </div>
-    <!-- Concentration row -->
-    <div class="mt-2">
-      {#if document.concentrating}
-        <div class="flex items-center gap-2 rounded border border-indigo-700 bg-indigo-950/40 px-2 py-1 text-xs text-indigo-200">
-          <span>🌀 Concentrating:</span>
-          <span class="font-semibold">{document.concentrating.label}</span>
-          {#if document.concentrating.sinceRound != null}
-            <span class="text-indigo-400/70">(since R{document.concentrating.sinceRound})</span>
-          {/if}
-          <button class="ml-1 rounded border border-indigo-700 px-1.5 py-0 text-[10px] hover:bg-indigo-900/40 disabled:opacity-40" disabled={busy} on:click={endConcentration}>drop</button>
-        </div>
-      {:else}
-        <div class="flex items-center gap-1">
-          <span class="text-xs text-slate-500">🌀 Concentrate on</span>
-          <input
-            class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-            placeholder="bless, hex, hold person…"
-            maxlength="80"
-            bind:value={concDraft}
-            on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); startConcentration(); } }}
-          />
-          <button class="rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-800 disabled:opacity-40" disabled={busy || concDraft.trim() === ''} on:click={startConcentration}>start</button>
-        </div>
-      {/if}
-    </div>
-  </section>
+      <ActionEconomyPanel
+        mode="self"
+        {busy}
+        actionChoices={actionChoices}
+        bonusChoices={bonusChoices}
+        plannedActionId={planActionId}
+        plannedBonusActionId={planBonusActionId}
+        {actionUsed}
+        {bonusUsed}
+        {reactionUsed}
+        {walkSpeed}
+        {movementUsed}
+        concentrating={document.concentrating ?? null}
+        participants={data.liveEncounter.participants}
+        selfId={data.liveEncounter.selfParticipantId}
+        plannedTargetIds={planTargetIds}
+        plannedBonusTargetIds={planBonusTargetIds}
+        on:actionPick={(e) => { planActionId = e.detail; planTargetIds = []; broadcastPlan(); }}
+        on:bonusPick={(e) => { planBonusActionId = e.detail; planBonusTargetIds = []; broadcastPlan(); }}
+        on:targetPick={(e) => { planTargetIds = e.detail; broadcastPlan(); }}
+        on:bonusTargetPick={(e) => { planBonusTargetIds = e.detail; broadcastPlan(); }}
+        on:toggleActionUsed={toggleAction}
+        on:toggleBonusUsed={toggleBonusAction}
+        on:toggleReactionUsed={toggleReaction}
+        on:movementDelta={(e) => adjustMovement(e.detail)}
+        on:movementReset={resetMovement}
+        on:concentrationStart={(e) => { concDraft = e.detail; startConcentration(); }}
+        on:concentrationEnd={endConcentration}
+      />
+    </section>
+  {/if}
 
   <!-- ===== Stats / saves / skills / actions (read-only) ===== -->
   <Sheet derived={derived} />
@@ -1529,63 +1481,62 @@
   </section>
 
 
-  <!-- Spell slots + spellbook header + resources (mutable cluster) -->
+  <!-- Spellcasting: header + slots -->
   {@const slotLevels = Object.keys(derived.stats.spellSlots).map(Number).sort((a, b) => a - b)}
-  {#if slotLevels.length > 0 || derived.resources.length > 0}
-    <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
-      {#if slotLevels.length > 0}
-        <div>
-          {#if derived.stats.spellcastingAbility}
-            <div class="mb-3 flex items-center justify-between gap-2">
-              <div>
-                <p class="text-sm font-semibold text-slate-200">
-                  {preparedCount} prepared · {document.spells.known.length} known
-                </p>
-                <p class="text-xs text-slate-500">
-                  {derived.stats.spellcastingAbility.toUpperCase()} · {(derived.stats.spellAttackBonus ?? 0) >= 0 ? '+' : ''}{derived.stats.spellAttackBonus ?? 0} atk · DC {derived.stats.spellSaveDC ?? 0}
-                </p>
-              </div>
-              <button
-                class="rounded border border-emerald-700 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-900/40"
-                on:click={() => (spellManagerOpen = true)}
-              >
-                Manage spells ▸
-              </button>
-            </div>
-            <hr class="mb-2 border-slate-700" />
-          {/if}
-          <h2 class="mb-2 text-sm font-semibold text-slate-200">Spell slots</h2>
-          <ul class="space-y-1 text-sm">
-            {#each slotLevels as lvl}
-              {@const slot = derived.stats.spellSlots[lvl]}
-              {@const remaining = slot.max - slot.used}
-              <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1">
-                <span class="font-mono text-xs">
-                  L{lvl} <span class="ml-1">{remaining} / {slot.max}</span>
-                </span>
-                <span class="flex items-center gap-1">
-                  <button
-                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-                    disabled={busy || remaining === 0}
-                    title="Cast — consume one slot"
-                    on:click={() => spendSlot(lvl)}
-                  >
-                    Use
-                  </button>
-                  <button
-                    class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-                    disabled={busy || slot.used === 0}
-                    title="Restore one slot"
-                    on:click={() => restoreSlot(lvl)}
-                  >
-                    +1
-                  </button>
-                </span>
-              </li>
-            {/each}
-          </ul>
+  {#if slotLevels.length > 0}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <h2 class="mb-2 text-sm font-semibold text-slate-200">Spellcasting</h2>
+      {#if derived.stats.spellcastingAbility}
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-slate-200">
+              {preparedCount} prepared · {document.spells.known.length} known
+            </p>
+            <p class="text-xs text-slate-500">
+              {derived.stats.spellcastingAbility.toUpperCase()} · {(derived.stats.spellAttackBonus ?? 0) >= 0 ? '+' : ''}{derived.stats.spellAttackBonus ?? 0} atk · DC {derived.stats.spellSaveDC ?? 0}
+            </p>
+          </div>
+          <button
+            class="rounded border border-emerald-700 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-900/40"
+            on:click={() => (spellManagerOpen = true)}
+          >
+            Manage spells ▸
+          </button>
         </div>
+        <hr class="mb-3 border-slate-700" />
       {/if}
+      <div>
+        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Spell slots</h3>
+        <ul class="space-y-1 text-sm">
+          {#each slotLevels as lvl}
+            {@const slot = derived.stats.spellSlots[lvl]}
+            {@const remaining = slot.max - slot.used}
+            <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1">
+              <span class="text-xs">
+                Level {lvl} <span class="ml-1 font-mono">{remaining} / {slot.max}</span>
+              </span>
+              <span class="flex items-center gap-1">
+                <button
+                  class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy || remaining === 0}
+                  title="Cast — consume one slot"
+                  on:click={() => spendSlot(lvl)}
+                >
+                  Use
+                </button>
+                <button
+                  class="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy || slot.used === 0}
+                  title="Restore one slot"
+                  on:click={() => restoreSlot(lvl)}
+                >
+                  +1
+                </button>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </div>
     </section>
   {/if}
   {#if derived.resources.length > 0}
@@ -2298,11 +2249,12 @@
               attuned
             </label>
             <button
-              class="text-xs text-slate-500 hover:text-red-400"
+              class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:bg-red-950/30 hover:text-red-300 disabled:opacity-40"
               disabled={busy}
+              title="Remove from inventory"
               on:click={() => removeInventoryItem(i)}
             >
-              ×
+              remove
             </button>
           </li>
         {/each}

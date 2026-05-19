@@ -128,7 +128,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         requiresAttunement?: boolean | object;
         weight?: number;
         cost?: { value?: number; unit?: string } | string | number;
-        damage?: Array<{ dice: string; type: string }>;
+        damage?: Array<{ dice: string; type: string }> | string;
+        damageType?: string;
         properties?: string[];
         ac?: number | { value?: number; calc?: string };
         range?: { value?: number; long?: number; units?: string };
@@ -136,6 +137,16 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         charges?: { max?: number; per?: string };
         description?: string;
       };
+      // Homebrew weapons sometimes serialize damage as a single dice string
+      // with `damageType` alongside (the rules-engine attack shape) instead
+      // of the canonical `Array<{dice, type}>` the picker/template expects.
+      // Normalize so downstream code can rely on one shape.
+      const damage: Array<{ dice: string; type: string }> | null =
+        Array.isArray(data.damage)
+          ? data.damage
+          : typeof data.damage === 'string' && data.damage.length > 0
+            ? [{ dice: data.damage, type: data.damageType ?? '' }]
+            : null;
       return {
         slug: r.slug,
         name: r.name,
@@ -147,7 +158,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
         armorType: data.armorType ?? null,
         weight: typeof data.weight === 'number' ? data.weight : null,
         cost: data.cost ?? null,
-        damage: data.damage ?? null,
+        damage,
         properties: data.properties ?? [],
         ac: data.ac ?? null,
         range: data.range ?? null,

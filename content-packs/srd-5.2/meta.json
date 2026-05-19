@@ -2,5 +2,6 @@
   "slug": "srd-5.2",
   "name": "System Reference Document 5.2.1",
   "version": "5.2.1",
-  "default_source": "srd-5.2"
+  "default_source": "srd-5.2",
+  "edition": "5e"
 }

@@ -55,7 +55,9 @@
   $: triggers = derived.triggers;
   $: resources = derived.resources;
   $: validations = derived.validations;
-  $: nonSpellActions = actions.filter((a) => a.type !== 'cast-spell');
+  $: nonSpellActions = actions.filter(
+    (a) => a.sourceContent.kind !== 'spell' && a.type !== 'cast-spell'
+  );
 
   const abilityOrder = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 
@@ -117,25 +119,6 @@
     </ul>
   </section>
 </div>
-
-{#if stats.spellcastingAbility}
-  <section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-    <h2 class="mb-3 text-lg font-semibold">Spellcasting</h2>
-    <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-      <span>Ability: <span class="font-semibold uppercase">{stats.spellcastingAbility}</span></span>
-      <span>Save DC: <span class="font-mono">{stats.spellSaveDC}</span></span>
-      <span>Attack: <span class="font-mono">{fmt(stats.spellAttackBonus ?? 0)}</span></span>
-    </div>
-    <div class="mt-3 grid grid-cols-3 gap-2 text-sm md:grid-cols-9">
-      {#each Object.entries(stats.spellSlots) as [level, slot]}
-        <div class="rounded border border-slate-700 px-2 py-1 text-center">
-          <div class="text-xs text-slate-500">L{level}</div>
-          <div class="font-mono">{slot.max - slot.used} / {slot.max}</div>
-        </div>
-      {/each}
-    </div>
-  </section>
-{/if}
 
 <section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
   <h2 class="mb-3 text-lg font-semibold">Actions</h2>

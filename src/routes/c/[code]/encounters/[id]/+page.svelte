@@ -4,6 +4,9 @@
   import MonsterPicker from '$lib/components/MonsterPicker.svelte';
   import RevealChip from '$lib/components/RevealChip.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
+  import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
+  import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
+  import { COMMON_CONDITIONS } from '$lib/rules/conditions';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
     connectEncounterDoc,
@@ -66,15 +69,6 @@
     clearTurnPlan(conn.ydoc, participantId);
   }
 
-  /** Return live HP for a participant, falling back to the SSR row when the
-   *  Y.Doc hasn't seeded yet (first paint, or sync server offline). */
-  function hpFor(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }):
-    ParticipantHp {
-    const live = liveHpMap[p.id];
-    if (live) return live;
-    return { currentHp: p.currentHp, tempHp: p.tempHp ?? 0, conditions: p.conditions ?? [] };
-  }
-
   /** Map participant.id → SSR HP seed used when the Y.Doc has no entry yet. */
   function seedFor(p: { currentHp: number | null; tempHp: number; conditions: string[] }):
     ParticipantHp {
@@ -111,7 +105,7 @@
     if (plan) {
       resolveActionId = plan.actionId;
       resolveActionLabel = plan.actionLabel;
-      resolveTargetId = plan.targetParticipantId;
+      resolveTargetId = plan.targetParticipantIds?.[0] ?? null;
       resolveNotes = plan.notes;
     } else {
       resolveActionId = 'dm-adhoc';
@@ -285,7 +279,7 @@
     if (!p || !conn || connStatus !== 'open') return;
     const seed = seedFor(p);
     const current = liveHpMap[participantId] ?? seed;
-    setParticipantHp(conn.ydoc, participantId, { ...seed, ...current, concentrating: false });
+    setParticipantHp(conn.ydoc, participantId, { ...seed, ...current, concentrating: null });
     concSavePrompt = null;
   }
 
@@ -461,17 +455,44 @@
     await patchReveal(participantId, { identity: false, vitals: false, combat: false, hidden: false });
   }
 
-  async function dmDamage(p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }) {
+  /** Apply a delta to a PC's HP by round-tripping the character document
+   *  via REST. Mirrors the conditions/concentration paths so the player's
+   *  open sheet picks up the change on next reload / reconcile. Returns the
+   *  new current HP for caller-side state mirroring. */
+  async function patchPcHp(
+    characterId: string,
+    nextCurrent: number,
+    nextTemp: number
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/characters/${characterId}`);
+      if (!res.ok) return false;
+      const char = await res.json() as { document: Record<string, unknown> | null };
+      const doc = { ...(char.document ?? {}), currentHp: nextCurrent, tempHp: nextTemp };
+      const patch = await fetch(`/api/characters/${characterId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ document: doc })
+      });
+      return patch.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function dmDamage(p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] }) {
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
     if (n === 0) return;
     const seed = seedFor(p);
-    if (conn && connStatus === 'open') {
+    const tempAbsorbed = Math.min(seed.tempHp, n);
+    const nextCurrent = seed.currentHp == null ? null : Math.max(0, seed.currentHp - (n - tempAbsorbed));
+    const nextTemp = seed.tempHp - tempAbsorbed;
+    if (p.kind === 'pc' && p.characterId) {
+      const ok = await patchPcHp(p.characterId, nextCurrent ?? 0, nextTemp);
+      if (ok) await invalidateAll();
+    } else if (conn && connStatus === 'open') {
       doApplyDamage(conn.ydoc, p.id, n, seed);
     } else {
-      // REST fallback when sync is offline.
-      const tempAbsorbed = Math.min(seed.tempHp, n);
-      const nextCurrent = seed.currentHp == null ? null : Math.max(0, seed.currentHp - (n - tempAbsorbed));
-      const nextTemp = seed.tempHp - tempAbsorbed;
       await patchParticipantHp(p.id, nextCurrent ?? 0, nextTemp);
       await invalidateAll();
     }
@@ -481,6 +502,8 @@
 
   async function dmHeal(p: {
     id: string;
+    kind: string;
+    characterId: string | null;
     currentHp: number | null;
     maxHp: number | null;
     tempHp: number;
@@ -489,15 +512,18 @@
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
     if (n === 0) return;
     const seed = seedFor(p);
-    if (conn && connStatus === 'open') {
+    const capped =
+      seed.currentHp == null
+        ? null
+        : p.maxHp != null
+          ? Math.min(p.maxHp, seed.currentHp + n)
+          : seed.currentHp + n;
+    if (p.kind === 'pc' && p.characterId) {
+      const ok = await patchPcHp(p.characterId, capped ?? 0, seed.tempHp);
+      if (ok) await invalidateAll();
+    } else if (conn && connStatus === 'open') {
       doApplyHeal(conn.ydoc, p.id, n, p.maxHp, seed);
     } else {
-      const capped =
-        seed.currentHp == null
-          ? null
-          : p.maxHp != null
-            ? Math.min(p.maxHp, seed.currentHp + n)
-            : seed.currentHp + n;
       await patchParticipantHp(p.id, capped ?? 0, seed.tempHp);
       await invalidateAll();
     }
@@ -665,20 +691,55 @@
   }
 
   const KINDS: Array<'pc' | 'npc' | 'monster'> = ['pc', 'npc', 'monster'];
-  const STATBLOCK_ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
-  const COMMON_CONDITIONS = [
-    'blinded', 'charmed', 'deafened', 'frightened', 'grappled',
-    'incapacitated', 'invisible', 'paralyzed', 'petrified', 'poisoned',
-    'prone', 'restrained', 'stunned', 'unconscious'
-  ];
+  /** Live condition list for a participant. PCs source from the SSR-loaded
+   *  character document (mirrored in `data.participantPcConditions`); non-PCs
+   *  source from the live Y.Doc participantHp blob, falling back to the SSR
+   *  conditions array. */
+  function condsFor(p: { id: string; kind: string; conditions: string[] }): string[] {
+    if (p.kind === 'pc') return data.participantPcConditions?.[p.id] ?? [];
+    return liveHpMap[p.id]?.conditions ?? p.conditions;
+  }
 
-  /** Toggle a condition on a non-PC participant. Writes through Y.Doc when
-   *  sync is open, falls back to REST. PC conditions live on the character
-   *  doc — not editable from the encounter view. */
+  /** Toggle a condition on a participant. Non-PCs go through participantHp
+   *  (Y.Doc when open, REST fallback). PCs round-trip the character document
+   *  via PATCH /api/characters/{id} — the player's open sheet picks up the
+   *  change on next Y.Doc reconciliation / page reload. Optimistic UI for
+   *  PCs updates the local participantPcConditions map immediately. */
   async function toggleCondition(
-    p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] },
+    p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
     cond: string
   ) {
+    if (p.kind === 'pc') {
+      if (!p.characterId) return;
+      const current = data.participantPcConditions?.[p.id] ?? [];
+      const next = current.includes(cond)
+        ? current.filter((c) => c !== cond)
+        : [...current, cond];
+      // Optimistic update so the chip flips immediately.
+      data.participantPcConditions = {
+        ...(data.participantPcConditions ?? {}),
+        [p.id]: next
+      };
+      try {
+        const res = await fetch(`/api/characters/${p.characterId}`);
+        if (!res.ok) throw new Error('fetch failed');
+        const char = await res.json() as { document: Record<string, unknown> | null };
+        const doc = { ...(char.document ?? {}), conditions: next };
+        const patch = await fetch(`/api/characters/${p.characterId}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ document: doc })
+        });
+        if (!patch.ok) throw new Error('patch failed');
+      } catch {
+        // Revert optimistic update on failure.
+        data.participantPcConditions = {
+          ...(data.participantPcConditions ?? {}),
+          [p.id]: current
+        };
+      }
+      return;
+    }
     const seed = seedFor(p);
     const current = liveHpMap[p.id]?.conditions ?? seed.conditions;
     const next = current.includes(cond)
@@ -696,17 +757,94 @@
     }
   }
 
-  /** Toggle the concentrating flag on a non-PC participant via Y.Doc. */
-  function toggleConcentrating(
-    p: { id: string; currentHp: number | null; tempHp: number; conditions: string[] }
+  /** Start concentration on a participant with a free-text label. Non-PCs
+   *  go through participantHp on the encounter Y.Doc; PCs round-trip the
+   *  character document via PATCH /api/characters/{id} so the player's
+   *  sheet eventually picks up the change. Optimistic UI on the PC path
+   *  flips the local mirror map immediately. */
+  async function startConcentrating(
+    p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
+    label: string
   ) {
+    const clean = label.trim();
+    if (!clean) return;
+    const round = liveState?.round;
+    const next = { label: clean, ...(round != null ? { sinceRound: round } : {}) };
+    if (p.kind === 'pc') {
+      if (!p.characterId) return;
+      const prev = data.participantPcConcentrating?.[p.id] ?? null;
+      data.participantPcConcentrating = {
+        ...(data.participantPcConcentrating ?? {}),
+        [p.id]: next
+      };
+      try {
+        const res = await fetch(`/api/characters/${p.characterId}`);
+        if (!res.ok) throw new Error('fetch failed');
+        const char = await res.json() as { document: Record<string, unknown> | null };
+        const doc = { ...(char.document ?? {}), concentrating: next };
+        const patch = await fetch(`/api/characters/${p.characterId}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ document: doc })
+        });
+        if (!patch.ok) throw new Error('patch failed');
+      } catch {
+        data.participantPcConcentrating = {
+          ...(data.participantPcConcentrating ?? {}),
+          [p.id]: prev
+        };
+      }
+      return;
+    }
     const seed = seedFor(p);
     const current = liveHpMap[p.id] ?? seed;
-    const next = { ...seed, ...current, concentrating: !current.concentrating };
     if (conn && connStatus === 'open') {
-      setParticipantHp(conn.ydoc, p.id, next);
+      setParticipantHp(conn.ydoc, p.id, { ...seed, ...current, concentrating: next });
     }
   }
+
+  /** Clear concentration on a participant. Same PC vs non-PC routing as
+   *  startConcentrating. */
+  async function clearConcentrating(
+    p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] }
+  ) {
+    if (p.kind === 'pc') {
+      if (!p.characterId) return;
+      const prev = data.participantPcConcentrating?.[p.id] ?? null;
+      data.participantPcConcentrating = {
+        ...(data.participantPcConcentrating ?? {}),
+        [p.id]: null
+      };
+      try {
+        const res = await fetch(`/api/characters/${p.characterId}`);
+        if (!res.ok) throw new Error('fetch failed');
+        const char = await res.json() as { document: Record<string, unknown> | null };
+        const doc = { ...(char.document ?? {}), concentrating: null };
+        const patch = await fetch(`/api/characters/${p.characterId}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ document: doc })
+        });
+        if (!patch.ok) throw new Error('patch failed');
+      } catch {
+        data.participantPcConcentrating = {
+          ...(data.participantPcConcentrating ?? {}),
+          [p.id]: prev
+        };
+      }
+      return;
+    }
+    const seed = seedFor(p);
+    const current = liveHpMap[p.id] ?? seed;
+    if (conn && connStatus === 'open') {
+      setParticipantHp(conn.ydoc, p.id, { ...seed, ...current, concentrating: null });
+    }
+  }
+
+  /** Per-participant draft label for the inline concentration input. */
+  let concDrafts: Record<string, string> = {};
+  /** Which participant currently has the start-concentration input open. */
+  let concentrationOpenFor: string | null = null;
 
   // Concentration save callout state: set after a resolve completes, cleared when dismissed.
   let concSavePrompt: { participantName: string; dc: number; participantId: string } | null = null;
@@ -715,13 +853,67 @@
   /** Per-participant flag: which one currently has its inline statblock panel
    *  expanded. Only one open at a time keeps the encounter list tidy. */
   let statblockOpenFor: string | null = null;
+  /** Per-participant flag for the +reveal disclosure (DM, non-PC only). */
+  let revealOpenFor: string | null = null;
+  /** Per-participant flag for the +econ disclosure (action economy panel). */
+  let economyOpenFor: string | null = null;
+  /** Participant whose initiative cell is currently in edit mode. Null when
+   *  no one is editing; rolled initiatives display as a number plus a tiny
+   *  pencil affordance until clicked. */
+  let initiativeEditFor: string | null = null;
+  /** Monster participant whose rename / type-swap widget is open. */
+  let editMonsterOpenFor: string | null = null;
+  let editMonsterNameDraft = '';
+  let editMonsterSlugDraft = '';
+
+  function openMonsterEdit(p: { id: string; name: string; statblockSlug: string | null }) {
+    editMonsterNameDraft = p.name;
+    editMonsterSlugDraft = p.statblockSlug ?? '';
+    editMonsterOpenFor = p.id;
+  }
+
+  /** Save the rename + statblock swap. If the slug changed, also reset HP to
+   *  the new monster's max so the row reflects the swap. */
+  async function saveMonsterEdit(
+    p: { id: string; name: string; statblockSlug: string | null; maxHp: number | null }
+  ) {
+    const nextName = editMonsterNameDraft.trim();
+    const nextSlug = editMonsterSlugDraft.trim();
+    if (!nextName) return;
+    const slugChanged = nextSlug !== (p.statblockSlug ?? '');
+    const body: Record<string, unknown> = { name: nextName };
+    if (slugChanged) {
+      body.statblockSlug = nextSlug || null;
+      const newMon = data.monsterOptions.find((m) => m.slug === nextSlug);
+      if (newMon?.maxHp != null) {
+        body.maxHp = newMon.maxHp;
+        body.currentHp = newMon.maxHp;
+      }
+    }
+    busy = true;
+    try {
+      const res = await fetch(`/api/participants/${p.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        editMonsterOpenFor = null;
+        await invalidateAll();
+      }
+    } finally {
+      busy = false;
+    }
+  }
 
   // ---- Action economy foldout (client-side display state only) ----
-  let expandedParticipants = new Set<string>();
-  function toggleExpand(id: string) {
-    if (expandedParticipants.has(id)) expandedParticipants.delete(id);
-    else { expandedParticipants.add(id); ensureEconomy(id); }
-    expandedParticipants = expandedParticipants; // trigger reactivity
+  function toggleEconomy(id: string) {
+    if (economyOpenFor === id) {
+      economyOpenFor = null;
+    } else {
+      ensureEconomy(id);
+      economyOpenFor = id;
+    }
   }
 
   interface RoundEconomyEntry {
@@ -731,18 +923,37 @@
     reaction: string;
     freeActions: string;
     slotLevel: number;
+    /** Per-turn used flags surfaced by the ActionEconomyPanel. Client-only
+     *  for v1 — not persisted across reloads. */
+    actionUsed: boolean;
+    bonusUsed: boolean;
+    reactionUsed: boolean;
   }
   let roundEconomy: Record<string, RoundEconomyEntry> = {};
 
+  function blankEconomy(): RoundEconomyEntry {
+    return {
+      action: '',
+      bonusAction: '',
+      movement: 0,
+      reaction: '',
+      freeActions: '',
+      slotLevel: 1,
+      actionUsed: false,
+      bonusUsed: false,
+      reactionUsed: false
+    };
+  }
+
   function ensureEconomy(id: string): RoundEconomyEntry {
     if (!roundEconomy[id]) {
-      roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '', slotLevel: 1 };
+      roundEconomy[id] = blankEconomy();
     }
     return roundEconomy[id];
   }
 
   function resetEconomy(id: string) {
-    roundEconomy[id] = { action: '', bonusAction: '', movement: 0, reaction: '', freeActions: '', slotLevel: 1 };
+    roundEconomy[id] = blankEconomy();
     roundEconomy = roundEconomy;
   }
 
@@ -762,21 +973,52 @@
     return action !== '' && spells.some(s => s.name === action);
   }
 
-  // Track previous active to reset economy on turn change.
+  /** Build the chooser list the ActionEconomyPanel renders for the Action
+   *  slot of one participant. For PCs we mirror the player's broadcast plan
+   *  as a single readonly option so the DM can see intent; for non-PCs we
+   *  enumerate statblock actions plus any prepared spells we know about. */
+  function actionChoicesFor(
+    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string }> } | null },
+    plan: { actionId?: string; actionLabel?: string } | undefined
+  ): Array<{ id: string; name: string }> {
+    if (p.kind === 'pc') {
+      if (plan?.actionId && plan?.actionLabel) {
+        return [{ id: plan.actionId, name: plan.actionLabel }];
+      }
+      return [];
+    }
+    const choices: Array<{ id: string; name: string }> = [];
+    for (const a of p.statblock?.actions ?? []) {
+      choices.push({ id: a.name, name: a.name });
+    }
+    for (const s of data.participantSpells?.[p.id] ?? []) {
+      choices.push({ id: s.name, name: `${s.name} (${s.level === 0 ? 'C' : 'L' + s.level})` });
+    }
+    return choices;
+  }
+
+  function bonusChoicesFor(
+    p: { kind: string },
+    plan: { bonusActionId?: string; bonusActionLabel?: string } | undefined
+  ): Array<{ id: string; name: string }> {
+    if (p.kind === 'pc') {
+      if (plan?.bonusActionId && plan?.bonusActionLabel) {
+        return [{ id: plan.bonusActionId, name: plan.bonusActionLabel }];
+      }
+      return [];
+    }
+    return COMMON_BONUS_ACTIONS.map((b) => ({ id: b, name: b }));
+  }
+
+  // Track previous active to reset economy on turn change. We deliberately
+  // do NOT auto-expand/collapse the action-economy panel on turn change —
+  // the toggle flickered when initiative cycled fast. The DM clicks `+ econ`
+  // manually for now.
   let prevActive: string | null = null;
   $: {
     const current = liveActive;
     if (current !== prevActive) {
-      // Reset the economy for the participant whose turn just ended.
-      if (prevActive != null) {
-        resetEconomy(prevActive);
-        expandedParticipants.delete(prevActive);
-      }
-      // Auto-expand the newly active participant.
-      if (current != null) {
-        expandedParticipants.add(current);
-        expandedParticipants = expandedParticipants;
-      }
+      if (prevActive != null) resetEconomy(prevActive);
       prevActive = current;
     }
   }
@@ -870,12 +1112,28 @@
       </h1>
     {/if}
     <p class="text-sm text-slate-400">
-      <span class="rounded border px-1.5 py-0.5 text-xs uppercase tracking-wide
+      <span
+        class="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs uppercase tracking-wide
         {data.encounter.status === 'live'
           ? 'border-emerald-700 text-emerald-300'
           : data.encounter.status === 'staging'
             ? 'border-slate-700 text-slate-300'
-            : 'border-slate-800 text-slate-500'}">
+            : 'border-slate-800 text-slate-500'}"
+        title={conn
+          ? connStatus === 'open'
+            ? `${data.encounter.status} · live sync connected`
+            : `${data.encounter.status} · sync: ${connStatus}`
+          : data.encounter.status}
+      >
+        {#if conn}
+          <span
+            class="inline-block h-1.5 w-1.5 rounded-full {connStatus === 'open'
+              ? 'bg-emerald-500'
+              : connStatus === 'connecting'
+                ? 'bg-amber-500'
+                : 'bg-slate-600'}"
+          ></span>
+        {/if}
         {data.encounter.status}
       </span>
       {#if data.encounter.status === 'live'}
@@ -890,16 +1148,6 @@
             <span class="text-slate-300">{xpPerChar}/char</span>)
           </span>
         {/if}
-      {/if}
-      {#if conn}
-        <span
-          class="ml-2 inline-block h-2 w-2 rounded-full {connStatus === 'open'
-            ? 'bg-emerald-500'
-            : connStatus === 'connecting'
-              ? 'bg-amber-500'
-              : 'bg-slate-600'}"
-          title={connStatus === 'open' ? 'live sync connected' : `sync: ${connStatus}`}
-        ></span>
       {/if}
     </p>
   </div>
@@ -982,21 +1230,56 @@
       {#each data.participants as p (p.id)}
         {@const isActive = p.id === liveActive}
         {@const plan = livePlans[p.id]}
+        {@const concRaw = liveHpMap[p.id]?.concentrating}
+        {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
+        {@const concLbl = p.kind === 'pc'
+          ? (concPcDoc?.label ?? null)
+          : (concRaw
+              ? (typeof concRaw === 'object' ? (concRaw.label ?? '') : '')
+              : null)}
         <li class="flex flex-wrap items-center gap-3 py-2 text-sm {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}">
-          <button
-            class="text-slate-500 hover:text-slate-300 mr-1 flex-shrink-0"
-            title={expandedParticipants.has(p.id) ? 'Collapse action economy' : 'Expand action economy'}
-            on:click={() => toggleExpand(p.id)}
-          >
-            {expandedParticipants.has(p.id) ? '▼' : '▶'}
-          </button>
-          <span class="font-mono text-xs text-slate-500 w-8">
-            {#if p.initiative != null}
-              {p.initiative}
+          {#if data.role === 'dm'}
+            {#if initiativeEditFor === p.id || p.initiative == null}
+              <input
+                type="number"
+                class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
+                placeholder="init"
+                value={p.initiative ?? ''}
+                autofocus={initiativeEditFor === p.id}
+                on:blur={(e) => {
+                  const v = inputValue(e);
+                  updateInitiative(p.id, v === '' ? null : Number(v));
+                  if (initiativeEditFor === p.id) initiativeEditFor = null;
+                }}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter') {
+                    const v = inputValue(e);
+                    updateInitiative(p.id, v === '' ? null : Number(v));
+                    initiativeEditFor = null;
+                  } else if (e.key === 'Escape') {
+                    initiativeEditFor = null;
+                  }
+                }}
+              />
             {:else}
-              —
+              <span class="inline-flex items-center gap-0.5 w-12 font-mono text-xs text-slate-400">
+                <span>{p.initiative}</span>
+                <button
+                  class="text-[10px] text-slate-600 hover:text-slate-300"
+                  title="Edit initiative"
+                  on:click={() => (initiativeEditFor = p.id)}
+                >✎</button>
+              </span>
             {/if}
-          </span>
+          {:else}
+            <span class="font-mono text-xs text-slate-500 w-8">
+              {#if p.initiative != null}
+                {p.initiative}
+              {:else}
+                —
+              {/if}
+            </span>
+          {/if}
           <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">
             {p.kind}
           </span>
@@ -1008,14 +1291,22 @@
             {:else}
               {p.placeholderName ?? p.name}
             {/if}
+            {#if data.role === 'dm' && p.kind !== 'pc'}
+              <button
+                class="ml-1 text-[10px] text-slate-600 hover:text-slate-300"
+                title="Rename / change type"
+                on:click={() => openMonsterEdit(p)}
+              >✎</button>
+            {/if}
           </span>
           {#if data.role === 'dm' || p.reveals?.vitals || p.kind === 'pc'}
             {#if p.maxHp != null}
-              {@const live = hpFor(p)}
+              {@const liveCur = liveHpMap[p.id]?.currentHp ?? p.currentHp}
+              {@const liveTemp = liveHpMap[p.id]?.tempHp ?? p.tempHp ?? 0}
               <span class="font-mono text-xs text-slate-400">
-                {live.currentHp ?? '—'} / {p.maxHp}
-                {#if live.tempHp > 0}
-                  <span class="text-emerald-300">+{live.tempHp}</span>
+                {liveCur ?? '—'} / {p.maxHp}
+                {#if liveTemp > 0}
+                  <span class="text-emerald-300">+{liveTemp}</span>
                 {/if}
               </span>
             {/if}
@@ -1026,7 +1317,7 @@
             <HpBucketBadge value={computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null) === 'unknown' ? (p.hpBucket ?? 'unknown') : computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null)} />
           {/if}
           {#if data.role === 'dm'}
-            {#if p.maxHp != null && p.kind !== 'pc'}
+            {#if p.maxHp != null}
               <input
                 type="number"
                 min="0"
@@ -1049,22 +1340,128 @@
                 +
               </button>
             {/if}
-            <input
-              type="number"
-              class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
-              placeholder="init"
-              value={p.initiative ?? ''}
-              on:change={(e) => {
-                const v = inputValue(e);
-                updateInitiative(p.id, v === '' ? null : Number(v));
-              }}
-            />
             <button class="text-xs text-slate-500 hover:text-red-400" on:click={() => removeParticipant(p.id)} disabled={busy}>
               ×
             </button>
           {/if}
-          {#if p.kind !== 'pc' && data.role === 'dm' && p.reveals}
-            <!-- DM reveal toggles. Players see whatever the chips have unlocked. -->
+          {#if data.role === 'dm'}
+            <button
+              class="text-[10px] {p.kind === 'pc' || !p.reveals
+                ? 'text-slate-700 cursor-not-allowed'
+                : 'text-slate-500 hover:text-slate-300'}"
+              title={p.kind === 'pc' ? 'Reveals are PC-only — party always sees PCs' : 'Show / hide reveal toggles'}
+              disabled={p.kind === 'pc' || !p.reveals}
+              on:click={() => (revealOpenFor = revealOpenFor === p.id ? null : p.id)}
+            >
+              {revealOpenFor === p.id ? '− reveal' : '+ reveal'}
+            </button>
+          {/if}
+          {#if data.role === 'dm'}
+            <button
+              class="text-[10px] text-slate-500 hover:text-slate-300"
+              title="Show / hide condition picker"
+              on:click={() => (conditionsOpenFor = conditionsOpenFor === p.id ? null : p.id)}
+            >
+              {conditionsOpenFor === p.id ? '− cond' : '+ cond'}
+            </button>
+          {/if}
+          {#if data.role === 'dm'}
+            {#if concLbl !== null}
+              <span
+                class="rounded border border-violet-600 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200"
+                title="Click × to clear concentration"
+              >
+                🌀 {concLbl || 'concentrating'}
+                <button
+                  class="ml-1 text-violet-300 hover:text-violet-100"
+                  on:click={() => { clearConcentrating(p); concentrationOpenFor = null; }}
+                >×</button>
+              </span>
+            {:else}
+              <button
+                class="text-[10px] text-slate-500 hover:text-slate-300"
+                title="Mark as concentrating"
+                on:click={() => (concentrationOpenFor = concentrationOpenFor === p.id ? null : p.id)}
+              >
+                {concentrationOpenFor === p.id ? '− conc' : '+ conc'}
+              </button>
+            {/if}
+          {/if}
+          {#if (p.statblock && (data.role === 'dm' || p.reveals?.combat)) || (p.kind === 'pc' && !!data.participantPcStats?.[p.id])}
+            <button
+              class="text-[10px] text-slate-500 hover:text-slate-300"
+              title="Show / hide statblock"
+              on:click={() => (statblockOpenFor = statblockOpenFor === p.id ? null : p.id)}
+            >
+              {statblockOpenFor === p.id ? '− stats' : '+ stats'}
+            </button>
+          {/if}
+          <button
+            class="text-[10px] text-slate-500 hover:text-slate-300"
+            title="Show / hide action economy"
+            on:click={() => toggleEconomy(p.id)}
+          >
+            {economyOpenFor === p.id ? '− econ' : '+ econ'}
+          </button>
+          {#if condsFor(p).length > 0 || conditionsOpenFor === p.id}
+            <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
+              {#each condsFor(p) as c}
+                <button
+                  class="rounded border border-amber-700 bg-amber-950/30 px-1.5 py-0.5 text-amber-200 hover:bg-amber-900/40 disabled:opacity-40"
+                  disabled={busy || data.role !== 'dm'}
+                  title="Remove condition"
+                  on:click={() => toggleCondition(p, c)}
+                >
+                  {c} ×
+                </button>
+              {/each}
+              {#if data.role === 'dm' && conditionsOpenFor === p.id}
+                {#each COMMON_CONDITIONS.filter((c) => !condsFor(p).includes(c)) as c}
+                  <button
+                    class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
+                    disabled={busy}
+                    on:click={() => toggleCondition(p, c)}
+                  >
+                    + {c}
+                  </button>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+          {#if data.role === 'dm' && concentrationOpenFor === p.id && concLbl === null}
+            <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
+              <span class="text-slate-500 mr-1">🌀 concentrate on</span>
+              <input
+                class="w-44 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
+                placeholder="bless, hex, hold person…"
+                maxlength="80"
+                bind:value={concDrafts[p.id]}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const label = (concDrafts[p.id] ?? '').trim();
+                    if (label) {
+                      startConcentrating(p, label);
+                      concDrafts[p.id] = '';
+                      concentrationOpenFor = null;
+                    }
+                  }
+                }}
+              />
+              <button
+                class="rounded border border-slate-600 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                disabled={busy || !(concDrafts[p.id] ?? '').trim()}
+                on:click={() => {
+                  const label = (concDrafts[p.id] ?? '').trim();
+                  if (!label) return;
+                  startConcentrating(p, label);
+                  concDrafts[p.id] = '';
+                  concentrationOpenFor = null;
+                }}
+              >start</button>
+            </div>
+          {/if}
+          {#if p.kind !== 'pc' && data.role === 'dm' && p.reveals && revealOpenFor === p.id}
             <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
               <span class="text-slate-500 mr-1">reveal:</span>
               <RevealChip label="identity" on={p.reveals.identity} on:toggle={(e) => patchReveal(p.id, { identity: e.detail })} disabled={busy} />
@@ -1075,205 +1472,145 @@
               <button class="text-slate-500 hover:text-slate-300 underline-offset-2 hover:underline" on:click={() => hideAll(p.id)} disabled={busy}>hide all</button>
             </div>
           {/if}
-          {#if p.kind !== 'pc'}
-            {@const conds = liveHpMap[p.id]?.conditions ?? p.conditions}
-            {#if conds.length > 0 || conditionsOpenFor === p.id}
-              <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
-                {#each conds as c}
-                  <button
-                    class="rounded border border-amber-700 bg-amber-950/30 px-1.5 py-0.5 text-amber-200 hover:bg-amber-900/40 disabled:opacity-40"
-                    disabled={busy || data.role !== 'dm'}
-                    title="Remove condition"
-                    on:click={() => toggleCondition(p, c)}
-                  >
-                    {c} ×
-                  </button>
-                {/each}
-                {#if data.role === 'dm' && conditionsOpenFor === p.id}
-                  {#each COMMON_CONDITIONS.filter((c) => !conds.includes(c)) as c}
-                    <button
-                      class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
-                      disabled={busy}
-                      on:click={() => toggleCondition(p, c)}
-                    >
-                      + {c}
-                    </button>
+          {#if data.role === 'dm' && p.kind !== 'pc' && editMonsterOpenFor === p.id}
+            <div class="basis-full ml-12 mt-1 flex flex-wrap items-center gap-2 rounded border border-slate-800 bg-slate-950/60 p-2 text-xs">
+              <label class="flex items-center gap-1">
+                <span class="text-slate-500">Name</span>
+                <input
+                  class="w-40 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
+                  bind:value={editMonsterNameDraft}
+                  maxlength="120"
+                />
+              </label>
+              <label class="flex items-center gap-1">
+                <span class="text-slate-500">Type</span>
+                <select
+                  class="w-48 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
+                  bind:value={editMonsterSlugDraft}
+                >
+                  <option value="">— ad-hoc —</option>
+                  {#each data.monsterOptions as m}
+                    <option value={m.slug}>{m.name} <span>(CR {m.cr})</span></option>
                   {/each}
-                  <button
-                    class="text-slate-500 hover:text-slate-200"
-                    on:click={() => (conditionsOpenFor = null)}
-                  >
-                    done
-                  </button>
-                {:else if data.role === 'dm'}
-                  <button
-                    class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
-                    on:click={() => (conditionsOpenFor = p.id)}
-                  >
-                    + add
-                  </button>
-                {/if}
-              </div>
-            {:else if data.role === 'dm'}
+                </select>
+              </label>
               <button
-                class="text-[10px] text-slate-500 hover:text-slate-300"
-                title="Add a condition"
-                on:click={() => (conditionsOpenFor = p.id)}
-              >
-                + cond
-              </button>
-            {/if}
-          {/if}
-          {#if p.kind !== 'pc' && data.role === 'dm'}
-            {@const isConc = liveHpMap[p.id]?.concentrating ?? false}
-            <button
-              class="text-[10px] {isConc
-                ? 'rounded border border-violet-600 bg-violet-900/40 px-1.5 py-0.5 text-violet-200 hover:bg-violet-900/60'
-                : 'text-slate-500 hover:text-slate-300'}"
-              title={isConc ? 'Click to clear concentration' : 'Mark as concentrating'}
-              on:click={() => toggleConcentrating(p)}
-            >
-              {isConc ? 'Conc. ×' : '+ conc'}
-            </button>
-          {/if}
-          {#if p.statblock && (data.role === 'dm' || p.reveals?.combat)}
-            <button
-              class="text-[10px] text-slate-500 hover:text-slate-300"
-              title="Show / hide statblock"
-              on:click={() => (statblockOpenFor = statblockOpenFor === p.id ? null : p.id)}
-            >
-              {statblockOpenFor === p.id ? '− stats' : '+ stats'}
-            </button>
+                class="rounded bg-emerald-700/70 px-2 py-0.5 text-[11px] hover:bg-emerald-700 disabled:opacity-40"
+                disabled={busy || !editMonsterNameDraft.trim()}
+                on:click={() => saveMonsterEdit(p)}
+              >save</button>
+              <button
+                class="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:bg-slate-800"
+                on:click={() => (editMonsterOpenFor = null)}
+              >cancel</button>
+            </div>
           {/if}
           {#if p.statblock && statblockOpenFor === p.id}
-            {@const sb = p.statblock}
+            <div class="basis-full ml-12 mt-1">
+              <MonsterStatblockView statblock={p.statblock} dense />
+            </div>
+          {/if}
+          {#if p.kind === 'pc' && statblockOpenFor === p.id && data.participantPcStats?.[p.id]}
+            {@const cs = data.participantPcStats[p.id]}
             <div class="basis-full ml-12 mt-1 rounded border border-slate-800 bg-slate-950/60 p-2 text-xs">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-slate-400">
-                {#if sb.size}<span>{sb.size}</span>{/if}
-                {#if sb.type}<span>{sb.type}</span>{/if}
-                {#if sb.alignment}<span>{sb.alignment}</span>{/if}
-                {#if sb.cr != null}<span>CR {sb.cr}</span>{/if}
-                {#if sb.xp != null}<span class="text-slate-500">({sb.xp} XP)</span>{/if}
-                <span class="text-slate-500">·</span>
-                <span><span class="text-slate-500">prof</span> +{sb.proficiencyBonus}</span>
-              </div>
-              <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                {#if sb.ac != null}
-                  <span><span class="text-slate-500">AC</span> {sb.ac}</span>
-                {/if}
-                {#if sb.maxHp != null}
-                  <span><span class="text-slate-500">HP</span> {sb.maxHp}{#if sb.hitDice}<span class="text-slate-500"> ({sb.hitDice})</span>{/if}</span>
-                {/if}
-                {#each Object.entries(sb.speeds) as [mode, ft]}
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span><span class="text-slate-500">AC</span> {cs.ac}</span>
+                <span><span class="text-slate-500">HP</span> {cs.hp.current}/{cs.hp.max}{#if cs.hp.temp > 0}<span class="text-emerald-300"> +{cs.hp.temp}</span>{/if}</span>
+                <span><span class="text-slate-500">prof</span> +{cs.proficiencyBonus}</span>
+                <span><span class="text-slate-500">lvl</span> {cs.totalLevel}</span>
+                <span><span class="text-slate-500">pp</span> {cs.passivePerception}</span>
+                {#each Object.entries(cs.speeds) as [mode, ft]}
                   <span><span class="text-slate-500">{mode}</span> {ft}ft</span>
                 {/each}
               </div>
               <div class="mt-2 grid grid-cols-6 gap-1 text-center font-mono">
-                {#each STATBLOCK_ABILITIES as ab}
-                  <div class="rounded border border-slate-800 bg-slate-900/40 px-1 py-0.5">
-                    <div class="text-[10px] uppercase tracking-wide text-slate-500">{ab}</div>
-                    <div class="text-sm">{sb.abilityScores[ab]}</div>
-                    <div class="text-[10px] text-slate-400">
-                      {sb.abilityMods[ab] >= 0 ? '+' : ''}{sb.abilityMods[ab]}
+                {#each ['str','dex','con','int','wis','cha'] as ab}
+                  {@const cell = cs.abilities[ab]}
+                  {#if cell}
+                    <div class="rounded border border-slate-800 bg-slate-900/40 px-1 py-0.5">
+                      <div class="text-[10px] uppercase tracking-wide text-slate-500">{ab}</div>
+                      <div class="text-sm">{cell.score}</div>
+                      <div class="text-[10px] text-slate-400">{cell.mod >= 0 ? '+' : ''}{cell.mod}</div>
                     </div>
-                  </div>
+                  {/if}
                 {/each}
               </div>
-              {#if Object.keys(sb.skills).length > 0}
-                <div class="mt-2">
-                  <span class="text-slate-500">Skills:</span>
-                  {#each Object.entries(sb.skills) as [skill, bonus], i}
-                    <span class="ml-1 text-slate-300">{skill} {bonus >= 0 ? '+' : ''}{bonus}{#if i < Object.keys(sb.skills).length - 1},{/if}</span>
-                  {/each}
+              <div class="mt-2 grid grid-cols-2 gap-x-3">
+                <div>
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Saves</div>
+                  <ul class="text-slate-400">
+                    {#each ['str','dex','con','int','wis','cha'] as ab}
+                      {@const s = cs.saves[ab]}
+                      {#if s}
+                        <li>
+                          <span class={s.proficient ? 'text-emerald-300' : 'text-slate-400'}>{s.proficient ? '●' : '○'} {ab.toUpperCase()}</span>
+                          <span class="ml-1 font-mono text-slate-300">{s.bonus >= 0 ? '+' : ''}{s.bonus}</span>
+                        </li>
+                      {/if}
+                    {/each}
+                  </ul>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Proficient skills</div>
+                  <ul class="text-slate-400">
+                    {#each Object.entries(cs.skills).filter(([, sk]) => sk.proficient).sort(([a],[b]) => a.localeCompare(b)) as [name, sk]}
+                      <li>
+                        <span class={sk.expertise ? 'text-emerald-300' : 'text-slate-300'}>{sk.expertise ? '◆' : '●'} {name.replace(/-/g, ' ')}</span>
+                        <span class="ml-1 font-mono text-slate-300">{sk.bonus >= 0 ? '+' : ''}{sk.bonus}</span>
+                      </li>
+                    {/each}
+                    {#if !Object.values(cs.skills).some((sk) => sk.proficient)}
+                      <li class="text-slate-600">—</li>
+                    {/if}
+                  </ul>
+                </div>
+              </div>
+              {#if cs.spellcastingAbility}
+                <div class="mt-2 flex flex-wrap gap-x-3 text-[11px]">
+                  <span class="text-slate-500">Spellcasting</span>
+                  <span class="uppercase font-semibold">{cs.spellcastingAbility}</span>
+                  <span><span class="text-slate-500">DC</span> {cs.spellSaveDC}</span>
+                  <span><span class="text-slate-500">atk</span> {(cs.spellAttackBonus ?? 0) >= 0 ? '+' : ''}{cs.spellAttackBonus ?? 0}</span>
                 </div>
               {/if}
-              {#if Object.keys(sb.senses).length > 0}
-                <div class="mt-1">
+              {#if cs.resistances.length > 0 || cs.immunities.length > 0 || cs.vulnerabilities.length > 0}
+                <div class="mt-1 text-[11px]">
+                  {#if cs.resistances.length > 0}
+                    <div><span class="text-slate-500">Resist:</span> <span class="text-slate-300">{cs.resistances.join(', ')}</span></div>
+                  {/if}
+                  {#if cs.immunities.length > 0}
+                    <div><span class="text-slate-500">Immune:</span> <span class="text-slate-300">{cs.immunities.join(', ')}</span></div>
+                  {/if}
+                  {#if cs.vulnerabilities.length > 0}
+                    <div><span class="text-slate-500">Vulnerable:</span> <span class="text-slate-300">{cs.vulnerabilities.join(', ')}</span></div>
+                  {/if}
+                </div>
+              {/if}
+              {#if Object.keys(cs.senses).length > 0}
+                <div class="mt-1 text-[11px]">
                   <span class="text-slate-500">Senses:</span>
-                  {#each Object.entries(sb.senses) as [sense, ft]}
+                  {#each Object.entries(cs.senses) as [sense, ft]}
                     <span class="ml-1 text-slate-300">{sense} {ft}ft</span>
                   {/each}
                 </div>
               {/if}
-              {#if sb.languages.length > 0}
-                <div class="mt-1">
-                  <span class="text-slate-500">Languages:</span>
-                  <span class="ml-1 text-slate-300">{sb.languages.join(', ')}</span>
-                </div>
-              {/if}
-              {#if sb.damageImmunities.length > 0}
-                <div class="mt-1"><span class="text-slate-500">Damage immune:</span> <span class="text-slate-300">{sb.damageImmunities.join(', ')}</span></div>
-              {/if}
-              {#if sb.damageResistances.length > 0}
-                <div class="mt-1"><span class="text-slate-500">Damage resist:</span> <span class="text-slate-300">{sb.damageResistances.join(', ')}</span></div>
-              {/if}
-              {#if sb.damageVulnerabilities.length > 0}
-                <div class="mt-1"><span class="text-slate-500">Vulnerable:</span> <span class="text-slate-300">{sb.damageVulnerabilities.join(', ')}</span></div>
-              {/if}
-              {#if sb.conditionImmunities.length > 0}
-                <div class="mt-1"><span class="text-slate-500">Condition immune:</span> <span class="text-slate-300">{sb.conditionImmunities.join(', ')}</span></div>
-              {/if}
-              {#if sb.traits.length > 0}
-                <div class="mt-2">
-                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Traits</div>
-                  <ul class="text-slate-400">
-                    {#each sb.traits as t}
-                      <li>· <span class="text-slate-300">{t.name}</span></li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              {#if sb.actions.length > 0}
-                <div class="mt-2">
-                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Actions</div>
-                  <ul class="text-slate-400">
-                    {#each sb.actions as a}
-                      <li>
-                        · <span class="text-slate-300">{a.name}</span>
-                        {#if a.attackBonus != null}<span> +{a.attackBonus}</span>{/if}
-                        {#if a.reach != null}<span class="text-slate-500"> reach {a.reach}ft</span>{/if}
-                        {#if a.damage && a.damage.length > 0}
-                          <span class="text-red-300/80"> · {a.damage.map((d) => `${d.dice} ${d.type}`).join(', ')}</span>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              {#if sb.reactions.length > 0}
-                <div class="mt-2">
-                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Reactions</div>
-                  <ul class="text-slate-400">
-                    {#each sb.reactions as a}
-                      <li>· <span class="text-slate-300">{a.name}</span></li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              {#if sb.legendaryActions.length > 0}
-                <div class="mt-2">
-                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Legendary actions</div>
-                  <ul class="text-slate-400">
-                    {#each sb.legendaryActions as a}
-                      <li>· <span class="text-slate-300">{a.name}</span></li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              <p class="mt-2 text-[10px] text-slate-500">
-                Statblock view shows mechanical fields only — consult your reference for trait + action effects.
-              </p>
             </div>
           {/if}
-          {#if plan}
+          {#if plan && (plan.actionLabel || plan.bonusActionLabel)}
             <div class="basis-full pl-12 text-xs text-slate-400">
               <span class="rounded bg-amber-900/30 px-1.5 py-0.5 text-amber-200">plan</span>
-              <span class="ml-1 text-slate-200">{plan.actionLabel}</span>
-              {#if plan.targetParticipantId}
-                {@const tgt = data.participants.find((q) => q.id === plan.targetParticipantId)}
-                {#if tgt}
+              {#if plan.actionLabel}
+                <span class="ml-1 text-slate-200">{plan.actionLabel}</span>
+              {/if}
+              {#if plan.bonusActionLabel}
+                <span class="ml-1 text-slate-500">+ bonus</span>
+                <span class="ml-1 text-slate-200">{plan.bonusActionLabel}</span>
+              {/if}
+              {#if plan.targetParticipantIds && plan.targetParticipantIds.length > 0}
+                {@const targetNames = plan.targetParticipantIds.map((tid) => data.participants.find((q) => q.id === tid)?.name).filter(Boolean).join(', ')}
+                {#if targetNames}
                   <span class="text-slate-500"> → </span>
-                  <span class="text-slate-200">{tgt.name}</span>
+                  <span class="text-slate-200">{targetNames}</span>
                 {/if}
               {/if}
               {#if plan.notes}
@@ -1296,131 +1633,51 @@
               {/if}
             </div>
           {/if}
-          {#if expandedParticipants.has(p.id) && roundEconomy[p.id]}
-            <div class="basis-full bg-slate-900/60 border-t border-slate-800 px-4 py-3 mt-1 rounded-b text-xs">
-              <div class="mb-2 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Action Economy</div>
-              <div class="grid grid-cols-2 gap-2">
-                <!-- Action slot -->
-                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-                  <div class="mb-1 text-[10px] text-slate-500">⚔ Action</div>
-                  {#if p.kind === 'pc' && plan?.actionLabel}
-                    <div class="mb-1 rounded bg-amber-900/30 px-1.5 py-0.5 text-amber-200 text-[10px]">
-                      planned: {plan.actionLabel}
-                    </div>
-                  {/if}
-                  {#if p.statblock?.actions && p.statblock.actions.length > 0}
-                    <div class="mb-1 flex flex-wrap gap-1">
-                      {#each p.statblock.actions as a}
-                        <button
-                          class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-emerald-600 hover:text-emerald-200"
-                          on:click={() => {
-                            ensureEconomy(p.id).action = a.name;
-                            roundEconomy = roundEconomy;
-                          }}
-                        >
-                          {a.name}
-                        </button>
-                      {/each}
-                    </div>
-                  {/if}
-                  <input
-                    class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
-                    placeholder="pick action…"
-                    bind:value={roundEconomy[p.id].action}
-                    on:input={() => (roundEconomy = roundEconomy)}
-                  />
-                  {#if data.participantSpells?.[p.id]?.length}
-                    <div class="mt-2 border-t border-slate-800 pt-2">
-                      <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Spells</div>
-                      {#each groupByLevel(data.participantSpells[p.id]) as group}
-                        <div class="mb-1">
-                          <span class="text-[10px] text-slate-600">{group.level === 0 ? 'Cantrip' : `Level ${group.level}`}</span>
-                          <div class="flex flex-wrap gap-1 mt-0.5">
-                            {#each group.spells as spell}
-                              <button
-                                class="rounded border border-violet-800/60 bg-violet-950/40 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-800/60"
-                                on:click={() => { roundEconomy[p.id].action = spell.name; roundEconomy = roundEconomy; }}
-                              >
-                                {spell.name}
-                              </button>
-                            {/each}
-                          </div>
-                        </div>
-                      {/each}
-                    </div>
-                  {/if}
-                  {#if isSpellAction(p.id)}
-                    <div class="mt-2 flex items-center gap-1.5">
-                      <span class="text-[10px] text-slate-500">Cast at slot:</span>
-                      <select
-                        class="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px]"
-                        bind:value={roundEconomy[p.id].slotLevel}
-                        on:change={() => (roundEconomy = roundEconomy)}
-                      >
-                        {#each [1,2,3,4,5,6,7,8,9] as lvl}
-                          <option value={lvl}>L{lvl}</option>
-                        {/each}
-                      </select>
-                    </div>
-                  {/if}
-                </div>
-                <!-- Bonus action slot -->
-                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-                  <div class="mb-1 text-[10px] text-slate-500">✦ Bonus Action</div>
-                  <div class="mb-1 flex flex-wrap gap-1">
-                    {#each COMMON_BONUS_ACTIONS as ba}
-                      <button
-                        class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
-                        on:click={() => {
-                          roundEconomy[p.id].bonusAction = ba;
-                          roundEconomy = roundEconomy;
-                        }}
-                      >
-                        {ba}
-                      </button>
+          {#if economyOpenFor === p.id && roundEconomy[p.id]}
+            {@const isPc = p.kind === 'pc'}
+            {@const speeds = isPc
+              ? (data.participantPcStats?.[p.id]?.speeds ?? { walk: 30 })
+              : (p.statblock?.speeds ?? { walk: 30 })}
+            {@const walkSpeed = (speeds.walk ?? speeds.fly ?? speeds.swim ?? 30)}
+            <div class="basis-full bg-slate-900/60 border-t border-slate-800 px-4 py-3 mt-1 rounded-b">
+              <div class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Action Economy</div>
+              <ActionEconomyPanel
+                mode="observer"
+                readonly={isPc}
+                {busy}
+                actionChoices={actionChoicesFor(p, plan)}
+                bonusChoices={bonusChoicesFor(p, plan)}
+                plannedActionId={isPc ? (plan?.actionId ?? '') : roundEconomy[p.id].action}
+                plannedBonusActionId={isPc ? (plan?.bonusActionId ?? '') : roundEconomy[p.id].bonusAction}
+                actionUsed={roundEconomy[p.id].actionUsed}
+                bonusUsed={roundEconomy[p.id].bonusUsed}
+                reactionUsed={roundEconomy[p.id].reactionUsed}
+                {walkSpeed}
+                movementUsed={roundEconomy[p.id].movement}
+                showConcentration={false}
+                on:actionPick={(e) => { roundEconomy[p.id].action = e.detail; roundEconomy = roundEconomy; }}
+                on:bonusPick={(e) => { roundEconomy[p.id].bonusAction = e.detail; roundEconomy = roundEconomy; }}
+                on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
+                on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
+                on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
+                on:movementDelta={(e) => { roundEconomy[p.id].movement = Math.max(0, Math.min(walkSpeed, roundEconomy[p.id].movement + e.detail)); roundEconomy = roundEconomy; }}
+                on:movementReset={() => { roundEconomy[p.id].movement = 0; roundEconomy = roundEconomy; }}
+              />
+              {#if !isPc && isSpellAction(p.id)}
+                <div class="mt-2 flex items-center gap-1.5 text-xs">
+                  <span class="text-[10px] text-slate-500">Cast at slot:</span>
+                  <select
+                    class="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px]"
+                    bind:value={roundEconomy[p.id].slotLevel}
+                    on:change={() => (roundEconomy = roundEconomy)}
+                  >
+                    {#each [1,2,3,4,5,6,7,8,9] as lvl}
+                      <option value={lvl}>L{lvl}</option>
                     {/each}
-                  </div>
-                  <input
-                    class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
-                    placeholder="pick…"
-                    bind:value={roundEconomy[p.id].bonusAction}
-                    on:input={() => (roundEconomy = roundEconomy)}
-                  />
+                  </select>
                 </div>
-                <!-- Movement slot -->
-                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-                  <div class="mb-1 text-[10px] text-slate-500">💨 Movement</div>
-                  <div class="flex items-center gap-1">
-                    <input
-                      type="number"
-                      min="0"
-                      max={p.statblock?.speeds?.walk ?? p.statblock?.speeds?.fly ?? p.statblock?.speeds?.swim ?? 999}
-                      class="w-16 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[11px]"
-                      placeholder="0"
-                      bind:value={roundEconomy[p.id].movement}
-                      on:input={() => (roundEconomy = roundEconomy)}
-                    />
-                    <span class="text-slate-500">ft</span>
-                    {#if p.statblock?.speeds}
-                      <span class="text-slate-600 text-[10px]">
-                        / {Object.entries(p.statblock.speeds).map(([m, ft]) => `${ft}ft${m !== 'walk' ? ' ' + m : ''}`).join(', ')}
-                      </span>
-                    {/if}
-                  </div>
-                </div>
-                <!-- Reaction slot -->
-                <div class="rounded border border-slate-700 bg-slate-950 p-2 text-xs">
-                  <div class="mb-1 text-[10px] text-slate-500">↩ Reaction</div>
-                  <input
-                    class="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"
-                    placeholder="pick…"
-                    bind:value={roundEconomy[p.id].reaction}
-                    on:input={() => (roundEconomy = roundEconomy)}
-                  />
-                </div>
-              </div>
-              <!-- Free actions row -->
-              <div class="mt-2 flex items-center gap-2">
+              {/if}
+              <div class="mt-2 flex items-center gap-2 text-xs">
                 <span class="text-slate-500 whitespace-nowrap">Free Actions:</span>
                 <input
                   class="flex-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] placeholder-slate-600"

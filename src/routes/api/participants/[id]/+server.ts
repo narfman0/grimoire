@@ -44,6 +44,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (patch.tempHp !== undefined) updates.tempHp = patch.tempHp;
   if (patch.conditions !== undefined) updates.conditionsJson = JSON.stringify(patch.conditions);
   if (patch.sortOrder !== undefined) updates.sortOrder = patch.sortOrder;
+  if (patch.statblockSlug !== undefined) updates.statblockSlug = patch.statblockSlug;
 
   await db.update(schema.participants).set(updates).where(eq(schema.participants.id, id));
   return json({ ok: true });

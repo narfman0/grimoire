@@ -154,7 +154,7 @@
             >Homebrew ▾</button>
             {#if homebrewOpen}
               <div class="absolute right-0 z-30 mt-1 w-44 rounded border border-slate-700 bg-slate-900 py-1 text-xs shadow-lg">
-                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/homebrew/browse">Browse marketplace</a>
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/content/browse">Browse content</a>
                 <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew">My library</a>
                 <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew/subscriptions">My subscriptions</a>
                 {#if data.user?.isAdmin}

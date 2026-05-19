@@ -57,20 +57,37 @@ export interface ParticipantHp {
   currentHp: number | null;
   tempHp: number;
   conditions: string[];
-  /** DM-toggled flag: participant is currently concentrating on a spell/effect.
-   *  Set from the encounter UI; triggers CON save DC callout when damage is dealt. */
-  concentrating?: boolean;
+  /** What the participant is concentrating on (label + optional round it
+   *  started). null/undefined when not concentrating. Matches the PC
+   *  character document's `concentrating` shape so the same UI primitives
+   *  apply. Truthy → concentrating; triggers the CON save DC callout when
+   *  damage is dealt. Legacy data may carry `true` (boolean); the UI
+   *  treats that as "concentrating, no label". */
+  concentrating?: { label: string; sinceRound?: number } | boolean | null;
 }
 
 /** A player's broadcast intent for their next turn. */
 export interface TurnPlan {
-  /** The slug of the action the player intends to use (derived.actions[].id). */
+  /** The slug of the action the player intends to use (derived.actions[].id).
+   *  Empty string means no action picked yet (only the bonus action is set). */
   actionId: string;
   /** Display label cached on submit so the DM sees something even if the
    *  player isn't connected at look-time. */
   actionLabel: string;
-  /** Optional target participant id. Null for "no target" / "self" actions. */
-  targetParticipantId: string | null;
+  /** Bonus-action slug (derived.actions[].id with cost === 'bonus').
+   *  Optional for back-compat with plans written before this field existed. */
+  bonusActionId?: string;
+  /** Display label for the planned bonus action. */
+  bonusActionLabel?: string;
+  /** Target participant ids for the planned action. Empty for "no target" /
+   *  "self" actions. Single-element for `single`-target actions; multiple
+   *  entries for `multi` / AoE picks. Older plans serialized this as a
+   *  singular `targetParticipantId: string | null` — read-time migration
+   *  in snapshot() normalizes to the array form. */
+  targetParticipantIds: string[];
+  /** Target participant ids for the planned bonus action. Same semantics
+   *  as `targetParticipantIds`. Optional for back-compat. */
+  bonusTargetParticipantIds?: string[];
   /** Free-text intent. Keep short — UI-side maxlength. */
   notes: string;
   /** ms-epoch when the plan was submitted. */
@@ -106,7 +123,12 @@ function snapshot(ydoc: Y.Doc): EncounterSnapshot | null {
   for (const [pid, raw] of plansMap.entries()) {
     if (typeof raw !== 'string') continue;
     try {
-      plans[pid] = JSON.parse(raw) as TurnPlan;
+      const parsed = JSON.parse(raw) as TurnPlan & { targetParticipantId?: string | null };
+      if (!Array.isArray(parsed.targetParticipantIds)) {
+        parsed.targetParticipantIds = parsed.targetParticipantId ? [parsed.targetParticipantId] : [];
+      }
+      delete parsed.targetParticipantId;
+      plans[pid] = parsed;
     } catch {
       // ignore malformed plan
     }
@@ -189,11 +211,13 @@ export function applyDamage(
   const n = Math.max(0, Math.floor(amount));
   const cur = readHp(ydoc, participantId, seed);
   const tempAbsorbed = Math.min(cur.tempHp, n);
+  // Spread cur so concentrating + any future fields carry forward — otherwise
+  // every damage tick silently wipes the participant's concentration label.
   const next: ParticipantHp = {
+    ...cur,
     currentHp:
       cur.currentHp == null ? null : Math.max(0, cur.currentHp - (n - tempAbsorbed)),
-    tempHp: cur.tempHp - tempAbsorbed,
-    conditions: cur.conditions
+    tempHp: cur.tempHp - tempAbsorbed
   };
   setParticipantHp(ydoc, participantId, next);
   return next;
@@ -210,14 +234,13 @@ export function applyHeal(
   const n = Math.max(0, Math.floor(amount));
   const cur = readHp(ydoc, participantId, seed);
   const next: ParticipantHp = {
+    ...cur,
     currentHp:
       cur.currentHp == null
         ? null
         : maxHp != null
           ? Math.min(maxHp, cur.currentHp + n)
-          : cur.currentHp + n,
-    tempHp: cur.tempHp,
-    conditions: cur.conditions
+          : cur.currentHp + n
   };
   setParticipantHp(ydoc, participantId, next);
   return next;

@@ -657,7 +657,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   const actions: Action[] = [];
   for (const a of active) {
-    const activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+    let activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+    if (activities.length === 0 && a.row.kind === 'item') {
+      const synth = synthesizeWeaponActivity(a.row.slug, a.row.name, a.data);
+      if (synth) activities = [synth];
+    }
     for (const act of activities) {
       const action = realizeActivity(act, a, character, stats, content);
       if (action) actions.push(action);
@@ -1131,6 +1135,9 @@ function realizeActivity(
     name,
     type: type ?? 'utility',
     cost,
+    // Filled in below — `single` is just a placeholder so the type is
+    // satisfied while we collect attack/save info needed by the heuristic.
+    targetMode: 'single',
     appliedModifiers: []
   };
   if (act.range && typeof act.range === 'object') {
@@ -1221,6 +1228,36 @@ function realizeActivity(
     }
   }
 
+  // Target mode: per-activity override → source-row override → heuristic.
+  const actTarget = act.target as { mode?: string; count?: number } | undefined;
+  const rowTarget = (source.data as { target?: { mode?: string; count?: number } }).target;
+  let inlinedTarget: { mode?: string; count?: number } | undefined;
+  if (type === 'cast-spell') {
+    const ref = act.spell as { slug: string; version?: number } | undefined;
+    if (ref?.slug) {
+      const spellRow = content({ kind: 'spell', slug: ref.slug, version: ref.version });
+      inlinedTarget = (spellRow?.data as { target?: { mode?: string; count?: number } } | undefined)?.target;
+    }
+  }
+  const override = actTarget ?? rowTarget ?? inlinedTarget;
+  if (override?.mode === 'self' || override?.mode === 'single' || override?.mode === 'multi') {
+    action.targetMode = override.mode;
+    if (override.count != null) action.targetCount = override.count;
+  } else {
+    const isSelfRange =
+      action.range?.units === 'self' ||
+      (action.range?.value === 0 && action.attackBonus == null && action.saveDC == null);
+    if (isSelfRange) {
+      action.targetMode = 'self';
+    } else if (action.attackBonus != null) {
+      action.targetMode = 'single';
+    } else if (action.saveDC) {
+      action.targetMode = 'multi';
+    } else {
+      action.targetMode = 'single';
+    }
+  }
+
   return action;
 }
 
@@ -1268,6 +1305,46 @@ function computeAttackProficiency(
 function addAbilityToFormula(dice: string, mod: number): string {
   if (mod === 0) return dice;
   return mod > 0 ? `${dice}+${mod}` : `${dice}${mod}`;
+}
+
+/** Homebrew items often store weapon stats inline (damage, damageType,
+ *  weaponType, properties) without authoring a full `activities` block.
+ *  Synthesize a single attack activity so the weapon can be used. Returns
+ *  null when the item isn't shaped like a weapon (no damage string). */
+function synthesizeWeaponActivity(
+  slug: string,
+  name: string,
+  data: Record<string, unknown>
+): Record<string, unknown> | null {
+  const damage = data.damage;
+  if (typeof damage !== 'string' || damage.length === 0) return null;
+  const looksLikeWeapon =
+    data.itemType === 'weapon' ||
+    data.category === 'weapon' ||
+    typeof data.weaponType === 'string';
+  if (!looksLikeWeapon) return null;
+  const damageType = (data.damageType as string | undefined) ?? '';
+  const properties = (data.properties as string[] | undefined) ?? [];
+  const weaponType = (data.weaponType as string | undefined) ?? '';
+  const isRanged =
+    weaponType.includes('ranged') || properties.includes('ammunition');
+  const ability = isRanged
+    ? 'dex'
+    : properties.includes('finesse')
+      ? 'best-of:str,dex'
+      : 'str';
+  return {
+    id: `${slug}-attack`,
+    type: 'attack',
+    name: `${name} Attack`,
+    cost: 'action',
+    attack: {
+      ability,
+      classification: 'weapon',
+      range: isRanged ? 'ranged' : 'melee',
+      damage: [{ dice: damage, type: damageType }]
+    }
+  };
 }
 
 function buildActionContext(action: Action): PredicateContext {
