@@ -106,6 +106,13 @@
       "when": 1779200000000,
       "tag": "0014_packs_edition",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1779163099702,
+      "tag": "0015_long_vargas",
+      "breakpoints": true
     }
   ]
 }

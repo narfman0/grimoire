@@ -266,6 +266,10 @@ export const participants = sqliteTable('participants', {
   maxHp: integer('max_hp'),
   tempHp: integer('temp_hp').notNull().default(0),
   conditionsJson: text('conditions_json').notNull().default('[]'),
+  /** Player's broadcast turn plan as JSON, or NULL if no plan. Server is the
+   *  source of truth; the live channel re-broadcasts to viewers. Shape mirrors
+   *  the TurnPlan type in $lib/realtime/encounter-channel.ts. */
+  planJson: text('plan_json'),
   /** Per-participant DM reveal flags. Shape:
    *    { identity: bool, vitals: bool, combat: bool, hidden: bool }
    *  PCs default to all-true; monster/npc default to all-false. Server
