@@ -63,12 +63,14 @@ export interface ConnectedEncounter {
   applyDamage(participantId: string, amount: number, seed: ParticipantHp): ParticipantHp;
   /** Heal helper: add to current HP, capped at maxHp when provided. */
   applyHeal(participantId: string, amount: number, maxHp: number | null, seed: ParticipantHp): ParticipantHp;
-  /** Update a non-PC participant's concentration label in the local snapshot.
-   *  Not persisted server-side yet — TODO: add concentrating_json column +
-   *  endpoint so cross-tab sync works for monster concentration too. PCs
-   *  flow through PATCH /api/characters since concentration lives on the
-   *  character document. */
-  setLocalConcentration(participantId: string, concentrating: ParticipantHp['concentrating']): void;
+  /** Set or clear a non-PC participant's concentration target. Server
+   *  persists to participants.concentrating_json and broadcasts. PCs are
+   *  rejected — their concentration lives on the character document and
+   *  flows through PATCH /api/characters. */
+  setConcentration(
+    participantId: string,
+    concentrating: { label: string; sinceRound?: number } | null
+  ): Promise<void>;
   /** Update encounter-level round / active participant. DM-only at the
    *  server; UI gates the call. */
   setTurn(next: { round?: number; activeParticipantId?: string | null }): Promise<void>;
@@ -86,7 +88,12 @@ type ServerEvent =
   | { type: 'turn'; round: number; activeParticipantId: string | null }
   | { type: 'plan'; participantId: string; plan: TurnPlan | null }
   | { type: 'hp'; participantId: string; currentHp: number | null; tempHp: number; maxHp: number | null }
-  | { type: 'conditions'; participantId: string; conditions: string[] };
+  | { type: 'conditions'; participantId: string; conditions: string[] }
+  | {
+      type: 'concentration';
+      participantId: string;
+      concentrating: { label: string; sinceRound?: number } | null;
+    };
 
 const EMPTY: EncounterSnapshot = {
   round: 0,
@@ -142,6 +149,19 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
               tempHp: prev?.tempHp ?? 0,
               conditions: ev.conditions,
               concentrating: prev?.concentrating ?? null
+            }
+          };
+          return { ...s, participantHp };
+        }
+        case 'concentration': {
+          const prev = s.participantHp[ev.participantId];
+          const participantHp = {
+            ...s.participantHp,
+            [ev.participantId]: {
+              currentHp: prev?.currentHp ?? null,
+              tempHp: prev?.tempHp ?? 0,
+              conditions: prev?.conditions ?? [],
+              concentrating: ev.concentrating
             }
           };
           return { ...s, participantHp };
@@ -301,22 +321,37 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       return next;
     },
 
-    setLocalConcentration(participantId, concentrating) {
+    async setConcentration(participantId, concentrating) {
+      const prev = readHp(state, participantId);
       state.update((s) => {
-        const prev = s.participantHp[participantId];
+        const cur = s.participantHp[participantId];
         return {
           ...s,
           participantHp: {
             ...s.participantHp,
             [participantId]: {
-              currentHp: prev?.currentHp ?? null,
-              tempHp: prev?.tempHp ?? 0,
-              conditions: prev?.conditions ?? [],
+              currentHp: cur?.currentHp ?? null,
+              tempHp: cur?.tempHp ?? 0,
+              conditions: cur?.conditions ?? [],
               concentrating
             }
           }
         };
       });
+      try {
+        await send(
+          `/api/encounters/${opts.encounterId}/participants/${participantId}/concentration`,
+          { method: 'POST', body: JSON.stringify({ concentrating }) }
+        );
+      } catch (err) {
+        state.update((s) => {
+          const participantHp = { ...s.participantHp };
+          if (prev) participantHp[participantId] = prev;
+          else delete participantHp[participantId];
+          return { ...s, participantHp };
+        });
+        throw err;
+      }
     },
 
     applyHeal(participantId, amount, maxHp, seed) {

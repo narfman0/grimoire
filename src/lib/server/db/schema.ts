@@ -254,6 +254,9 @@ export const participants = sqliteTable('participants', {
    *  source of truth; the live channel re-broadcasts to viewers. Shape mirrors
    *  the TurnPlan type in $lib/realtime/encounter-channel.ts. */
   planJson: text('plan_json'),
+  /** Non-PC concentration target — `{ label, sinceRound? }` JSON or null. PC
+   *  concentration lives on the character document, not here. */
+  concentratingJson: text('concentrating_json'),
   /** Per-participant DM reveal flags. Shape:
    *    { identity: bool, vitals: bool, combat: bool, hidden: bool }
    *  PCs default to all-true; monster/npc default to all-false. Server

@@ -40,11 +40,15 @@
     for (const p of data.participants) {
       const stats = data.participantPcStats?.[p.id];
       const conditions = (p.conditions ?? []) as string[];
+      const concentrating =
+        p.kind === 'pc'
+          ? data.participantPcConcentrating?.[p.id] ?? null
+          : data.participantNonPcConcentrating?.[p.id] ?? null;
       seedHp[p.id] = {
         currentHp: stats ? stats.hp.current : p.currentHp,
         tempHp: stats ? stats.hp.temp : (p.tempHp ?? 0),
         conditions,
-        concentrating: data.participantPcConcentrating?.[p.id] ?? null
+        concentrating
       };
     }
     conn = connectEncounter({
@@ -293,7 +297,7 @@
   function dropConcentration(participantId: string) {
     const p = data.participants.find((q) => q.id === participantId);
     if (!p || !conn || connStatus !== 'open') return;
-    conn.setLocalConcentration(participantId, null);
+    conn.setConcentration(participantId, null).catch(() => {});
     concSavePrompt = null;
   }
 
@@ -811,7 +815,7 @@
       return;
     }
     if (conn && connStatus === 'open') {
-      conn.setLocalConcentration(p.id, next);
+      conn.setConcentration(p.id, next).catch(() => {});
     }
   }
 
@@ -847,7 +851,7 @@
       return;
     }
     if (conn && connStatus === 'open') {
-      conn.setLocalConcentration(p.id, null);
+      conn.setConcentration(p.id, null).catch(() => {});
     }
   }
 

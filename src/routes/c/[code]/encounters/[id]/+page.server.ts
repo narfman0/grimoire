@@ -216,12 +216,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
    *  SSR can render the chooser's selection without waiting for the SSE
    *  channel to deliver a 'plan' event. */
   const participantPlans: Record<string, unknown> = {};
+  /** Persisted concentration target per non-PC participant. PC concentration
+   *  lives on the character document and rides through participantPcConcentrating
+   *  below. */
+  const participantNonPcConcentrating: Record<string, { label: string; sinceRound?: number } | null> = {};
   for (const p of partRows) {
-    if (!p.planJson) continue;
-    try {
-      participantPlans[p.id] = JSON.parse(p.planJson);
-    } catch {
-      // ignore malformed JSON
+    if (p.planJson) {
+      try {
+        participantPlans[p.id] = JSON.parse(p.planJson);
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+    if (p.kind !== 'pc' && p.concentratingJson) {
+      try {
+        participantNonPcConcentrating[p.id] = JSON.parse(p.concentratingJson);
+      } catch {
+        // ignore malformed JSON
+      }
     }
   }
 
@@ -468,6 +480,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     participantPcActions,
     participantPcConcentrating,
     participantPlans,
+    participantNonPcConcentrating,
     actionLog: logRows.map((r) => ({
       id: r.id,
       round: r.round,

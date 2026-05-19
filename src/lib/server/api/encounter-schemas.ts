@@ -133,6 +133,21 @@ export const SetConditionsRequest = z
   .openapi('SetConditionsRequest');
 export type TSetConditionsRequest = z.infer<typeof SetConditionsRequest>;
 
+/** Concentration target for a non-PC participant. PCs route through the
+ *  character document; this endpoint rejects them. Null clears. */
+export const ConcentrationLabel = z.object({
+  label: z.string().max(120),
+  sinceRound: z.number().int().nonnegative().optional()
+});
+export type TConcentrationLabel = z.infer<typeof ConcentrationLabel>;
+
+export const SetConcentrationRequest = z
+  .object({
+    concentrating: ConcentrationLabel.nullable()
+  })
+  .openapi('SetConcentrationRequest');
+export type TSetConcentrationRequest = z.infer<typeof SetConcentrationRequest>;
+
 // ---- Action log (M3.5b) ----
 
 /** Outcome the submitter declared. `saved` / `failed-save` apply to save-DC
