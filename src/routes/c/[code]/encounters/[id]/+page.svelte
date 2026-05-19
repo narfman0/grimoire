@@ -983,8 +983,39 @@
 
   function isSpellAction(participantId: string): boolean {
     const spells = data.participantSpells?.[participantId] ?? [];
-    const action = roundEconomy[participantId]?.action ?? '';
+    const action = livePlans[participantId]?.actionId ?? '';
     return action !== '' && spells.some(s => s.name === action);
+  }
+
+  /** DM picks an action/bonus for a non-PC. Persist as a TurnPlan so it
+   *  survives refresh. PCs broadcast their own plans through the character
+   *  sheet, so this path is non-PC-only. */
+  function persistNonPcPlan(
+    p: { id: string; kind: string },
+    next: { actionId?: string; bonusActionId?: string }
+  ) {
+    if (!conn || p.kind === 'pc') return;
+    const cur = livePlans[p.id];
+    const actionId = next.actionId !== undefined ? next.actionId : (cur?.actionId ?? '');
+    const bonusActionId =
+      next.bonusActionId !== undefined ? next.bonusActionId : (cur?.bonusActionId ?? '');
+    if (!actionId && !bonusActionId) {
+      conn.clearPlan(p.id).catch(() => {});
+      return;
+    }
+    conn
+      .setPlan(p.id, {
+        actionId,
+        // Non-PC choice ids round-trip as the action's display name.
+        actionLabel: actionId,
+        bonusActionId: bonusActionId || undefined,
+        bonusActionLabel: bonusActionId || undefined,
+        targetParticipantIds: cur?.targetParticipantIds ?? [],
+        bonusTargetParticipantIds: cur?.bonusTargetParticipantIds,
+        notes: cur?.notes ?? '',
+        updatedAt: Date.now()
+      })
+      .catch(() => {});
   }
 
   /** Build the chooser list the ActionEconomyPanel renders for the Action
@@ -1034,19 +1065,6 @@
     }
   }
 
-  // Reactively sync the action slot from the plan for PC participants.
-  $: {
-    for (const p of data.participants) {
-      const plan = livePlans[p.id];
-      if (plan?.actionLabel) {
-        const entry = ensureEconomy(p.id);
-        if (entry.action === '' || entry.action === (livePlans[p.id]?.actionLabel ?? '')) {
-          entry.action = plan.actionLabel;
-          roundEconomy = roundEconomy;
-        }
-      }
-    }
-  }
 
   const COMMON_BONUS_ACTIONS = ['Offhand attack', 'Dash', 'Disengage', 'Hide', 'Healing Word', 'Hex'];
   function abilityMod(score: number): string {
@@ -1670,16 +1688,16 @@
                 {busy}
                 actionChoices={actionChoicesFor(p)}
                 bonusChoices={bonusChoicesFor(p)}
-                plannedActionId={isPc ? (plan?.actionId ?? '') : roundEconomy[p.id].action}
-                plannedBonusActionId={isPc ? (plan?.bonusActionId ?? '') : roundEconomy[p.id].bonusAction}
+                plannedActionId={plan?.actionId ?? ''}
+                plannedBonusActionId={plan?.bonusActionId ?? ''}
                 actionUsed={roundEconomy[p.id].actionUsed}
                 bonusUsed={roundEconomy[p.id].bonusUsed}
                 reactionUsed={roundEconomy[p.id].reactionUsed}
                 {walkSpeed}
                 movementUsed={roundEconomy[p.id].movement}
                 showConcentration={false}
-                on:actionPick={(e) => { roundEconomy[p.id].action = e.detail; roundEconomy = roundEconomy; }}
-                on:bonusPick={(e) => { roundEconomy[p.id].bonusAction = e.detail; roundEconomy = roundEconomy; }}
+                on:actionPick={(e) => persistNonPcPlan(p, { actionId: e.detail })}
+                on:bonusPick={(e) => persistNonPcPlan(p, { bonusActionId: e.detail })}
                 on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
                 on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
                 on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
