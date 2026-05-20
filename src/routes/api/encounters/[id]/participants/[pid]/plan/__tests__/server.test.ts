@@ -9,7 +9,6 @@ import {
   seedParticipant
 } from '$lib/server/__tests__/fixtures';
 import { makeEvent, expectHttpError } from '$lib/server/__tests__/test-event';
-import { subscribe, subscriberCount } from '$lib/server/realtime/hub';
 import { POST, DELETE } from '../+server';
 
 type Db = ReturnType<typeof setupTestDb>;
@@ -57,15 +56,10 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     db = setupTestDb();
   });
 
-  // Locks the happy round-trip — the exact regression that bit twice this
-  // session. DM picks a plan, the JSON column lands, the SSE hub receives
-  // a `plan` event with the payload intact.
-  it('writes planJson + publishes a plan event when the DM POSTs', async () => {
+  // Locks the happy round-trip: DM picks a plan and the JSON column lands.
+  // Polling clients pick up the change on their next GET /api/encounters/[id]/state.
+  it('writes planJson when the DM POSTs', async () => {
     const { dmId, encounterId, monsterId } = await dmFixture(db);
-
-    // Wire up an SSE listener so we can assert the publish().
-    const stream = subscribe(`encounter:${encounterId}`);
-    expect(subscriberCount(`encounter:${encounterId}`)).toBe(1);
 
     const event = makeEvent({
       user: { id: dmId, username: 'dm', isAdmin: false },
@@ -83,24 +77,6 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     const stored = JSON.parse(rows[0].planJson!);
     expect(stored.actionId).toBe('longsword');
     expect(stored.actionLabel).toBe('Longsword (action)');
-
-    // Drain the SSE frame to confirm fan-out fired.
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let text = '';
-    for (let i = 0; i < 3; i++) {
-      const chunk = await Promise.race([
-        reader.read(),
-        new Promise<{ done: true; value: undefined }>((resolve) =>
-          setTimeout(() => resolve({ done: true, value: undefined }), 25)
-        )
-      ]);
-      if (chunk.done) break;
-      if (chunk.value) text += decoder.decode(chunk.value);
-    }
-    reader.releaseLock();
-    expect(text).toContain('"type":"plan"');
-    expect(text).toContain('"actionId":"longsword"');
   });
 
   // Locks the role gate. Players cannot plan on non-PC participants —

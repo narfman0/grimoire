@@ -6,7 +6,6 @@ import { SetConditionsRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
-import { publish } from '$lib/server/realtime/hub';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
@@ -42,10 +41,5 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .set({ conditionsJson: JSON.stringify(body.conditions) })
     .where(eq(schema.participants.id, pid));
 
-  publish(`encounter:${id}`, {
-    type: 'conditions',
-    participantId: pid,
-    conditions: body.conditions
-  });
   return json({ ok: true });
 };

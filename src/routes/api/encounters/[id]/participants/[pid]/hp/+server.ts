@@ -6,7 +6,6 @@ import { SetHpRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
-import { publish } from '$lib/server/realtime/hub';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
@@ -46,12 +45,5 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (body.maxHp !== undefined) updates.maxHp = body.maxHp;
   await db.update(schema.participants).set(updates).where(eq(schema.participants.id, pid));
 
-  publish(`encounter:${id}`, {
-    type: 'hp',
-    participantId: pid,
-    currentHp: updates.currentHp ?? part.currentHp,
-    tempHp: updates.tempHp ?? part.tempHp,
-    maxHp: updates.maxHp ?? part.maxHp
-  });
   return json({ ok: true });
 };

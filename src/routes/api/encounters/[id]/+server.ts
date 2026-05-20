@@ -6,7 +6,6 @@ import { UpdateEncounterRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
-import { publish } from '$lib/server/realtime/hub';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -83,14 +82,6 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   await db.update(schema.encounters).set(updates).where(eq(schema.encounters.id, id));
   const next = await loadEncounter(id);
-
-  if (patch.round !== undefined || patch.activeParticipantId !== undefined) {
-    publish(`encounter:${id}`, {
-      type: 'turn',
-      round: next!.round,
-      activeParticipantId: next!.activeParticipantId
-    });
-  }
 
   return json(serializeEncounter(next!));
 };

@@ -6,7 +6,6 @@ import { SetConcentrationRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
-import { publish } from '$lib/server/realtime/hub';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
@@ -44,10 +43,5 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .set({ concentratingJson: body.concentrating ? JSON.stringify(body.concentrating) : null })
     .where(eq(schema.participants.id, pid));
 
-  publish(`encounter:${id}`, {
-    type: 'concentration',
-    participantId: pid,
-    concentrating: body.concentrating
-  });
   return json({ ok: true });
 };
