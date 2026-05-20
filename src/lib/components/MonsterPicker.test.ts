@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import MonsterPicker, { type MonsterOption } from './MonsterPicker.svelte';
 
 const monsters: MonsterOption[] = [
@@ -10,6 +10,20 @@ const monsters: MonsterOption[] = [
 ];
 
 describe('MonsterPicker', () => {
+  let originalFetch: typeof fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    // Default mock: every preview fetch returns a minimal statblock data
+    // shape. monsterDerive tolerates missing fields.
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ data: { ac: 13, hp: { max: 15 }, type: 'humanoid', size: 'medium', cr: '1/2' } }), { status: 200 })
+    ) as typeof fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   // Locks the search-by-name contract.
   it('filters by name query', async () => {
     const { getByPlaceholderText, queryByText } = render(MonsterPicker, {
@@ -38,16 +52,36 @@ describe('MonsterPicker', () => {
     expect(queryByText('Orc')).toBeNull();
   });
 
-  // Locks the click → pick contract.
-  it('clicking a monster row dispatches pick with the full MonsterOption', async () => {
+  // Locks the two-stage select: click → preview, never an immediate pick.
+  it('clicking a monster row does NOT dispatch pick (it opens the preview)', async () => {
     const onPick = vi.fn();
     const { getByText, component } = render(MonsterPicker, { props: { monsters } });
     component.$on('pick', (e) => onPick(e.detail));
 
     await fireEvent.click(getByText('Orc'));
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  // Locks the explicit confirm flow: preview must be open + Add button click
+  // → pick dispatches with the previewed MonsterOption.
+  it('clicking Add after preview dispatches pick with the previewed monster', async () => {
+    const onPick = vi.fn();
+    const { getByText, component } = render(MonsterPicker, { props: { monsters } });
+    component.$on('pick', (e) => onPick(e.detail));
+
+    await fireEvent.click(getByText('Orc'));
+    const addBtn = await waitFor(() => getByText(/^Add Orc$/));
+    await fireEvent.click(addBtn);
     expect(onPick).toHaveBeenCalledWith(
       expect.objectContaining({ slug: 'orc', name: 'Orc', cr: '1/2' })
     );
+  });
+
+  // Add button is disabled until a monster is previewed.
+  it('Add button is disabled when nothing is previewed', () => {
+    const { getByText } = render(MonsterPicker, { props: { monsters } });
+    const addBtn = getByText('Add') as HTMLButtonElement;
+    expect(addBtn.disabled).toBe(true);
   });
 
   // Locks the Escape → close contract.

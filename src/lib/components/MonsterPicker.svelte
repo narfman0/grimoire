@@ -13,6 +13,8 @@
 
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
+  import MonsterStatblockView from './MonsterStatblockView.svelte';
+  import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 
   export let monsters: MonsterOption[] = [];
   export let disabled = false;
@@ -26,6 +28,18 @@
   let filterSource = '';
   let selectedIndex = 0;
   let inputEl: HTMLInputElement;
+
+  /** The monster the user has highlighted for preview (separate from
+   *  selectedIndex, which is the row that arrow-keys/hover focus). Null
+   *  until the user clicks a row or presses Enter. */
+  let previewMonster: MonsterOption | null = null;
+  /** Cached derived statblock for the currently-previewed monster. Fetched
+   *  via /api/content/monster/{slug} on demand; falls back to a sparse
+   *  view from the summary fields if the fetch hasn't returned yet. */
+  let previewStatblock: MonsterDerived | null = null;
+  let previewLoading = false;
+  let previewError: string | null = null;
+  let previewToken = 0; // ignore stale fetches if the user re-picks fast
 
   // CR sort order helper
   const CR_ORDER: Record<string, number> = {
@@ -65,15 +79,50 @@
 
   onMount(() => inputEl?.focus());
 
-  function pick(m: MonsterOption) {
-    dispatch('pick', m);
+  /** Click / arrow-Enter → highlight this monster for preview. Adding to
+   *  the encounter is a separate gesture (the footer button or a second
+   *  Enter when this monster is already previewed). */
+  async function preview(m: MonsterOption) {
+    previewMonster = m;
+    previewStatblock = null;
+    previewError = null;
+    previewLoading = true;
+    const token = ++previewToken;
+    try {
+      const res = await fetch(`/api/content/monster/${m.slug}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as { data: Record<string, unknown> };
+      if (token !== previewToken) return; // user clicked another row
+      previewStatblock = monsterDerive(body.data);
+    } catch (err) {
+      if (token !== previewToken) return;
+      previewError = err instanceof Error ? err.message : 'load failed';
+    } finally {
+      if (token === previewToken) previewLoading = false;
+    }
+  }
+
+  function confirmPick() {
+    if (previewMonster) dispatch('pick', previewMonster);
   }
 
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex = Math.min(selectedIndex + 1, filtered.length - 1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex = Math.max(selectedIndex - 1, 0); }
-    else if (e.key === 'Enter') { e.preventDefault(); if (filtered[selectedIndex]) pick(filtered[selectedIndex]); }
-    else if (e.key === 'Escape') { dispatch('close'); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const row = filtered[selectedIndex];
+      if (!row) return;
+      // First Enter on a row previews it; second Enter (when it's already the
+      // preview target) confirms. Keyboard power-users hit Enter twice for
+      // the old immediate-add behavior.
+      if (previewMonster && previewMonster.slug === row.slug) confirmPick();
+      else preview(row);
+    }
+    else if (e.key === 'Escape') {
+      if (previewMonster) { previewMonster = null; previewStatblock = null; }
+      else dispatch('close');
+    }
   }
 
   const CR_COLOR: Record<string, string> = {
@@ -104,7 +153,7 @@
 
 <!-- panel -->
 <div
-  class="fixed left-1/2 top-1/2 z-50 flex w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
+  class="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
   role="dialog"
   aria-modal="true"
   aria-label="Add monster"
@@ -181,7 +230,7 @@
   </div>
 
   <!-- results -->
-  <ul class="max-h-96 overflow-y-auto divide-y divide-slate-800/60">
+  <ul class="max-h-72 overflow-y-auto divide-y divide-slate-800/60">
     {#if filtered.length === 0}
       <li class="px-4 py-6 text-center text-sm text-slate-500">No monsters match</li>
     {:else}
@@ -189,8 +238,12 @@
         <li>
           <button
             class="grid w-full grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-2 text-left text-sm transition-colors
-              {idx === selectedIndex ? 'bg-slate-700/60' : 'hover:bg-slate-800/60'}"
-            on:click={() => pick(m)}
+              {previewMonster?.slug === m.slug
+                ? 'bg-emerald-900/30 ring-1 ring-emerald-700 ring-inset'
+                : idx === selectedIndex
+                  ? 'bg-slate-700/60'
+                  : 'hover:bg-slate-800/60'}"
+            on:click={() => preview(m)}
             on:mouseenter={() => (selectedIndex = idx)}
           >
             <span class="font-medium text-slate-100 truncate">{m.name}</span>
@@ -212,7 +265,42 @@
     {/if}
   </ul>
 
-  <div class="border-t border-slate-800 px-4 py-2 text-xs text-slate-600">
-    {monsters.length} monsters loaded · ↑↓ navigate · Enter to add · Esc to close
+  {#if previewMonster}
+    <div class="border-t border-slate-800 bg-slate-950/50 px-4 py-3 overflow-y-auto max-h-[40vh]">
+      <div class="mb-2 flex items-baseline gap-2">
+        <span class="text-sm font-semibold text-slate-100">{previewMonster.name}</span>
+        <span class="text-xs text-slate-500">{previewMonster.source}</span>
+      </div>
+      {#if previewLoading}
+        <div class="text-xs text-slate-500">Loading details…</div>
+      {:else if previewError}
+        <div class="text-xs text-amber-400">Couldn't load full statblock ({previewError}). Showing summary.</div>
+        <div class="mt-2 text-xs text-slate-400">
+          {previewMonster.size} {previewMonster.type}
+          {#if previewMonster.ac != null} · AC {previewMonster.ac}{/if}
+          {#if previewMonster.maxHp != null} · HP {previewMonster.maxHp}{/if}
+          · CR {previewMonster.cr}
+        </div>
+      {:else if previewStatblock}
+        <MonsterStatblockView statblock={previewStatblock} dense />
+      {/if}
+    </div>
+  {/if}
+
+  <div class="flex items-center gap-2 border-t border-slate-800 px-4 py-2 text-xs">
+    <span class="text-slate-600 hidden sm:inline">
+      {monsters.length} loaded · ↑↓ navigate · Enter to {previewMonster ? 'add' : 'preview'} · Esc to {previewMonster ? 'clear' : 'close'}
+    </span>
+    <div class="ml-auto flex items-center gap-2">
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800"
+        on:click={() => dispatch('close')}
+      >Cancel</button>
+      <button
+        class="rounded border border-emerald-700 bg-emerald-900/40 px-3 py-1 text-emerald-200 hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={!previewMonster || disabled}
+        on:click={confirmPick}
+      >Add{previewMonster ? ` ${previewMonster.name}` : ''}</button>
+    </div>
   </div>
 </div>
