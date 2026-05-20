@@ -1067,6 +1067,19 @@
     return (m >= 0 ? '+' : '') + m;
   }
 
+  /** DM tap on a participant row: jump active turn to that participant (no
+   *  round bump). Player tap: just toggle the detail panel. The reactive
+   *  `selectedId = liveActive` block keeps the detail panel in sync. */
+  function selectParticipant(p: { id: string }, isCurrentlySelected: boolean) {
+    if (data.role === 'dm' && conn && p.id !== liveActive) {
+      ensureEconomy(p.id);
+      void conn.setTurn({ activeParticipantId: p.id });
+      return;
+    }
+    selectedId = isCurrentlySelected ? null : p.id;
+    if (!isCurrentlySelected) ensureEconomy(p.id);
+  }
+
   async function advanceTurn(direction: 1 | -1) {
     if (data.role !== 'dm') return;
     const ordered = [...data.participants];
@@ -1251,7 +1264,7 @@
           editingInitiative={initiativeEditFor === p.id}
           hpInput={hpInputs[p.id]}
           {busy}
-          on:select={() => { selectedId = isSelected ? null : p.id; if (!isSelected) ensureEconomy(p.id); }}
+          on:select={() => selectParticipant(p, isSelected)}
           on:startEditInitiative={() => (initiativeEditFor = p.id)}
           on:cancelEditInitiative={() => (initiativeEditFor = null)}
           on:commitInitiative={(e) => {
