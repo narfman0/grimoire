@@ -178,35 +178,51 @@ export const ActionLogEntry = z
   })
   .openapi('ActionLogEntry');
 
-/** Submit a resolution OR an amendment. Server picks `submitterRole` from
- *  the caller's campaign membership (player vs dm); player submitters may
- *  only act for participants linked to characters they own. */
+/** Submit a new resolution. Server picks `submitterRole` from the caller's
+ *  campaign membership (player vs dm); player submitters may only act for
+ *  participants linked to characters they own. To correct a prior entry,
+ *  use PATCH /api/encounters/[id]/log/[logId] instead — amendments now
+ *  overwrite the original row rather than appending a new one. */
 export const SubmitActionLogRequest = z
   .object({
-    /** Acting participant (player resolutions); DM can set to null only
-     *  when the amendment isn't tied to a specific actor (rare). */
+    /** Acting participant. PCs are player-actor; DM may submit ad-hoc rows
+     *  with a non-null participant of any kind. */
     participantId: Uuid.nullable(),
     targetParticipantId: Uuid.nullable().optional(),
     actionId: z.string().min(1).max(120),
     actionLabel: z.string().min(1).max(200),
-    /** Round at submit time — clients pass the live round from SSE state; server trusts it. */
+    /** Round at submit time — clients pass the live round; server trusts it. */
     round: z.number().int().nonnegative(),
     attackRoll: z.number().int().nullable().optional(),
     damageRoll: z.number().int().nullable().optional(),
     hit: HitOutcome.nullable().optional(),
     targetHpBefore: z.number().int().nullable().optional(),
     targetHpAfter: z.number().int().nullable().optional(),
-    notes: z.string().max(500).nullable().optional(),
-    /** If set, this submission is a DM amendment that replaces / corrects
-     *  the referenced prior entry. Server enforces role=dm in that case. */
-    amendsLogId: Uuid.optional()
+    notes: z.string().max(500).nullable().optional()
   })
   .openapi('SubmitActionLogRequest');
+
+/** DM correction to an existing log entry. Overwrites the mutable fields
+ *  on the original row; submittedByUserId / submitterRole / participantId
+ *  / actionId stay frozen so the audit attribution survives. */
+export const UpdateActionLogRequest = z
+  .object({
+    targetParticipantId: Uuid.nullable().optional(),
+    actionLabel: z.string().min(1).max(200).optional(),
+    attackRoll: z.number().int().nullable().optional(),
+    damageRoll: z.number().int().nullable().optional(),
+    hit: HitOutcome.nullable().optional(),
+    targetHpBefore: z.number().int().nullable().optional(),
+    targetHpAfter: z.number().int().nullable().optional(),
+    notes: z.string().max(500).nullable().optional()
+  })
+  .openapi('UpdateActionLogRequest');
 
 export type TEncounter = z.infer<typeof Encounter>;
 export type TParticipant = z.infer<typeof Participant>;
 export type TCreateEncounterRequest = z.infer<typeof CreateEncounterRequest>;
 export type TUpdateEncounterRequest = z.infer<typeof UpdateEncounterRequest>;
+export type TUpdateActionLogRequest = z.infer<typeof UpdateActionLogRequest>;
 export type TAddParticipantRequest = z.infer<typeof AddParticipantRequest>;
 export type TUpdateParticipantRequest = z.infer<typeof UpdateParticipantRequest>;
 export type TActionLogEntry = z.infer<typeof ActionLogEntry>;

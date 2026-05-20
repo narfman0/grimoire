@@ -125,23 +125,39 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
     targetHpAfter = next.currentHp;
   }
 
-  const body: Record<string, unknown> = {
-    participantId: actingParticipantId,
-    targetParticipantId: target?.id ?? null,
-    actionId,
-    actionLabel,
-    round,
-    attackRoll: attack,
-    damageRoll: damage,
-    hit: outcome || null,
-    targetHpBefore,
-    targetHpAfter,
-    notes: notes.slice(0, 500) || null
-  };
-  if (amendsLogId) body.amendsLogId = amendsLogId;
+  // New entries POST to /log; amendments PATCH the existing row directly
+  // (no more append-an-amendment-row pattern — see encounter-schemas.ts).
+  const isAmend = !!amendsLogId;
+  const url = isAmend
+    ? `/api/encounters/${encounterId}/log/${amendsLogId}`
+    : `/api/encounters/${encounterId}/log`;
+  const body: Record<string, unknown> = isAmend
+    ? {
+        targetParticipantId: target?.id ?? null,
+        actionLabel,
+        attackRoll: attack,
+        damageRoll: damage,
+        hit: outcome || null,
+        targetHpBefore,
+        targetHpAfter,
+        notes: notes.slice(0, 500) || null
+      }
+    : {
+        participantId: actingParticipantId,
+        targetParticipantId: target?.id ?? null,
+        actionId,
+        actionLabel,
+        round,
+        attackRoll: attack,
+        damageRoll: damage,
+        hit: outcome || null,
+        targetHpBefore,
+        targetHpAfter,
+        notes: notes.slice(0, 500) || null
+      };
 
-  const res = await fetch(`/api/encounters/${encounterId}/log`, {
-    method: 'POST',
+  const res = await fetch(url, {
+    method: isAmend ? 'PATCH' : 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
   });

@@ -258,6 +258,49 @@ export async function seedCharacter(
   return id;
 }
 
+export async function seedActionLog(
+  db: DbType,
+  opts: {
+    encounterId: string;
+    submittedByUserId: string;
+    submitterRole?: 'player' | 'dm';
+    participantId?: string | null;
+    targetParticipantId?: string | null;
+    actionId?: string;
+    actionLabel?: string;
+    round?: number;
+    attackRoll?: number | null;
+    damageRoll?: number | null;
+    hit?: string | null;
+    targetHpBefore?: number | null;
+    targetHpAfter?: number | null;
+    notes?: string | null;
+  }
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.insert(schema.actionLog).values({
+    id,
+    encounterId: opts.encounterId,
+    round: opts.round ?? 0,
+    participantId: opts.participantId ?? null,
+    targetParticipantId: opts.targetParticipantId ?? null,
+    actionId: opts.actionId ?? 'test',
+    actionLabel: opts.actionLabel ?? 'Test action',
+    submittedByUserId: opts.submittedByUserId,
+    submitterRole: opts.submitterRole ?? 'dm',
+    isAmendment: false,
+    amendsLogId: null,
+    attackRoll: opts.attackRoll ?? null,
+    damageRoll: opts.damageRoll ?? null,
+    hit: opts.hit ?? null,
+    targetHpBefore: opts.targetHpBefore ?? null,
+    targetHpAfter: opts.targetHpAfter ?? null,
+    notes: opts.notes ?? null,
+    createdAt: new Date()
+  });
+  return id;
+}
+
 export async function seedEncounter(
   db: DbType,
   opts: { campaignId: string; name?: string; status?: 'staging' | 'live' | 'ended' }

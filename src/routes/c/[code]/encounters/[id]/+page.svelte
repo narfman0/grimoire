@@ -307,10 +307,11 @@
     concSavePrompt = null;
   }
 
-  // ---- DM amend (M3.5c) ----
-  // Amendments are new log rows; we pre-fill the form from the prior entry
-  // and POST with amendsLogId set. We optionally revert HP by applying the
-  // reverse delta if the original wrote a damage change.
+  // ---- DM amend / delete ----
+  // Amendments PATCH the original log entry in place (no new "amendment"
+  // row appended). HP changes from the original are reverted before the new
+  // outcome is applied, so the encounter HP stays consistent with whatever
+  // the corrected entry says.
   let amendingLogId: string | null = null;
 
   function openAmend(entry: (typeof data.actionLog)[number]) {
@@ -326,7 +327,6 @@
     resolveError = null;
   }
 
-  /** Group log entries: originals (top-level) and amendments by amendsLogId. */
   // Combat log filter — by participant only (incl. ad-hoc DM rows w/ null).
   let logFilterParticipantId: string | 'all' = 'all';
   /** Sum XP across all non-PC participants whose monster statblock carries
@@ -336,21 +336,26 @@
     .reduce((s, p) => s + (p.statblock?.xp ?? 0), 0);
   $: xpPerChar =
     data.party.size > 0 ? Math.round(encounterTotalXp / data.party.size) : encounterTotalXp;
-  $: logOriginals = data.actionLog.filter((e) => {
-    if (e.isAmendment) return false;
+  // Filter rows; legacy isAmendment rows from before the amend-overwrite
+  // change still get rendered as normal entries (they're real history).
+  $: logEntries = data.actionLog.filter((e) => {
     if (logFilterParticipantId !== 'all' && e.participantId !== logFilterParticipantId) return false;
     return true;
   });
-  $: amendsByOriginal = (() => {
-    const m = new Map<string, typeof data.actionLog>();
-    for (const e of data.actionLog) {
-      if (!e.isAmendment || !e.amendsLogId) continue;
-      const arr = m.get(e.amendsLogId) ?? [];
-      arr.push(e);
-      m.set(e.amendsLogId, arr);
+
+  async function removeLogEntry(id: string) {
+    if (data.role !== 'dm') return;
+    if (!confirm('Remove this log entry? HP changes are not reverted.')) return;
+    busy = true;
+    try {
+      const res = await fetch(`/api/encounters/${data.encounter.id}/log/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) await invalidateAll();
+    } finally {
+      busy = false;
     }
-    return m;
-  })();
+  }
 
   async function submitAmend() {
     if (!conn || !amendingLogId || !resolveForParticipantId) return;
@@ -1889,7 +1894,7 @@
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
     <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
       <h2 class="text-sm font-semibold text-slate-200">
-        Action log ({logOriginals.length}{#if logOriginals.length !== data.actionLog.length} of {data.actionLog.length}{/if})
+        Action log ({logEntries.length}{#if logEntries.length !== data.actionLog.length} of {data.actionLog.length}{/if})
       </h2>
       <div class="flex flex-wrap items-center gap-2 text-xs">
         <label class="flex items-center gap-1">
@@ -1915,10 +1920,9 @@
       </div>
     </div>
     <ol class="space-y-2 text-xs">
-      {#each logOriginals as entry (entry.id)}
+      {#each logEntries as entry (entry.id)}
         {@const actor = data.participants.find((p) => p.id === entry.participantId)}
         {@const target = data.participants.find((p) => p.id === entry.targetParticipantId)}
-        {@const amends = amendsByOriginal.get(entry.id) ?? []}
         <li class="rounded border border-slate-800 bg-slate-950/50 p-2">
           <div class="flex flex-wrap items-baseline gap-2">
             <span class="font-semibold text-slate-200">{actor?.name ?? '—'}</span>
@@ -1951,43 +1955,25 @@
               >
                 amend
               </button>
+              <button
+                class="text-[10px] text-red-300 hover:text-red-200 disabled:opacity-40"
+                title="Remove this log entry"
+                disabled={busy}
+                on:click={() => removeLogEntry(entry.id)}
+              >
+                remove
+              </button>
             {/if}
           </div>
           {#if entry.notes}
             <p class="mt-1 text-slate-400 italic">“{entry.notes}”</p>
           {/if}
-          {#each amends as amend (amend.id)}
-            <div class="ml-4 mt-1 rounded border-l-2 border-amber-700 bg-amber-950/20 p-1.5 pl-2">
-              <div class="flex flex-wrap items-baseline gap-2">
-                <span class="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">amend</span>
-                <span class="text-slate-400">{amend.actionLabel}</span>
-                {#if amend.hit}
-                  <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{amend.hit}</span>
-                {/if}
-                {#if amend.attackRoll != null}
-                  <span class="text-slate-500">atk {amend.attackRoll}</span>
-                {/if}
-                {#if amend.damageRoll != null}
-                  <span class="text-red-300">dmg {amend.damageRoll}</span>
-                {/if}
-              </div>
-              {#if amend.notes}
-                <p class="mt-1 text-slate-400 italic">“{amend.notes}”</p>
-              {/if}
-            </div>
-          {/each}
         </li>
       {/each}
     </ol>
   </section>
 {/if}
 
-<p class="text-xs text-slate-500">
-  M3.5: HP syncs live across clients; player & DM can resolve plans; the
-  action log captures every submission, with DM amendments threaded under
-  each original. Heal actions still resolve as damage labels — a future
-  pass adds explicit heal-type resolution + auto-revert on amend.
-</p>
 
 {#if showMonsterPicker}
   <MonsterPicker

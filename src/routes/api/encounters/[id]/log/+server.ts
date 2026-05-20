@@ -1,14 +1,16 @@
-// Action log — append-only audit trail for what happened in combat.
+// Action log — audit trail for what happened in combat.
 //
 // POST appends one row. Player submitters may only log actions for
-// participants linked to characters they own. DM submitters can log
-// for any participant in their campaign, including amendments
-// (rows that reference a prior log entry via amendsLogId).
+// participants linked to characters they own.
 //
-// GET returns the encounter's log in chronological order. The UI
-// renders entries grouped by the logical action (original + its
-// amendments) so the trail shows both what was said and how it was
-// adjudicated.
+// GET returns the encounter's log in chronological order.
+//
+// Corrections (DM amendments) are PATCH on the per-entry endpoint at
+// /api/encounters/[id]/log/[logId]; deletions are DELETE on the same.
+// Previous versions appended new "amendment" rows referencing the prior
+// entry — that produced noisy logs, so amendments now overwrite the
+// original instead. Legacy isAmendment / amendsLogId columns survive on
+// the schema for backwards compat with rows written under the old flow.
 
 import { json, error } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
@@ -77,11 +79,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const body = await parseJson(request, SubmitActionLogRequest);
 
-  // Amendments require DM.
-  if (body.amendsLogId && role !== 'dm') {
-    throw error(403, 'only the DM can amend log entries');
-  }
-
   // Players may only act for participants tied to characters they own.
   if (role === 'player' && body.participantId) {
     const part = await db
@@ -108,18 +105,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
   }
 
-  // If amending, verify the prior entry belongs to this encounter.
-  if (body.amendsLogId) {
-    const prior = await db
-      .select({ encounterId: schema.actionLog.encounterId })
-      .from(schema.actionLog)
-      .where(eq(schema.actionLog.id, body.amendsLogId))
-      .limit(1);
-    if (!prior[0] || prior[0].encounterId !== encounterId) {
-      throw error(400, 'amends_log_id does not belong to this encounter');
-    }
-  }
-
   const row: typeof schema.actionLog.$inferInsert = {
     id: randomUUID(),
     encounterId,
@@ -130,8 +115,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     actionLabel: body.actionLabel,
     submittedByUserId: locals.user.id,
     submitterRole: role,
-    isAmendment: !!body.amendsLogId,
-    amendsLogId: body.amendsLogId ?? null,
+    isAmendment: false,
+    amendsLogId: null,
     attackRoll: body.attackRoll ?? null,
     damageRoll: body.damageRoll ?? null,
     hit: body.hit ?? null,

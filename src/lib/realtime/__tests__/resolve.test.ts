@@ -85,11 +85,17 @@ describe('effectiveDamage', () => {
 describe('applyHpAndLog', () => {
   let originalFetch: typeof fetch;
   let lastBody: Record<string, unknown> | null;
+  let lastUrl: string | null;
+  let lastMethod: string | null;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
     lastBody = null;
-    globalThis.fetch = vi.fn(async (_url, init) => {
+    lastUrl = null;
+    lastMethod = null;
+    globalThis.fetch = vi.fn(async (url, init) => {
+      lastUrl = String(url);
+      lastMethod = init?.method ?? 'GET';
       lastBody = JSON.parse((init?.body as string) ?? '{}');
       return new Response('', { status: 200 });
     }) as typeof fetch;
@@ -126,7 +132,8 @@ describe('applyHpAndLog', () => {
       targetHpAfter: 15,
       notes: 'nice'
     });
-    expect(lastBody?.amendsLogId).toBeUndefined();
+    expect(lastUrl).toBe('/api/encounters/E/log');
+    expect(lastMethod).toBe('POST');
   });
 
   it('halves damage on save', async () => {
@@ -246,7 +253,7 @@ describe('applyHpAndLog', () => {
     expect(damageCalls[0].seed.currentHp).toBe(12);
   });
 
-  it('includes amendsLogId in the body when provided', async () => {
+  it('PATCHes the existing entry when amendsLogId is provided (no new row)', async () => {
     const { conn } = makeConn();
     await applyHpAndLog({
       conn,
@@ -262,7 +269,15 @@ describe('applyHpAndLog', () => {
       notes: '',
       amendsLogId: 'L1'
     });
-    expect(lastBody?.amendsLogId).toBe('L1');
+    expect(lastUrl).toBe('/api/encounters/E/log/L1');
+    expect(lastMethod).toBe('PATCH');
+    // PATCH body is the mutable-only subset; participantId/actionId/round
+    // are not allowed to change once the row is written.
+    expect(lastBody).not.toHaveProperty('participantId');
+    expect(lastBody).not.toHaveProperty('actionId');
+    expect(lastBody).not.toHaveProperty('round');
+    expect(lastBody).not.toHaveProperty('amendsLogId');
+    expect(lastBody).toMatchObject({ actionLabel: 'y', damageRoll: 1, hit: 'hit' });
   });
 
   it('truncates notes at 500 chars', async () => {
