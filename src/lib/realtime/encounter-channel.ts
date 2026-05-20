@@ -14,6 +14,7 @@
 // paths but not the data they read.
 
 import { writable, type Readable } from 'svelte/store';
+import { applyDamageDelta, applyHealDelta } from '../rules/hp';
 
 export interface TurnPlan {
   actionId: string;
@@ -307,15 +308,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     },
 
     applyDamage(participantId, amount, seed) {
-      const n = Math.max(0, Math.floor(amount));
       const cur = readHp(state, participantId) ?? seed;
-      const tempAbsorbed = Math.min(cur.tempHp ?? 0, n);
-      const next: ParticipantHp = {
-        ...cur,
-        currentHp:
-          cur.currentHp == null ? null : Math.max(0, cur.currentHp - (n - tempAbsorbed)),
-        tempHp: (cur.tempHp ?? 0) - tempAbsorbed
-      };
+      const next = applyDamageDelta(cur, amount);
       // fire-and-forget; rollback handled inside setHp on failure
       void this.setHp(participantId, { currentHp: next.currentHp, tempHp: next.tempHp });
       return next;
@@ -355,17 +349,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     },
 
     applyHeal(participantId, amount, maxHp, seed) {
-      const n = Math.max(0, Math.floor(amount));
       const cur = readHp(state, participantId) ?? seed;
-      const next: ParticipantHp = {
-        ...cur,
-        currentHp:
-          cur.currentHp == null
-            ? null
-            : maxHp != null
-              ? Math.min(maxHp, cur.currentHp + n)
-              : cur.currentHp + n
-      };
+      const next = applyHealDelta(cur, amount, maxHp);
       void this.setHp(participantId, { currentHp: next.currentHp });
       return next;
     },

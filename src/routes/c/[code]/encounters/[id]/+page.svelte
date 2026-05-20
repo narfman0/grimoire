@@ -8,6 +8,7 @@
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
+  import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
     connectEncounter,
@@ -457,16 +458,14 @@
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
     if (n === 0) return;
     const seed = seedFor(p);
-    const tempAbsorbed = Math.min(seed.tempHp, n);
-    const nextCurrent = seed.currentHp == null ? null : Math.max(0, seed.currentHp - (n - tempAbsorbed));
-    const nextTemp = seed.tempHp - tempAbsorbed;
+    const next = applyDamageDelta(seed, n);
     if (p.kind === 'pc' && p.characterId) {
-      const ok = await patchPcHp(p.characterId, nextCurrent ?? 0, nextTemp);
+      const ok = await patchPcHp(p.characterId, next.currentHp ?? 0, next.tempHp);
       if (ok) await invalidateAll();
     } else if (conn && connStatus === 'open') {
       conn.applyDamage(p.id, n, seed);
     } else {
-      await patchParticipantHp(p.id, nextCurrent ?? 0, nextTemp);
+      await patchParticipantHp(p.id, next.currentHp ?? 0, next.tempHp);
       await invalidateAll();
     }
     hpInputs[p.id] = 0;
@@ -485,19 +484,14 @@
     const n = Math.max(0, Math.floor(hpInputs[p.id] ?? 0));
     if (n === 0) return;
     const seed = seedFor(p);
-    const capped =
-      seed.currentHp == null
-        ? null
-        : p.maxHp != null
-          ? Math.min(p.maxHp, seed.currentHp + n)
-          : seed.currentHp + n;
+    const next = applyHealDelta(seed, n, p.maxHp);
     if (p.kind === 'pc' && p.characterId) {
-      const ok = await patchPcHp(p.characterId, capped ?? 0, seed.tempHp);
+      const ok = await patchPcHp(p.characterId, next.currentHp ?? 0, next.tempHp);
       if (ok) await invalidateAll();
     } else if (conn && connStatus === 'open') {
       conn.applyHeal(p.id, n, p.maxHp, seed);
     } else {
-      await patchParticipantHp(p.id, capped ?? 0, seed.tempHp);
+      await patchParticipantHp(p.id, next.currentHp ?? 0, next.tempHp);
       await invalidateAll();
     }
     hpInputs[p.id] = 0;

@@ -11,6 +11,7 @@
   import { SKILLS } from '$lib/rules/skills';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
+  import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
   import { lookupFromMap, type CharacterDocument, type Derived, type ContentLookup } from '$lib/rules/types';
   import { connectCharacter, type ConnectedDoc } from '$lib/realtime/character-channel';
   import {
@@ -569,21 +570,23 @@
   }
 
   async function applyDamage() {
-    const n = Math.max(0, Math.floor(damageInput));
-    if (n === 0) return;
+    if (damageInput <= 0) return;
+    const amount = damageInput;
     await patchDocument((d) => {
-      const tempAbsorbed = Math.min(d.tempHp, n);
-      d.tempHp -= tempAbsorbed;
-      d.currentHp = Math.max(0, d.currentHp - (n - tempAbsorbed));
+      const next = applyDamageDelta({ currentHp: d.currentHp, tempHp: d.tempHp }, amount);
+      d.currentHp = next.currentHp ?? 0;
+      d.tempHp = next.tempHp;
     });
     damageInput = 0;
   }
 
   async function applyHeal() {
-    const n = Math.max(0, Math.floor(healInput));
-    if (n === 0 || !derived) return;
+    if (healInput <= 0 || !derived) return;
+    const amount = healInput;
+    const max = derived.stats.hp.max;
     await patchDocument((d) => {
-      d.currentHp = Math.min(derived!.stats.hp.max, d.currentHp + n);
+      const next = applyHealDelta({ currentHp: d.currentHp, tempHp: d.tempHp }, amount, max);
+      d.currentHp = next.currentHp ?? 0;
     });
     healInput = 0;
   }
