@@ -373,6 +373,32 @@ registry.registerPath({
 
 registry.registerPath({
   method: 'get',
+  path: '/api/encounters/{id}/state',
+  tags: ['encounters'],
+  summary: 'Fetch the live encounter snapshot for short-polling clients',
+  request: { params: z.object({ id: Uuid }) },
+  responses: {
+    200: {
+      description: 'OK — round, activeParticipantId, plans, and participantHp keyed by participant ID',
+      content: {
+        'application/json': {
+          schema: z.object({
+            round: z.number().int().nonnegative(),
+            activeParticipantId: Uuid.nullable(),
+            plans: z.record(z.string(), z.unknown()),
+            participantHp: z.record(z.string(), z.unknown())
+          })
+        }
+      }
+    },
+    401: { description: 'Login required', ...jsonBody(ErrorResponse) },
+    403: { description: 'Not a member of this campaign', ...jsonBody(ErrorResponse) },
+    404: errorResponses[404]
+  }
+});
+
+registry.registerPath({
+  method: 'get',
   path: '/api/encounters/{id}/log',
   tags: ['encounters'],
   summary: 'Read the action log for an encounter (chronological)',
@@ -413,7 +439,7 @@ export function buildOpenApiDocument() {
       version: '0.0.1',
       description:
         'REST API for the Grimoire collaborative D&D 5e campaign manager. ' +
-        'Real-time updates are delivered via SSE streams at /api/*/stream endpoints and are not part of this spec.'
+        'Real-time updates are delivered via short-polling the /api/encounters/{id}/state endpoint.'
     },
     servers: [{ url: '/', description: 'This server' }],
     tags: [
