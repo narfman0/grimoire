@@ -31,9 +31,10 @@ mostly an import change.
 ## Getting started
 
 ```bash
+cp .env.example .env   # fill in RESEND_API_KEY and ORIGIN at minimum
 pnpm install
-pnpm migrate         # applies any pending drizzle migrations
-pnpm dev             # SvelteKit on :5173
+pnpm migrate           # applies any pending drizzle migrations
+pnpm dev               # SvelteKit on :5173
 ```
 
 Open [http://localhost:5173](http://localhost:5173). Sign up, create a

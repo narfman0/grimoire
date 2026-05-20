@@ -4,6 +4,7 @@ import {
   seedUser,
   seedCampaign,
   seedCharacter,
+  seedContent,
   seedMinimumContent,
   minCharDoc
 } from '$lib/server/__tests__/fixtures';
@@ -155,6 +156,53 @@ describe('/c/[code]/character/[id] +page.server load', () => {
       ),
       403
     );
+  });
+
+  // Locks the backgroundOptions.abilityChoices contract — the bump picker in
+  // +page.svelte iterates this array to populate the ability dropdowns. When
+  // it's empty the dropdowns are blank (the Cloistered Scholar bug: imported
+  // backgrounds from older packs omit the field). The server layer must
+  // return [] when absent so the template can apply the ABILITY_KEYS fallback.
+  it('backgroundOptions returns empty abilityChoices when the field is absent from background data', async () => {
+    // The fixture's "soldier" background has no abilityChoices field — mirrors
+    // the shape produced by the import script for non-SRD backgrounds.
+    const { owner, code, characterId } = await fixture(db);
+    const data = await runLoad(load, loadEvent({
+      user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false },
+      params: { code, id: characterId }
+    }));
+    const soldier = data.backgroundOptions.find((b: { slug: string }) => b.slug === 'soldier');
+    expect(soldier).toBeDefined();
+    expect(soldier.abilityChoices).toEqual([]);
+  });
+
+  it('backgroundOptions surfaces abilityChoices when present in background data', async () => {
+    await seedMinimumContent(db);
+    await seedContent(db, [
+      {
+        kind: 'background',
+        slug: 'acolyte',
+        name: 'Acolyte',
+        data: { abilityChoices: ['int', 'wis', 'cha'] }
+      }
+    ]);
+    const dmId = await seedUser(db, { username: 'dm2' });
+    const owner = await seedUser(db, { username: 'owner2' });
+    const { campaignId, code } = await seedCampaign(db, { dmId, playerIds: [owner] });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: owner,
+      name: 'Hero',
+      document: minCharDoc('h'),
+      linkToCampaign: true
+    });
+    const data = await runLoad(load, loadEvent({
+      user: { id: owner, username: 'owner2', isAdmin: false, email: null, emailVerified: false },
+      params: { code, id: characterId }
+    }));
+    const acolyte = data.backgroundOptions.find((b: { slug: string }) => b.slug === 'acolyte');
+    expect(acolyte).toBeDefined();
+    expect(acolyte.abilityChoices).toEqual(['int', 'wis', 'cha']);
   });
 
   // Locks: a member can view but the character must be linked to *this*

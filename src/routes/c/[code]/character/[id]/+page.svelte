@@ -1808,7 +1808,7 @@
       {#if bgDraftMeta}
         <fieldset class="rounded border border-amber-800 bg-slate-950/30 p-3 mb-3">
           <legend class="px-1 text-xs uppercase tracking-wide text-amber-300">
-            Bumps ({bgDraftMeta.abilityChoices.map((a) => a.toUpperCase()).join(' / ')})
+            Bumps ({bgDraftMeta.abilityChoices.length > 0 ? bgDraftMeta.abilityChoices.map((a) => a.toUpperCase()).join(' / ') : 'any ability'})
           </legend>
           <div class="mb-2 flex gap-4 text-xs">
             <label class="flex items-center gap-1">
@@ -1838,7 +1838,7 @@
                   class="w-full rounded border border-amber-700 bg-slate-950 px-2 py-1 uppercase"
                   bind:value={bgDraftBumps[i].ability}
                 >
-                  {#each bgDraftMeta.abilityChoices as a}
+                  {#each (bgDraftMeta.abilityChoices.length > 0 ? bgDraftMeta.abilityChoices : ABILITY_KEYS) as a}
                     <option value={a}>{a.toUpperCase()}</option>
                   {/each}
                 </select>
