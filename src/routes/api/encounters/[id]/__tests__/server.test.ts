@@ -72,7 +72,7 @@ describe('PATCH /api/encounters/[id]', () => {
   beforeEach(() => { db = setupTestDb(); });
 
   // Locks the DM-only write gate. Players can read but not update.
-  it('rejects PATCH from a non-DM member (403)', async () => {
+  it('rejects PATCH of round/name/status from a non-DM member (403)', async () => {
     const { playerId, encounterId } = await fixture(db, { withPlayer: true });
     await expectHttpError(
       PATCH(
@@ -80,6 +80,36 @@ describe('PATCH /api/encounters/[id]', () => {
           user: userOf(playerId!, 'p'),
           params: { id: encounterId },
           body: { round: 5 }
+        })
+      ),
+      403
+    );
+  });
+
+  // Activating a participant is a viewport/turn-focus gesture; any member can
+  // do it so player taps work the same as DM taps. Round/name/status remain
+  // DM-only (covered above).
+  it('allows a non-DM member to PATCH activeParticipantId only', async () => {
+    const { playerId, encounterId, monsterId } = await fixture(db, { withPlayer: true });
+    const res = await PATCH(
+      makeEvent({
+        user: userOf(playerId!, 'p'),
+        params: { id: encounterId },
+        body: { activeParticipantId: monsterId }
+      })
+    );
+    const body = await res.json();
+    expect(body.activeParticipantId).toBe(monsterId);
+  });
+
+  it('rejects mixed PATCH (active + round) from a non-DM member (403)', async () => {
+    const { playerId, encounterId, monsterId } = await fixture(db, { withPlayer: true });
+    await expectHttpError(
+      PATCH(
+        makeEvent({
+          user: userOf(playerId!, 'p'),
+          params: { id: encounterId },
+          body: { activeParticipantId: monsterId, round: 5 }
         })
       ),
       403

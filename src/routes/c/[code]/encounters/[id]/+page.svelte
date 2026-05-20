@@ -1067,11 +1067,12 @@
     return (m >= 0 ? '+' : '') + m;
   }
 
-  /** DM tap on a participant row: jump active turn to that participant (no
-   *  round bump). Player tap: just toggle the detail panel. The reactive
-   *  `selectedId = liveActive` block keeps the detail panel in sync. */
+  /** Tap on a participant row: jump active turn to that participant (no
+   *  round bump). Server allows any member to set activeParticipantId; the
+   *  reactive `selectedId = liveActive` block keeps the detail panel in
+   *  sync. Tapping the already-active row toggles the detail panel. */
   function selectParticipant(p: { id: string }, isCurrentlySelected: boolean) {
-    if (data.role === 'dm' && conn && p.id !== liveActive) {
+    if (conn && p.id !== liveActive) {
       ensureEconomy(p.id);
       void conn.setTurn({ activeParticipantId: p.id });
       return;

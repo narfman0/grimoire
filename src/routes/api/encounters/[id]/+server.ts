@@ -59,8 +59,16 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { id } = parseParams(params, Params);
   const { enc, role } = await requireEncounterAccess(locals.user.id, id);
-  if (role !== 'dm') throw error(403, 'only the DM can update encounters');
   const patch = await parseJson(request, UpdateEncounterRequest);
+
+  // name/round/status remain DM-only. activeParticipantId is open to any
+  // campaign member so players can tap a participant row to set the active
+  // turn focus without DM round bookkeeping.
+  const requiresDm =
+    patch.name !== undefined || patch.round !== undefined || patch.status !== undefined;
+  if (requiresDm && role !== 'dm') {
+    throw error(403, 'only the DM can update encounter name/round/status');
+  }
 
   const updates: Partial<typeof schema.encounters.$inferInsert> = {};
   if (patch.name !== undefined) updates.name = patch.name;
