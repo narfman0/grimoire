@@ -1,17 +1,17 @@
-// Browser-side live channel for one encounter.
+// Browser-side live channel for one encounter — short-poll implementation.
 //
 // State is server-authoritative (everything lives in SQL columns),
-// mutations go through REST handlers, and live updates arrive over
-// SSE at /api/encounters/<id>/stream.
+// mutations go through REST handlers, and live state is fetched every 2
+// seconds from GET /api/encounters/<id>/state.
 //
 // Optimism: each mutator updates the local snapshot synchronously before
 // the POST resolves, so the UI feels instant. If the POST fails (non-2xx),
-// the next SSE message — or the next page reload — corrects the local state
+// the next poll — or the next page reload — corrects the local state
 // to whatever the server says.
 //
-// The shape mirrors what encounter-doc.ts used to expose (EncounterSnapshot,
-// TurnPlan, ParticipantHp, ConnectedEncounter) so consumers update import
-// paths but not the data they read.
+// The shape mirrors what the SSE-based encounter-doc.ts used to expose
+// (EncounterSnapshot, TurnPlan, ParticipantHp, ConnectedEncounter) so
+// consumers need no changes.
 
 import { writable, type Readable } from 'svelte/store';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
@@ -81,20 +81,13 @@ export interface ConnectedEncounter {
 export interface EncounterConnectOptions {
   encounterId: string;
   /** Initial seed for the snapshot (typically the SSR-derived state — round,
-   *  active, plans, HP). Avoids the first-paint flash before SSE arrives. */
+   *  active, plans, HP). Avoids the first-paint flash before the first poll
+   *  response arrives. */
   seed?: Partial<EncounterSnapshot>;
 }
 
-type ServerEvent =
-  | { type: 'turn'; round: number; activeParticipantId: string | null }
-  | { type: 'plan'; participantId: string; plan: TurnPlan | null }
-  | { type: 'hp'; participantId: string; currentHp: number | null; tempHp: number; maxHp: number | null }
-  | { type: 'conditions'; participantId: string; conditions: string[] }
-  | {
-      type: 'concentration';
-      participantId: string;
-      concentrating: { label: string; sinceRound?: number } | null;
-    };
+const POLL_INTERVAL_MS = 2000;
+const MAX_ERRORS_BEFORE_ERROR_STATUS = 3;
 
 const EMPTY: EncounterSnapshot = {
   round: 0,
@@ -114,84 +107,43 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
   const state = writable<EncounterSnapshot>(initial);
   const status = writable<'connecting' | 'open' | 'closed'>('connecting');
 
-  let es: EventSource | null = null;
+  let timer: ReturnType<typeof setInterval> | null = null;
   let destroyed = false;
+  let consecutiveErrors = 0;
 
-  function applyEvent(ev: ServerEvent) {
-    state.update((s) => {
-      switch (ev.type) {
-        case 'turn':
-          return { ...s, round: ev.round, activeParticipantId: ev.activeParticipantId };
-        case 'plan': {
-          const plans = { ...s.plans };
-          if (ev.plan) plans[ev.participantId] = ev.plan;
-          else delete plans[ev.participantId];
-          return { ...s, plans };
+  async function poll() {
+    if (destroyed) return;
+    try {
+      const res = await fetch(`/api/encounters/${opts.encounterId}/state`);
+      if (!res.ok) {
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_ERRORS_BEFORE_ERROR_STATUS) {
+          status.set('connecting');
         }
-        case 'hp': {
-          const prev = s.participantHp[ev.participantId];
-          const participantHp = {
-            ...s.participantHp,
-            [ev.participantId]: {
-              currentHp: ev.currentHp,
-              tempHp: ev.tempHp,
-              conditions: prev?.conditions ?? [],
-              concentrating: prev?.concentrating ?? null
-            }
-          };
-          return { ...s, participantHp };
-        }
-        case 'conditions': {
-          const prev = s.participantHp[ev.participantId];
-          const participantHp = {
-            ...s.participantHp,
-            [ev.participantId]: {
-              currentHp: prev?.currentHp ?? null,
-              tempHp: prev?.tempHp ?? 0,
-              conditions: ev.conditions,
-              concentrating: prev?.concentrating ?? null
-            }
-          };
-          return { ...s, participantHp };
-        }
-        case 'concentration': {
-          const prev = s.participantHp[ev.participantId];
-          const participantHp = {
-            ...s.participantHp,
-            [ev.participantId]: {
-              currentHp: prev?.currentHp ?? null,
-              tempHp: prev?.tempHp ?? 0,
-              conditions: prev?.conditions ?? [],
-              concentrating: ev.concentrating
-            }
-          };
-          return { ...s, participantHp };
-        }
-        default:
-          return s;
+        return;
       }
-    });
+      const data = (await res.json()) as EncounterSnapshot;
+      consecutiveErrors = 0;
+      state.set({
+        round: data.round,
+        activeParticipantId: data.activeParticipantId,
+        plans: (data.plans ?? {}) as Record<string, TurnPlan>,
+        participantHp: (data.participantHp ?? {}) as Record<string, ParticipantHp>
+      });
+      status.set('open');
+    } catch {
+      consecutiveErrors++;
+      if (consecutiveErrors >= MAX_ERRORS_BEFORE_ERROR_STATUS) {
+        status.set('connecting');
+      }
+    }
   }
 
-  function open() {
-    if (destroyed || typeof window === 'undefined') return;
-    es = new EventSource(`/api/encounters/${opts.encounterId}/stream`);
-    es.onopen = () => status.set('open');
-    es.onerror = () => {
-      // EventSource auto-reconnects on its own; reflect transient state.
-      status.set('connecting');
-    };
-    es.onmessage = (msg) => {
-      try {
-        const payload = JSON.parse(msg.data) as ServerEvent;
-        applyEvent(payload);
-      } catch {
-        // ignore malformed event
-      }
-    };
+  if (typeof window !== 'undefined') {
+    // Fire first poll immediately, then on interval
+    void poll();
+    timer = setInterval(() => { void poll(); }, POLL_INTERVAL_MS);
   }
-
-  open();
 
   async function send(path: string, init?: RequestInit) {
     const res = await fetch(path, {
@@ -376,8 +328,10 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
 
     destroy() {
       destroyed = true;
-      es?.close();
-      es = null;
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
       status.set('closed');
     }
   };
