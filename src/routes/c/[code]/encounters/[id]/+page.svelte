@@ -894,11 +894,6 @@
     }
   }
 
-  /** Per-participant draft label for the inline concentration input. */
-  let concDrafts: Record<string, string> = {};
-  /** Which participant currently has the start-concentration input open. */
-  let concentrationOpenFor: string | null = null;
-
   // Concentration save callout state: set after a resolve completes, cleared when dismissed.
   let concSavePrompt: { participantName: string; dc: number; participantId: string } | null = null;
 
@@ -911,27 +906,24 @@
     triggerName: string;
   }> = [];
 
-  let conditionsOpenFor: string | null = null;
-  /** Per-participant flag: which one currently has its inline statblock panel
-   *  expanded. Only one open at a time keeps the encounter list tidy. */
-  let statblockOpenFor: string | null = null;
-  /** Per-participant flag for the +reveal disclosure (DM, non-PC only). */
-  let revealOpenFor: string | null = null;
-  /** Per-participant flag for the +econ disclosure (action economy panel). */
-  let economyOpenFor: string | null = null;
-  /** Participant whose initiative cell is currently in edit mode. Null when
-   *  no one is editing; rolled initiatives display as a number plus a tiny
-   *  pencil affordance until clicked. */
+  /** Which participant is selected (detail panel shown below). Auto-advances
+   *  with the active turn; DM/players can also click any row to inspect. */
+  let selectedId: string | null = null;
+  $: if (liveActive && liveActive !== selectedId) { selectedId = liveActive; ensureEconomy(liveActive); }
+
+  /** Initiative cell edit mode. */
   let initiativeEditFor: string | null = null;
-  /** Monster participant whose rename / type-swap widget is open. */
-  let editMonsterOpenFor: string | null = null;
+  /** Draft for the concentration input in the detail panel. Reset when selection changes. */
+  let concDraft = '';
+  $: if (selectedId) concDraft = '';
+  /** Monster edit drafts for the detail panel. */
   let editMonsterNameDraft = '';
   let editMonsterSlugDraft = '';
 
   function openMonsterEdit(p: { id: string; name: string; statblockSlug: string | null }) {
     editMonsterNameDraft = p.name;
     editMonsterSlugDraft = p.statblockSlug ?? '';
-    editMonsterOpenFor = p.id;
+    selectedId = p.id;
   }
 
   /** Save the rename + statblock swap. If the slug changed, also reset HP to
@@ -960,7 +952,6 @@
         body: JSON.stringify(body)
       });
       if (res.ok) {
-        editMonsterOpenFor = null;
         await invalidateAll();
       }
     } finally {
@@ -969,15 +960,6 @@
   }
 
   // ---- Action economy foldout (client-side display state only) ----
-  function toggleEconomy(id: string) {
-    if (economyOpenFor === id) {
-      economyOpenFor = null;
-    } else {
-      ensureEconomy(id);
-      economyOpenFor = id;
-    }
-  }
-
   interface RoundEconomyEntry {
     action: string;
     bonusAction: string;
@@ -1336,7 +1318,8 @@
     <ul class="mb-3 divide-y divide-slate-800">
       {#each data.participants as p (p.id)}
         {@const isActive = p.id === liveActive}
-        {@const plan = livePlans[p.id]}
+        {@const isSelected = p.id === selectedId}
+        {@const activeConds = condsFor(p)}
         {@const concRaw = liveHpMap[p.id]?.concentrating}
         {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
         {@const concLbl = p.kind === 'pc'
@@ -1344,15 +1327,24 @@
           : (concRaw
               ? (typeof concRaw === 'object' ? (concRaw.label ?? '') : '')
               : null)}
-        <li class="flex flex-wrap items-center gap-3 py-2 text-sm {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}">
+        <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+        <li
+          class="flex flex-wrap items-center gap-3 py-2 text-sm cursor-pointer select-none
+            {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}
+            {isSelected && !isActive ? 'rounded bg-slate-800/50 px-2' : ''}
+            hover:bg-slate-800/30"
+          on:click={() => { selectedId = isSelected ? null : p.id; if (!isSelected) ensureEconomy(p.id); }}
+        >
           {#if data.role === 'dm'}
             {#if initiativeEditFor === p.id || p.initiative == null}
+              <!-- svelte-ignore a11y-autofocus -->
               <input
                 type="number"
                 class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
                 placeholder="init"
                 value={p.initiative ?? ''}
                 autofocus={initiativeEditFor === p.id}
+                on:click|stopPropagation
                 on:blur={(e) => {
                   const v = inputValue(e);
                   updateInitiative(p.id, v === '' ? null : Number(v));
@@ -1374,38 +1366,25 @@
                 <button
                   class="text-[10px] text-slate-600 hover:text-slate-300"
                   title="Edit initiative"
-                  on:click={() => (initiativeEditFor = p.id)}
+                  on:click|stopPropagation={() => (initiativeEditFor = p.id)}
                 >✎</button>
               </span>
             {/if}
           {:else}
             <span class="font-mono text-xs text-slate-500 w-8">
-              {#if p.initiative != null}
-                {p.initiative}
-              {:else}
-                —
-              {/if}
+              {p.initiative ?? '—'}
             </span>
           {/if}
           {#if p.kind === 'npc'}
-            <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">
-              {p.kind}
-            </span>
+            <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">npc</span>
           {/if}
           <span class="flex-1 font-medium">
-            {#if p.characterId}
-              <a class="hover:text-emerald-300" href={`/c/${data.campaign.code}/character/${p.characterId}`}>
-                {p.placeholderName ?? p.name}
-              </a>
-            {:else}
-              {p.placeholderName ?? p.name}
+            {p.placeholderName ?? p.name}
+            {#if concLbl !== null}
+              <span class="ml-1 rounded border border-violet-700 px-1 py-0.5 text-[10px] text-violet-300">🌀</span>
             {/if}
-            {#if data.role === 'dm' && p.kind !== 'pc'}
-              <button
-                class="ml-1 text-[10px] text-slate-600 hover:text-slate-300"
-                title="Rename / change type"
-                on:click={() => openMonsterEdit(p)}
-              >✎</button>
+            {#if activeConds.length > 0}
+              <span class="ml-1 text-[10px] text-amber-400">{activeConds.join(', ')}</span>
             {/if}
           </span>
           {#if data.role === 'dm' || p.reveals?.vitals || p.kind === 'pc'}
@@ -1413,241 +1392,156 @@
               {@const liveCur = liveHpMap[p.id]?.currentHp ?? p.currentHp}
               {@const liveTemp = liveHpMap[p.id]?.tempHp ?? p.tempHp ?? 0}
               <span class="font-mono text-xs text-slate-400">
-                {liveCur ?? '—'} / {p.maxHp}
-                {#if liveTemp > 0}
-                  <span class="text-emerald-300">+{liveTemp}</span>
-                {/if}
+                {liveCur ?? '—'} / {p.maxHp}{#if liveTemp > 0}<span class="text-emerald-300"> +{liveTemp}</span>{/if}
               </span>
             {/if}
           {:else}
-            <!-- Player view + vitals hidden: show coarse bucket only. Bucket is
-                 computed live from Y.Doc HP when present, else SSR snapshot. -->
             {@const live = liveHpMap[p.id]}
             <HpBucketBadge value={computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null) === 'unknown' ? (p.hpBucket ?? 'unknown') : computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null)} />
           {/if}
-          {#if data.role === 'dm'}
-            {#if p.maxHp != null}
-              <input
-                type="number"
-                min="0"
-                class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
-                placeholder="±hp"
-                bind:value={hpInputs[p.id]}
-              />
-              <button
-                class="rounded bg-red-700/60 px-1.5 py-0.5 text-xs hover:bg-red-700"
-                title="Apply damage"
-                on:click={() => dmDamage(p)}
-              >
-                −
-              </button>
-              <button
-                class="rounded bg-emerald-700/60 px-1.5 py-0.5 text-xs hover:bg-emerald-700"
-                title="Apply heal"
-                on:click={() => dmHeal(p)}
-              >
-                +
-              </button>
-            {/if}
-          {/if}
-          {#if data.role === 'dm'}
+          {#if data.role === 'dm' && p.maxHp != null}
+            <input
+              type="number"
+              min="0"
+              class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
+              placeholder="±hp"
+              bind:value={hpInputs[p.id]}
+              on:click|stopPropagation
+            />
             <button
-              class="text-[10px] {p.kind === 'pc' || !p.reveals
-                ? 'text-slate-700 cursor-not-allowed'
-                : 'text-slate-500 hover:text-slate-300'}"
-              title={p.kind === 'pc' ? 'Reveals are PC-only — party always sees PCs' : 'Show / hide reveal toggles'}
-              disabled={p.kind === 'pc' || !p.reveals}
-              on:click={() => (revealOpenFor = revealOpenFor === p.id ? null : p.id)}
-            >
-              {revealOpenFor === p.id ? '− reveal' : '+ reveal'}
-            </button>
-          {/if}
-          {#if data.role === 'dm'}
+              class="rounded bg-red-700/60 px-1.5 py-0.5 text-xs hover:bg-red-700"
+              title="Apply damage"
+              on:click|stopPropagation={() => dmDamage(p)}
+            >−</button>
             <button
-              class="text-[10px] text-slate-500 hover:text-slate-300"
-              title="Show / hide condition picker"
-              on:click={() => (conditionsOpenFor = conditionsOpenFor === p.id ? null : p.id)}
-            >
-              {conditionsOpenFor === p.id ? '− cond' : '+ cond'}
-            </button>
+              class="rounded bg-emerald-700/60 px-1.5 py-0.5 text-xs hover:bg-emerald-700"
+              title="Apply heal"
+              on:click|stopPropagation={() => dmHeal(p)}
+            >+</button>
           {/if}
-          {#if data.role === 'dm'}
-            {#if concLbl !== null}
-              <span
-                class="rounded border border-violet-600 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200"
-                title="Click × to clear concentration"
-              >
-                🌀 {concLbl || 'concentrating'}
-                <button
-                  class="ml-1 text-violet-300 hover:text-violet-100"
-                  on:click={() => { clearConcentrating(p); concentrationOpenFor = null; }}
-                >×</button>
-              </span>
-            {:else}
-              <button
-                class="text-[10px] text-slate-500 hover:text-slate-300"
-                title="Mark as concentrating"
-                on:click={() => (concentrationOpenFor = concentrationOpenFor === p.id ? null : p.id)}
-              >
-                {concentrationOpenFor === p.id ? '− conc' : '+ conc'}
-              </button>
-            {/if}
-          {/if}
-          {#if (p.statblock && (data.role === 'dm' || p.reveals?.combat)) || (p.kind === 'pc' && !!data.participantPcStats?.[p.id])}
-            <button
-              class="text-[10px] text-slate-500 hover:text-slate-300"
-              title="Show / hide statblock"
-              on:click={() => (statblockOpenFor = statblockOpenFor === p.id ? null : p.id)}
-            >
-              {statblockOpenFor === p.id ? '− stats' : '+ stats'}
-            </button>
-          {/if}
-          <button
-            class="text-[10px] text-slate-500 hover:text-slate-300"
-            title="Show / hide plan"
-            on:click={() => toggleEconomy(p.id)}
-          >
-            {economyOpenFor === p.id ? '− plan' : '+ plan'}
-          </button>
           {#if data.role === 'dm'}
             <button
               class="ml-auto rounded border border-slate-700 px-1.5 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
               title={p.kind === 'pc' ? 'Remove this PC from the encounter' : `Remove ${p.kind} from encounter`}
-              on:click={() => removeParticipant(p.id)}
+              on:click|stopPropagation={() => removeParticipant(p.id)}
               disabled={busy}
-            >
-              ✕
-            </button>
+            >✕</button>
           {/if}
-          {#if condsFor(p).length > 0 || conditionsOpenFor === p.id}
-            {@const activeConds = condsFor(p)}
-            {@const implied = impliedBy(activeConds)}
-            <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
-              {#each activeConds as c}
-                <button
-                  class="rounded border border-amber-700 bg-amber-950/30 px-1.5 py-0.5 text-amber-200 hover:bg-amber-900/40 disabled:opacity-40"
-                  disabled={busy || data.role !== 'dm'}
-                  title="Remove condition"
-                  on:click={() => toggleCondition(p, c)}
-                >
-                  {c} ×
-                </button>
-              {/each}
-              {#each [...implied.entries()] as [c, src]}
-                <span
-                  class="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-500 italic"
-                  title="implied by {src}"
-                >
-                  {c}
-                </span>
-              {/each}
-              {#if data.role === 'dm' && conditionsOpenFor === p.id}
-                {#each COMMON_CONDITIONS.filter((c) => !activeConds.includes(c) && !implied.has(c)) as c}
-                  <button
-                    class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
-                    disabled={busy}
-                    on:click={() => toggleCondition(p, c)}
-                  >
-                    + {c}
-                  </button>
-                {/each}
-              {/if}
-            </div>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+</section>
+
+<!-- Detail panel: shown when a participant is selected -->
+{#if selectedId}
+  {@const p = data.participants.find((x) => x.id === selectedId)}
+  {#if p}
+    {@const isActive = p.id === liveActive}
+    {@const plan = livePlans[p.id]}
+    {@const activeConds = condsFor(p)}
+    {@const implied = impliedBy(activeConds)}
+    {@const concRaw = liveHpMap[p.id]?.concentrating}
+    {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
+    {@const concLbl = p.kind === 'pc'
+      ? (concPcDoc?.label ?? null)
+      : (concRaw ? (typeof concRaw === 'object' ? (concRaw.label ?? '') : '') : null)}
+    {@const cs = data.participantPcStats?.[p.id] ?? null}
+    {@const canSeeStats = data.role === 'dm' || p.reveals?.combat === true || (p.kind === 'pc' && !!cs)}
+    {@const isPc = p.kind === 'pc'}
+    {@const speeds = isPc ? (cs?.speeds ?? { walk: 30 }) : (p.statblock?.speeds ?? { walk: 30 })}
+    {@const walkSpeed = speeds.walk ?? speeds.fly ?? speeds.swim ?? 30}
+    <section class="mb-6 rounded-lg border border-slate-700 bg-slate-900/50 p-4 text-sm">
+      <!-- Header -->
+      <div class="mb-3 flex items-center gap-2">
+        {#if isActive}
+          <span class="rounded bg-emerald-800/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">active</span>
+        {/if}
+        <span class="font-semibold text-slate-100">{p.placeholderName ?? p.name}</span>
+        {#if p.characterId && isPc}
+          <a class="text-[10px] text-slate-400 hover:text-emerald-300" href={`/c/${data.campaign.code}/character/${p.characterId}`}>↗ sheet</a>
+        {/if}
+        <button
+          class="ml-auto text-xs text-slate-500 hover:text-slate-300"
+          title="Close detail panel"
+          on:click={() => (selectedId = null)}
+        >✕</button>
+      </div>
+
+      <!-- Conditions -->
+      <div class="mb-3">
+        <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Conditions</div>
+        <div class="flex flex-wrap gap-1 text-[11px]">
+          {#each activeConds as c}
+            <button
+              class="rounded border border-amber-700 bg-amber-950/30 px-1.5 py-0.5 text-amber-200 hover:bg-amber-900/40 disabled:opacity-40"
+              disabled={busy || data.role !== 'dm'}
+              title="Remove condition"
+              on:click={() => toggleCondition(p, c)}
+            >{c} ×</button>
+          {/each}
+          {#each [...implied.entries()] as [c, src]}
+            <span class="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-500 italic" title="implied by {src}">{c}</span>
+          {/each}
+          {#if activeConds.length === 0 && implied.size === 0}
+            <span class="text-slate-600">none</span>
           {/if}
-          {#if data.role === 'dm' && concentrationOpenFor === p.id && concLbl === null}
-            <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
-              <span class="text-slate-500 mr-1">🌀 concentrate on</span>
+          {#if data.role === 'dm'}
+            {#each COMMON_CONDITIONS.filter((c) => !activeConds.includes(c) && !implied.has(c)) as c}
+              <button
+                class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:bg-slate-800"
+                disabled={busy}
+                on:click={() => toggleCondition(p, c)}
+              >+ {c}</button>
+            {/each}
+          {/if}
+        </div>
+      </div>
+
+      <!-- Concentration (DM only) -->
+      {#if data.role === 'dm'}
+        <div class="mb-3">
+          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Concentration</div>
+          {#if concLbl !== null}
+            <span class="inline-flex items-center gap-1 rounded border border-violet-600 bg-violet-900/40 px-2 py-0.5 text-[11px] text-violet-200">
+              🌀 {concLbl || 'concentrating'}
+              <button class="text-violet-300 hover:text-violet-100" on:click={() => clearConcentrating(p)}>×</button>
+            </span>
+          {:else}
+            <div class="flex items-center gap-1">
               <input
                 class="w-44 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
                 placeholder="bless, hex, hold person…"
                 maxlength="80"
-                bind:value={concDrafts[p.id]}
+                bind:value={concDraft}
                 on:keydown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    const label = (concDrafts[p.id] ?? '').trim();
-                    if (label) {
-                      startConcentrating(p, label);
-                      concDrafts[p.id] = '';
-                      concentrationOpenFor = null;
-                    }
+                    const label = concDraft.trim();
+                    if (label) { startConcentrating(p, label); concDraft = ''; }
                   }
                 }}
               />
               <button
-                class="rounded border border-slate-600 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 disabled:opacity-40"
-                disabled={busy || !(concDrafts[p.id] ?? '').trim()}
-                on:click={() => {
-                  const label = (concDrafts[p.id] ?? '').trim();
-                  if (!label) return;
-                  startConcentrating(p, label);
-                  concDrafts[p.id] = '';
-                  concentrationOpenFor = null;
-                }}
+                class="rounded border border-slate-600 px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                disabled={busy || !concDraft.trim()}
+                on:click={() => { const label = concDraft.trim(); if (label) { startConcentrating(p, label); concDraft = ''; } }}
               >start</button>
             </div>
           {/if}
-          {#if p.kind !== 'pc' && data.role === 'dm' && p.reveals && revealOpenFor === p.id}
-            <div class="basis-full pl-12 flex flex-wrap items-center gap-1 pt-1 text-[10px]">
-              <span class="text-slate-500 mr-1">reveal:</span>
-              <RevealChip label="identity" on={p.reveals.identity} on:toggle={(e) => patchReveal(p.id, { identity: e.detail })} disabled={busy} />
-              <RevealChip label="vitals" on={p.reveals.vitals} on:toggle={(e) => patchReveal(p.id, { vitals: e.detail })} disabled={busy} />
-              <RevealChip label="combat" on={p.reveals.combat} on:toggle={(e) => patchReveal(p.id, { combat: e.detail })} disabled={busy} />
-              <RevealChip label="hidden" tone="danger" on={p.reveals.hidden} on:toggle={(e) => patchReveal(p.id, { hidden: e.detail })} disabled={busy} />
-              <button class="ml-1 text-slate-500 hover:text-emerald-300 underline-offset-2 hover:underline" on:click={() => revealAll(p.id)} disabled={busy}>reveal all</button>
-              <button class="text-slate-500 hover:text-slate-300 underline-offset-2 hover:underline" on:click={() => hideAll(p.id)} disabled={busy}>hide all</button>
-            </div>
-          {/if}
-          {#if data.role === 'dm' && p.kind !== 'pc' && editMonsterOpenFor === p.id}
-            <div class="basis-full ml-12 mt-1 flex flex-wrap items-center gap-2 rounded border border-slate-800 bg-slate-950/60 p-2 text-xs">
-              <label class="flex items-center gap-1">
-                <span class="text-slate-500">Name</span>
-                <input
-                  class="w-40 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
-                  bind:value={editMonsterNameDraft}
-                  maxlength="120"
-                />
-              </label>
-              <label class="flex items-center gap-1">
-                <span class="text-slate-500">Type</span>
-                <select
-                  class="w-48 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
-                  bind:value={editMonsterSlugDraft}
-                >
-                  <option value="">— ad-hoc —</option>
-                  {#each data.monsterOptions as m}
-                    <option value={m.slug}>{m.name} <span>(CR {m.cr})</span></option>
-                  {/each}
-                </select>
-              </label>
-              <button
-                class="rounded bg-emerald-700/70 px-2 py-0.5 text-[11px] hover:bg-emerald-700 disabled:opacity-40"
-                disabled={busy || !editMonsterNameDraft.trim()}
-                on:click={() => saveMonsterEdit(p)}
-              >save</button>
-              <button
-                class="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:bg-slate-800"
-                on:click={() => (editMonsterOpenFor = null)}
-              >cancel</button>
-              <button
-                class="ml-auto rounded border border-red-800 bg-red-950/40 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-900/60 disabled:opacity-40"
-                disabled={busy}
-                on:click={async () => {
-                  await removeParticipant(p.id);
-                  if (editMonsterOpenFor === p.id) editMonsterOpenFor = null;
-                }}
-              >Remove from encounter</button>
-            </div>
-          {/if}
-          {#if p.statblock && statblockOpenFor === p.id}
-            <div class="basis-full ml-12 mt-1">
-              <MonsterStatblockView statblock={p.statblock} dense />
-            </div>
-          {/if}
-          {#if p.kind === 'pc' && statblockOpenFor === p.id && data.participantPcStats?.[p.id]}
-            {@const cs = data.participantPcStats[p.id]}
-            <div class="basis-full ml-12 mt-1 rounded border border-slate-800 bg-slate-950/60 p-2 text-xs">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        </div>
+      {/if}
+
+      <!-- Stats -->
+      {#if canSeeStats}
+        <div class="mb-3">
+          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Stats</div>
+          {#if p.statblock}
+            <MonsterStatblockView statblock={p.statblock} dense />
+          {:else if cs}
+            <div class="rounded border border-slate-800 bg-slate-950/60 p-2 text-xs">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
                 <span><span class="text-slate-500">AC</span> {cs.ac}</span>
                 <span><span class="text-slate-500">HP</span> {cs.hp.current}/{cs.hp.max}{#if cs.hp.temp > 0}<span class="text-emerald-300"> +{cs.hp.temp}</span>{/if}</span>
                 <span><span class="text-slate-500">prof</span> +{cs.proficiencyBonus}</span>
@@ -1657,7 +1551,7 @@
                   <span><span class="text-slate-500">{mode}</span> {ft}ft</span>
                 {/each}
               </div>
-              <div class="mt-2 grid grid-cols-6 gap-1 text-center font-mono">
+              <div class="grid grid-cols-6 gap-1 text-center font-mono mb-2">
                 {#each ['str','dex','con','int','wis','cha'] as ab}
                   {@const cell = cs.abilities[ab]}
                   {#if cell}
@@ -1669,33 +1563,24 @@
                   {/if}
                 {/each}
               </div>
-              <div class="mt-2 grid grid-cols-2 gap-x-3">
+              <div class="grid grid-cols-2 gap-x-3">
                 <div>
-                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Saves</div>
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Saves</div>
                   <ul class="text-slate-400">
                     {#each ['str','dex','con','int','wis','cha'] as ab}
                       {@const s = cs.saves[ab]}
                       {#if s}
-                        <li>
-                          <span class={s.proficient ? 'text-emerald-300' : 'text-slate-400'}>{s.proficient ? '●' : '○'} {ab.toUpperCase()}</span>
-                          <span class="ml-1 font-mono text-slate-300">{s.bonus >= 0 ? '+' : ''}{s.bonus}</span>
-                        </li>
+                        <li><span class={s.proficient ? 'text-emerald-300' : 'text-slate-400'}>{s.proficient ? '●' : '○'} {ab.toUpperCase()}</span> <span class="font-mono text-slate-300">{s.bonus >= 0 ? '+' : ''}{s.bonus}</span></li>
                       {/if}
                     {/each}
                   </ul>
                 </div>
                 <div>
-                  <div class="text-[10px] uppercase tracking-wide text-slate-500">Proficient skills</div>
+                  <div class="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Proficient skills</div>
                   <ul class="text-slate-400">
                     {#each Object.entries(cs.skills).filter(([, sk]) => sk.proficient).sort(([a],[b]) => a.localeCompare(b)) as [name, sk]}
-                      <li>
-                        <span class={sk.expertise ? 'text-emerald-300' : 'text-slate-300'}>{sk.expertise ? '◆' : '●'} {name.replace(/-/g, ' ')}</span>
-                        <span class="ml-1 font-mono text-slate-300">{sk.bonus >= 0 ? '+' : ''}{sk.bonus}</span>
-                      </li>
+                      <li><span class={sk.expertise ? 'text-emerald-300' : 'text-slate-300'}>{sk.expertise ? '◆' : '●'} {name.replace(/-/g, ' ')}</span> <span class="font-mono text-slate-300">{sk.bonus >= 0 ? '+' : ''}{sk.bonus}</span></li>
                     {/each}
-                    {#if !Object.values(cs.skills).some((sk) => sk.proficient)}
-                      <li class="text-slate-600">—</li>
-                    {/if}
                   </ul>
                 </div>
               </div>
@@ -1709,65 +1594,112 @@
               {/if}
               {#if cs.resistances.length > 0 || cs.immunities.length > 0 || cs.vulnerabilities.length > 0}
                 <div class="mt-1 text-[11px]">
-                  {#if cs.resistances.length > 0}
-                    <div><span class="text-slate-500">Resist:</span> <span class="text-slate-300">{cs.resistances.join(', ')}</span></div>
-                  {/if}
-                  {#if cs.immunities.length > 0}
-                    <div><span class="text-slate-500">Immune:</span> <span class="text-slate-300">{cs.immunities.join(', ')}</span></div>
-                  {/if}
-                  {#if cs.vulnerabilities.length > 0}
-                    <div><span class="text-slate-500">Vulnerable:</span> <span class="text-slate-300">{cs.vulnerabilities.join(', ')}</span></div>
-                  {/if}
+                  {#if cs.resistances.length > 0}<div><span class="text-slate-500">Resist:</span> {cs.resistances.join(', ')}</div>{/if}
+                  {#if cs.immunities.length > 0}<div><span class="text-slate-500">Immune:</span> {cs.immunities.join(', ')}</div>{/if}
+                  {#if cs.vulnerabilities.length > 0}<div><span class="text-slate-500">Vulnerable:</span> {cs.vulnerabilities.join(', ')}</div>{/if}
                 </div>
               {/if}
               {#if Object.keys(cs.senses).length > 0}
                 <div class="mt-1 text-[11px]">
                   <span class="text-slate-500">Senses:</span>
                   {#each Object.entries(cs.senses) as [sense, ft]}
-                    <span class="ml-1 text-slate-300">{sense} {ft}ft</span>
+                    <span class="ml-1">{sense} {ft}ft</span>
                   {/each}
                 </div>
               {/if}
             </div>
           {/if}
-          {#if economyOpenFor === p.id && roundEconomy[p.id]}
-            {@const isPc = p.kind === 'pc'}
-            {@const speeds = isPc
-              ? (data.participantPcStats?.[p.id]?.speeds ?? { walk: 30 })
-              : (p.statblock?.speeds ?? { walk: 30 })}
-            {@const walkSpeed = (speeds.walk ?? speeds.fly ?? speeds.swim ?? 30)}
-            <PlanPanel
-              participant={p}
-              plan={plan ?? null}
-              role={data.role}
-              participants={data.participants}
-              actionChoices={actionChoicesFor(p)}
-              bonusChoices={bonusChoicesFor(p)}
-              {walkSpeed}
-              {busy}
-              economy={roundEconomy[p.id]}
-              showSlotLevel={!isPc && isSpellAction(p.id)}
-              on:actionPick={(e) => persistPlan(p, { actionId: e.detail })}
-              on:bonusPick={(e) => persistPlan(p, { bonusActionId: e.detail })}
-              on:targetPick={(e) => persistPlan(p, { targetParticipantIds: e.detail })}
-              on:bonusTargetPick={(e) => persistPlan(p, { bonusTargetParticipantIds: e.detail })}
-              on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
-              on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
-              on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
-              on:movementDelta={(e) => { roundEconomy[p.id].movement = Math.max(0, Math.min(walkSpeed, roundEconomy[p.id].movement + e.detail)); roundEconomy = roundEconomy; }}
-              on:movementReset={() => { roundEconomy[p.id].movement = 0; roundEconomy = roundEconomy; }}
-              on:slotLevelChange={(e) => { roundEconomy[p.id].slotLevel = e.detail; roundEconomy = roundEconomy; }}
-              on:freeActionsChange={(e) => { roundEconomy[p.id].freeActions = e.detail; roundEconomy = roundEconomy; }}
-              on:resolve={() => openResolve(p)}
-              on:clear={() => clearPlan(p.id)}
-            />
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
+        </div>
+      {/if}
 
-</section>
+      <!-- Plan / action economy -->
+      {#if roundEconomy[p.id] && (data.role === 'dm' || isPc)}
+        <div class="mb-3">
+          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Plan</div>
+          <PlanPanel
+            participant={p}
+            plan={plan ?? null}
+            role={data.role}
+            participants={data.participants}
+            actionChoices={actionChoicesFor(p)}
+            bonusChoices={bonusChoicesFor(p)}
+            {walkSpeed}
+            {busy}
+            economy={roundEconomy[p.id]}
+            showSlotLevel={!isPc && isSpellAction(p.id)}
+            on:actionPick={(e) => persistPlan(p, { actionId: e.detail })}
+            on:bonusPick={(e) => persistPlan(p, { bonusActionId: e.detail })}
+            on:targetPick={(e) => persistPlan(p, { targetParticipantIds: e.detail })}
+            on:bonusTargetPick={(e) => persistPlan(p, { bonusTargetParticipantIds: e.detail })}
+            on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
+            on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
+            on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
+            on:movementDelta={(e) => { roundEconomy[p.id].movement = Math.max(0, Math.min(walkSpeed, roundEconomy[p.id].movement + e.detail)); roundEconomy = roundEconomy; }}
+            on:movementReset={() => { roundEconomy[p.id].movement = 0; roundEconomy = roundEconomy; }}
+            on:slotLevelChange={(e) => { roundEconomy[p.id].slotLevel = e.detail; roundEconomy = roundEconomy; }}
+            on:freeActionsChange={(e) => { roundEconomy[p.id].freeActions = e.detail; roundEconomy = roundEconomy; }}
+            on:resolve={() => openResolve(p)}
+            on:clear={() => clearPlan(p.id)}
+          />
+        </div>
+      {/if}
+
+      <!-- Reveals (DM only, non-PC) -->
+      {#if data.role === 'dm' && !isPc && p.reveals}
+        <div class="mb-3">
+          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Reveals</div>
+          <div class="flex flex-wrap items-center gap-1 text-[11px]">
+            <RevealChip label="identity" on={p.reveals.identity} on:toggle={(e) => patchReveal(p.id, { identity: e.detail })} disabled={busy} />
+            <RevealChip label="vitals" on={p.reveals.vitals} on:toggle={(e) => patchReveal(p.id, { vitals: e.detail })} disabled={busy} />
+            <RevealChip label="combat" on={p.reveals.combat} on:toggle={(e) => patchReveal(p.id, { combat: e.detail })} disabled={busy} />
+            <RevealChip label="hidden" tone="danger" on={p.reveals.hidden} on:toggle={(e) => patchReveal(p.id, { hidden: e.detail })} disabled={busy} />
+            <button class="ml-2 text-slate-500 hover:text-emerald-300 underline-offset-2 hover:underline text-[11px]" on:click={() => revealAll(p.id)} disabled={busy}>reveal all</button>
+            <button class="text-slate-500 hover:text-slate-300 underline-offset-2 hover:underline text-[11px]" on:click={() => hideAll(p.id)} disabled={busy}>hide all</button>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Monster edit (DM only, non-PC) -->
+      {#if data.role === 'dm' && !isPc}
+        <div>
+          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Edit</div>
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <label class="flex items-center gap-1">
+              <span class="text-slate-500">Name</span>
+              <input
+                class="w-40 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
+                bind:value={editMonsterNameDraft}
+                maxlength="120"
+              />
+            </label>
+            <label class="flex items-center gap-1">
+              <span class="text-slate-500">Type</span>
+              <select
+                class="w-48 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
+                bind:value={editMonsterSlugDraft}
+              >
+                <option value="">— ad-hoc —</option>
+                {#each data.monsterOptions as m}
+                  <option value={m.slug}>{m.name} (CR {m.cr})</option>
+                {/each}
+              </select>
+            </label>
+            <button
+              class="rounded bg-emerald-700/70 px-2 py-0.5 text-[11px] hover:bg-emerald-700 disabled:opacity-40"
+              disabled={busy || !editMonsterNameDraft.trim()}
+              on:click={() => saveMonsterEdit(p)}
+            >save</button>
+            <button
+              class="ml-auto rounded border border-red-800 bg-red-950/40 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-900/60 disabled:opacity-40"
+              disabled={busy}
+              on:click={() => removeParticipant(p.id)}
+            >Remove from encounter</button>
+          </div>
+        </div>
+      {/if}
+    </section>
+  {/if}
+{/if}
 
 {#if showAddParticipantModal && data.role === 'dm'}
   <!-- Add-participant modal. Triggered by the "+ Add" button next to the
