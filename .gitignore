@@ -11,3 +11,4 @@ dist
 !.env.example
 .DS_Store
 *.log
+.claude/settings.local.json
