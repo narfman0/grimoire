@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent } from '@testing-library/svelte';
 import MonsterPicker, { type MonsterOption } from './MonsterPicker.svelte';
 
 const monsters: MonsterOption[] = [
@@ -10,19 +10,6 @@ const monsters: MonsterOption[] = [
 ];
 
 describe('MonsterPicker', () => {
-  let originalFetch: typeof fetch;
-
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
-    // Default mock: every preview fetch returns a minimal statblock data
-    // shape. monsterDerive tolerates missing fields.
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ data: { ac: 13, hp: { max: 15 }, type: 'humanoid', size: 'medium', cr: '1/2' } }), { status: 200 })
-    ) as typeof fetch;
-  });
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
 
   // Locks the search-by-name contract.
   it('filters by name query', async () => {
@@ -70,11 +57,55 @@ describe('MonsterPicker', () => {
     component.$on('pick', (e) => onPick(e.detail));
 
     await fireEvent.click(getByText('Orc'));
-    const addBtn = await waitFor(() => getByText(/^Add Orc$/));
+    const addBtn = getByText(/^Add Orc$/);
     await fireEvent.click(addBtn);
     expect(onPick).toHaveBeenCalledWith(
       expect.objectContaining({ slug: 'orc', name: 'Orc', cr: '1/2' })
     );
+  });
+
+  // Locks that preview uses the embedded `data` field directly — no fetch,
+  // works for any pack source (including ones outside PUBLIC_SOURCES). The
+  // fetch-based version 404'd on private packs; this test prevents that
+  // regression.
+  it('preview renders the statblock from embedded data without any fetch', async () => {
+    const fetchSpy = vi.fn(async () => new Response('', { status: 404 }));
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchSpy as typeof fetch;
+    try {
+      const withData: MonsterOption[] = [
+        {
+          ...monsters[0],
+          data: {
+            cr: '1/4',
+            ac: 15,
+            hp: { max: 7 },
+            size: 'small',
+            type: 'humanoid',
+            abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 }
+          }
+        }
+      ];
+      const { container, getByText } = render(MonsterPicker, { props: { monsters: withData } });
+      await fireEvent.click(getByText('Goblin'));
+      // Statblock view emits the Saves: section + ability rows with mods —
+      // proof that monsterDerive ran on the embedded data.
+      expect(container.textContent).toMatch(/Saves:/);
+      expect(container.textContent).toMatch(/str\s*8\s*-1/);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  // Locks the graceful fallback when a caller embeds the picker without
+  // supplying `data` — the preview should still render the summary fields.
+  it('preview falls back to summary line when no data field is supplied', async () => {
+    const { container, getByText } = render(MonsterPicker, { props: { monsters } });
+    await fireEvent.click(getByText('Orc'));
+    // Summary fallback shows size + type · AC X · HP Y · CR Z.
+    expect(container.textContent).toMatch(/medium\s+humanoid/);
+    expect(container.textContent).toMatch(/AC\s*13/);
   });
 
   // Add button is disabled until a monster is previewed.

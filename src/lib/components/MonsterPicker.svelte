@@ -8,6 +8,10 @@
     ac: number | null;
     type: string;
     size: string;
+    /** Full parsed monster data (shipped from the encounter page server load).
+     *  Used by the preview panel; we run monsterDerive() on it client-side.
+     *  Optional so other callers can omit it and fall back to a sparse view. */
+    data?: Record<string, unknown>;
   }
 </script>
 
@@ -33,13 +37,10 @@
    *  selectedIndex, which is the row that arrow-keys/hover focus). Null
    *  until the user clicks a row or presses Enter. */
   let previewMonster: MonsterOption | null = null;
-  /** Cached derived statblock for the currently-previewed monster. Fetched
-   *  via /api/content/monster/{slug} on demand; falls back to a sparse
-   *  view from the summary fields if the fetch hasn't returned yet. */
-  let previewStatblock: MonsterDerived | null = null;
-  let previewLoading = false;
-  let previewError: string | null = null;
-  let previewToken = 0; // ignore stale fetches if the user re-picks fast
+  /** Derived statblock for the currently-previewed monster, computed from
+   *  the embedded `data` field (no network round-trip — the encounter page
+   *  ships the parsed row alongside the summary fields). */
+  $: previewStatblock = previewMonster?.data ? monsterDerive(previewMonster.data) : null;
 
   // CR sort order helper
   const CR_ORDER: Record<string, number> = {
@@ -82,24 +83,8 @@
   /** Click / arrow-Enter → highlight this monster for preview. Adding to
    *  the encounter is a separate gesture (the footer button or a second
    *  Enter when this monster is already previewed). */
-  async function preview(m: MonsterOption) {
+  function preview(m: MonsterOption) {
     previewMonster = m;
-    previewStatblock = null;
-    previewError = null;
-    previewLoading = true;
-    const token = ++previewToken;
-    try {
-      const res = await fetch(`/api/content/monster/${m.slug}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = (await res.json()) as { data: Record<string, unknown> };
-      if (token !== previewToken) return; // user clicked another row
-      previewStatblock = monsterDerive(body.data);
-    } catch (err) {
-      if (token !== previewToken) return;
-      previewError = err instanceof Error ? err.message : 'load failed';
-    } finally {
-      if (token === previewToken) previewLoading = false;
-    }
   }
 
   function confirmPick() {
@@ -271,18 +256,18 @@
         <span class="text-sm font-semibold text-slate-100">{previewMonster.name}</span>
         <span class="text-xs text-slate-500">{previewMonster.source}</span>
       </div>
-      {#if previewLoading}
-        <div class="text-xs text-slate-500">Loading details…</div>
-      {:else if previewError}
-        <div class="text-xs text-amber-400">Couldn't load full statblock ({previewError}). Showing summary.</div>
-        <div class="mt-2 text-xs text-slate-400">
+      {#if previewStatblock}
+        <MonsterStatblockView statblock={previewStatblock} dense />
+      {:else}
+        <!-- Fallback summary view used when the caller didn't supply the full
+             `data` field (e.g., a future caller embedding the picker without
+             the encounter page's server load). -->
+        <div class="text-xs text-slate-400">
           {previewMonster.size} {previewMonster.type}
           {#if previewMonster.ac != null} · AC {previewMonster.ac}{/if}
           {#if previewMonster.maxHp != null} · HP {previewMonster.maxHp}{/if}
           · CR {previewMonster.cr}
         </div>
-      {:else if previewStatblock}
-        <MonsterStatblockView statblock={previewStatblock} dense />
       {/if}
     </div>
   {/if}

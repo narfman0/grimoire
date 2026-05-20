@@ -362,7 +362,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         maxHp: data.hp?.max ?? null,
         ac: data.ac ?? null,
         type: data.type ?? '',
-        size: data.size ?? ''
+        size: data.size ?? '',
+        /** Full parsed monster row, used by the picker's preview panel.
+         *  Avoids a per-preview round-trip to /api/content/{kind}/{slug},
+         *  which filters by PUBLIC_SOURCES and 404s for monsters from
+         *  $GRIMOIRE_PACKS_DIR / scope-restricted packs. */
+        data: data as Record<string, unknown>
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

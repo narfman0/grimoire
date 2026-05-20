@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
-  import MonsterPicker from '$lib/components/MonsterPicker.svelte';
+  import MonsterPicker, { type MonsterOption } from '$lib/components/MonsterPicker.svelte';
   import RevealChip from '$lib/components/RevealChip.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
@@ -544,7 +544,7 @@
    *  the names are auto-suffixed "#1, #2, …" so they're distinguishable. */
   let newQuantity = 1;
 
-  function onMonsterPicked(e: CustomEvent<typeof data.monsterOptions[0]>) {
+  function onMonsterPicked(e: CustomEvent<MonsterOption>) {
     const m = e.detail;
     newMonsterSlug = m.slug;
     newName = m.name;
