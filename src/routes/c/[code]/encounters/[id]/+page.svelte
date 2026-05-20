@@ -1229,7 +1229,7 @@
     {@const walkSpeed = speeds.walk ?? speeds.fly ?? speeds.swim ?? 30}
     <section class="mb-6 rounded-lg border border-slate-700 bg-slate-900/50 p-4 text-sm">
       <!-- Header -->
-      <div class="mb-3 flex items-center gap-2">
+      <div class="mb-1 flex items-center gap-2">
         <span class="font-semibold text-slate-100">{p.placeholderName ?? p.name}</span>
         {#if p.characterId && isPc}
           <a class="text-[10px] text-slate-400 hover:text-emerald-300" href={`/c/${data.campaign.code}/character/${p.characterId}`}>↗ sheet</a>
@@ -1240,6 +1240,17 @@
           on:click={() => (selectedId = null)}
         >✕</button>
       </div>
+      {#if canSeeStats}
+        {#if isPc && cs?.species}
+          <div class="mb-3 text-[11px] text-slate-400">
+            {cs.species}{#if cs.subspecies} ({cs.subspecies}){/if}
+          </div>
+        {:else if !isPc && (p.statblock?.size || p.statblock?.type)}
+          <div class="mb-3 text-[11px] text-slate-400">
+            {[p.statblock?.size, p.statblock?.type].filter(Boolean).join(' ')}
+          </div>
+        {/if}
+      {/if}
 
       <!-- HP edit (DM only, when target has a maxHp) -->
       {#if data.role === 'dm' && p.maxHp != null}
@@ -1430,7 +1441,6 @@
       <!-- Plan / action economy -->
       {#if roundEconomy[p.id] && (data.role === 'dm' || isPc)}
         <div class="mb-3">
-          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Plan</div>
           <PlanPanel
             participant={p}
             plan={plan ?? null}

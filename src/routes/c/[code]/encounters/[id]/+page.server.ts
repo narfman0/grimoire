@@ -197,6 +197,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     resistances: string[];
     immunities: string[];
     vulnerabilities: string[];
+    species: string | null;
+    subspecies: string | null;
   };
   const participantPcStats: Record<string, CompactPcStats> = {};
   /** Derived action list per PC participant — drives the DM-side action
@@ -294,7 +296,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
             spellcastingAbility: s.spellcastingAbility,
             resistances: s.resistances,
             immunities: s.immunities,
-            vulnerabilities: s.vulnerabilities
+            vulnerabilities: s.vulnerabilities,
+            species: doc.species?.slug ?? null,
+            subspecies: doc.subspecies?.slug ?? null
           };
         } catch {
           // derive() throws on malformed docs — skip stats, keep spells/conditions
