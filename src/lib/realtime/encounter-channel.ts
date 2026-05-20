@@ -1,8 +1,8 @@
 // Browser-side live channel for one encounter.
 //
-// Replaces the old Y.Doc-based encounter-doc.ts: state is server-authoritative
-// (everything lives in SQL columns), mutations go through plain REST POSTs,
-// and live updates arrive over SSE at /api/encounters/<id>/stream.
+// State is server-authoritative (everything lives in SQL columns),
+// mutations go through REST handlers, and live updates arrive over
+// SSE at /api/encounters/<id>/stream.
 //
 // Optimism: each mutator updates the local snapshot synchronously before
 // the POST resolves, so the UI feels instant. If the POST fails (non-2xx),

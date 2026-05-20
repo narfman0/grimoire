@@ -189,8 +189,7 @@ export const SubmitActionLogRequest = z
     targetParticipantId: Uuid.nullable().optional(),
     actionId: z.string().min(1).max(120),
     actionLabel: z.string().min(1).max(200),
-    /** Round at submit time — clients pass the live Y.Doc round; server
-     *  trusts it (we don't gate on it). */
+    /** Round at submit time — clients pass the live round from SSE state; server trusts it. */
     round: z.number().int().nonnegative(),
     attackRoll: z.number().int().nullable().optional(),
     damageRoll: z.number().int().nullable().optional(),

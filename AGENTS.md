@@ -55,7 +55,7 @@ slugs that don't resolve to feature rows (transcription gaps).
 ## Boundaries
 
 - **Don't** add Postgres-specific column types — Drizzle schema stays portable so the eventual cloud-DB migration is mechanical.
-- **Realtime sync** uses Hocuspocus (Y.js) via a separate sync process on port 47474. Mutations go through REST handlers; the sync server fans out document state. See `src/lib/server/realtime/` and `sync-server/`.
+- **Realtime sync** uses an in-process SSE pub/sub hub (`src/lib/server/realtime/hub.ts`). REST handlers call `publish()` after mutations; clients subscribe via `/api/*/stream` endpoints. No separate process or port — one `node build/` runs everything.
 - **Don't** delete the sqlite file in CI or scripts without a guard.
 - **Don't** auto-summarize what just got committed in chat replies — the diff and commit message are the record.
 - **Don't** hand-write request validation in `+server.ts` handlers — use the Zod schemas in `src/lib/server/api/schemas.ts` via `parseJson` / `parseParams` / `parseSearch`. Those same schemas back the OpenAPI spec; bypassing them breaks the docs.

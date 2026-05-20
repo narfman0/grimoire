@@ -413,7 +413,7 @@ export function buildOpenApiDocument() {
       version: '0.0.1',
       description:
         'REST API for the Grimoire collaborative D&D 5e campaign manager. ' +
-        'Real-time character sheet edits use a separate Hocuspocus (Y.js) websocket server and are not covered here.'
+        'Real-time updates are delivered via SSE streams at /api/*/stream endpoints and are not part of this spec.'
     },
     servers: [{ url: '/', description: 'This server' }],
     tags: [

@@ -1,9 +1,9 @@
 // Browser-side live channel for one character document.
 //
-// Replaces the Y.Doc-based character-doc.ts. Read-only by design: mutations
-// continue to go through PATCH /api/characters/<id> (see patchDocument in
-// character/[id]/+page.svelte). The SSE channel just streams the latest
-// document blob to all viewers — typically the owner editing on one tab
+// Read-only by design: mutations go through PATCH /api/characters/<id>
+// (see patchDocument in character/[id]/+page.svelte). The SSE channel
+// streams the latest document blob to all viewers — typically the owner
+// editing on one tab
 // and the DM watching on another.
 
 import { writable, type Readable } from 'svelte/store';

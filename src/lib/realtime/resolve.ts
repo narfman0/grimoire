@@ -84,8 +84,8 @@ export interface ApplyHpAndLogResult {
   targetHpAfter: number | null;
 }
 
-/** Apply HP delta on a non-PC target via Y.Doc (PCs route through the
- *  character document elsewhere) and post one combat-log entry. */
+/** Apply HP delta on a non-PC target via the participant HP API
+ *  (PCs route through the character document elsewhere) and post one combat-log entry. */
 export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpAndLogResult> {
   const {
     conn,

@@ -80,7 +80,7 @@ export interface CharacterDocument {
   bonusActionUsedThisRound?: boolean;
   /** Whether the character has already used their reaction in the current
    *  round. Auto-resets when their turn comes back around (planner watches
-   *  encounter Y.Doc activeParticipantId for the rising edge), or on any rest. */
+   *  the SSE activeParticipantId for the rising edge), or on any rest. */
   reactionUsedThisRound?: boolean;
   /** Feet of movement already consumed this turn. Capped at the character's
    *  walking speed; resets on turn-rise. */

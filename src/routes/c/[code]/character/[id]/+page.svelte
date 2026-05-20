@@ -110,14 +110,14 @@
   }
 
   // ---- realtime sync (M2.3) ----
-  // Y.Doc state from the server replaces the SSR snapshot once the websocket
-  // is open. Client runs derive() locally on every Y.Doc update so the
+  // SSE state from the server replaces the SSR snapshot once the stream
+  // is open. Client runs derive() locally on every update so the
   // displayed stats reflect live HP/conditions/toggles within one tick.
   let conn: ConnectedDoc | null = null;
   let syncStatus: 'connecting' | 'open' | 'closed' = 'connecting';
   let unsubStatus: (() => void) | undefined;
   let unsubDoc: (() => void) | undefined;
-  /** Snapshot from the live Y.Doc — null until first message arrives. */
+  /** Snapshot from the live SSE stream — null until first message arrives. */
   let liveDoc: CharacterDocument | null = null;
 
   // Build a ContentLookup over the shipped contentMap. The map is keyed by
@@ -126,8 +126,7 @@
   // `lookupFromMap` handles the null-author fallback for SRD-style refs.
   $: contentLookup = lookupFromMap(data.contentMap) as ContentLookup;
 
-  // The effective document: live Y.Doc snapshot when available, else the
-  // SSR document. Falls back gracefully if the sync-server is offline.
+  // The effective document: live SSE snapshot when available, else the SSR document.
   $: document = (liveDoc ?? data.document) as CharacterDocument | null;
 
   // Re-derive when document changes. Initial render uses the server's
@@ -155,9 +154,8 @@
     };
   }
 
-  // ---- M3.4: turn planner ----
   // When this character is a participant in a live encounter, we connect to
-  // the encounter Y.Doc so the player can broadcast a turn plan (action +
+  // the encounter SSE channel so the player can broadcast a turn plan (action +
   // target + notes) that the DM sees live on the encounter page.
   let encConn: ConnectedEncounter | null = null;
   let encState: EncounterSnapshot | null = null;
@@ -169,10 +167,9 @@
   let planNotes = '';
   let planSubmitting = false;
 
-  // ---- M3.5c: resolve flow ----
   // The player can resolve their own plan: optionally declare what they
   // rolled (attack total, damage total, hit/miss), apply HP to a non-PC
-  // target via the Y.Doc, and append to the encounter's action_log.
+  // target via the participant HP API, and append to the encounter's action_log.
   // PC targets aren't auto-damaged here — the target's own sheet is the
   // source of truth for PC HP.
   let resolveOpen = false;

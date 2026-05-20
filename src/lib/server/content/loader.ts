@@ -226,9 +226,9 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
         }
 
         // Conditional overwrite: only if no character references this row.
-        // For now, characters reference content via Y.Doc state (M2) — at
-        // M1.5 there is no FK yet, so all overwrites are allowed. Wire the
-        // reference check in alongside M2 character document work.
+        // No FK enforced — characters reference content by slug/version in
+        // their JSON document. All overwrites allowed; add reference check
+        // if immutability becomes a concern.
         tx.update(schema.content)
           .set({
             name: row.name,

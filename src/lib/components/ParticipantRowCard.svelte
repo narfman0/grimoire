@@ -25,7 +25,7 @@
   export let isSelected: boolean;
   export let activeConds: string[];
   /** Display label for concentration (or null if none); already resolved
-   *  upstream from either the PC document or the Y.Doc concentration field. */
+   *  upstream from either the PC document or the SSE concentration field. */
   export let concLabel: string | null;
   export let liveCurrentHp: number | null | undefined;
   export let liveTempHp: number | undefined;

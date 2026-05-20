@@ -1,8 +1,7 @@
 // Helpers for the encounter page's condition + concentration plumbing.
-// PCs round-trip the character document via REST (player sheets pick the
-// change up on next reload / reconcile); non-PCs flow through the live
-// Y.Doc / participants REST fallback. Pulled out of +page.svelte so the
-// detail-panel component split can take these as a clean API.
+// PCs round-trip the character document via REST; non-PCs flow through
+// the participant HP/conditions REST + SSE. Pulled out of +page.svelte
+// so the detail-panel component split can take these as a clean API.
 
 export interface ParticipantLite {
   id: string;
@@ -11,7 +10,7 @@ export interface ParticipantLite {
 }
 
 /** Live condition list. PCs source from the SSR-mirrored character document;
- *  non-PCs source from the live Y.Doc, falling back to the SSR seed. */
+ *  non-PCs source from the SSE snapshot, falling back to the SSR seed. */
 export function conditionsForParticipant(
   p: ParticipantLite,
   pcConditions: Record<string, string[]> | undefined,

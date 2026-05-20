@@ -297,8 +297,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // M3.4: locate the live encounter (if any) this character is a participant
-  // in. The planner section on the sheet connects to that encounter's Y.Doc
+  // Locate the live encounter (if any) this character is a participant in.
+  // The planner section on the sheet connects to that encounter's SSE channel
   // and lets the player broadcast a turn plan to the DM. If multiple
   // encounters are live for this campaign (allowed — split party, etc.),
   // we pick the most recent. Refresh required if a new encounter goes live
@@ -472,7 +472,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     document,
     derived: derived ? serializeDerived(derived) : null,
     // Ship the content lookup to the client so derive() can re-run there
-    // on every Y.Doc update (M2.3). ~200 KB; revisit when scale matters.
+    // on every SSE document update. ~200 KB; revisit when scale matters.
     contentMap,
     itemOptions,
     spellOptions,

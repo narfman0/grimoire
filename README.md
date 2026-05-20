@@ -22,7 +22,7 @@ Status: **active table use**.
 | Frontend        | SvelteKit + TypeScript + Tailwind v4                         |
 | Web server      | `@sveltejs/adapter-node`                                     |
 | DB              | SQLite via Drizzle ORM (`better-sqlite3`)                    |
-| Realtime sync   | Hocuspocus / Y.js on a separate sync process (`:47474`)      |
+| Realtime sync   | SSE pub/sub hub in-process (`src/lib/server/realtime/hub.ts`) |
 | Hosting (now)   | `srv` via docker compose                                     |
 
 Drizzle schema stays portable (`text` / `integer`) so the Postgres swap is
@@ -33,7 +33,6 @@ mostly an import change.
 ```bash
 pnpm install
 pnpm migrate         # applies any pending drizzle migrations
-node sync-server/dist/index.js &   # Y.js sync on :47474
 pnpm dev             # SvelteKit on :5173
 ```
 
