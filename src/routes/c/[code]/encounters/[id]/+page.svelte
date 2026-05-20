@@ -327,11 +327,8 @@
   }
 
   /** Group log entries: originals (top-level) and amendments by amendsLogId. */
-  // Combat log filters: by participant (incl. ad-hoc DM rows w/ null) and
-  // by round. Defaults to "all" so existing behaviour stays intact.
+  // Combat log filter — by participant only (incl. ad-hoc DM rows w/ null).
   let logFilterParticipantId: string | 'all' = 'all';
-  let logFilterRound: number | 'all' = 'all';
-  $: logRounds = Array.from(new Set(data.actionLog.map((e) => e.round))).sort((a, b) => b - a);
   /** Sum XP across all non-PC participants whose monster statblock carries
    *  an xp value. Surfaced in the encounter header as a rough budget gauge. */
   $: encounterTotalXp = data.participants
@@ -342,7 +339,6 @@
   $: logOriginals = data.actionLog.filter((e) => {
     if (e.isAmendment) return false;
     if (logFilterParticipantId !== 'all' && e.participantId !== logFilterParticipantId) return false;
-    if (logFilterRound !== 'all' && e.round !== logFilterRound) return false;
     return true;
   });
   $: amendsByOriginal = (() => {
@@ -1028,19 +1024,14 @@
     if (data.role !== 'dm') return;
     const ordered = [...data.participants];
     if (ordered.length === 0) return;
-    const currentActive = liveActive;
-    const currentRound = liveRound;
-    const idx = ordered.findIndex((p) => p.id === currentActive);
+    const idx = ordered.findIndex((p) => p.id === liveActive);
     let nextIdx = idx + direction;
     if (nextIdx < 0) nextIdx = ordered.length - 1;
     if (nextIdx >= ordered.length) nextIdx = 0;
-    const wrapped = direction === 1 && idx === ordered.length - 1;
-    const baseRound = currentRound === 0 ? 1 : currentRound;
-    const newRound = wrapped ? baseRound + 1 : baseRound;
     const nextActive = ordered[nextIdx].id;
 
     if (conn) {
-      await conn.setTurn({ round: newRound, activeParticipantId: nextActive });
+      await conn.setTurn({ activeParticipantId: nextActive });
       return;
     }
 
@@ -1050,7 +1041,7 @@
       await fetch(`/api/encounters/${data.encounter.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ activeParticipantId: nextActive, round: newRound })
+        body: JSON.stringify({ activeParticipantId: nextActive })
       });
       await invalidateAll();
     } finally {
@@ -1101,9 +1092,6 @@
             ? `${data.encounter.status} · live sync connected`
             : `${data.encounter.status} · sync: ${connStatus}`}
         ></span>
-      {/if}
-      {#if data.encounter.status === 'live'}
-        &middot; round {liveRound}
       {/if}
       {#if encounterTotalXp > 0}
         &middot; <span class="text-slate-300">{encounterTotalXp} XP</span>
@@ -1226,7 +1214,6 @@
 {#if selectedId}
   {@const p = data.participants.find((x) => x.id === selectedId)}
   {#if p}
-    {@const isActive = p.id === liveActive}
     {@const plan = livePlans[p.id]}
     {@const activeConds = condsFor(p)}
     {@const implied = impliedBy(activeConds)}
@@ -1243,9 +1230,6 @@
     <section class="mb-6 rounded-lg border border-slate-700 bg-slate-900/50 p-4 text-sm">
       <!-- Header -->
       <div class="mb-3 flex items-center gap-2">
-        {#if isActive}
-          <span class="rounded bg-emerald-800/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">active</span>
-        {/if}
         <span class="font-semibold text-slate-100">{p.placeholderName ?? p.name}</span>
         {#if p.characterId && isPc}
           <a class="text-[10px] text-slate-400 hover:text-emerald-300" href={`/c/${data.campaign.code}/character/${p.characterId}`}>↗ sheet</a>
@@ -1903,25 +1887,10 @@
             {/each}
           </select>
         </label>
-        <label class="flex items-center gap-1">
-          <span class="text-slate-500">Round:</span>
-          <select
-            class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5"
-            bind:value={logFilterRound}
-          >
-            <option value="all">all</option>
-            {#each logRounds as r}
-              <option value={r}>R{r}</option>
-            {/each}
-          </select>
-        </label>
-        {#if logFilterParticipantId !== 'all' || logFilterRound !== 'all'}
+        {#if logFilterParticipantId !== 'all'}
           <button
             class="text-slate-500 hover:text-slate-200"
-            on:click={() => {
-              logFilterParticipantId = 'all';
-              logFilterRound = 'all';
-            }}
+            on:click={() => (logFilterParticipantId = 'all')}
           >
             clear
           </button>
@@ -1935,7 +1904,6 @@
         {@const amends = amendsByOriginal.get(entry.id) ?? []}
         <li class="rounded border border-slate-800 bg-slate-950/50 p-2">
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="font-mono text-slate-500">R{entry.round}</span>
             <span class="font-semibold text-slate-200">{actor?.name ?? '—'}</span>
             <span class="text-slate-400">{entry.actionLabel}</span>
             {#if target}
