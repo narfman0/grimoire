@@ -443,13 +443,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         );
 
       if (isDM) {
-        // DM sees everything. Compute placeholders anyway (unused by DM UI)
-        // for shape symmetry with the player branch.
-        let idx = 0;
-        for (const r of fullRows) {
-          if (r.kind === 'pc') r.placeholderName = r.name;
-          else r.placeholderName = `Enemy ${++idx}`;
-        }
+        // DM sees everything. placeholderName mirrors the real name — the
+        // UI renders `placeholderName ?? name`, and the DM is never meant
+        // to see the "Enemy N" redaction (only players do, below).
+        for (const r of fullRows) r.placeholderName = r.name;
         return fullRows;
       }
 

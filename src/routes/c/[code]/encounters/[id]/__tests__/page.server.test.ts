@@ -174,6 +174,42 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
 
   // Locks the player-side redaction path. A monster with `hidden: true`
   // disappears entirely from the player projection.
+  // Locks: the DM always sees real monster names in placeholderName. A
+  // prior bug stamped every non-PC row with "Enemy N" in the DM branch
+  // even though the UI renders `placeholderName ?? name` — DMs ended up
+  // seeing "Enemy 1, Enemy 2" instead of "Goblin", "Orc".
+  it('DM placeholderName mirrors the real monster name', async () => {
+    const { dmId, code, encounterId } = await dmFixture(db);
+    const data = await runLoad(load, loadEvent({
+      user: { id: dmId, username: 'dm', isAdmin: false },
+      params: { code, id: encounterId }
+    }));
+    const goblin = data.participants.find((p: { name: string }) => p.name === 'Goblin');
+    expect(goblin).toBeDefined();
+    expect(goblin!.placeholderName).toBe('Goblin');
+  });
+
+  // Locks the player-side redaction for hidden non-PC names: when
+  // reveals.identity is false, placeholderName becomes "Enemy N".
+  it('player view shows "Enemy N" for non-PCs without identity reveal', async () => {
+    const { playerId, code, encounterId, monsterId } = await dmPlusPlayerFixture(db);
+    const { schema } = await import('$lib/server/__tests__/test-db');
+    const { eq } = await import('drizzle-orm');
+    await db
+      .update(schema.participants)
+      .set({
+        revealsJson: JSON.stringify({ identity: false, vitals: false, combat: false, hidden: false })
+      })
+      .where(eq(schema.participants.id, monsterId));
+
+    const data = await runLoad(load, loadEvent({
+      user: { id: playerId, username: 'player', isAdmin: false },
+      params: { code, id: encounterId }
+    }));
+    const monster = data.participants.find((p: { id: string }) => p.id === monsterId);
+    expect(monster!.placeholderName).toMatch(/^Enemy \d+$/);
+  });
+
   it('redacts hidden non-PC participants from the player view', async () => {
     const { playerId, code, encounterId, monsterId } = await dmPlusPlayerFixture(db);
     // Mark the goblin as hidden.
