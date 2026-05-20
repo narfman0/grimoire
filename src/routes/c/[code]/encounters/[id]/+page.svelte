@@ -668,22 +668,17 @@
   }
 
   const KINDS: Array<'pc' | 'npc'> = ['pc', 'npc'];
-  /** Resolve a participant's live condition list. Takes the live conditions
-   *  array as an explicit argument so Svelte's reactivity sees liveHpMap as
-   *  a dependency at the call site (function-call expressions don't follow
-   *  closures). */
-  function condsFor(
-    p: { id: string; kind: string; conditions: string[] },
-    live: string[] | undefined
-  ): string[] {
-    return conditionsForParticipant(p, data.participantPcConditions, live);
-  }
-
   async function toggleCondition(
     p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
     cond: string
   ) {
-    const current = condsFor(p, liveHpMap[p.id]?.conditions);
+    // No template-reactivity concern here — this is called from an event
+    // handler, so reading data.participantPcConditions imperatively is fine.
+    const current = conditionsForParticipant(
+      p,
+      data.participantPcConditions,
+      liveHpMap[p.id]?.conditions
+    );
     const next = toggleArrayValue(current, cond);
     if (p.kind === 'pc') {
       if (!p.characterId) return;
@@ -1201,7 +1196,7 @@
           role={data.role}
           isActive={p.id === liveActive}
           {isSelected}
-          activeConds={condsFor(p, liveHpMap[p.id]?.conditions)}
+          activeConds={conditionsForParticipant(p, data.participantPcConditions, liveHpMap[p.id]?.conditions)}
           concLabel={concLbl}
           liveCurrentHp={liveHpMap[p.id]?.currentHp}
           liveTempHp={liveHpMap[p.id]?.tempHp}
@@ -1227,7 +1222,7 @@
   {@const p = data.participants.find((x) => x.id === selectedId)}
   {#if p}
     {@const plan = livePlans[p.id]}
-    {@const activeConds = condsFor(p, liveHpMap[p.id]?.conditions)}
+    {@const activeConds = conditionsForParticipant(p, data.participantPcConditions, liveHpMap[p.id]?.conditions)}
     {@const implied = impliedBy(activeConds)}
     {@const concRaw = liveHpMap[p.id]?.concentrating}
     {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
