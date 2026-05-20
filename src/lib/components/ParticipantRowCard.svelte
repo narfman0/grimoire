@@ -61,9 +61,8 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 <li
-  class="flex flex-wrap items-center gap-3 py-2 text-sm cursor-pointer select-none
-    {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}
-    {isSelected && !isActive ? 'rounded bg-slate-800/50 px-2' : ''}
+  class="flex flex-wrap items-center gap-3 py-2 px-2 text-sm cursor-pointer select-none rounded
+    {isActive ? 'bg-emerald-950/30' : isSelected ? 'bg-slate-800/50' : ''}
     hover:bg-slate-800/30"
   on:click={() => dispatch('select')}
 >
