@@ -16,8 +16,15 @@
     type ParticipantHp,
     type TurnPlan
   } from '$lib/realtime/encounter-channel';
-
-  type HitOutcome = '' | 'hit' | 'miss' | 'crit' | 'fumble' | 'heal' | 'saved' | 'failed-save';
+  import {
+    applyHpAndLog,
+    revertPriorHpChange,
+    firedEventsFor,
+    effectiveDamage,
+    reactionPromptsForResolution,
+    type HitOutcome,
+    type ResolveTarget
+  } from '$lib/realtime/resolve';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -185,52 +192,23 @@
     round: number
   ): Promise<boolean> {
     if (!conn || !resolveForParticipantId) return false;
-    const target = targetId
+    const target = (targetId
       ? data.participants.find((p) => p.id === targetId) ?? null
-      : null;
-    let targetHpBefore: number | null = null;
-    let targetHpAfter: number | null = null;
-    if (
-      target &&
-      target.kind !== 'pc' &&
-      typeof damage === 'number' &&
-      damage > 0 &&
-      (outcome === 'hit' ||
-        outcome === 'crit' ||
-        outcome === 'heal' ||
-        outcome === 'saved' ||
-        outcome === 'failed-save')
-    ) {
-      const seed = seedFor(target);
-      targetHpBefore = seed.currentHp;
-      const effective = outcome === 'saved' ? Math.floor(damage / 2) : damage;
-      let next = seed;
-      if (effective > 0 || outcome === 'heal') {
-        next =
-          outcome === 'heal'
-            ? conn.applyHeal(target.id, damage, target.maxHp, seed)
-            : conn.applyDamage(target.id, effective, seed);
-      }
-      targetHpAfter = next.currentHp;
-    }
-    const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        participantId: resolveForParticipantId,
-        targetParticipantId: targetId,
-        actionId: resolveActionId,
-        actionLabel: resolveActionLabel,
-        round,
-        attackRoll: attack,
-        damageRoll: damage,
-        hit: outcome || null,
-        targetHpBefore,
-        targetHpAfter,
-        notes: resolveNotes.slice(0, 500) || null
-      })
+      : null) as ResolveTarget | null;
+    const result = await applyHpAndLog({
+      conn,
+      encounterId: data.encounter.id,
+      actingParticipantId: resolveForParticipantId,
+      target,
+      outcome,
+      damage,
+      attack,
+      round,
+      actionId: resolveActionId,
+      actionLabel: resolveActionLabel,
+      notes: resolveNotes
     });
-    return res.ok;
+    return result.ok;
   }
 
   async function submitDmResolve() {
@@ -272,22 +250,18 @@
           const targetHpEntry = liveHpMap[resolveTargetId];
           if (targetHpEntry?.concentrating) {
             const targetParticipant = data.participants.find((p) => p.id === resolveTargetId);
-            const effectiveDamage =
-              resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
+            const effective = effectiveDamage(resolveHit, resolveDamage);
             concSavePrompt = {
               participantName: targetParticipant?.name ?? 'Target',
-              dc: Math.max(10, Math.floor(effectiveDamage / 2)),
+              dc: Math.max(10, Math.floor(effective / 2)),
               participantId: resolveTargetId
             };
           }
         }
       }
       // Build the set of events that fired from this resolution.
-      const firedEvents: string[] = [];
-      if (resolveHit === 'hit') firedEvents.push('attack.hit');
-      if (resolveHit === 'crit') { firedEvents.push('attack.hit'); firedEvents.push('attack.crit'); }
-      if (resolveHit === 'failed-save') { firedEvents.push('spell.hit'); firedEvents.push('save.failed'); }
-      // Check if any target was reduced to 0 HP.
+      const firedEvents = firedEventsFor(resolveHit);
+      // Add 'attack.reduce-to-zero' if any target hit 0 HP.
       const checkTargets = resolveMultiTargetIds.length > 0 ? resolveMultiTargetIds : (resolveTargetId ? [resolveTargetId] : []);
       for (const tid of checkTargets) {
         const hpEntry = liveHpMap[tid];
@@ -296,28 +270,17 @@
           break;
         }
       }
-      // For each PC participant whose trigger on[] intersects firedEvents,
-      // add a reaction prompt (skip if reactionUsed already).
-      if (firedEvents.length > 0) {
-        const newPrompts: typeof reactionPrompts = [];
-        for (const participant of data.participants) {
-          if (participant.kind !== 'pc') continue;
-          if (roundEconomy[participant.id]?.reactionUsed) continue;
-          const triggers = data.participantPcTriggers?.[participant.id] ?? [];
-          for (const trigger of triggers) {
-            if (trigger.on.some((ev) => firedEvents.includes(ev))) {
-              newPrompts.push({
-                participantId: participant.id,
-                participantName: participant.name,
-                triggerId: trigger.id,
-                triggerName: trigger.name
-              });
-              break; // one prompt per participant per resolution
-            }
-          }
-        }
-        reactionPrompts = [...reactionPrompts, ...newPrompts];
+      const reactionUsedByParticipantId: Record<string, boolean> = {};
+      for (const [pid, econ] of Object.entries(roundEconomy)) {
+        if (econ?.reactionUsed) reactionUsedByParticipantId[pid] = true;
       }
+      const newPrompts = reactionPromptsForResolution({
+        firedEvents,
+        participants: data.participants,
+        triggersByParticipantId: data.participantPcTriggers ?? {},
+        reactionUsedByParticipantId
+      });
+      if (newPrompts.length > 0) reactionPrompts = [...reactionPrompts, ...newPrompts];
       // Clear the plan if there was one.
       if (livePlans[resolveForParticipantId]) {
         conn.clearPlan(resolveForParticipantId).catch(() => {});
@@ -390,85 +353,41 @@
     if (!conn || !amendingLogId || !resolveForParticipantId) return;
     const round = liveState?.round ?? data.encounter.round;
 
-    // Revert the prior entry's HP change (if any) before applying the new
-    // outcome. Revert = apply the inverse delta to the *current* live HP,
-    // so amendments don't stack on top of the prior change. Other actions
-    // that hit the target between the original and the amend are preserved.
+    // Revert the prior entry's HP change before applying the new outcome,
+    // so amendments don't stack on top of unrelated damage that landed in
+    // between.
     const prior = data.actionLog.find((e) => e.id === amendingLogId);
-    if (
-      prior &&
-      prior.targetParticipantId &&
-      prior.targetHpBefore != null &&
-      prior.targetHpAfter != null
-    ) {
-      const priorTarget = data.participants.find((p) => p.id === prior.targetParticipantId);
-      if (priorTarget && priorTarget.kind !== 'pc') {
-        const delta = prior.targetHpBefore - prior.targetHpAfter;
-        const seed = seedFor(priorTarget);
-        if (delta > 0) {
-          // Prior entry dealt damage → revert with heal
-          conn.applyHeal(priorTarget.id, delta, priorTarget.maxHp, seed);
-        } else if (delta < 0) {
-          // Prior entry healed → revert with damage
-          conn.applyDamage(priorTarget.id, -delta, seed);
-        }
-      }
+    if (prior) {
+      const priorTarget = (data.participants.find((p) => p.id === prior.targetParticipantId) ?? null) as ResolveTarget | null;
+      revertPriorHpChange(conn, prior, priorTarget);
     }
 
-    // Apply the new outcome (same logic as submitDmResolve).
-    const target = resolveTargetId
+    const target = (resolveTargetId
       ? data.participants.find((p) => p.id === resolveTargetId) ?? null
-      : null;
-    let targetHpBefore: number | null = null;
-    let targetHpAfter: number | null = null;
-    if (
-      target &&
-      target.kind !== 'pc' &&
-      typeof resolveDamage === 'number' &&
-      resolveDamage > 0 &&
-      (resolveHit === 'hit' ||
-        resolveHit === 'crit' ||
-        resolveHit === 'heal' ||
-        resolveHit === 'saved' ||
-        resolveHit === 'failed-save')
-    ) {
-      // Re-read seed *after* the revert so we capture the corrected starting HP.
-      const live = liveState?.participantHp[target.id];
-      const seed: ParticipantHp = live ?? seedFor(target);
-      targetHpBefore = seed.currentHp;
-      const effective = resolveHit === 'saved' ? Math.floor(resolveDamage / 2) : resolveDamage;
-      let next = seed;
-      if (effective > 0 || resolveHit === 'heal') {
-        next =
-          resolveHit === 'heal'
-            ? conn.applyHeal(target.id, resolveDamage, target.maxHp, seed)
-            : conn.applyDamage(target.id, effective, seed);
-      }
-      targetHpAfter = next.currentHp;
-    }
+      : null) as ResolveTarget | null;
+    // Re-read live HP *after* the revert so the new damage starts from the
+    // corrected baseline.
+    const liveSeed = target ? liveState?.participantHp[target.id] ?? null : null;
 
     resolveSubmitting = true;
     try {
-      const res = await fetch(`/api/encounters/${data.encounter.id}/log`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          participantId: resolveForParticipantId,
-          targetParticipantId: resolveTargetId,
-          actionId: resolveActionId,
-          actionLabel: resolveActionLabel,
-          round,
-          attackRoll: resolveAttack,
-          damageRoll: resolveDamage,
-          hit: resolveHit || null,
-          targetHpBefore,
-          targetHpAfter,
-          notes: resolveNotes.slice(0, 500) || null,
-          amendsLogId: amendingLogId
-        })
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: data.encounter.id,
+        actingParticipantId: resolveForParticipantId,
+        target,
+        outcome: resolveHit,
+        damage: resolveDamage,
+        attack: resolveAttack,
+        round,
+        actionId: resolveActionId,
+        actionLabel: resolveActionLabel,
+        notes: resolveNotes,
+        liveSeed,
+        amendsLogId: amendingLogId
       });
-      if (!res.ok) {
-        resolveError = `amend: ${res.status} ${(await res.text()).slice(0, 200)}`;
+      if (!result.ok) {
+        resolveError = `amend: ${result.status} ${result.errorText ?? ''}`;
         return;
       }
       amendingLogId = null;
