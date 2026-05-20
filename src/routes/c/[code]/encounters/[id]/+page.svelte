@@ -10,6 +10,11 @@
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
+  import {
+    conditionsForParticipant,
+    toggleArrayValue,
+    patchPcWithMirror
+  } from '$lib/encounter/conditions';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import {
     connectEncounter,
@@ -662,60 +667,29 @@
   }
 
   const KINDS: Array<'pc' | 'npc'> = ['pc', 'npc'];
-  /** Live condition list for a participant. PCs source from the SSR-loaded
-   *  character document (mirrored in `data.participantPcConditions`); non-PCs
-   *  source from the live Y.Doc participantHp blob, falling back to the SSR
-   *  conditions array. */
   function condsFor(p: { id: string; kind: string; conditions: string[] }): string[] {
-    if (p.kind === 'pc') return data.participantPcConditions?.[p.id] ?? [];
-    return liveHpMap[p.id]?.conditions ?? p.conditions;
+    return conditionsForParticipant(p, data.participantPcConditions, liveHpMap[p.id]?.conditions);
   }
 
-  /** Toggle a condition on a participant. Non-PCs go through participantHp
-   *  (Y.Doc when open, REST fallback). PCs round-trip the character document
-   *  via PATCH /api/characters/{id} — the player's open sheet picks up the
-   *  change on next Y.Doc reconciliation / page reload. Optimistic UI for
-   *  PCs updates the local participantPcConditions map immediately. */
   async function toggleCondition(
     p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
     cond: string
   ) {
+    const current = condsFor(p);
+    const next = toggleArrayValue(current, cond);
     if (p.kind === 'pc') {
       if (!p.characterId) return;
-      const current = data.participantPcConditions?.[p.id] ?? [];
-      const next = current.includes(cond)
-        ? current.filter((c) => c !== cond)
-        : [...current, cond];
-      // Optimistic update so the chip flips immediately.
-      data.participantPcConditions = {
-        ...(data.participantPcConditions ?? {}),
-        [p.id]: next
-      };
-      try {
-        const res = await fetch(`/api/characters/${p.characterId}`);
-        if (!res.ok) throw new Error('fetch failed');
-        const char = await res.json() as { document: Record<string, unknown> | null };
-        const doc = { ...(char.document ?? {}), conditions: next };
-        const patch = await fetch(`/api/characters/${p.characterId}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ document: doc })
-        });
-        if (!patch.ok) throw new Error('patch failed');
-      } catch {
-        // Revert optimistic update on failure.
-        data.participantPcConditions = {
-          ...(data.participantPcConditions ?? {}),
-          [p.id]: current
-        };
-      }
+      await patchPcWithMirror({
+        characterId: p.characterId,
+        field: 'conditions',
+        next,
+        prev: current,
+        setLocal: (v) => {
+          data.participantPcConditions = { ...(data.participantPcConditions ?? {}), [p.id]: v };
+        }
+      });
       return;
     }
-    const seed = seedFor(p);
-    const current = liveHpMap[p.id]?.conditions ?? seed.conditions;
-    const next = current.includes(cond)
-      ? current.filter((c) => c !== cond)
-      : [...current, cond];
     if (conn && connStatus === 'open') {
       conn.setConditions(p.id, next).catch(() => {});
     } else {
@@ -728,11 +702,6 @@
     }
   }
 
-  /** Start concentration on a participant with a free-text label. Non-PCs
-   *  go through participantHp on the encounter Y.Doc; PCs round-trip the
-   *  character document via PATCH /api/characters/{id} so the player's
-   *  sheet eventually picks up the change. Optimistic UI on the PC path
-   *  flips the local mirror map immediately. */
   async function startConcentrating(
     p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
     label: string
@@ -744,27 +713,15 @@
     if (p.kind === 'pc') {
       if (!p.characterId) return;
       const prev = data.participantPcConcentrating?.[p.id] ?? null;
-      data.participantPcConcentrating = {
-        ...(data.participantPcConcentrating ?? {}),
-        [p.id]: next
-      };
-      try {
-        const res = await fetch(`/api/characters/${p.characterId}`);
-        if (!res.ok) throw new Error('fetch failed');
-        const char = await res.json() as { document: Record<string, unknown> | null };
-        const doc = { ...(char.document ?? {}), concentrating: next };
-        const patch = await fetch(`/api/characters/${p.characterId}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ document: doc })
-        });
-        if (!patch.ok) throw new Error('patch failed');
-      } catch {
-        data.participantPcConcentrating = {
-          ...(data.participantPcConcentrating ?? {}),
-          [p.id]: prev
-        };
-      }
+      await patchPcWithMirror({
+        characterId: p.characterId,
+        field: 'concentrating',
+        next,
+        prev,
+        setLocal: (v) => {
+          data.participantPcConcentrating = { ...(data.participantPcConcentrating ?? {}), [p.id]: v };
+        }
+      });
       return;
     }
     if (conn && connStatus === 'open') {
@@ -772,35 +729,21 @@
     }
   }
 
-  /** Clear concentration on a participant. Same PC vs non-PC routing as
-   *  startConcentrating. */
   async function clearConcentrating(
     p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] }
   ) {
     if (p.kind === 'pc') {
       if (!p.characterId) return;
       const prev = data.participantPcConcentrating?.[p.id] ?? null;
-      data.participantPcConcentrating = {
-        ...(data.participantPcConcentrating ?? {}),
-        [p.id]: null
-      };
-      try {
-        const res = await fetch(`/api/characters/${p.characterId}`);
-        if (!res.ok) throw new Error('fetch failed');
-        const char = await res.json() as { document: Record<string, unknown> | null };
-        const doc = { ...(char.document ?? {}), concentrating: null };
-        const patch = await fetch(`/api/characters/${p.characterId}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ document: doc })
-        });
-        if (!patch.ok) throw new Error('patch failed');
-      } catch {
-        data.participantPcConcentrating = {
-          ...(data.participantPcConcentrating ?? {}),
-          [p.id]: prev
-        };
-      }
+      await patchPcWithMirror<{ label: string; sinceRound?: number } | null>({
+        characterId: p.characterId,
+        field: 'concentrating',
+        next: null,
+        prev,
+        setLocal: (v) => {
+          data.participantPcConcentrating = { ...(data.participantPcConcentrating ?? {}), [p.id]: v };
+        }
+      });
       return;
     }
     if (conn && connStatus === 'open') {
