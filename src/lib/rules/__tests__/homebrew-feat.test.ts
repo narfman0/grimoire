@@ -66,6 +66,94 @@ describe('homebrew feat → derive()', () => {
     expect(d.stats.abilities.cha.score).toBe(11);
   });
 
+  it('applies a skill proficiency choice', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'skill-tinker',
+      version: 1,
+      name: 'Skill Tinker',
+      source: 'homebrew',
+      data: { choices: { skillProficiency: { allowedSkills: ['arcana', 'history'] } } }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { skillProficiency: { skill: 'arcana' } } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    expect(d.stats.skills.arcana?.proficient).toBe(true);
+  });
+
+  it('drops a skill proficiency pick outside the allow-list', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'skill-tinker',
+      version: 1,
+      name: 'Skill Tinker',
+      source: 'homebrew',
+      data: { choices: { skillProficiency: { allowedSkills: ['arcana'] } } }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { skillProficiency: { skill: 'history' } } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    expect(d.stats.skills.history?.proficient).toBeFalsy();
+  });
+
+  it('applies a saving-throw proficiency choice', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'resilient-pick',
+      version: 1,
+      name: 'Resilient',
+      source: 'homebrew',
+      data: { choices: { savingThrow: { allowedAbilities: ['wis'] } } }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { savingThrow: { ability: 'wis' } } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    expect(d.stats.saves.wis.proficient).toBe(true);
+  });
+
+  it('applies an ASI pick from the default ability set when allowedAbilities is omitted', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'open-asi',
+      version: 1,
+      name: 'Open ASI',
+      source: 'homebrew',
+      data: { choices: { asi: { bonus: 1 } } }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { asi: { ability: 'dex' } } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    // Baseline DEX 13; +1 from ASI pick.
+    expect(d.stats.abilities.dex.score).toBe(14);
+  });
+
+  it('drops an ASI pick outside the default ability set', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'open-asi',
+      version: 1,
+      name: 'Open ASI',
+      source: 'homebrew',
+      data: { choices: { asi: { bonus: 1 } } }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      // 'gibberish' is not in the default ability set — should not apply.
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { asi: { ability: 'gibberish' } } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    expect(d.stats.abilities.cha.score).toBe(10);
+    expect(d.stats.abilities.str.score).toBe(17);
+  });
+
   it('silently skips a missing homebrew feat row (engine tolerates orphans)', () => {
     const character: CharacterDocument = {
       ...zealot.CHARACTER,

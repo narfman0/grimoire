@@ -44,6 +44,104 @@ interface ActiveModifier {
   raw: Record<string, unknown>;
 }
 
+/** Specs for the six feat-choice kinds that synthesize a stat-modifier from a
+ *  player pick (asi, skillProficiency, expertise, savingThrow, language,
+ *  toolProficiency). Spell + feature picks have different shapes (deferred
+ *  refs, multi-select) and stay inline. */
+interface FeatModifierChoiceSpec {
+  /** Used both for the modifier id and as the field key in decl/picks. */
+  declKey: string;
+  /** Suffix appended to `feat/{slug}/` for the modifier id. */
+  idSuffix: string;
+  /** Field on the pick object that holds the chosen value (e.g. 'ability'). */
+  pickField: string;
+  /** Field on the decl object that holds the allow-list (e.g. 'allowedAbilities'). */
+  allowedField?: string;
+  /** Used when the decl omits its allow-list (asi's six abilities, etc.).
+   *  When undefined, an absent allow-list means "anything goes". */
+  defaultAllowed?: string[];
+  /** Expertise accepts the literal string 'proficient' in place of an array,
+   *  meaning "restrict to skills the character is already proficient in" —
+   *  the UI enforces; the engine accepts any pick. */
+  allowProficient?: boolean;
+  /** Prefixed onto the pick to form the modifier target, e.g. 'ability' + pick
+   *  'str' → 'ability.str'. */
+  targetPrefix: string;
+  mode: 'ADD' | 'OVERRIDE';
+  /** Constant or a function of the decl entry (asi uses decl.bonus ?? 1). */
+  value: number | boolean | ((decl: Record<string, unknown>) => number | boolean);
+}
+
+const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
+  {
+    declKey: 'asi',
+    idSuffix: 'asi',
+    pickField: 'ability',
+    allowedField: 'allowedAbilities',
+    defaultAllowed: ['str', 'dex', 'con', 'int', 'wis', 'cha'],
+    targetPrefix: 'ability',
+    mode: 'ADD',
+    value: (decl) => (decl.bonus as number | undefined) ?? 1
+  },
+  {
+    declKey: 'skillProficiency',
+    idSuffix: 'skill-prof',
+    pickField: 'skill',
+    allowedField: 'allowedSkills',
+    targetPrefix: 'proficiency.skill',
+    mode: 'OVERRIDE',
+    value: true
+  },
+  {
+    declKey: 'expertise',
+    idSuffix: 'expertise',
+    pickField: 'skill',
+    allowedField: 'allowedSkills',
+    allowProficient: true,
+    targetPrefix: 'expertise.skill',
+    mode: 'OVERRIDE',
+    value: true
+  },
+  {
+    declKey: 'savingThrow',
+    idSuffix: 'save-prof',
+    pickField: 'ability',
+    allowedField: 'allowedAbilities',
+    targetPrefix: 'proficiency.save',
+    mode: 'OVERRIDE',
+    value: true
+  },
+  {
+    declKey: 'language',
+    idSuffix: 'language',
+    pickField: 'language',
+    allowedField: 'allowedLanguages',
+    targetPrefix: 'proficiency.language',
+    mode: 'OVERRIDE',
+    value: true
+  },
+  {
+    declKey: 'toolProficiency',
+    idSuffix: 'tool-prof',
+    pickField: 'tool',
+    allowedField: 'allowedTools',
+    targetPrefix: 'proficiency.tool',
+    mode: 'OVERRIDE',
+    value: true
+  }
+];
+
+function isChoiceAllowed(
+  allowed: string[] | 'proficient' | undefined,
+  pick: string,
+  defaultAllowed: string[] | undefined,
+  allowProficient: boolean | undefined
+): boolean {
+  if (allowed === 'proficient') return !!allowProficient;
+  if (!allowed) return defaultAllowed ? defaultAllowed.includes(pick) : true;
+  return allowed.includes(pick);
+}
+
 export function derive(character: CharacterDocument, content: ContentLookup): Derived {
   // -------------------------------------------------------------------------
   // PHASE 1 — resolve active content
@@ -263,146 +361,47 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     //   }
     if (a.row.kind === 'feat') {
       const featRef = character.feats.find((f) => f.slug === a.row.slug);
-      const decl = a.data.choices as
-        | {
-            asi?: { bonus?: number; allowedAbilities?: string[] };
-            skillProficiency?: { allowedSkills?: string[] };
-            expertise?: { allowedSkills?: string[] | 'proficient' };
-            savingThrow?: { allowedAbilities?: string[] };
-            language?: { allowedLanguages?: string[] };
-            toolProficiency?: { allowedTools?: string[] };
-            spell?: { picks?: number; level?: number; allowedSpells?: string[] };
-            feature?: { allowedFeatures?: string[]; category?: string };
+      const decl = (a.data.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
+      const picks = (featRef?.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
+      for (const spec of FEAT_MODIFIER_CHOICE_SPECS) {
+        const declEntry = decl[spec.declKey];
+        const pickEntry = picks[spec.declKey];
+        if (!declEntry || !pickEntry) continue;
+        const pick = pickEntry[spec.pickField] as string | undefined;
+        if (!pick) continue;
+        const allowed = spec.allowedField
+          ? (declEntry[spec.allowedField] as string[] | 'proficient' | undefined)
+          : undefined;
+        if (!isChoiceAllowed(allowed, pick, spec.defaultAllowed, spec.allowProficient)) continue;
+        const value = typeof spec.value === 'function' ? spec.value(declEntry) : spec.value;
+        allMods.push({
+          id: `feat/${a.row.slug}/${spec.idSuffix}`,
+          kind: 'stat-modifier',
+          source: a,
+          raw: {
+            kind: 'stat-modifier',
+            target: `${spec.targetPrefix}.${pick}`,
+            mode: spec.mode,
+            value
           }
-        | undefined;
-      const picks = (featRef?.choices as
-        | {
-            asi?: { ability?: string };
-            skillProficiency?: { skill?: string };
-            expertise?: { skill?: string };
-            savingThrow?: { ability?: string };
-            language?: { language?: string };
-            toolProficiency?: { tool?: string };
-            spell?: { spells?: string[] };
-            feature?: { feature?: string };
-          }
-        | undefined) ?? {};
-      if (decl?.asi && picks.asi?.ability) {
-        const allowed = decl.asi.allowedAbilities ?? ['str', 'dex', 'con', 'int', 'wis', 'cha'];
-        if (allowed.includes(picks.asi.ability)) {
-          allMods.push({
-            id: `feat/${a.row.slug}/asi`,
-            kind: 'stat-modifier',
-            source: a,
-            raw: {
-              kind: 'stat-modifier',
-              target: `ability.${picks.asi.ability}`,
-              mode: 'ADD',
-              value: decl.asi.bonus ?? 1
-            }
-          });
-        }
-      }
-      if (decl?.skillProficiency && picks.skillProficiency?.skill) {
-        const allowed = decl.skillProficiency.allowedSkills;
-        if (!allowed || allowed.includes(picks.skillProficiency.skill)) {
-          allMods.push({
-            id: `feat/${a.row.slug}/skill-prof`,
-            kind: 'stat-modifier',
-            source: a,
-            raw: {
-              kind: 'stat-modifier',
-              target: `proficiency.skill.${picks.skillProficiency.skill}`,
-              mode: 'OVERRIDE',
-              value: true
-            }
-          });
-        }
-      }
-      if (decl?.expertise && picks.expertise?.skill) {
-        // 'proficient' = restrict to skills the character is already
-        // proficient in. We don't have the resolved skill set yet at this
-        // point in derive, so we let the UI enforce it; the engine just
-        // applies the expertise flag and Phase 2 reads it.
-        const allowed = decl.expertise.allowedSkills;
-        const allowedOk =
-          allowed === 'proficient' || !allowed || (Array.isArray(allowed) && allowed.includes(picks.expertise.skill));
-        if (allowedOk) {
-          allMods.push({
-            id: `feat/${a.row.slug}/expertise`,
-            kind: 'stat-modifier',
-            source: a,
-            raw: {
-              kind: 'stat-modifier',
-              target: `expertise.skill.${picks.expertise.skill}`,
-              mode: 'OVERRIDE',
-              value: true
-            }
-          });
-        }
-      }
-      if (decl?.savingThrow && picks.savingThrow?.ability) {
-        const allowed = decl.savingThrow.allowedAbilities;
-        if (!allowed || allowed.includes(picks.savingThrow.ability)) {
-          allMods.push({
-            id: `feat/${a.row.slug}/save-prof`,
-            kind: 'stat-modifier',
-            source: a,
-            raw: {
-              kind: 'stat-modifier',
-              target: `proficiency.save.${picks.savingThrow.ability}`,
-              mode: 'OVERRIDE',
-              value: true
-            }
-          });
-        }
-      }
-      if (decl?.language && picks.language?.language) {
-        const allowed = decl.language.allowedLanguages;
-        if (!allowed || allowed.includes(picks.language.language)) {
-          allMods.push({
-            id: `feat/${a.row.slug}/language`,
-            kind: 'stat-modifier',
-            source: a,
-            raw: {
-              kind: 'stat-modifier',
-              target: `proficiency.language.${picks.language.language}`,
-              mode: 'OVERRIDE',
-              value: true
-            }
-          });
-        }
-      }
-      if (decl?.toolProficiency && picks.toolProficiency?.tool) {
-        const allowed = decl.toolProficiency.allowedTools;
-        if (!allowed || allowed.includes(picks.toolProficiency.tool)) {
-          allMods.push({
-            id: `feat/${a.row.slug}/tool-prof`,
-            kind: 'stat-modifier',
-            source: a,
-            raw: {
-              kind: 'stat-modifier',
-              target: `proficiency.tool.${picks.toolProficiency.tool}`,
-              mode: 'OVERRIDE',
-              value: true
-            }
-          });
-        }
+        });
       }
       // Spell + feature picks add new content refs to the active list (not
       // modifiers). Queued here, resolved alongside the feature-ref walk
       // below so their modifiers/activities/triggers feed back into derive.
-      if (decl?.spell && Array.isArray(picks.spell?.spells)) {
-        const allowed = decl.spell.allowedSpells;
-        for (const slug of picks.spell.spells) {
-          if (allowed && !allowed.includes(slug)) continue;
+      const spellDecl = decl.spell as { allowedSpells?: string[] } | undefined;
+      const spellPick = picks.spell as { spells?: string[] } | undefined;
+      if (spellDecl && Array.isArray(spellPick?.spells)) {
+        for (const slug of spellPick.spells) {
+          if (spellDecl.allowedSpells && !spellDecl.allowedSpells.includes(slug)) continue;
           deferredRefs.push({ kind: 'spell', slug });
         }
       }
-      if (decl?.feature && picks.feature?.feature) {
-        const allowed = decl.feature.allowedFeatures;
-        if (!allowed || allowed.includes(picks.feature.feature)) {
-          deferredRefs.push({ kind: 'feature', slug: picks.feature.feature });
+      const featureDecl = decl.feature as { allowedFeatures?: string[] } | undefined;
+      const featurePick = (picks.feature as { feature?: string } | undefined)?.feature;
+      if (featureDecl && featurePick) {
+        if (!featureDecl.allowedFeatures || featureDecl.allowedFeatures.includes(featurePick)) {
+          deferredRefs.push({ kind: 'feature', slug: featurePick });
         }
       }
     }
