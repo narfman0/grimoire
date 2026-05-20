@@ -39,6 +39,14 @@ const tx = db.transaction(() => {
   }
   if (campIds.length) {
     const inCamp = campIds.map(()=>'?').join(',');
+    // Characters can be owned by a verify user OR linked to a verify-owned
+    // campaign. Drop any character whose campaign is in the sweep, plus
+    // any leftover characters owned by a verify user.
+    db.prepare(\`DELETE FROM characters WHERE campaign_id IN (\${inCamp})\`).run(...campIds);
+  }
+  db.prepare(\`DELETE FROM characters WHERE owner_user_id IN (\${inIds})\`).run(...ids);
+  if (campIds.length) {
+    const inCamp = campIds.map(()=>'?').join(',');
     db.prepare(\`DELETE FROM campaign_members WHERE campaign_id IN (\${inCamp})\`).run(...campIds);
     db.prepare(\`DELETE FROM campaigns WHERE id IN (\${inCamp})\`).run(...campIds);
   }
