@@ -1206,7 +1206,6 @@
           liveCurrentHp={liveHpMap[p.id]?.currentHp}
           liveTempHp={liveHpMap[p.id]?.tempHp}
           editingInitiative={initiativeEditFor === p.id}
-          hpInput={hpInputs[p.id]}
           {busy}
           on:select={() => selectParticipant(p, isSelected)}
           on:startEditInitiative={() => (initiativeEditFor = p.id)}
@@ -1215,9 +1214,6 @@
             updateInitiative(p.id, e.detail);
             if (initiativeEditFor === p.id) initiativeEditFor = null;
           }}
-          on:hpInputChange={(e) => { hpInputs[p.id] = e.detail; hpInputs = hpInputs; }}
-          on:damage={() => dmDamage(p)}
-          on:heal={() => dmHeal(p)}
           on:remove={() => removeParticipant(p.id)}
         />
       {/each}
@@ -1260,6 +1256,37 @@
           on:click={() => (selectedId = null)}
         >✕</button>
       </div>
+
+      <!-- HP edit (DM only, when target has a maxHp) -->
+      {#if data.role === 'dm' && p.maxHp != null}
+        {@const liveCur = liveHpMap[p.id]?.currentHp ?? p.currentHp}
+        {@const liveTemp = liveHpMap[p.id]?.tempHp ?? p.tempHp ?? 0}
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <div class="text-[10px] uppercase tracking-wide text-slate-500">HP</div>
+          <span class="font-mono text-sm text-slate-200">
+            {liveCur ?? '—'} / {p.maxHp}{#if liveTemp > 0}<span class="text-emerald-300"> +{liveTemp}</span>{/if}
+          </span>
+          <input
+            type="number"
+            min="0"
+            class="ml-2 w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
+            placeholder="±hp"
+            bind:value={hpInputs[p.id]}
+          />
+          <button
+            class="rounded bg-red-700/60 px-2 py-0.5 text-xs hover:bg-red-700 disabled:opacity-40"
+            title="Apply damage"
+            disabled={busy}
+            on:click={() => dmDamage(p)}
+          >− dmg</button>
+          <button
+            class="rounded bg-emerald-700/60 px-2 py-0.5 text-xs hover:bg-emerald-700 disabled:opacity-40"
+            title="Apply heal"
+            disabled={busy}
+            on:click={() => dmHeal(p)}
+          >+ heal</button>
+        </div>
+      {/if}
 
       <!-- Conditions -->
       <div class="mb-3">

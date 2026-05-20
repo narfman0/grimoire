@@ -29,7 +29,6 @@ function baseProps(over: Record<string, unknown> = {}) {
     liveCurrentHp: undefined,
     liveTempHp: undefined,
     editingInitiative: false,
-    hpInput: undefined,
     busy: false,
     ...over
   };
@@ -44,12 +43,10 @@ describe('ParticipantRowCard', () => {
     expect(container.textContent).toMatch(/\+3/);
   });
 
-  it('hides DM controls and shows HP bucket badge for player role on a hidden NPC', () => {
-    const { container, queryByTitle } = render(ParticipantRowCard, {
+  it('shows HP bucket badge for player role on a hidden NPC', () => {
+    const { container } = render(ParticipantRowCard, {
       props: baseProps({ role: 'player' as const, liveCurrentHp: 5 })
     });
-    expect(queryByTitle('Apply damage')).toBeNull();
-    expect(queryByTitle('Apply heal')).toBeNull();
     // No raw HP digits in bucket-only mode.
     expect(container.textContent).not.toMatch(/5\s*\/\s*12/);
   });
@@ -60,20 +57,6 @@ describe('ParticipantRowCard', () => {
     component.$on('select', onSelect);
     await fireEvent.click(container.querySelector('li')!);
     expect(onSelect).toHaveBeenCalledTimes(1);
-  });
-
-  it('dispatches damage / heal on the +/- buttons (DM, hp>0)', async () => {
-    const onDamage = vi.fn();
-    const onHeal = vi.fn();
-    const { getByTitle, component } = render(ParticipantRowCard, {
-      props: baseProps({ hpInput: 5 })
-    });
-    component.$on('damage', onDamage);
-    component.$on('heal', onHeal);
-    await fireEvent.click(getByTitle('Apply damage'));
-    await fireEvent.click(getByTitle('Apply heal'));
-    expect(onDamage).toHaveBeenCalledTimes(1);
-    expect(onHeal).toHaveBeenCalledTimes(1);
   });
 
   it('dispatches commitInitiative with the typed number on Enter', async () => {
@@ -120,11 +103,11 @@ describe('ParticipantRowCard', () => {
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the npc badge for PCs', () => {
+  it('renders the participant name (no kind badge)', () => {
     const { container } = render(ParticipantRowCard, {
-      props: baseProps({ p: baseParticipant({ kind: 'pc', name: 'Alice' }) })
+      props: baseProps({ p: baseParticipant({ name: 'Goblin Boss' }) })
     });
     expect(container.textContent).not.toContain('npc');
-    expect(container.textContent).toContain('Alice');
+    expect(container.textContent).toContain('Goblin Boss');
   });
 });

@@ -30,7 +30,6 @@
   export let liveCurrentHp: number | null | undefined;
   export let liveTempHp: number | undefined;
   export let editingInitiative: boolean;
-  export let hpInput: number | undefined;
   export let busy: boolean;
 
   const dispatch = createEventDispatcher<{
@@ -38,18 +37,11 @@
     startEditInitiative: void;
     commitInitiative: number | null;
     cancelEditInitiative: void;
-    damage: void;
-    heal: void;
     remove: void;
-    hpInputChange: number;
   }>();
 
   function inputValue(e: Event): string {
     return (e.currentTarget as HTMLInputElement).value;
-  }
-
-  function onHpInputChange(e: Event): void {
-    dispatch('hpInputChange', Number(inputValue(e)) || 0);
   }
 
   function bucketFor(current: number | null | undefined, max: number | null, fallback: HpBucket | string | null | undefined): HpBucket {
@@ -104,9 +96,6 @@
       {p.initiative ?? '—'}
     </span>
   {/if}
-  {#if p.kind === 'npc'}
-    <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">npc</span>
-  {/if}
   <span class="flex-1 font-medium">
     {p.placeholderName ?? p.name}
     {#if concLabel !== null}
@@ -126,27 +115,6 @@
     {/if}
   {:else}
     <HpBucketBadge value={bucketFor(liveCurrentHp, p.maxHp, p.hpBucket)} />
-  {/if}
-  {#if role === 'dm' && p.maxHp != null}
-    <input
-      type="number"
-      min="0"
-      class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
-      placeholder="±hp"
-      value={hpInput ?? ''}
-      on:input={onHpInputChange}
-      on:click|stopPropagation
-    />
-    <button
-      class="rounded bg-red-700/60 px-1.5 py-0.5 text-xs hover:bg-red-700"
-      title="Apply damage"
-      on:click|stopPropagation={() => dispatch('damage')}
-    >−</button>
-    <button
-      class="rounded bg-emerald-700/60 px-1.5 py-0.5 text-xs hover:bg-emerald-700"
-      title="Apply heal"
-      on:click|stopPropagation={() => dispatch('heal')}
-    >+</button>
   {/if}
   {#if role === 'dm'}
     <button
