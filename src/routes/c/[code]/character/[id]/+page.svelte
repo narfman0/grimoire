@@ -1388,14 +1388,16 @@
 
 
 {#if document && derived}
-  <!-- ===== Action economy panel (top of page) =====
+  <!-- ===== Plan panel (top of page) =====
        Only surfaced when this character is a participant in a live
        encounter — outside of combat the slots don't mean anything, and the
-       chooser would broadcast intent nobody is listening for. -->
+       chooser would broadcast intent nobody is listening for. Same label
+       as the encounter page's per-row Plan section so the two pages
+       stay coherent. -->
   {#if data.liveEncounter}
     <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
       <div class="mb-2 flex items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold text-slate-200">Action economy</h2>
+        <h2 class="text-sm font-semibold text-slate-200">Plan</h2>
         <a
           class="rounded border border-emerald-700 bg-emerald-950/30 px-2 py-0.5 text-[11px] text-emerald-200 hover:bg-emerald-900/40"
           href={`/c/${data.campaign.code}/encounters/${data.liveEncounter.id}`}
