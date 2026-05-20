@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb } from '$lib/server/__tests__/test-db';
 import {
   seedUser,
@@ -62,7 +62,7 @@ describe('/c/[code]/character/[id] +page.server load', () => {
   it('returns every key the +page.svelte template reads', async () => {
     const { owner, code, characterId } = await fixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: owner, username: 'owner', isAdmin: false },
+      user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: characterId }
     }));
     for (const k of REQUIRED_KEYS) {
@@ -79,7 +79,7 @@ describe('/c/[code]/character/[id] +page.server load', () => {
   it('derives the character against the content fixture', async () => {
     const { owner, code, characterId } = await fixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: owner, username: 'owner', isAdmin: false },
+      user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: characterId }
     }));
     expect(data.derived).not.toBeNull();
@@ -96,7 +96,7 @@ describe('/c/[code]/character/[id] +page.server load', () => {
   it('ships a contentMap containing every fixture pack row', async () => {
     const { owner, code, characterId } = await fixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: owner, username: 'owner', isAdmin: false },
+      user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: characterId }
     }));
     expect(typeof data.contentMap).toBe('object');
@@ -124,7 +124,7 @@ describe('/c/[code]/character/[id] +page.server load', () => {
       // no document field
     });
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: characterId }
     }));
     expect(data.document).toBeNull();
@@ -149,7 +149,7 @@ describe('/c/[code]/character/[id] +page.server load', () => {
     await expectHttpError(
       load(
         loadEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { code, id: characterId }
         })
       ),
@@ -184,7 +184,7 @@ describe('/c/[code]/character/[id] +page.server load', () => {
     await expectHttpError(
       load(
         loadEvent({
-          user: { id: owner, username: 'owner', isAdmin: false },
+          user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false },
           params: { code: codeA, id: characterId }
         })
       ),

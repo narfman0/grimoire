@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb } from '$lib/server/__tests__/test-db';
 import {
   seedUser,
@@ -42,7 +42,7 @@ describe('/characters +page.server load', () => {
     });
 
     const data = await runLoad(load, loadEvent({
-      user: { id: owner, username: 'owner', isAdmin: false }
+      user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false }
     }));
     expect(data.user.id).toBe(owner);
     expect(data.characters.length).toBe(1);
@@ -65,7 +65,7 @@ describe('/characters +page.server load', () => {
   it('returns an empty characters list for a user with no characters', async () => {
     const u = await seedUser(db, { username: 'fresh' });
     const data = await runLoad(load, loadEvent({
-      user: { id: u, username: 'fresh', isAdmin: false }
+      user: { id: u, username: 'fresh', isAdmin: false, email: null, emailVerified: false }
     }));
     expect(data.characters).toEqual([]);
   });
@@ -88,7 +88,7 @@ describe('/characters +page.server load', () => {
       updatedAt: new Date()
     });
     const data = await runLoad(load, loadEvent({
-      user: { id: owner, username: 'owner', isAdmin: false }
+      user: { id: owner, username: 'owner', isAdmin: false, email: null, emailVerified: false }
     }));
     expect(data.characters[0].descLine).toBe('');
     expect(data.characters[0].totalLevel).toBe(0);

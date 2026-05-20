@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
 import {
@@ -21,7 +21,7 @@ async function fixture(db: Db) {
   return { dmId, encounterId, monsterId };
 }
 
-const dmOf = (id: string) => ({ id, username: 'dm', isAdmin: false });
+const dmOf = (id: string) => ({ id, username: 'dm', isAdmin: false, email: null, emailVerified: false });
 
 describe('POST /api/encounters/[id]/participants/[pid]/conditions', () => {
   let db: Db;
@@ -73,7 +73,7 @@ describe('POST /api/encounters/[id]/participants/[pid]/conditions', () => {
     await expectHttpError(
       POST(
         makeEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { id: encounterId, pid: monsterId },
           body: { conditions: [] }
         })

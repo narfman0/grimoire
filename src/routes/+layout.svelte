@@ -69,6 +69,19 @@
   }
 
   $: campaign = $page.data.campaign as { code: string; name: string } | undefined;
+
+  let resendBusy = false;
+  let resendDone = false;
+
+  async function resendVerify() {
+    resendBusy = true;
+    try {
+      await fetch('/api/auth/resend-verify', { method: 'POST' });
+      resendDone = true;
+    } finally {
+      resendBusy = false;
+    }
+  }
 </script>
 
 <div class="flex min-h-screen flex-col">
@@ -163,7 +176,7 @@
               </div>
             {/if}
           </div>
-          <span class="font-mono text-xs">{data.user.username}</span>
+          <a href="/me/change-password" class="font-mono text-xs hover:text-slate-200">{data.user.username}</a>
           <button
             class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:text-slate-200 disabled:opacity-40"
             on:click={logout}
@@ -178,6 +191,18 @@
       </div>
     </nav>
   </header>
+  {#if data.user && data.user.email && !data.user.emailVerified}
+    <div class="border-b border-amber-800/60 bg-amber-950/40 px-4 py-2 text-center text-xs text-amber-300">
+      Please verify your email address ({data.user.email}).
+      <button
+        class="ml-2 underline hover:text-amber-200"
+        on:click={resendVerify}
+        disabled={resendBusy || resendDone}
+      >
+        {resendDone ? 'Email sent!' : resendBusy ? 'Sending…' : 'Resend email'}
+      </button>
+    </div>
+  {/if}
   <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
     <slot />
   </main>

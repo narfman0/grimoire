@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import { makeLoadEvent } from '$lib/server/__tests__/test-event';
 import { load } from '../+page.server';
 
@@ -10,7 +10,7 @@ describe('/login +page.server load', () => {
   // signup→login redirect on cold start.
   it('redirects to / when locals.user is present', async () => {
     await expect(
-      load(loadEvent({ user: { id: 'u1', username: 'a', isAdmin: false } }))
+      load(loadEvent({ user: { id: 'u1', username: 'a', isAdmin: false, email: null, emailVerified: false } }))
     ).rejects.toMatchObject({ status: 303 });
   });
 

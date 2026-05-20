@@ -1,9 +1,4 @@
-// Server-side session helpers. Sessions live in the DB; the cookie holds an
-// opaque session id (random UUID) the server resolves on each request.
-// httpOnly so JS can't read it, sameSite=lax so it survives top-level
-// navigation but not cross-site form posts. 30-day TTL.
-
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, ne } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { db, schema } from '$lib/server/db';
 
@@ -14,12 +9,7 @@ export async function createSession(userId: string, cookies: Cookies): Promise<s
   const id = crypto.randomUUID();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-  await db.insert(schema.sessions).values({
-    id,
-    userId,
-    expiresAt,
-    createdAt: now
-  });
+  await db.insert(schema.sessions).values({ id, userId, expiresAt, createdAt: now });
   cookies.set(SESSION_COOKIE, id, {
     path: '/',
     httpOnly: true,
@@ -37,10 +27,22 @@ export async function destroySession(cookies: Cookies): Promise<void> {
   await db.delete(schema.sessions).where(eq(schema.sessions.id, id));
 }
 
+export async function destroyAllSessions(userId: string): Promise<void> {
+  await db.delete(schema.sessions).where(eq(schema.sessions.userId, userId));
+}
+
+export async function destroyAllSessionsExcept(userId: string, exceptId: string): Promise<void> {
+  await db
+    .delete(schema.sessions)
+    .where(and(eq(schema.sessions.userId, userId), ne(schema.sessions.id, exceptId)));
+}
+
 export interface SessionUser {
   id: string;
   username: string;
   isAdmin: boolean;
+  email: string | null;
+  emailVerified: boolean;
 }
 
 export async function loadUserFromCookie(cookies: Cookies): Promise<SessionUser | null> {
@@ -51,7 +53,9 @@ export async function loadUserFromCookie(cookies: Cookies): Promise<SessionUser 
     .select({
       userId: schema.sessions.userId,
       username: schema.users.username,
-      isAdmin: schema.users.isAdmin
+      isAdmin: schema.users.isAdmin,
+      email: schema.users.email,
+      emailVerifiedAt: schema.users.emailVerifiedAt
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
@@ -61,5 +65,11 @@ export async function loadUserFromCookie(cookies: Cookies): Promise<SessionUser 
     cookies.delete(SESSION_COOKIE, { path: '/' });
     return null;
   }
-  return { id: rows[0].userId, username: rows[0].username, isAdmin: rows[0].isAdmin };
+  return {
+    id: rows[0].userId,
+    username: rows[0].username,
+    isAdmin: rows[0].isAdmin,
+    email: rows[0].email,
+    emailVerified: rows[0].emailVerifiedAt !== null
+  };
 }

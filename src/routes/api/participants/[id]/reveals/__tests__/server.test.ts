@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
 import {
@@ -24,7 +24,7 @@ async function fixture(db: Db, opts: { withPlayer?: boolean } = {}) {
   return { dmId, playerId, encounterId, monsterId };
 }
 
-const dmOf = (id: string) => ({ id, username: 'dm', isAdmin: false });
+const dmOf = (id: string) => ({ id, username: 'dm', isAdmin: false, email: null, emailVerified: false });
 
 describe('PATCH /api/participants/[id]/reveals', () => {
   let db: Db;
@@ -63,7 +63,7 @@ describe('PATCH /api/participants/[id]/reveals', () => {
     await expectHttpError(
       PATCH(
         makeEvent({
-          user: { id: playerId!, username: 'p', isAdmin: false },
+          user: { id: playerId!, username: 'p', isAdmin: false, email: null, emailVerified: false },
           params: { id: monsterId },
           body: { hidden: true }
         })
@@ -78,7 +78,7 @@ describe('PATCH /api/participants/[id]/reveals', () => {
     await expectHttpError(
       PATCH(
         makeEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { id: monsterId },
           body: { hidden: true }
         })

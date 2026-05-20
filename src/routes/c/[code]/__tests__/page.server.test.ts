@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb } from '$lib/server/__tests__/test-db';
 import {
   seedUser,
@@ -37,7 +37,7 @@ describe('/c/[code] +page.server load', () => {
     const { code } = await seedCampaign(db, { dmId });
 
     const data = await runLoad(load, loadEvent({
-        user: { id: dmId, username: 'dm', isAdmin: false },
+        user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
         params: { code }
       })
     );
@@ -62,7 +62,7 @@ describe('/c/[code] +page.server load', () => {
     await expectHttpError(
       load(
         loadEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { code }
         })
       ),
@@ -79,7 +79,7 @@ describe('/c/[code] +page.server load', () => {
     await seedCharacter(db, { campaignId, ownerUserId: dmId, name: 'A' });
     await seedCharacter(db, { campaignId, ownerUserId: dmId, name: 'B' });
     const data = await runLoad(load, loadEvent({
-        user: { id: dmId, username: 'dm', isAdmin: false },
+        user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
         params: { code }
       })
     );

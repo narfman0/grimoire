@@ -127,6 +127,20 @@
       "when": 1779230000000,
       "tag": "0017_mysterious_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1779231000000,
+      "tag": "0018_npc_kind_merge",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1779232000000,
+      "tag": "0019_auth_hardening",
+      "breakpoints": true
     }
   ]
 }

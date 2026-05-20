@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb } from '$lib/server/__tests__/test-db';
 import {
   seedUser,
@@ -98,7 +98,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
   it('returns every key the +page.svelte template reads', async () => {
     const { dmId, code, encounterId } = await dmFixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     for (const k of REQUIRED_KEYS) {
@@ -114,7 +114,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
   it('projects a monster participant\'s statblock from the content row', async () => {
     const { dmId, code, encounterId, monsterId } = await dmFixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     const monster = data.participants.find((p: { id: string }) => p.id === monsterId);
@@ -133,7 +133,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
   it('returns monsterOptions[] from the content catalog', async () => {
     const { dmId, code, encounterId } = await dmFixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     const slugs = data.monsterOptions.map((m: { slug: string }) => m.slug);
@@ -148,7 +148,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
   it('computes the party block from PC participants', async () => {
     const { playerId, code, encounterId } = await dmPlusPlayerFixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: playerId, username: 'player', isAdmin: false },
+      user: { id: playerId, username: 'player', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     expect(data.party.size).toBe(1);
@@ -162,7 +162,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
   it('produces participantPcStats for PC rows via derive()', async () => {
     const { playerId, code, encounterId, pcId } = await dmPlusPlayerFixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: playerId, username: 'player', isAdmin: false },
+      user: { id: playerId, username: 'player', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     const stats = data.participantPcStats[pcId];
@@ -181,7 +181,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
   it('DM placeholderName mirrors the real monster name', async () => {
     const { dmId, code, encounterId } = await dmFixture(db);
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     const goblin = data.participants.find((p: { name: string }) => p.name === 'Goblin');
@@ -203,7 +203,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
       .where(eq(schema.participants.id, monsterId));
 
     const data = await runLoad(load, loadEvent({
-      user: { id: playerId, username: 'player', isAdmin: false },
+      user: { id: playerId, username: 'player', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     const monster = data.participants.find((p: { id: string }) => p.id === monsterId);
@@ -228,7 +228,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
       .where(eq(schema.participants.id, monsterId));
 
     const data = await runLoad(load, loadEvent({
-      user: { id: playerId, username: 'player', isAdmin: false },
+      user: { id: playerId, username: 'player', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     const ids = data.participants.map((p: { id: string }) => p.id);
@@ -251,7 +251,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
 
     await expectHttpError(
       load(loadEvent({
-        user: { id: playerId, username: 'p', isAdmin: false },
+        user: { id: playerId, username: 'p', isAdmin: false, email: null, emailVerified: false },
         params: { code, id: encounterId }
       })),
       404
@@ -259,7 +259,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
 
     // But the DM can.
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code, id: encounterId }
     }));
     expect(data.encounter.id).toBe(encounterId);
@@ -289,7 +289,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
     await expectHttpError(
       load(
         loadEvent({
-          user: { id: dmId, username: 'dm', isAdmin: false },
+          user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
           params: { code, id: otherEncounterId }
         })
       ),

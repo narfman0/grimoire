@@ -132,13 +132,36 @@ export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  email: text('email'), // nullable; required before public-deploy email verification
-  /** Platform admin flag. Granted via SQL today (no UI). Used for moderation
-   *  surfaces (/admin/reports). One bit is enough for v1; promote to a role
-   *  table when we need multiple permission tiers. */
+  email: text('email').unique(),
+  emailVerifiedAt: integer('email_verified_at', { mode: 'timestamp_ms' }),
+  emailVerifyToken: text('email_verify_token'),
+  emailVerifyTokenExpiresAt: integer('email_verify_token_expires_at', { mode: 'timestamp_ms' }),
+  passwordResetToken: text('password_reset_token'),
+  passwordResetTokenExpiresAt: integer('password_reset_token_expires_at', { mode: 'timestamp_ms' }),
+  failedLoginCount: integer('failed_login_count').notNull().default(0),
+  lockedUntil: integer('locked_until', { mode: 'timestamp_ms' }),
   isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
+
+export const authLog = sqliteTable(
+  'auth_log',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+    action: text('action').notNull(),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byUser: index('auth_log_user').on(t.userId, t.createdAt),
+    byAction: index('auth_log_action').on(t.action, t.createdAt)
+  })
+);
+
+export type AuthLogEntry = typeof authLog.$inferSelect;
+export type NewAuthLogEntry = typeof authLog.$inferInsert;
 
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),

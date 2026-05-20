@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
 import {
@@ -24,7 +24,7 @@ async function fixture(db: Db, opts: { withPlayer?: boolean } = {}) {
   return { dmId, playerId, encounterId, monsterId };
 }
 
-const userOf = (id: string, name = 'u') => ({ id, username: name, isAdmin: false });
+const userOf = (id: string, name = 'u') => ({ id, username: name, isAdmin: false, email: null, emailVerified: false });
 
 describe('GET /api/encounters/[id]', () => {
   let db: Db;

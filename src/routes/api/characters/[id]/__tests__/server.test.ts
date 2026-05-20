@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
 import {
@@ -46,7 +46,7 @@ async function fixture(db: Db) {
   return { dmId, owner, campaignId, characterId };
 }
 
-const ownerOf = (id: string) => ({ id, username: 'owner', isAdmin: false });
+const ownerOf = (id: string) => ({ id, username: 'owner', isAdmin: false, email: null, emailVerified: false });
 
 describe('GET /api/characters/[id]', () => {
   let db: Db;
@@ -75,7 +75,7 @@ describe('GET /api/characters/[id]', () => {
     await expectHttpError(
       GET(
         makeEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { id: characterId }
         })
       ),
@@ -186,7 +186,7 @@ describe('PATCH /api/characters/[id]', () => {
     await expectHttpError(
       PATCH(
         makeEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { id: characterId },
           body: { name: 'Pwned' }
         })

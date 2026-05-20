@@ -15,7 +15,14 @@
         body: JSON.stringify({ username: username.trim(), password })
       });
       if (!res.ok) {
-        error = res.status === 401 ? 'invalid username or password' : `login failed (${res.status})`;
+        error =
+          res.status === 401
+            ? 'invalid username or password'
+            : res.status === 423
+              ? 'account temporarily locked — try again later or reset your password'
+              : res.status === 429
+                ? 'too many requests — try again later'
+                : `login failed (${res.status})`;
         return;
       }
       window.location.href = '/';
@@ -59,7 +66,10 @@
     {/if}
 
     <div class="flex items-center justify-between">
-      <a class="text-sm text-slate-400 hover:text-slate-200" href="/signup">Need an account? Sign up</a>
+      <div class="flex flex-col gap-1">
+        <a class="text-sm text-slate-400 hover:text-slate-200" href="/signup">Need an account? Sign up</a>
+        <a class="text-sm text-slate-400 hover:text-slate-200" href="/forgot-password">Forgot password?</a>
+      </div>
       <button class="rounded bg-emerald-600 px-4 py-2 font-medium disabled:opacity-50" disabled={busy}>
         Log in
       </button>

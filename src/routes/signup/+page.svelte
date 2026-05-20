@@ -1,5 +1,6 @@
 <script lang="ts">
   let username = '';
+  let email = '';
   let password = '';
   let confirmPassword = '';
   let busy = false;
@@ -23,12 +24,14 @@
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password })
+        body: JSON.stringify({ username: username.trim(), email: email.trim(), password })
       });
       if (!res.ok) {
         const body = await res.text();
         if (res.status === 409) {
-          error = 'that username is already taken';
+          error = body.includes('email') ? 'that email is already registered' : 'that username is already taken';
+        } else if (res.status === 429) {
+          error = 'too many requests — try again later';
         } else if (res.status === 400) {
           error = body || 'invalid signup details';
         } else {
@@ -51,7 +54,7 @@
   <h1 class="mb-4 text-2xl font-semibold">Create your account</h1>
   <p class="mb-6 text-sm text-slate-400">
     Pick a username (3–32 chars; letters, digits, <code>_</code>, <code>-</code>) and a password
-    (8+ chars). Your username is also how you appear at every campaign table.
+    (8+ chars). Your email is used for verification and account recovery.
   </p>
 
   <form on:submit={submit} class="space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
@@ -66,6 +69,17 @@
         minlength="3"
         maxlength="32"
         pattern="[a-zA-Z0-9_-]+"
+      />
+    </label>
+
+    <label class="block text-sm">
+      <span class="mb-1 block text-slate-400">Email</span>
+      <input
+        type="email"
+        class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
+        bind:value={email}
+        autocomplete="email"
+        required
       />
     </label>
 

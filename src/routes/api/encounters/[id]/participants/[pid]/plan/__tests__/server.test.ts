@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
 import {
@@ -62,7 +62,7 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     const { dmId, encounterId, monsterId } = await dmFixture(db);
 
     const event = makeEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { id: encounterId, pid: monsterId },
       body: PLAN_BODY
     });
@@ -91,7 +91,7 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     await expectHttpError(
       POST(
         makeEvent({
-          user: { id: playerId, username: 'p', isAdmin: false },
+          user: { id: playerId, username: 'p', isAdmin: false, email: null, emailVerified: false },
           params: { id: encounterId, pid: monsterId },
           body: PLAN_BODY
         })
@@ -108,7 +108,7 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     await expectHttpError(
       POST(
         makeEvent({
-          user: { id: otherPlayer, username: 'intruder', isAdmin: false },
+          user: { id: otherPlayer, username: 'intruder', isAdmin: false, email: null, emailVerified: false },
           params: { id: encounterId, pid: pcParticipantId },
           body: PLAN_BODY
         })
@@ -134,7 +134,7 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     await expectHttpError(
       POST(
         makeEvent({
-          user: { id: dmId, username: 'dm', isAdmin: false },
+          user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
           params: { id: encounterId, pid: monsterId },
           body: { plan: { actionId: 123 } } // wrong type
         })
@@ -160,7 +160,7 @@ describe('DELETE /api/encounters/[id]/participants/[pid]/plan', () => {
 
     const res = await DELETE(
       makeEvent({
-        user: { id: dmId, username: 'dm', isAdmin: false },
+        user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
         params: { id: encounterId, pid: monsterId },
         method: 'DELETE'
       })

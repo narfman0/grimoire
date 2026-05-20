@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+﻿import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '../../__tests__/test-db';
 import {
@@ -58,7 +58,7 @@ describe('sessions', () => {
     expect(rows[0].userId).toBe(userId);
 
     const user = await loadUserFromCookie(cookies);
-    expect(user).toEqual({ id: userId, username: 'alice', isAdmin: false });
+    expect(user).toEqual({ id: userId, username: 'alice', isAdmin: false, email: null, emailVerified: false });
   });
 
   it('loadUserFromCookie returns null when there is no cookie', async () => {

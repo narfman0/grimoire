@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb } from '$lib/server/__tests__/test-db';
 import {
   seedUser,
@@ -25,7 +25,7 @@ describe('/c/[code]/encounters +page.server load', () => {
     await seedEncounter(db, { campaignId, name: 'Boss', status: 'staging' });
 
     const data = await runLoad(load, loadEvent({
-      user: { id: dmId, username: 'dm', isAdmin: false },
+      user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
       params: { code: 'aaa111' } // exercise the uppercase normalization
     }));
     expect(data.campaign?.code).toBe('AAA111');
@@ -43,7 +43,7 @@ describe('/c/[code]/encounters +page.server load', () => {
     await seedEncounter(db, { campaignId, status: 'staging', name: 'Secret' });
 
     const data = await runLoad(load, loadEvent({
-      user: { id: playerId, username: 'p', isAdmin: false },
+      user: { id: playerId, username: 'p', isAdmin: false, email: null, emailVerified: false },
       params: { code }
     }));
     const names = data.encounters.map((e: { name: string }) => e.name);
@@ -64,7 +64,7 @@ describe('/c/[code]/encounters +page.server load', () => {
     await expectHttpError(
       load(
         loadEvent({
-          user: { id: stranger, username: 'stranger', isAdmin: false },
+          user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false },
           params: { code }
         })
       ),
