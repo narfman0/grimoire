@@ -1,0 +1,160 @@
+<script lang="ts">
+  // One row in the encounter participant list. Controlled: parent owns
+  // selection state, initiative-edit state, hpInput, and dispatches every
+  // mutating action through events.
+  import { createEventDispatcher } from 'svelte';
+  import HpBucketBadge from './HpBucketBadge.svelte';
+  import { hpBucket as computeHpBucket, type HpBucket } from '$lib/realtime/reveals';
+
+  type Participant = {
+    id: string;
+    name: string;
+    placeholderName?: string | null;
+    kind: string;
+    initiative: number | null;
+    currentHp: number | null;
+    tempHp: number;
+    maxHp: number | null;
+    hpBucket?: string | null;
+    reveals?: { vitals?: boolean | null; identity?: boolean | null; combat?: boolean | null; hidden?: boolean | null } | null;
+  };
+
+  export let p: Participant;
+  export let role: 'dm' | 'player';
+  export let isActive: boolean;
+  export let isSelected: boolean;
+  export let activeConds: string[];
+  /** Display label for concentration (or null if none); already resolved
+   *  upstream from either the PC document or the Y.Doc concentration field. */
+  export let concLabel: string | null;
+  export let liveCurrentHp: number | null | undefined;
+  export let liveTempHp: number | undefined;
+  export let editingInitiative: boolean;
+  export let hpInput: number | undefined;
+  export let busy: boolean;
+
+  const dispatch = createEventDispatcher<{
+    select: void;
+    startEditInitiative: void;
+    commitInitiative: number | null;
+    cancelEditInitiative: void;
+    damage: void;
+    heal: void;
+    remove: void;
+    hpInputChange: number;
+  }>();
+
+  function inputValue(e: Event): string {
+    return (e.currentTarget as HTMLInputElement).value;
+  }
+
+  function onHpInputChange(e: Event): void {
+    dispatch('hpInputChange', Number(inputValue(e)) || 0);
+  }
+
+  function bucketFor(current: number | null | undefined, max: number | null, fallback: HpBucket | string | null | undefined): HpBucket {
+    const computed = computeHpBucket(current ?? null, max ?? null);
+    if (computed !== 'unknown') return computed;
+    return (fallback as HpBucket | null | undefined) ?? 'unknown';
+  }
+</script>
+
+<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+<li
+  class="flex flex-wrap items-center gap-3 py-2 text-sm cursor-pointer select-none
+    {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}
+    {isSelected && !isActive ? 'rounded bg-slate-800/50 px-2' : ''}
+    hover:bg-slate-800/30"
+  on:click={() => dispatch('select')}
+>
+  {#if role === 'dm'}
+    {#if editingInitiative || p.initiative == null}
+      <!-- svelte-ignore a11y-autofocus -->
+      <input
+        type="number"
+        class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
+        placeholder="init"
+        value={p.initiative ?? ''}
+        autofocus={editingInitiative}
+        on:click|stopPropagation
+        on:blur={(e) => {
+          const v = inputValue(e);
+          dispatch('commitInitiative', v === '' ? null : Number(v));
+        }}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') {
+            const v = inputValue(e);
+            dispatch('commitInitiative', v === '' ? null : Number(v));
+          } else if (e.key === 'Escape') {
+            dispatch('cancelEditInitiative');
+          }
+        }}
+      />
+    {:else}
+      <span class="inline-flex items-center gap-0.5 w-12 font-mono text-xs text-slate-400">
+        <span>{p.initiative}</span>
+        <button
+          class="text-[10px] text-slate-600 hover:text-slate-300"
+          title="Edit initiative"
+          on:click|stopPropagation={() => dispatch('startEditInitiative')}
+        >✎</button>
+      </span>
+    {/if}
+  {:else}
+    <span class="font-mono text-xs text-slate-500 w-8">
+      {p.initiative ?? '—'}
+    </span>
+  {/if}
+  {#if p.kind === 'npc'}
+    <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">npc</span>
+  {/if}
+  <span class="flex-1 font-medium">
+    {p.placeholderName ?? p.name}
+    {#if concLabel !== null}
+      <span class="ml-1 rounded border border-violet-700 px-1 py-0.5 text-[10px] text-violet-300">🌀</span>
+    {/if}
+    {#if activeConds.length > 0}
+      <span class="ml-1 text-[10px] text-amber-400">{activeConds.join(', ')}</span>
+    {/if}
+  </span>
+  {#if role === 'dm' || p.reveals?.vitals || p.kind === 'pc'}
+    {#if p.maxHp != null}
+      {@const liveCur = liveCurrentHp ?? p.currentHp}
+      {@const liveTemp = liveTempHp ?? p.tempHp ?? 0}
+      <span class="font-mono text-xs text-slate-400">
+        {liveCur ?? '—'} / {p.maxHp}{#if liveTemp > 0}<span class="text-emerald-300"> +{liveTemp}</span>{/if}
+      </span>
+    {/if}
+  {:else}
+    <HpBucketBadge value={bucketFor(liveCurrentHp, p.maxHp, p.hpBucket)} />
+  {/if}
+  {#if role === 'dm' && p.maxHp != null}
+    <input
+      type="number"
+      min="0"
+      class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
+      placeholder="±hp"
+      value={hpInput ?? ''}
+      on:input={onHpInputChange}
+      on:click|stopPropagation
+    />
+    <button
+      class="rounded bg-red-700/60 px-1.5 py-0.5 text-xs hover:bg-red-700"
+      title="Apply damage"
+      on:click|stopPropagation={() => dispatch('damage')}
+    >−</button>
+    <button
+      class="rounded bg-emerald-700/60 px-1.5 py-0.5 text-xs hover:bg-emerald-700"
+      title="Apply heal"
+      on:click|stopPropagation={() => dispatch('heal')}
+    >+</button>
+  {/if}
+  {#if role === 'dm'}
+    <button
+      class="ml-auto rounded border border-slate-700 px-1.5 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+      title={p.kind === 'pc' ? 'Remove this PC from the encounter' : `Remove ${p.kind} from encounter`}
+      on:click|stopPropagation={() => dispatch('remove')}
+      disabled={busy}
+    >✕</button>
+  {/if}
+</li>

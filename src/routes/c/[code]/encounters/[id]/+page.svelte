@@ -4,6 +4,7 @@
   import MonsterPicker from '$lib/components/MonsterPicker.svelte';
   import RevealChip from '$lib/components/RevealChip.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
+  import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
@@ -1230,9 +1231,7 @@
   {:else}
     <ul class="mb-3 divide-y divide-slate-800">
       {#each data.participants as p (p.id)}
-        {@const isActive = p.id === liveActive}
         {@const isSelected = p.id === selectedId}
-        {@const activeConds = condsFor(p)}
         {@const concRaw = liveHpMap[p.id]?.concentrating}
         {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
         {@const concLbl = p.kind === 'pc'
@@ -1240,107 +1239,30 @@
           : (concRaw
               ? (typeof concRaw === 'object' ? (concRaw.label ?? '') : '')
               : null)}
-        <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-        <li
-          class="flex flex-wrap items-center gap-3 py-2 text-sm cursor-pointer select-none
-            {isActive ? 'rounded bg-emerald-950/30 px-2' : ''}
-            {isSelected && !isActive ? 'rounded bg-slate-800/50 px-2' : ''}
-            hover:bg-slate-800/30"
-          on:click={() => { selectedId = isSelected ? null : p.id; if (!isSelected) ensureEconomy(p.id); }}
-        >
-          {#if data.role === 'dm'}
-            {#if initiativeEditFor === p.id || p.initiative == null}
-              <!-- svelte-ignore a11y-autofocus -->
-              <input
-                type="number"
-                class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
-                placeholder="init"
-                value={p.initiative ?? ''}
-                autofocus={initiativeEditFor === p.id}
-                on:click|stopPropagation
-                on:blur={(e) => {
-                  const v = inputValue(e);
-                  updateInitiative(p.id, v === '' ? null : Number(v));
-                  if (initiativeEditFor === p.id) initiativeEditFor = null;
-                }}
-                on:keydown={(e) => {
-                  if (e.key === 'Enter') {
-                    const v = inputValue(e);
-                    updateInitiative(p.id, v === '' ? null : Number(v));
-                    initiativeEditFor = null;
-                  } else if (e.key === 'Escape') {
-                    initiativeEditFor = null;
-                  }
-                }}
-              />
-            {:else}
-              <span class="inline-flex items-center gap-0.5 w-12 font-mono text-xs text-slate-400">
-                <span>{p.initiative}</span>
-                <button
-                  class="text-[10px] text-slate-600 hover:text-slate-300"
-                  title="Edit initiative"
-                  on:click|stopPropagation={() => (initiativeEditFor = p.id)}
-                >✎</button>
-              </span>
-            {/if}
-          {:else}
-            <span class="font-mono text-xs text-slate-500 w-8">
-              {p.initiative ?? '—'}
-            </span>
-          {/if}
-          {#if p.kind === 'npc'}
-            <span class="rounded border border-slate-700 px-1.5 py-0.5 text-xs uppercase tracking-wide text-slate-400 w-16 text-center">npc</span>
-          {/if}
-          <span class="flex-1 font-medium">
-            {p.placeholderName ?? p.name}
-            {#if concLbl !== null}
-              <span class="ml-1 rounded border border-violet-700 px-1 py-0.5 text-[10px] text-violet-300">🌀</span>
-            {/if}
-            {#if activeConds.length > 0}
-              <span class="ml-1 text-[10px] text-amber-400">{activeConds.join(', ')}</span>
-            {/if}
-          </span>
-          {#if data.role === 'dm' || p.reveals?.vitals || p.kind === 'pc'}
-            {#if p.maxHp != null}
-              {@const liveCur = liveHpMap[p.id]?.currentHp ?? p.currentHp}
-              {@const liveTemp = liveHpMap[p.id]?.tempHp ?? p.tempHp ?? 0}
-              <span class="font-mono text-xs text-slate-400">
-                {liveCur ?? '—'} / {p.maxHp}{#if liveTemp > 0}<span class="text-emerald-300"> +{liveTemp}</span>{/if}
-              </span>
-            {/if}
-          {:else}
-            {@const live = liveHpMap[p.id]}
-            <HpBucketBadge value={computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null) === 'unknown' ? (p.hpBucket ?? 'unknown') : computeHpBucket(live?.currentHp ?? null, p.maxHp ?? null)} />
-          {/if}
-          {#if data.role === 'dm' && p.maxHp != null}
-            <input
-              type="number"
-              min="0"
-              class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
-              placeholder="±hp"
-              bind:value={hpInputs[p.id]}
-              on:click|stopPropagation
-            />
-            <button
-              class="rounded bg-red-700/60 px-1.5 py-0.5 text-xs hover:bg-red-700"
-              title="Apply damage"
-              on:click|stopPropagation={() => dmDamage(p)}
-            >−</button>
-            <button
-              class="rounded bg-emerald-700/60 px-1.5 py-0.5 text-xs hover:bg-emerald-700"
-              title="Apply heal"
-              on:click|stopPropagation={() => dmHeal(p)}
-            >+</button>
-          {/if}
-          {#if data.role === 'dm'}
-            <button
-              class="ml-auto rounded border border-slate-700 px-1.5 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
-              title={p.kind === 'pc' ? 'Remove this PC from the encounter' : `Remove ${p.kind} from encounter`}
-              on:click|stopPropagation={() => removeParticipant(p.id)}
-              disabled={busy}
-            >✕</button>
-          {/if}
-        </li>
+        <ParticipantRowCard
+          {p}
+          role={data.role}
+          isActive={p.id === liveActive}
+          {isSelected}
+          activeConds={condsFor(p)}
+          concLabel={concLbl}
+          liveCurrentHp={liveHpMap[p.id]?.currentHp}
+          liveTempHp={liveHpMap[p.id]?.tempHp}
+          editingInitiative={initiativeEditFor === p.id}
+          hpInput={hpInputs[p.id]}
+          {busy}
+          on:select={() => { selectedId = isSelected ? null : p.id; if (!isSelected) ensureEconomy(p.id); }}
+          on:startEditInitiative={() => (initiativeEditFor = p.id)}
+          on:cancelEditInitiative={() => (initiativeEditFor = null)}
+          on:commitInitiative={(e) => {
+            updateInitiative(p.id, e.detail);
+            if (initiativeEditFor === p.id) initiativeEditFor = null;
+          }}
+          on:hpInputChange={(e) => { hpInputs[p.id] = e.detail; hpInputs = hpInputs; }}
+          on:damage={() => dmDamage(p)}
+          on:heal={() => dmHeal(p)}
+          on:remove={() => removeParticipant(p.id)}
+        />
       {/each}
     </ul>
   {/if}
