@@ -1,1 +1,0 @@
-ALTER TABLE `encounters` ADD `yjs_state` blob;

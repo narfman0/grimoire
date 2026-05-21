@@ -1,1 +1,0 @@
-ALTER TABLE `participants` ADD `concentrating_json` text;

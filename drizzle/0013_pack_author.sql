@@ -1,1 +1,0 @@
-ALTER TABLE packs ADD COLUMN author TEXT;

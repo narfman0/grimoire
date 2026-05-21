@@ -1,1 +1,0 @@
-ALTER TABLE `participants` ADD `plan_json` text;
