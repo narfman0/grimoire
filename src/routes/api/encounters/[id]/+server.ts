@@ -94,3 +94,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   await db.delete(schema.encounters).where(eq(schema.encounters.id, id));
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  GET: { summary: 'Fetch an encounter with its participants' },
+  PATCH: { summary: 'Update an encounter (DM only)', body: UpdateEncounterRequest },
+  DELETE: { summary: 'Delete an encounter (DM only)' }
+} as const;

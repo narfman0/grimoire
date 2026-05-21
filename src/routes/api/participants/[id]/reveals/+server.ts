@@ -57,3 +57,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   return json({ reveals: next });
 };
+
+export const openapi = {
+  PATCH: { summary: 'Toggle visibility reveal flags for a participant (DM only)', body: Patch }
+} as const;

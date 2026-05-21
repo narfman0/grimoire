@@ -54,3 +54,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     }))
   });
 };
+
+export const openapi = {
+  GET: { summary: 'List recent notifications for the logged-in user' }
+} as const;

@@ -92,3 +92,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     forkedFrom: { authorUserId: body.authorUserId, slug: body.slug }
   });
 };
+
+export const openapi = {
+  POST: { summary: 'Fork another author\'s homebrew entry into the caller\'s library', body: ForkBody }
+} as const;

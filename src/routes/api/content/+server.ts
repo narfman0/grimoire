@@ -102,3 +102,7 @@ export const GET: RequestHandler = async ({ url }) => {
     { headers: { 'cache-control': 'public, max-age=60, stale-while-revalidate=86400' } }
   );
 };
+
+export const openapi = {
+  GET: { summary: 'List public catalog content rows' }
+} as const;

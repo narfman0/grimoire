@@ -161,3 +161,9 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
     );
   return json({ deleted: true, inUseBy: referencing.map((c) => ({ id: c.id, name: c.name })) });
 };
+
+export const openapi = {
+  GET: { summary: 'Fetch the caller\'s homebrew entry by kind and slug' },
+  PATCH: { summary: 'Update a homebrew entry (spawns a new draft if published)', body: HomebrewPatch },
+  DELETE: { summary: 'Delete all versions of a homebrew entry' }
+} as const;

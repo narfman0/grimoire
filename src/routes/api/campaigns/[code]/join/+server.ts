@@ -42,3 +42,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
   return json({ campaignId, role: existing[0]?.role ?? 'player' });
 };
+
+export const openapi = {
+  POST: { summary: 'Join a campaign as a player' }
+} as const;

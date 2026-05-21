@@ -43,3 +43,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   return json({ ok: true });
 };
+
+export const openapi = {
+  POST: { summary: 'Set conditions for a non-PC participant', body: SetConditionsRequest }
+} as const;

@@ -34,3 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   });
   return json({ id, ok: true });
 };
+
+export const openapi = {
+  POST: { summary: 'File a report against a homebrew content row', body: ReportCreate }
+} as const;

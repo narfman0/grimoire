@@ -48,3 +48,7 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
   await db.update(schema.content).set(updates).where(eq(schema.content.id, row.id));
   return json({ visibility: body.visibility });
 };
+
+export const openapi = {
+  PUT: { summary: 'Change the visibility of a homebrew entry (private/unlisted/public)', body: VisibilityPut }
+} as const;

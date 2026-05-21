@@ -47,3 +47,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   return json({ id, code });
 };
+
+export const openapi = {
+  POST: { summary: 'Create a new campaign', body: CreateCampaignRequest }
+} as const;

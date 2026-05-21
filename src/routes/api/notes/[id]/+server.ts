@@ -58,3 +58,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   await db.delete(schema.notes).where(eq(schema.notes.id, id));
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  PATCH: { summary: 'Update a note', body: UpdateNoteRequest },
+  DELETE: { summary: 'Delete a note' }
+} as const;

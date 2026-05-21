@@ -81,3 +81,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  POST: { summary: 'Set the turn plan for a participant', body: SetPlanRequest },
+  DELETE: { summary: 'Clear the turn plan for a participant' }
+} as const;

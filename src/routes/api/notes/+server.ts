@@ -80,3 +80,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const stored = await db.select().from(schema.notes).where(eq(schema.notes.id, row.id)).limit(1);
   return json(serialize(stored[0]), { status: 201 });
 };
+
+export const openapi = {
+  GET: { summary: 'List notes for a campaign' },
+  POST: { summary: 'Create a note in a campaign', body: CreateNoteRequest }
+} as const;

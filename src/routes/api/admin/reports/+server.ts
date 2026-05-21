@@ -62,3 +62,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     }))
   });
 };
+
+export const openapi = {
+  GET: { summary: 'List open content reports (admin only)' }
+} as const;

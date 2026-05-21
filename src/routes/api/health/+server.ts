@@ -7,3 +7,7 @@ export const GET: RequestHandler = async () => {
   await db.run(sql`SELECT 1`);
   return json({ status: 'ok' });
 };
+
+export const openapi = {
+  GET: { summary: 'Health check — returns ok if the database is reachable' }
+} as const;

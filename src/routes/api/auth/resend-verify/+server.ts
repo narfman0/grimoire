@@ -41,3 +41,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  POST: { summary: 'Resend email verification link' }
+} as const;

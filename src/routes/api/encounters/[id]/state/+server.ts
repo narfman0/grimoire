@@ -168,3 +168,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
   return json(body);
 };
+
+export const openapi = {
+  GET: { summary: 'Fetch the live encounter snapshot (round, turn, HP, plans) for polling', response: EncounterStateResponse }
+} as const;

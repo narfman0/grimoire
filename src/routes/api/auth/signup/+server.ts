@@ -71,3 +71,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 
   return json({ id, username });
 };
+
+export const openapi = {
+  POST: { summary: 'Create a new user account' }
+} as const;

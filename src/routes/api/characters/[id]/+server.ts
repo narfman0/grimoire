@@ -106,3 +106,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   await db.delete(schema.characters).where(eq(schema.characters.id, id));
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  GET: { summary: 'Fetch a character by ID' },
+  PATCH: { summary: 'Update a character', body: UpdateCharacterRequest },
+  DELETE: { summary: 'Delete a character' }
+} as const;

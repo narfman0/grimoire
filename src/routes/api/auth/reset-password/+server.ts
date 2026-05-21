@@ -46,3 +46,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   return json({ ok: true });
 };
+
+export const openapi = {
+  POST: { summary: 'Reset password using a token from email' }
+} as const;

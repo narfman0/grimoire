@@ -109,3 +109,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     updatedAt: now.getTime()
   });
 };
+
+export const openapi = {
+  GET: { summary: 'List characters for the current user' },
+  POST: { summary: 'Create a character in a campaign', body: CreateCharacterRequest }
+} as const;

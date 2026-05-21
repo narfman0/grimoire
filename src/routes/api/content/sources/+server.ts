@@ -7,3 +7,7 @@ export const GET: RequestHandler = () =>
     { sources: [...PUBLIC_SOURCES].sort() },
     { headers: { 'cache-control': 'public, max-age=3600' } }
   );
+
+export const openapi = {
+  GET: { summary: 'List available public content sources' }
+} as const;

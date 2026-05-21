@@ -133,3 +133,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   });
   return json({ id: packGrantId, grantType: 'pack', grantKey, label: grantKey }, { status: 201 });
 };
+
+export const openapi = {
+  GET: { summary: 'List content grants for a campaign (DM only)' },
+  POST: { summary: 'Add a content grant to a campaign (DM only)', body: AddGrantRequest }
+} as const;

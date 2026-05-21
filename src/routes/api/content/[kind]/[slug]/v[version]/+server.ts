@@ -46,3 +46,7 @@ export const GET: RequestHandler = async ({ params }) => {
     { headers: { 'cache-control': 'public, max-age=300, stale-while-revalidate=86400' } }
   );
 };
+
+export const openapi = {
+  GET: { summary: 'Fetch a specific pinned version of a content row' }
+} as const;

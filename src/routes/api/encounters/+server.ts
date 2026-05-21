@@ -71,3 +71,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     endedAt: null
   });
 };
+
+export const openapi = {
+  GET: { summary: 'List encounters for a campaign' },
+  POST: { summary: 'Create an encounter under a campaign (DM only)', body: CreateEncounterRequest }
+} as const;

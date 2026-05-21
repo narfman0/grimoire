@@ -49,3 +49,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     .limit(1);
   return json(next[0]);
 };
+
+export const openapi = {
+  GET: { summary: 'Fetch a campaign by its shareable code' },
+  PATCH: { summary: 'Rename a campaign (DM only)', body: UpdateCampaignRequest }
+} as const;

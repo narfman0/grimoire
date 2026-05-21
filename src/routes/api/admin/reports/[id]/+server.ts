@@ -44,3 +44,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 
   return json({ id: report.id, resolution: body.resolution });
 };
+
+export const openapi = {
+  PATCH: { summary: 'Resolve a content report (admin only)', body: ReportResolve }
+} as const;

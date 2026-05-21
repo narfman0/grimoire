@@ -66,3 +66,8 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
   if (result.length === 0) throw error(404, 'subscription not found');
   return json({ pinnedVersion: result[0].pinnedVersion });
 };
+
+export const openapi = {
+  DELETE: { summary: 'Unsubscribe from a homebrew entry' },
+  PATCH: { summary: 'Change the pinned version for a subscription', body: SubscriptionPinPatch }
+} as const;

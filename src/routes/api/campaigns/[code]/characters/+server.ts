@@ -88,3 +88,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  POST: { summary: 'Link a character into a campaign', body: LinkCharacterRequest },
+  DELETE: { summary: 'Unlink a character from a campaign' }
+} as const;

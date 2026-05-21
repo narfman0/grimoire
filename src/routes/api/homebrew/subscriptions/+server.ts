@@ -147,3 +147,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     createdAt: now.getTime()
   });
 };
+
+export const openapi = {
+  GET: { summary: 'List the caller\'s homebrew subscriptions' },
+  POST: { summary: 'Subscribe to another author\'s homebrew entry', body: SubscriptionCreate }
+} as const;

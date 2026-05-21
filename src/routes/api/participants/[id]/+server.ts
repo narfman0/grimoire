@@ -62,3 +62,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   await db.delete(schema.participants).where(eq(schema.participants.id, id));
   return new Response(null, { status: 204 });
 };
+
+export const openapi = {
+  PATCH: { summary: 'Update a participant (initiative, HP, conditions)', body: UpdateParticipantRequest },
+  DELETE: { summary: 'Remove a participant from an encounter (DM only)' }
+} as const;
