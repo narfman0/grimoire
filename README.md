@@ -1,5 +1,8 @@
 # grimoire
 
+[![CI](https://github.com/narfman0/grimoire/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/narfman0/grimoire/actions/workflows/ci.yml)
+[![Uptime](https://img.shields.io/uptimerobot/status/m803125314-109ad927be8519fff77a1fc8)](https://stats.uptimerobot.com/haG9yph32j)
+
 Collaborative D&D 5e campaign manager. Everyone at the table can edit
 every character sheet in real time.
 
