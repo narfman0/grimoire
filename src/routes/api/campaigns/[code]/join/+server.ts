@@ -20,9 +20,8 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   if (rows.length === 0) throw error(404, 'campaign not found');
   const campaignId = rows[0].id;
 
-  // Idempotent: if you're already a member (DM or player), don't re-add.
   const existing = await db
-    .select({ role: schema.campaignMembers.role })
+    .select({ role: schema.campaignMembers.role, status: schema.campaignMembers.status })
     .from(schema.campaignMembers)
     .where(
       and(
@@ -31,16 +30,33 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       )
     )
     .limit(1);
+
   if (existing.length === 0) {
     await db.insert(schema.campaignMembers).values({
       campaignId,
       userId: locals.user.id,
       role: 'player',
+      status: 'pending',
       joinedAt: new Date()
     });
+    return json({ campaignId, status: 'pending' });
   }
 
-  return json({ campaignId, role: existing[0]?.role ?? 'player' });
+  // Allow re-application after rejection; approved/pending are idempotent.
+  if (existing[0].status === 'rejected') {
+    await db
+      .update(schema.campaignMembers)
+      .set({ status: 'pending', joinedAt: new Date() })
+      .where(
+        and(
+          eq(schema.campaignMembers.campaignId, campaignId),
+          eq(schema.campaignMembers.userId, locals.user.id)
+        )
+      );
+    return json({ campaignId, status: 'pending' });
+  }
+
+  return json({ campaignId, status: existing[0].status });
 };
 
 export const _openapi = {

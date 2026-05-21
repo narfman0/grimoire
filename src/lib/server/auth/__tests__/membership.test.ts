@@ -3,6 +3,7 @@ import { setupTestDb, schema } from '../../__tests__/test-db';
 import {
   getMembershipByCode,
   getMembershipByCampaignId,
+  getMembershipWithStatus,
   requireMembershipByCode
 } from '../membership';
 
@@ -10,7 +11,7 @@ type Db = ReturnType<typeof setupTestDb>;
 
 async function seedUserAndCampaign(
   db: Db,
-  opts: { role?: 'dm' | 'player'; code?: string } = {}
+  opts: { role?: 'dm' | 'player'; code?: string; status?: 'pending' | 'approved' | 'rejected' } = {}
 ) {
   const userId = crypto.randomUUID();
   const campaignId = crypto.randomUUID();
@@ -32,6 +33,7 @@ async function seedUserAndCampaign(
     campaignId,
     userId,
     role: opts.role ?? 'player',
+    status: opts.status ?? 'approved',
     joinedAt: new Date()
   });
   return { userId, campaignId, code };
@@ -89,5 +91,28 @@ describe('membership', () => {
     expect(
       await getMembershipByCampaignId(crypto.randomUUID(), campaignId)
     ).toBeNull();
+  });
+
+  it('getMembershipByCode returns null for a pending member', async () => {
+    const { userId, code } = await seedUserAndCampaign(db, { status: 'pending' });
+    expect(await getMembershipByCode(userId, code)).toBeNull();
+  });
+
+  it('requireMembershipByCode throws 403 for a pending member', async () => {
+    const { userId, code } = await seedUserAndCampaign(db, { status: 'pending' });
+    await expect(requireMembershipByCode({ id: userId }, code)).rejects.toMatchObject({
+      status: 403
+    });
+  });
+
+  it('getMembershipWithStatus returns status for pending member', async () => {
+    const { userId, campaignId, code } = await seedUserAndCampaign(db, { status: 'pending' });
+    const m = await getMembershipWithStatus(userId, code);
+    expect(m).toEqual({ campaignId, campaignCode: code, role: 'player', status: 'pending' });
+  });
+
+  it('getMembershipWithStatus returns null when not a member', async () => {
+    const { code } = await seedUserAndCampaign(db);
+    expect(await getMembershipWithStatus(crypto.randomUUID(), code)).toBeNull();
   });
 });

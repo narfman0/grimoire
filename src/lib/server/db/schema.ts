@@ -183,6 +183,7 @@ export const campaignMembers = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     role: text('role').notNull(), // 'dm' | 'player'
+    status: text('status').notNull().default('approved'), // 'pending' | 'approved' | 'rejected'
     joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull()
   },
   (t) => ({

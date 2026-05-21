@@ -7,6 +7,7 @@ import { error } from '@sveltejs/kit';
 import { db, schema } from '$lib/server/db';
 
 export type Role = 'dm' | 'player';
+export type MemberStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Membership {
   campaignId: string;
@@ -14,7 +15,11 @@ export interface Membership {
   role: Role;
 }
 
-/** Returns membership row or null; does not throw. */
+export interface MembershipWithStatus extends Membership {
+  status: MemberStatus;
+}
+
+/** Returns approved membership or null; does not throw. Pending/rejected members return null. */
 export async function getMembershipByCode(
   userId: string,
   campaignCode: string
@@ -31,7 +36,11 @@ export async function getMembershipByCode(
       eq(schema.campaigns.id, schema.campaignMembers.campaignId)
     )
     .where(
-      and(eq(schema.campaigns.code, campaignCode), eq(schema.campaignMembers.userId, userId))
+      and(
+        eq(schema.campaigns.code, campaignCode),
+        eq(schema.campaignMembers.userId, userId),
+        eq(schema.campaignMembers.status, 'approved')
+      )
     )
     .limit(1);
   if (rows.length === 0) return null;
@@ -42,7 +51,37 @@ export async function getMembershipByCode(
   };
 }
 
-/** Returns membership or throws 401/403. */
+/** Returns membership including pending/rejected status; does not throw. */
+export async function getMembershipWithStatus(
+  userId: string,
+  campaignCode: string
+): Promise<MembershipWithStatus | null> {
+  const rows = await db
+    .select({
+      campaignId: schema.campaigns.id,
+      code: schema.campaigns.code,
+      role: schema.campaignMembers.role,
+      status: schema.campaignMembers.status
+    })
+    .from(schema.campaignMembers)
+    .innerJoin(
+      schema.campaigns,
+      eq(schema.campaigns.id, schema.campaignMembers.campaignId)
+    )
+    .where(
+      and(eq(schema.campaigns.code, campaignCode), eq(schema.campaignMembers.userId, userId))
+    )
+    .limit(1);
+  if (rows.length === 0) return null;
+  return {
+    campaignId: rows[0].campaignId,
+    campaignCode: rows[0].code,
+    role: rows[0].role as Role,
+    status: rows[0].status as MemberStatus
+  };
+}
+
+/** Returns approved membership or throws 401/403. Pending/rejected members get 403. */
 export async function requireMembershipByCode(
   user: { id: string } | null,
   campaignCode: string
@@ -63,7 +102,8 @@ export async function getMembershipByCampaignId(
     .where(
       and(
         eq(schema.campaignMembers.campaignId, campaignId),
-        eq(schema.campaignMembers.userId, userId)
+        eq(schema.campaignMembers.userId, userId),
+        eq(schema.campaignMembers.status, 'approved')
       )
     )
     .limit(1);

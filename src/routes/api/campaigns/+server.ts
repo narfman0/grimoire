@@ -40,6 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         campaignId: id,
         userId: locals.user!.id,
         role: 'dm',
+        status: 'approved',
         joinedAt: now
       })
       .run();

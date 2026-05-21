@@ -375,6 +375,24 @@
     for (const ab of abilityKeys) abilities[ab] = 10;
     abilities = { ...abilities };
   }
+
+  async function resolveMember(userId: string, status: 'approved' | 'rejected') {
+    busy = true;
+    try {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) {
+        error = `Could not ${status === 'approved' ? 'approve' : 'reject'} member (${res.status})`;
+        return;
+      }
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 <svelte:window on:keydown={(e) => { if (e.key === 'Escape' && grantModalOpen) grantModalOpen = false; }} />
@@ -433,6 +451,45 @@
     <span class="ml-1 rounded bg-slate-800 px-1 py-0.5 text-xs uppercase tracking-wide {data.role === 'dm' ? 'text-amber-300' : 'text-slate-400'}">{data.role}</span>
   </p>
 </header>
+
+{#if data.pending}
+<div class="rounded-lg border border-amber-800 bg-amber-950/40 p-6 text-center">
+  <p class="font-medium text-amber-200">Waiting for DM approval</p>
+  <p class="mt-1 text-sm text-amber-400">Your request to join <span class="font-semibold">{data.campaign.name}</span> is pending DM review.</p>
+</div>
+{:else if data.rejected}
+<div class="rounded-lg border border-red-800 bg-red-950/40 p-6 text-center">
+  <p class="font-medium text-red-200">Request rejected</p>
+  <p class="mt-1 text-sm text-red-400">The DM has rejected your request to join <span class="font-semibold">{data.campaign.name}</span>.</p>
+</div>
+{:else}
+
+{#if data.role === 'dm' && data.pendingMembers.length > 0}
+<section class="mb-6 rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-sm">
+  <h2 class="mb-3 text-sm font-semibold text-amber-300">
+    Join requests <span class="ml-1 text-xs font-normal text-amber-600">({data.pendingMembers.length})</span>
+  </h2>
+  <ul class="divide-y divide-amber-900/60">
+    {#each data.pendingMembers as member (member.userId)}
+      <li class="flex items-center justify-between py-2">
+        <span class="font-mono text-slate-300">{member.username}</span>
+        <div class="flex gap-2">
+          <button
+            class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
+            disabled={busy}
+            on:click={() => resolveMember(member.userId, 'approved')}
+          >Approve</button>
+          <button
+            class="rounded border border-red-800 px-3 py-1 text-xs text-red-300 hover:bg-red-900/60 disabled:opacity-40"
+            disabled={busy}
+            on:click={() => resolveMember(member.userId, 'rejected')}
+          >Reject</button>
+        </div>
+      </li>
+    {/each}
+  </ul>
+</section>
+{/if}
 
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
   <div class="mb-3 flex items-baseline justify-between">
@@ -880,3 +937,5 @@
     </a>
   </div>
 </section>
+
+{/if}
