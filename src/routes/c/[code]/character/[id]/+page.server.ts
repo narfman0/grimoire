@@ -247,6 +247,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         category?: string;
         description?: string;
         prerequisite?: string;
+        abilityChoices?: string[];
+        asiBudget?: number;
         choices?: {
           asi?: { bonus?: number; allowedAbilities?: string[] };
           skillProficiency?: { allowedSkills?: string[] };
@@ -265,6 +267,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         category: data.category ?? '',
         description: data.description ?? '',
         prerequisite: data.prerequisite ?? '',
+        abilityChoices: data.abilityChoices ?? [],
+        asiBudget: data.asiBudget ?? null,
         choices: data.choices ?? null,
         pickerId: pickerId(r.slug, r.ownerUserId),
         ...homebrewBadge(r.ownerUserId)

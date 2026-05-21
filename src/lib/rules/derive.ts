@@ -404,6 +404,39 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           deferredRefs.push({ kind: 'feature', slug: featurePick });
         }
       }
+
+      // Feats with `asiBudget` (e.g. Ability Score Improvement) use an asis
+      // array on their choices — same shape as background.choices.asis —
+      // rather than the single-pick choices.asi approach. This lets the player
+      // split the budget (+2/+1+1) freely.
+      const asiBudget = a.data.asiBudget as number | undefined;
+      if (asiBudget != null) {
+        const allowed =
+          (a.data.abilityChoices as string[] | undefined) ??
+          ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+        const asiPicks =
+          (featRef?.choices as { asis?: Array<{ ability: string; bonus: number }> } | undefined)
+            ?.asis ?? [];
+        let spent = 0;
+        for (let i = 0; i < asiPicks.length; i++) {
+          const asi = asiPicks[i];
+          if (!allowed.includes(asi.ability)) continue;
+          if (typeof asi.bonus !== 'number' || asi.bonus < 1) continue;
+          spent += asi.bonus;
+          if (spent > asiBudget) break;
+          allMods.push({
+            id: `feat/${a.row.slug}/asis/${i}`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: {
+              kind: 'stat-modifier',
+              target: `ability.${asi.ability}`,
+              mode: 'ADD',
+              value: asi.bonus
+            }
+          });
+        }
+      }
     }
   }
 

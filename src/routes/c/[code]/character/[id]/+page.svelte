@@ -751,6 +751,46 @@
   let featDraftTool = '';
   let featDraftSpells: string[] = [];
   let featDraftFeature = '';
+  let featDraftAsiMode: 'one' | 'split' = 'one';
+  let featDraftAsiSelections: string[] = [''];
+
+  // Inline edit state for already-installed feats with asiBudget.
+  let editingAsiKey: string | null = null;
+  let editAsiMode: 'one' | 'split' = 'one';
+  let editAsiSelections: string[] = [''];
+
+  function openAsiEdit(f: { slug: string; authorUserId?: string | null; choices?: Record<string, unknown> }, asiBudget: number) {
+    const key = `${f.slug}|${f.authorUserId ?? ''}`;
+    if (editingAsiKey === key) { editingAsiKey = null; return; }
+    const existing = (f.choices?.asis as Array<{ ability: string; bonus: number }> | undefined) ?? [];
+    if (existing.length > 1) {
+      editAsiMode = 'split';
+      editAsiSelections = existing.map((a) => a.ability);
+    } else {
+      editAsiMode = 'one';
+      editAsiSelections = [existing[0]?.ability ?? ''];
+    }
+    editingAsiKey = key;
+  }
+
+  async function saveAsiChoices(f: { slug: string; authorUserId?: string | null }, asiBudget: number) {
+    const asis: Array<{ ability: string; bonus: number }> = [];
+    if (editAsiMode === 'one') {
+      if (editAsiSelections[0]) asis.push({ ability: editAsiSelections[0], bonus: asiBudget });
+    } else {
+      for (const ab of editAsiSelections) {
+        if (ab) asis.push({ ability: ab, bonus: 1 });
+      }
+    }
+    await patchDocument((d) => {
+      const feat = d.feats.find(
+        (x) => x.slug === f.slug && (x.authorUserId ?? null) === (f.authorUserId ?? null)
+      );
+      if (!feat) return;
+      feat.choices = { ...(feat.choices ?? {}), asis };
+    });
+    editingAsiKey = null;
+  }
   let lastDraftKey = '';
   $: if (featPickerKey !== lastDraftKey) {
     featDraftAbility = '';
@@ -761,6 +801,8 @@
     featDraftTool = '';
     featDraftSpells = [];
     featDraftFeature = '';
+    featDraftAsiMode = 'one';
+    featDraftAsiSelections = [''];
     lastDraftKey = featPickerKey;
   }
   $: pickedFeatChoices = featByPickerId(featPickerKey)?.choices ?? null;
@@ -776,6 +818,17 @@
     const opt = featByPickerId(featPickerKey);
     if (!opt) return;
     const choices: Record<string, unknown> = {};
+    if (opt.asiBudget != null) {
+      const asis: Array<{ ability: string; bonus: number }> = [];
+      if (featDraftAsiMode === 'one') {
+        if (featDraftAsiSelections[0]) asis.push({ ability: featDraftAsiSelections[0], bonus: opt.asiBudget });
+      } else {
+        for (const ab of featDraftAsiSelections) {
+          if (ab) asis.push({ ability: ab, bonus: 1 });
+        }
+      }
+      if (asis.length > 0) choices.asis = asis;
+    }
     if (opt.choices?.asi && featDraftAbility) {
       choices.asi = { ability: featDraftAbility };
     }
@@ -829,6 +882,7 @@
     const f = document?.feats.find((x) => x.slug === slug);
     const c = f?.choices as
       | {
+          asis?: Array<{ ability: string; bonus: number }>;
           asi?: { ability?: string };
           skillProficiency?: { skill?: string };
           expertise?: { skill?: string };
@@ -841,6 +895,9 @@
       | undefined;
     if (!c) return '';
     const parts: string[] = [];
+    if (c.asis?.length) {
+      for (const a of c.asis) parts.push(`+${a.bonus} ${a.ability.toUpperCase()}`);
+    }
     if (c.asi?.ability) parts.push(`+1 ${c.asi.ability.toUpperCase()}`);
     if (c.savingThrow?.ability) parts.push(`save prof ${c.savingThrow.ability.toUpperCase()}`);
     if (c.skillProficiency?.skill) parts.push(`prof ${c.skillProficiency.skill}`);
@@ -2015,6 +2072,18 @@
                   </svelte:fragment>
                 </HoverPopup>
               </button>
+              {#if meta?.asiBudget != null}
+                {@const asiKey = `${f.slug}|${f.authorUserId ?? ''}`}
+                {@const asiBudgetEdit = meta.asiBudget ?? 2}
+                <button
+                  class="text-[10px] text-slate-400 hover:text-indigo-300"
+                  disabled={busy}
+                  title="Configure ability bumps"
+                  on:click={() => openAsiEdit(f, asiBudgetEdit)}
+                >
+                  {editingAsiKey === asiKey ? '▴' : '▾'}
+                </button>
+              {/if}
               <button
                 class="text-[10px] text-slate-500 hover:text-red-400"
                 disabled={busy}
@@ -2024,6 +2093,70 @@
                 ×
               </button>
             </div>
+
+            {#if meta?.asiBudget != null && editingAsiKey === `${f.slug}|${f.authorUserId ?? ''}`}
+              {@const asiBudget = meta.asiBudget}
+              {@const asiAllowed = meta.abilityChoices?.length ? meta.abilityChoices : ABILITY_KEYS}
+              <div class="border-t border-slate-800/60 bg-slate-950/40 px-3 py-2">
+                <div class="mb-2 flex gap-4 text-[11px]">
+                  <label class="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      bind:group={editAsiMode}
+                      value="one"
+                      on:change={() => { editAsiSelections = [editAsiSelections[0] ?? '']; }}
+                    />
+                    +{asiBudget} to one ability
+                  </label>
+                  {#if asiBudget >= 2}
+                    <label class="flex items-center gap-1">
+                      <input
+                        type="radio"
+                        bind:group={editAsiMode}
+                        value="split"
+                        on:change={() => {
+                          editAsiSelections = Array.from({ length: asiBudget }, (_, i) => editAsiSelections[i] ?? '');
+                        }}
+                      />
+                      +1 to {asiBudget} abilities
+                    </label>
+                  {/if}
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  {#each editAsiSelections as _, i}
+                    <select
+                      class="rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase text-xs"
+                      bind:value={editAsiSelections[i]}
+                    >
+                      <option value="">—</option>
+                      {#each asiAllowed as ab}
+                        <option value={ab}>{ab.toUpperCase()}</option>
+                      {/each}
+                    </select>
+                  {/each}
+                </div>
+                <div class="mt-2 flex gap-2">
+                  <button
+                    class="rounded bg-indigo-700 px-3 py-1 text-[11px] hover:bg-indigo-600 disabled:opacity-40"
+                    disabled={busy || (() => {
+                      const filled = editAsiSelections.filter(Boolean);
+                      const required = editAsiMode === 'one' ? 1 : asiBudget;
+                      return filled.length < required || new Set(filled).size < required;
+                    })()}
+                    on:click={() => saveAsiChoices(f, asiBudget)}
+                  >
+                    Save
+                  </button>
+                  <button
+                    class="rounded border border-slate-600 px-3 py-1 text-[11px] hover:bg-slate-800"
+                    on:click={() => (editingAsiKey = null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            {/if}
+
             {#if meta?.description}
               <div id={expandedKey} hidden class="border-t border-slate-800/60 bg-slate-950/40 px-3 py-2">
                 {#if meta.prerequisite}
@@ -2075,12 +2208,65 @@
               (!!pickedFeatChoices?.feature && !featDraftFeature) ||
               (!!pickedFeatChoices?.spell &&
                 pickedFeatChoices.spell.picks != null &&
-                featDraftSpells.length !== pickedFeatChoices.spell.picks)}
+                featDraftSpells.length !== pickedFeatChoices.spell.picks) ||
+              (() => {
+                const opt = featByPickerId(featPickerKey);
+                if (!opt?.asiBudget) return false;
+                const required = featDraftAsiMode === 'one' ? 1 : opt.asiBudget;
+                const filled = featDraftAsiSelections.filter(Boolean);
+                return filled.length < required || new Set(filled).size < required;
+              })()}
             on:click={addFeat}
           >
             Add
           </button>
         </div>
+
+        {#if featByPickerId(featPickerKey)?.asiBudget != null}
+          {@const asiOpt = featByPickerId(featPickerKey)}
+          {@const asiBudget = asiOpt?.asiBudget ?? 2}
+          {@const asiAllowed = asiOpt?.abilityChoices?.length ? asiOpt.abilityChoices : ABILITY_KEYS}
+          <div class="mt-2 rounded border border-indigo-900/40 bg-slate-950/40 p-2">
+            <p class="mb-2 text-[10px] uppercase tracking-wide text-slate-500">
+              Ability Score Improvement (+{asiBudget} total)
+            </p>
+            <div class="mb-2 flex gap-4 text-xs">
+              <label class="flex items-center gap-1">
+                <input
+                  type="radio"
+                  bind:group={featDraftAsiMode}
+                  value="one"
+                  on:change={() => { featDraftAsiSelections = ['']; }}
+                />
+                +{asiBudget} to one ability
+              </label>
+              {#if asiBudget >= 2}
+                <label class="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    bind:group={featDraftAsiMode}
+                    value="split"
+                    on:change={() => { featDraftAsiSelections = Array.from({ length: asiBudget }, () => ''); }}
+                  />
+                  +1 to {asiBudget} abilities
+                </label>
+              {/if}
+            </div>
+            <div class="flex flex-wrap gap-2">
+              {#each featDraftAsiSelections as _, i}
+                <select
+                  class="rounded border border-slate-700 bg-slate-950 px-2 py-1 uppercase"
+                  bind:value={featDraftAsiSelections[i]}
+                >
+                  <option value="">—</option>
+                  {#each asiAllowed as ab}
+                    <option value={ab}>{ab.toUpperCase()}</option>
+                  {/each}
+                </select>
+              {/each}
+            </div>
+          </div>
+        {/if}
 
         {#if pickedFeatChoices}
           <div class="mt-2 rounded border border-indigo-900/40 bg-slate-950/40 p-2">

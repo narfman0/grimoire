@@ -723,13 +723,9 @@
         "level": 4
       },
       "repeatable": true,
-      "choice": {
-        "from": [
-          "ability-bumps"
-        ],
-        "pick": 1
-      },
-      "note": "2024 SRD 5.2 Ability Score Improvement. Increase one ability score by 2, or two ability scores by 1 each (max 20 per ability). Modeled as a `choice` slot resolved per-character: derive.ts reads ASI bump distributions from character.classes[].asis (analogous to background asis). The feat row carries no fixed modifiers because the ability choice is per-character.",
+      "abilityChoices": ["str", "dex", "con", "int", "wis", "cha"],
+      "asiBudget": 2,
+      "note": "2024 SRD 5.2 Ability Score Improvement. Increase one ability score by 2, or two ability scores by 1 each (max 20 per ability). Player picks stored as feat.choices.asis: Array<{ability,bonus}>. Engine synthesizes ADD stat-modifiers from each entry, capped at asiBudget total.",
       "modifiers": []
     }
   },

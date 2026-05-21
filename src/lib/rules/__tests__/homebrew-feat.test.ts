@@ -154,6 +154,109 @@ describe('homebrew feat → derive()', () => {
     expect(d.stats.abilities.str.score).toBe(17);
   });
 
+  // -------------------------------------------------------------------------
+  // asiBudget feats (Ability Score Improvement pattern)
+  // -------------------------------------------------------------------------
+
+  it('ASI feat: applies +2 to one ability (single asis entry)', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'ability-score-improvement',
+      version: 1,
+      name: 'Ability Score Improvement',
+      source: 'srd-5.2',
+      data: {
+        abilityChoices: ['str', 'dex', 'con', 'int', 'wis', 'cha'],
+        asiBudget: 2
+      }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { asis: [{ ability: 'str', bonus: 2 }] } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    // Baseline STR 17 + 2 → 19.
+    expect(d.stats.abilities.str.score).toBe(19);
+  });
+
+  it('ASI feat: applies +1/+1 split across two abilities', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'ability-score-improvement',
+      version: 1,
+      name: 'Ability Score Improvement',
+      source: 'srd-5.2',
+      data: {
+        abilityChoices: ['str', 'dex', 'con', 'int', 'wis', 'cha'],
+        asiBudget: 2
+      }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [
+        {
+          kind: 'feat',
+          slug: homebrew.slug,
+          choices: { asis: [{ ability: 'str', bonus: 1 }, { ability: 'dex', bonus: 1 }] }
+        }
+      ]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    // Baseline STR 17 → 18, DEX 13 → 14.
+    expect(d.stats.abilities.str.score).toBe(18);
+    expect(d.stats.abilities.dex.score).toBe(14);
+  });
+
+  it('ASI feat: budget exceeded — second entry that pushes over is dropped', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'ability-score-improvement',
+      version: 1,
+      name: 'Ability Score Improvement',
+      source: 'srd-5.2',
+      data: {
+        abilityChoices: ['str', 'dex', 'con', 'int', 'wis', 'cha'],
+        asiBudget: 2
+      }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [
+        {
+          kind: 'feat',
+          slug: homebrew.slug,
+          choices: { asis: [{ ability: 'str', bonus: 2 }, { ability: 'dex', bonus: 1 }] }
+        }
+      ]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    // First entry uses the full budget; second is dropped.
+    expect(d.stats.abilities.str.score).toBe(19);
+    expect(d.stats.abilities.dex.score).toBe(13); // unchanged
+  });
+
+  it('ASI feat: ability outside allowedAbilities is dropped', () => {
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'ability-score-improvement',
+      version: 1,
+      name: 'Ability Score Improvement',
+      source: 'srd-5.2',
+      data: {
+        abilityChoices: ['str', 'dex'],
+        asiBudget: 2
+      }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug, choices: { asis: [{ ability: 'cha', bonus: 2 }] } }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    // 'cha' not in allowedAbilities → no bump.
+    expect(d.stats.abilities.cha.score).toBe(10); // baseline
+    expect(d.stats.abilities.str.score).toBe(17); // unchanged
+  });
+
   it('silently skips a missing homebrew feat row (engine tolerates orphans)', () => {
     const character: CharacterDocument = {
       ...zealot.CHARACTER,
