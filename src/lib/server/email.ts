@@ -1,7 +1,7 @@
 import { logger } from '$lib/server/logger';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_ADDRESS = process.env.FROM_EMAIL ?? 'noreply@grimoire.app';
+const FROM_ADDRESS = process.env.FROM_EMAIL ?? 'noreply-grimoire@blastedstudios.com';
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!RESEND_API_KEY) {
