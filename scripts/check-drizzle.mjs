@@ -35,6 +35,7 @@ if (!Array.isArray(journal.entries)) {
 }
 
 const errors = [];
+let prevWhen = -Infinity;
 for (const entry of journal.entries) {
   if (typeof entry.idx !== 'number' || typeof entry.tag !== 'string') {
     errors.push(`malformed entry: ${JSON.stringify(entry)}`);
@@ -51,6 +52,19 @@ for (const entry of journal.entries) {
       `  tag=${entry.tag}: missing snapshot ${snapshot}\n    → run \`pnpm drizzle-kit generate\` instead of hand-crafting migrations`
     );
   }
+  // Drizzle's SQLite migrator (and others) skips any entry whose `when`
+  // (folderMillis) is ≤ the latest created_at in the prod DB's
+  // __drizzle_migrations table. A hand-rolled entry with a stale or
+  // pasted timestamp silently never applies in prod even though it
+  // works locally on a fresh DB. Enforce strict monotonic increase.
+  if (typeof entry.when !== 'number') {
+    errors.push(`  tag=${entry.tag}: missing or non-numeric \`when\``);
+  } else if (entry.when <= prevWhen) {
+    errors.push(
+      `  tag=${entry.tag}: when=${entry.when} (${new Date(entry.when).toISOString()}) ≤ previous entry's when=${prevWhen} (${new Date(prevWhen).toISOString()})\n    → drizzle compares folderMillis to the latest created_at in __drizzle_migrations and silently skips entries that don't increase. Bump \`when\` to a value greater than the previous entry.`
+    );
+  }
+  if (typeof entry.when === 'number') prevWhen = entry.when;
 }
 
 if (errors.length > 0) {
