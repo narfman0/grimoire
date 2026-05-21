@@ -206,6 +206,60 @@ describe('Gloom Stalker Ranger L5 with XGtE spells', () => {
 	});
 });
 
+// --- C.10: subclass-driven spellcasting progression -------------------------
+// Locks the contract that a subclass with a `data.spellcasting` block (e.g.
+// Arcane Trickster on Rogue, Eldritch Knight on Fighter) wires the character
+// up as a third caster even when the parent class row has no spellcasting.
+
+describe('C.10 — subclass-driven spellcasting', () => {
+	const ARCANE_TRICKSTER_L7: CharacterDocument = {
+		id: 'test-arcane-trickster',
+		name: 'Whisper',
+		classes: [
+			{
+				slug: 'rogue',
+				level: 7,
+				subclass: 'arcane-trickster',
+				hpRolledPerLevel: [8, 5, 5, 5, 5, 5, 5]
+			}
+		],
+		species: { kind: 'species', slug: 'human' },
+		feats: [],
+		abilityScores: { str: 8, dex: 16, con: 12, int: 16, wis: 10, cha: 10 },
+		proficienciesChosen: { skills: ['stealth', 'sleight-of-hand'] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 38,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('reads subclass.data.spellcasting when the class row has none', () => {
+		const d = derive(ARCANE_TRICKSTER_L7, lookup());
+		expect(d.stats.spellcastingAbility).toBe('int');
+		expect(d.stats.spellSaveDC).toBe(8 + 3 + 3); // 8 + PB(3) + intMod(3)
+		expect(d.stats.spellAttackBonus).toBe(3 + 3);
+	});
+
+	it('uses the third-caster slot table at the class level (Rogue 7 → 4 L1 + 2 L2)', () => {
+		const d = derive(ARCANE_TRICKSTER_L7, lookup());
+		expect(d.stats.spellSlots[1]?.max).toBe(4);
+		expect(d.stats.spellSlots[2]?.max).toBe(2);
+		expect(d.stats.spellSlots[3]?.max).toBeUndefined();
+	});
+
+	it('produces no slots before third-caster onset (Rogue 2)', () => {
+		const lvl2 = {
+			...ARCANE_TRICKSTER_L7,
+			classes: [{ ...ARCANE_TRICKSTER_L7.classes[0], level: 2, hpRolledPerLevel: [8, 5] }]
+		};
+		const d = derive(lvl2, lookup());
+		expect(d.stats.spellSlots[1]?.max).toBeUndefined();
+	});
+});
+
 // --- C.1: armor + weapon proficiency targets ---------------------------------
 // Locks the contract that `proficiency.armor.<slug>` and
 // `proficiency.weapon.<slug>` modifier targets actually land on the derived

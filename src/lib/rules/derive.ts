@@ -1086,13 +1086,23 @@ function computeSpellcasting(
   attack: number | null;
   slots: Record<number, { max: number; used: number }>;
 } {
-  // Find a caster class on the character
+  // Find a caster class on the character. Subclasses (Arcane Trickster,
+  // Eldritch Knight, etc.) can also declare a `data.spellcasting` block; we
+  // consult the subclass row if the class row has none, which captures the
+  // 1/3-caster pattern. The class level still drives the slot table.
   for (const c of character.classes) {
-    const row = content({ kind: 'class', slug: c.slug });
-    if (!row) continue;
-    const sc = row.data.spellcasting as
+    const classRow = content({ kind: 'class', slug: c.slug });
+    let sc = classRow?.data.spellcasting as
       | { ability: AbilityKey; progression: string }
-      | null;
+      | null
+      | undefined;
+    if (!sc && c.subclass) {
+      const subRow = content({ kind: 'subclass', slug: c.subclass });
+      sc = subRow?.data.spellcasting as
+        | { ability: AbilityKey; progression: string }
+        | null
+        | undefined;
+    }
     if (!sc) continue;
     const mod = abilities[sc.ability].mod;
     return {
@@ -1114,11 +1124,42 @@ function slotsFor(
       return fullCasterSlots(level);
     case 'half':
       return halfCasterSlots(level);
+    case 'third':
+      return thirdCasterSlots(level);
     case 'pact':
       return pactCasterSlots(level);
     default:
       return {};
   }
+}
+
+/** Single-class third caster (Arcane Trickster / Eldritch Knight). 5e/5.5e
+ *  spell-slot table. Third casters get spells starting at L3 and slow
+ *  progression to 4th-level slots at L19. */
+function thirdCasterSlots(level: number): Record<number, { max: number; used: number }> {
+  const table: Record<number, number[]> = {
+    1: [],
+    2: [],
+    3: [2],
+    4: [3],
+    5: [3],
+    6: [3],
+    7: [4, 2],
+    8: [4, 2],
+    9: [4, 2],
+    10: [4, 3],
+    11: [4, 3],
+    12: [4, 3],
+    13: [4, 3, 2],
+    14: [4, 3, 2],
+    15: [4, 3, 2],
+    16: [4, 3, 3],
+    17: [4, 3, 3],
+    18: [4, 3, 3],
+    19: [4, 3, 3, 1],
+    20: [4, 3, 3, 1]
+  };
+  return rowToSlots(table[level] ?? []);
 }
 
 /** Single-class half caster (Paladin/Ranger). 2024 PHB spell-slot table.

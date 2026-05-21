@@ -1,0 +1,14 @@
+{
+  "kind": "subclass",
+  "slug": "arcane-trickster",
+  "version": 1,
+  "name": "Arcane Trickster",
+  "data": {
+    "parentClass": "rogue",
+    "spellcasting": {
+      "ability": "int",
+      "progression": "third"
+    },
+    "subclassFeatures": []
+  }
+}
