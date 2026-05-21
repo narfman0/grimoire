@@ -483,11 +483,18 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const classLevels: Record<string, number> = {};
   for (const c of character.classes) classLevels[c.slug] = c.level;
 
-  const ctx = {
+  // ctx is populated incrementally as phase 2 composes its derived fields:
+  // ability mods land after phase 2(a), walkSpeed after phase 2(d). Modifiers
+  // running before those phases see the zero defaults — in practice no
+  // ability-score modifier references its own ability's mod, and speed
+  // modifiers don't run before speed is built.
+  const ctx: EvalContext = {
     totalLevel,
     proficiencyBonus,
     rageDamage: rageDamageFor(character, proficiencyBonus),
     classLevels,
+    abilityMods: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
+    walkSpeed: 0,
     conditionStacks: character.conditionStacks ?? {}
   };
 
@@ -499,6 +506,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     abilities[ab] = { score: typeof score === 'number' ? score : character.abilityScores[ab], mod: 0 };
   }
   for (const ab of ABILITIES) abilities[ab].mod = abilityModifier(abilities[ab].score);
+  for (const ab of ABILITIES) ctx.abilityMods[ab] = abilities[ab].mod;
 
   // (b) HP max — sum of class HP rolls + (con mod * total level) + flat hp.max modifiers
   let hpBase = 0;
@@ -515,6 +523,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   // (d) Speeds — start from species walk, accumulate
   const speeds = computeSpeeds(active, allMods, character, ctx);
+  ctx.walkSpeed = speeds.walk ?? 0;
 
   // (e) Saves — proficient = ability appears in any class's `saves`, OR a
   // content modifier targets `proficiency.save.<ability>` (feat/feature

@@ -2,17 +2,33 @@
 // fields. v0 supports plain numbers/strings/booleans and a handful of magic
 // identifiers that resolve against a context.
 
-import type { CharacterDocument } from './types';
+import type { AbilityKey, CharacterDocument } from './types';
 
 export interface EvalContext {
   totalLevel: number;
   proficiencyBonus: number;
   rageDamage: number;
   classLevels: Record<string, number>;
+  /** Ability modifiers — populated after phase 2(a) of derive composes
+   *  ability scores. Tokens `strMod`/`dexMod`/.../`chaMod` resolve here. */
+  abilityMods: Record<AbilityKey, number>;
+  /** Walking speed in feet — populated after phase 2(d) of derive. Token
+   *  `walkSpeed` resolves here (used by e.g. "fly speed = walk speed"). */
+  walkSpeed: number;
   /** Current stack count per stackable condition (e.g. exhaustion 1–10).
    *  Used by the perConditionStack evaluator shape. */
   conditionStacks: Record<string, number>;
 }
+
+const CLASS_LEVEL_TOKEN_RE = /^([a-z][a-z0-9]*)Level$/;
+const ABILITY_MOD_TOKENS: Record<string, AbilityKey> = {
+  strMod: 'str',
+  dexMod: 'dex',
+  conMod: 'con',
+  intMod: 'int',
+  wisMod: 'wis',
+  chaMod: 'cha'
+};
 
 /**
  * Resolve a modifier value against the current context.
@@ -34,9 +50,14 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
         return ctx.proficiencyBonus;
       case 'rageDamage':
         return ctx.rageDamage;
-      default:
-        return value;
+      case 'walkSpeed':
+        return ctx.walkSpeed;
     }
+    const ab = ABILITY_MOD_TOKENS[value];
+    if (ab !== undefined) return ctx.abilityMods[ab];
+    const cls = CLASS_LEVEL_TOKEN_RE.exec(value);
+    if (cls) return ctx.classLevels[cls[1]] ?? 0;
+    return value;
   }
   if (value && typeof value === 'object' && 'perClass' in value && 'table' in value) {
     const o = value as { perClass: string; table: number[] };

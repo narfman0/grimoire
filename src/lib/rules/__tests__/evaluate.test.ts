@@ -12,6 +12,8 @@ const ctx = {
   proficiencyBonus: 3,
   rageDamage: 2,
   classLevels: { barbarian: 3, fighter: 2 },
+  abilityMods: { str: 1, dex: 2, con: 3, int: 4, wis: -1, cha: 0 },
+  walkSpeed: 30,
   conditionStacks: { exhaustion: 2 }
 };
 
@@ -29,6 +31,32 @@ describe('evaluateValue', () => {
 
   it('passes unknown strings through unchanged (not all strings are magic)', () => {
     expect(evaluateValue('custom', ctx)).toBe('custom');
+  });
+
+  // Locks the C.0 token expansion. Before this landed, every `intMod` /
+  // `wisMod` / `<class>Level` reference in a modifier silently no-op'd —
+  // the row evaluated to the bare string, which then fell through
+  // applyNumericMode as zero. ~30 P0 pack rows depended on this.
+  it('resolves ability-mod tokens against ctx.abilityMods', () => {
+    expect(evaluateValue('strMod', ctx)).toBe(1);
+    expect(evaluateValue('dexMod', ctx)).toBe(2);
+    expect(evaluateValue('conMod', ctx)).toBe(3);
+    expect(evaluateValue('intMod', ctx)).toBe(4);
+    expect(evaluateValue('wisMod', ctx)).toBe(-1);
+    expect(evaluateValue('chaMod', ctx)).toBe(0);
+  });
+
+  it('resolves walkSpeed against ctx.walkSpeed', () => {
+    expect(evaluateValue('walkSpeed', ctx)).toBe(30);
+  });
+
+  it('resolves <class>Level tokens against ctx.classLevels', () => {
+    expect(evaluateValue('barbarianLevel', ctx)).toBe(3);
+    expect(evaluateValue('fighterLevel', ctx)).toBe(2);
+  });
+
+  it('returns 0 for <class>Level when the character has no levels in that class', () => {
+    expect(evaluateValue('wizardLevel', ctx)).toBe(0);
   });
 
   // Locks the perClass table contract — barbarian rage uses N-per-day from
