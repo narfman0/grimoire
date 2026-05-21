@@ -1,0 +1,26 @@
+{
+  "kind": "feat",
+  "slug": "c2-advantage",
+  "version": 1,
+  "name": "C.2 Advantage Suite (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [
+      { "kind": "stat-modifier", "target": "save.advantage.wis", "value": true },
+      { "kind": "stat-modifier", "target": "save.disadvantage.cha", "value": true },
+      {
+        "kind": "stat-modifier",
+        "target": "save.advantage.vs-condition.frightened",
+        "value": true
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "save.advantage.vs-condition.charmed",
+        "value": true
+      },
+      { "kind": "stat-modifier", "target": "initiative.advantage", "value": true },
+      { "kind": "stat-modifier", "target": "crit.threshold", "mode": "DOWNGRADE", "value": 19 },
+      { "kind": "stat-modifier", "target": "crit.extra-weapon-die", "mode": "ADD", "value": 1 }
+    ]
+  }
+}

@@ -24,6 +24,7 @@ import type {
   ContentRow,
   Derived,
   Resource,
+  SaveCell,
   SkillCell,
   StatBlock,
   TriggerDeclaration,
@@ -556,15 +557,45 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       saveProficiencies.add(target.slice('proficiency.save.'.length) as AbilityKey);
     }
   }
-  const saves: Record<AbilityKey, { bonus: number; proficient: boolean }> = {} as Record<
-    AbilityKey,
-    { bonus: number; proficient: boolean }
-  >;
+  // Collect save advantage/disadvantage state. Targets:
+  //   save.advantage.<ab>         — unconditional per-ability advantage
+  //   save.disadvantage.<ab>      — same, disadvantage
+  //   save.advantage.all          — every save has advantage
+  //   save.advantage.vs-condition.<slug>  — every save vs <slug> has advantage
+  //   save.disadvantage.vs-condition.<slug>
+  const saveAdvantage = new Set<AbilityKey>();
+  const saveDisadvantage = new Set<AbilityKey>();
+  const savesAdvantageVs = new Set<string>();
+  const savesDisadvantageVs = new Set<string>();
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier') continue;
+    const target = m.raw.target;
+    if (typeof target !== 'string' || m.raw.value !== true) continue;
+    if (target === 'save.advantage.all') for (const ab of ABILITIES) saveAdvantage.add(ab);
+    else if (target === 'save.disadvantage.all') for (const ab of ABILITIES) saveDisadvantage.add(ab);
+    else if (target.startsWith('save.advantage.vs-condition.'))
+      savesAdvantageVs.add(target.slice('save.advantage.vs-condition.'.length));
+    else if (target.startsWith('save.disadvantage.vs-condition.'))
+      savesDisadvantageVs.add(target.slice('save.disadvantage.vs-condition.'.length));
+    else if (target.startsWith('save.advantage.')) {
+      const ab = target.slice('save.advantage.'.length) as AbilityKey;
+      if ((ABILITIES as readonly string[]).includes(ab)) saveAdvantage.add(ab);
+    } else if (target.startsWith('save.disadvantage.')) {
+      const ab = target.slice('save.disadvantage.'.length) as AbilityKey;
+      if ((ABILITIES as readonly string[]).includes(ab)) saveDisadvantage.add(ab);
+    }
+  }
+  const saves: Record<AbilityKey, SaveCell> = {} as Record<AbilityKey, SaveCell>;
   for (const ab of ABILITIES) {
     const proficient = saveProficiencies.has(ab);
     const base = abilities[ab].mod + (proficient ? proficiencyBonus : 0);
     const bonus = applyTarget(allMods, character, `save.${ab}`, base, ctx) as number;
-    saves[ab] = { bonus, proficient };
+    saves[ab] = {
+      bonus,
+      proficient,
+      advantage: saveAdvantage.has(ab),
+      disadvantage: saveDisadvantage.has(ab)
+    };
   }
 
   // (f) Skills
@@ -746,13 +777,21 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   const stats: StatBlock = {
     abilities,
-    saves: saves as Record<AbilityKey, { bonus: number; proficient: boolean }> as StatBlock['saves'],
+    saves,
     skills,
     ac,
     hp: { current: character.currentHp, max: hpMax, temp: character.tempHp },
     speeds,
     proficiencyBonus,
     initiative: applyTarget(allMods, character, 'initiative', abilities.dex.mod, ctx) as number,
+    initiativeAdvantage: allMods.some(
+      (m) =>
+        m.kind === 'stat-modifier' &&
+        m.raw.target === 'initiative.advantage' &&
+        m.raw.value === true
+    ),
+    savesAdvantageVs: [...savesAdvantageVs].sort(),
+    savesDisadvantageVs: [...savesDisadvantageVs].sort(),
     passivePerception: 10 + skills.perception.bonus,
     spellSaveDC: spellInfo.dc,
     spellAttackBonus: spellInfo.attack,
@@ -776,6 +815,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // PHASE 3 — assemble activities (as concrete Actions)
   // -------------------------------------------------------------------------
 
+  // Character-wide crit defaults composed from modifier targets:
+  //   crit.threshold        — natural roll required to crit (DOWNGRADE to 19/18)
+  //   crit.extra-weapon-die — extra weapon dice on a crit (Savage Attacks)
+  // These land on every weapon-attack action emitted below.
+  const charCritThreshold = applyTarget(allMods, character, 'crit.threshold', 20, ctx);
+  const charCritExtraDie = applyTarget(allMods, character, 'crit.extra-weapon-die', 0, ctx);
+
   const actions: Action[] = [];
   for (const a of active) {
     let activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
@@ -785,7 +831,19 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
     for (const act of activities) {
       const action = realizeActivity(act, a, character, stats, content);
-      if (action) actions.push(action);
+      if (!action) continue;
+      // Crit fields only land on weapon attacks. Spell attacks crit on 20
+      // and don't roll extra weapon dice.
+      if (action.type === 'attack' && action.attackAbility && action.attackAbility !== undefined) {
+        const isSpellAttack = (act.attack as { classification?: string } | undefined)?.classification === 'spell';
+        if (!isSpellAttack) {
+          if (typeof charCritThreshold === 'number' && charCritThreshold < 20)
+            action.critThreshold = charCritThreshold;
+          if (typeof charCritExtraDie === 'number' && charCritExtraDie > 0)
+            action.critExtraDie = charCritExtraDie;
+        }
+      }
+      actions.push(action);
     }
   }
 

@@ -260,6 +260,82 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.2: save / initiative / crit advantage targets ------------------------
+// Locks the contract that the new advantage targets surface on the derived
+// stat block (and on attack Actions for the crit fields). Each before-C.2 was
+// silently inert — pack rows like Aura of Devotion (advantage on saves vs
+// charmed), Stalker's Flurry (initiative advantage), and Champion's Improved
+// Critical (crit threshold 19) carried these targets with no landing pad.
+
+describe('C.2 — save/initiative/crit advantage targets', () => {
+	const CHAR_WITH_C2: CharacterDocument = {
+		id: 'test-c2',
+		name: 'Advantage Stack',
+		classes: [
+			{
+				slug: 'fighter',
+				level: 5,
+				subclass: 'champion',
+				hpRolledPerLevel: [10, 6, 6, 6, 6]
+			}
+		],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'c2-advantage' }],
+		abilityScores: { str: 16, dex: 12, con: 14, int: 10, wis: 13, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [
+			{ contentKind: 'item', contentSlug: 'longsword', version: 1, equipped: true, attuned: false }
+		],
+		spells: { known: [], prepared: [] },
+		currentHp: 40,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('surfaces per-ability save advantage/disadvantage on the SaveCell', () => {
+		const d = derive(CHAR_WITH_C2, lookup());
+		expect(d.stats.saves.wis.advantage).toBe(true);
+		expect(d.stats.saves.cha.disadvantage).toBe(true);
+		expect(d.stats.saves.str.advantage).toBe(false);
+	});
+
+	it('collects vs-condition save advantage globally', () => {
+		const d = derive(CHAR_WITH_C2, lookup());
+		expect(d.stats.savesAdvantageVs).toContain('frightened');
+		expect(d.stats.savesAdvantageVs).toContain('charmed');
+		expect(d.stats.savesDisadvantageVs).toEqual([]);
+	});
+
+	it('flags initiative advantage', () => {
+		const d = derive(CHAR_WITH_C2, lookup());
+		expect(d.stats.initiativeAdvantage).toBe(true);
+	});
+
+	it('lands crit.threshold + crit.extra-weapon-die on weapon attack actions', () => {
+		const d = derive(CHAR_WITH_C2, lookup());
+		const longswordAttack = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		expect(longswordAttack).toBeDefined();
+		expect(longswordAttack!.critThreshold).toBe(19);
+		expect(longswordAttack!.critExtraDie).toBe(1);
+	});
+
+	it('defaults to no advantage flags / no crit modifier for a clean character', () => {
+		const clean: CharacterDocument = {
+			...CHAR_WITH_C2,
+			feats: [] // drop the c2-advantage feat
+		};
+		const d = derive(clean, lookup());
+		expect(d.stats.saves.wis.advantage).toBe(false);
+		expect(d.stats.initiativeAdvantage).toBe(false);
+		expect(d.stats.savesAdvantageVs).toEqual([]);
+		const longswordAttack = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		expect(longswordAttack?.critThreshold).toBeUndefined();
+		expect(longswordAttack?.critExtraDie).toBeUndefined();
+	});
+});
+
 // --- C.7: resistance/immunity/vulnerability qualifiers ----------------------
 // Locks the contract that a `qualifier` field on a resistance/immunity/
 // vulnerability modifier (nonmagical, spell, creature-type slug) lands on

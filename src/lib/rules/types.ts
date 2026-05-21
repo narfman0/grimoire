@@ -144,6 +144,11 @@ export interface AbilityCell {
 export interface SaveCell {
   bonus: number;
   proficient: boolean;
+  /** Unconditional advantage on this save (e.g. Resilient + Aura of Devotion).
+   *  When true, every roll on this save is made with advantage regardless of
+   *  what's being saved against. */
+  advantage: boolean;
+  disadvantage: boolean;
 }
 
 export interface SkillCell {
@@ -162,6 +167,15 @@ export interface StatBlock {
   speeds: Record<string, number>;
   proficiencyBonus: number;
   initiative: number;
+  /** Whether the character rolls initiative with advantage (Feywild Gift,
+   *  Dread Ambusher, etc.). The encounter layer chooses how to use it. */
+  initiativeAdvantage: boolean;
+  /** Conditions/circumstances under which every save is made with advantage
+   *  (e.g. "advantage on saves against being Frightened"). The
+   *  damage/condition resolution layer matches the condition slug against
+   *  this list. */
+  savesAdvantageVs: string[];
+  savesDisadvantageVs: string[];
   passivePerception: number;
   spellSaveDC: number | null;
   spellAttackBonus: number | null;
@@ -228,6 +242,12 @@ export interface Action {
   /** Number of times this attack action may be made as part of a single
    *  action (populated by Extra Attack feature; 1 = no extra attacks). */
   attackCount?: number;
+  /** Natural-roll threshold at which this attack crits. Default 20.
+   *  Champion's Improved Critical pushes it to 19, Superior Critical to 18.
+   *  The crit.threshold modifier target is applied via DOWNGRADE mode. */
+  critThreshold?: number;
+  /** Number of extra weapon dice rolled on a crit (Savage Attacks etc.). */
+  critExtraDie?: number;
   appliedModifiers: AppliedModifier[];
 }
 
