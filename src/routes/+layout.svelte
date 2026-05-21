@@ -155,8 +155,8 @@
             {/if}
           </div>
 
-          <!-- Homebrew menu: hover-/click-driven dropdown with the three core
-               surfaces. Lightweight CSS-only behavior — no popover lib. -->
+          <!-- Homebrew menu: admin-only until feature is opened up. -->
+          {#if data.user?.isAdmin}
           <div class="relative">
             <button
               class="text-xs hover:text-slate-200"
@@ -170,12 +170,11 @@
                 <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/content/browse">Browse content</a>
                 <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew">My library</a>
                 <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew/subscriptions">My subscriptions</a>
-                {#if data.user?.isAdmin}
-                  <a class="block border-t border-slate-800 px-3 py-1 text-amber-300 hover:bg-slate-800" href="/admin/reports">Admin · reports</a>
-                {/if}
+                <a class="block border-t border-slate-800 px-3 py-1 text-amber-300 hover:bg-slate-800" href="/admin/reports">Admin · reports</a>
               </div>
             {/if}
           </div>
+          {/if}
           <a href="/me/change-password" class="font-mono text-xs hover:text-slate-200">{data.user.username}</a>
           <button
             class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:text-slate-200 disabled:opacity-40"
