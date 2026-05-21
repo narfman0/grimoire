@@ -205,3 +205,38 @@ describe('Gloom Stalker Ranger L5 with XGtE spells', () => {
 		expect(row!.data).toHaveProperty('modifiers');
 	});
 });
+
+// --- C.1: armor + weapon proficiency targets ---------------------------------
+// Locks the contract that `proficiency.armor.<slug>` and
+// `proficiency.weapon.<slug>` modifier targets actually land on the derived
+// stat block. Before C.1 these prefixes had no scan loop, so feats like
+// Weapon Master / Heavy Armor Master were silently inert.
+
+describe('C.1 — armor + weapon proficiency targets', () => {
+	const WIZARD_WITH_WEAPON_MASTER: CharacterDocument = {
+		id: 'test-wizard-weapon-master',
+		name: 'Studious Bruiser',
+		classes: [{ slug: 'wizard', level: 5, hpRolledPerLevel: [6, 4, 4, 4, 4] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'weapon-master' }],
+		abilityScores: { str: 14, dex: 10, con: 12, int: 16, wis: 12, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 22,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('populates stats.weaponProficiencies from proficiency.weapon.<slug> modifiers', () => {
+		const d = derive(WIZARD_WITH_WEAPON_MASTER, lookup());
+		expect(d.stats.weaponProficiencies).toContain('martial');
+	});
+
+	it('populates stats.armorProficiencies from proficiency.armor.<slug> modifiers', () => {
+		const d = derive(WIZARD_WITH_WEAPON_MASTER, lookup());
+		expect(d.stats.armorProficiencies).toContain('heavy');
+	});
+});

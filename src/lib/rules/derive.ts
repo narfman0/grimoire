@@ -619,11 +619,14 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     skills[skill] = { bonus, ability, proficient, expertise };
   }
 
-  // (f.5) Languages + tools — explicit picks plus any modifier that targets
-  // `proficiency.language.<slug>` / `proficiency.tool.<slug>` (from
-  // class/species/feature/feat synthesis).
+  // (f.5) Languages + tools + armor/weapon proficiencies — explicit picks
+  // plus any modifier targeting `proficiency.language.<slug>` /
+  // `proficiency.tool.<slug>` / `proficiency.armor.<slug>` /
+  // `proficiency.weapon.<slug>` (from class/species/feature/feat synthesis).
   const languages = new Set<string>(character.proficienciesChosen.languages ?? []);
   const tools = new Set<string>(character.proficienciesChosen.tools ?? []);
+  const armorProficiencies = new Set<string>();
+  const weaponProficiencies = new Set<string>();
   for (const a of active) {
     const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
     for (const m of mods) {
@@ -632,6 +635,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       if (typeof t !== 'string') continue;
       if (t.startsWith('proficiency.language.')) languages.add(t.slice('proficiency.language.'.length));
       else if (t.startsWith('proficiency.tool.')) tools.add(t.slice('proficiency.tool.'.length));
+      else if (t.startsWith('proficiency.armor.')) armorProficiencies.add(t.slice('proficiency.armor.'.length));
+      else if (t.startsWith('proficiency.weapon.')) weaponProficiencies.add(t.slice('proficiency.weapon.'.length));
     }
   }
   for (const m of allMods) {
@@ -640,6 +645,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (typeof t !== 'string') continue;
     if (t.startsWith('proficiency.language.')) languages.add(t.slice('proficiency.language.'.length));
     else if (t.startsWith('proficiency.tool.')) tools.add(t.slice('proficiency.tool.'.length));
+    else if (t.startsWith('proficiency.armor.')) armorProficiencies.add(t.slice('proficiency.armor.'.length));
+    else if (t.startsWith('proficiency.weapon.')) weaponProficiencies.add(t.slice('proficiency.weapon.'.length));
   }
 
   // (g) Spellcasting
@@ -708,7 +715,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     vulnerabilities,
     senses,
     languages: [...languages].sort(),
-    tools: [...tools].sort()
+    tools: [...tools].sort(),
+    armorProficiencies: [...armorProficiencies].sort(),
+    weaponProficiencies: [...weaponProficiencies].sort()
   };
 
   // -------------------------------------------------------------------------
@@ -1263,7 +1272,7 @@ function realizeActivity(
     if (attack) {
       const ability = resolveAttackAbility(attack, source, stats);
       const mod = stats.abilities[ability].mod;
-      const proficient = computeAttackProficiency(attack, source, character);
+      const proficient = computeAttackProficiency(attack, source, character, stats);
       action.attackBonus = mod + (proficient ? stats.proficiencyBonus : 0);
       action.attackAbility = ability;
       action.attackRange = attack.range;
@@ -1393,13 +1402,19 @@ function resolveAttackAbility(
 function computeAttackProficiency(
   attack: { classification?: 'weapon' | 'spell' },
   source: ActiveContent,
-  character: CharacterDocument
+  character: CharacterDocument,
+  stats: StatBlock
 ): boolean {
   if (attack.classification === 'spell') return true; // spell attack uses spellcasting prof
-  // Weapon proficiency: assume proficient if the character's class(es) cover this weapon type.
-  // v0 shortcut: most martial/simple distinctions in fixtures will trust the assignment.
   const weaponType = source.data.weaponType as string | undefined;
-  // Best-effort: simple-* always; martial-* if any class proficiency includes 'martial'.
+  const wp = stats.weaponProficiencies;
+  // Modifier-granted proficiencies (e.g. Weapon Master feat) take precedence.
+  // We match the category (simple/martial), the full weaponType (e.g.
+  // "martial-melee"), or the weapon's own slug.
+  if (weaponType?.startsWith('simple-') && (wp.includes('simple') || wp.includes(weaponType))) return true;
+  if (weaponType?.startsWith('martial-') && (wp.includes('martial') || wp.includes(weaponType))) return true;
+  if (wp.includes(source.row.slug)) return true;
+  // v0 shortcut: most martial/simple distinctions in fixtures will trust the assignment.
   if (weaponType?.startsWith('simple-')) return true;
   if (weaponType?.startsWith('martial-')) {
     // The class proficiencies live on the class row; v0 assumes martial proficiency

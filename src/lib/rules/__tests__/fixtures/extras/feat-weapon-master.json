@@ -1,0 +1,21 @@
+{
+  "kind": "feat",
+  "slug": "weapon-master",
+  "version": 1,
+  "name": "Weapon Master",
+  "data": {
+    "category": "General",
+    "modifiers": [
+      {
+        "kind": "stat-modifier",
+        "target": "proficiency.weapon.martial",
+        "value": true
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "proficiency.armor.heavy",
+        "value": true
+      }
+    ]
+  }
+}

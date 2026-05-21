@@ -178,6 +178,14 @@ export interface StatBlock {
   /** Tool proficiencies. Populated from proficienciesChosen.tools plus any
    *  `proficiency.tool.<slug>` modifier. */
   tools: string[];
+  /** Armor proficiencies (`light`, `medium`, `heavy`, `shields`, plus any
+   *  homebrew slug). Populated from `proficiency.armor.<slug>` modifiers. */
+  armorProficiencies: string[];
+  /** Weapon proficiency categories / slugs (`simple`, `martial`, individual
+   *  weapon slugs like `longsword`). Populated from
+   *  `proficiency.weapon.<slug>` modifiers. The class-based heuristic in
+   *  computeAttackProficiency falls back to this set. */
+  weaponProficiencies: string[];
 }
 
 export interface AppliedModifier {
