@@ -41,7 +41,7 @@ export function makeEvent(opts: MakeEventOpts = {}): AnyEvent {
   });
   return {
     params: opts.params ?? {},
-    locals: { user: opts.user ?? null },
+    locals: { user: opts.user ?? null, requestId: 'test-request-id' },
     request,
     url,
     cookies: {

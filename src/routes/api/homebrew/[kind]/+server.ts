@@ -6,6 +6,7 @@
 import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { HomebrewCreate, homebrewSchemaFor } from '$lib/server/content/schemas';
 import type { RequestHandler } from './$types';
@@ -94,7 +95,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     visibility: 'private',
     createdAt: now,
     updatedAt: now
-  });
+  }).catch((err) => handleDbError(err, 'homebrew:insert-content'));
 
   const [row] = await db
     .select()

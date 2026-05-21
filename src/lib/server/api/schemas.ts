@@ -31,7 +31,9 @@ export const TimestampMs = z.number().int().nonnegative();
 
 export const ErrorResponse = z
   .object({
-    message: z.string()
+    message: z.string(),
+    code: z.string().optional(),
+    requestId: z.string().optional()
   })
   .openapi('Error');
 

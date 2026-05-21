@@ -60,11 +60,14 @@ isn't buffered (nginx: `proxy_buffering off;`).
 
 **Required env vars for production:**
 
-| Variable | Description |
-|---|---|
-| `ORIGIN` | Public URL — required for SvelteKit CSRF origin check (e.g. `https://grimoire.example.com`) |
-| `ADMIN_USERNAME` | Username promoted to admin on each boot (default: `narfman0`) |
-| `RESEND_API_KEY` | Transactional email via Resend; falls back to console logging when unset |
+| Variable | Required | Description |
+|---|---|---|
+| `ORIGIN` | yes | Public URL — required for SvelteKit CSRF origin check (e.g. `https://grimoire.example.com`) |
+| `ADMIN_USERNAME` | no | Username promoted to admin on each boot (default: `narfman0`) |
+| `RESEND_API_KEY` | no | Transactional email via Resend; falls back to structured log output when unset |
+| `SENTRY_DSN` | no | Server-side error monitoring (unhandled exceptions, 500s); Sentry is disabled when unset |
+| `PUBLIC_SENTRY_DSN` | no | Client-side error monitoring; typically the same DSN as `SENTRY_DSN` |
+| `LOG_LEVEL` | no | Structured log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`); defaults to `info` in production |
 
 **Single-instance only:** Grimoire uses SQLite and an in-process rate-limit store. Run one container. Multiple replicas would conflict on the SQLite file. The path to horizontal scaling is Postgres + a distributed rate-limit store — the Drizzle schema is intentionally kept portable for that migration.
 

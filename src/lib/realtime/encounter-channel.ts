@@ -15,6 +15,7 @@
 
 import { writable, type Readable } from 'svelte/store';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
+import { toasts, type ApiError } from '$lib/client/errors';
 
 export interface TurnPlan {
   actionId: string;
@@ -151,8 +152,13 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) }
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`${res.status} ${text.slice(0, 200)}`);
+      let err: ApiError = { message: `Request failed (${res.status})` };
+      try {
+        const body = await res.json();
+        if (typeof body.message === 'string') err = body as ApiError;
+      } catch { /* use status-based message */ }
+      toasts.add({ type: 'error', message: err.message, requestId: err.requestId });
+      throw err;
     }
   }
 

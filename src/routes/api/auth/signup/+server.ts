@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
+import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { hashPassword } from '$lib/server/auth/passwords';
 import { createSession } from '$lib/server/auth/sessions';
@@ -59,7 +60,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
     emailVerifyToken: verifyToken,
     emailVerifyTokenExpiresAt: verifyTokenExpiresAt,
     createdAt: new Date()
-  });
+  }).catch((err) => handleDbError(err, 'signup:insert-user'));
 
   const origin = new URL(request.url).origin;
   const link = `${origin}/verify-email?token=${verifyToken}`;

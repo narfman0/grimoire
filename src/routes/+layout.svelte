@@ -2,6 +2,7 @@
   import '../app.css';
   import { page } from '$app/stores';
   import { invalidateAll, goto } from '$app/navigation';
+  import { toasts } from '$lib/client/errors';
   import type { LayoutData } from './$types';
   export let data: LayoutData;
 
@@ -205,4 +206,14 @@
   <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
     <slot />
   </main>
+  {#if $toasts.length > 0}
+    <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      {#each $toasts as t (t.id)}
+        <div class="flex items-start gap-2 rounded-lg border border-red-700 bg-red-950/90 px-4 py-3 text-sm text-red-200 shadow-lg">
+          <span class="flex-1">{t.message}{#if t.requestId}<span class="ml-1 font-mono text-[10px] text-red-400">({t.requestId.slice(0, 8)})</span>{/if}</span>
+          <button class="text-red-400 hover:text-red-200" on:click={() => toasts.dismiss(t.id)}>✕</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </div>

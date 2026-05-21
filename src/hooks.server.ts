@@ -1,15 +1,25 @@
+import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
 import { eq } from 'drizzle-orm';
 import { loadAllPacks } from '$lib/server/content';
 import { loadUserFromCookie, deleteExpiredSessions } from '$lib/server/auth/sessions';
 import { closeDb, db, schema } from '$lib/server/db';
+import { logger } from '$lib/server/logger';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0
+});
 
 const SESSION_GC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export const init: ServerInit = async () => {
   await loadAllPacks();
   await deleteExpiredSessions();
-  setInterval(() => { deleteExpiredSessions().catch(console.error); }, SESSION_GC_INTERVAL_MS);
+  setInterval(() => {
+    deleteExpiredSessions().catch((err) => logger.error({ err }, 'session GC failed'));
+  }, SESSION_GC_INTERVAL_MS);
 
   const adminUsername = process.env.ADMIN_USERNAME ?? 'narfman0';
   await db
@@ -22,7 +32,8 @@ export const init: ServerInit = async () => {
   process.once('SIGINT', shutdown);
 };
 
-export const handle: Handle = async ({ event, resolve }) => {
+const appHandle: Handle = async ({ event, resolve }) => {
+  event.locals.requestId = crypto.randomUUID();
   event.locals.user = await loadUserFromCookie(event.cookies);
   const response = await resolve(event);
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -32,18 +43,31 @@ export const handle: Handle = async ({ event, resolve }) => {
   return response;
 };
 
+export const handle: Handle = sequence(Sentry.sentryHandle(), appHandle);
+
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
-  // Log every unhandled server error with enough context to diagnose it.
-  // Replace this with a structured logger or error-tracking SDK (e.g. Sentry)
-  // before shipping to production.
   if (status !== 404) {
-    console.error('[server error]', {
-      status,
-      message,
+    const log = logger.child({
+      requestId: event.locals?.requestId,
+      userId: event.locals?.user?.id,
       url: event.url.pathname,
-      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error
+      status
     });
+    log.error(
+      {
+        err: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : error
+      },
+      message
+    );
+    if (status >= 500 && error instanceof Error) {
+      Sentry.withScope((scope) => {
+        scope.setTag('requestId', event.locals?.requestId ?? 'unknown');
+        scope.setUser({ id: event.locals?.user?.id });
+        Sentry.captureException(error);
+      });
+    }
   }
-  // Return the safe public message SvelteKit exposes to the +error.svelte page.
-  return { message };
+  return { message, requestId: event.locals?.requestId };
 };

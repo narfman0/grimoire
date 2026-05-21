@@ -7,6 +7,7 @@ import { join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { logger } from '$lib/server/logger';
 import { ContentRowFileOrArray, PackMeta, type ContentRowFile } from './schemas';
 
 const DEFAULT_REPO_PACKS_DIR = './content-packs';
@@ -72,14 +73,12 @@ export async function loadAllPacks(): Promise<LoaderResult> {
       // Refuse any on-disk pack claiming that slug so user rows aren't
       // overwritten or orphan-warned by a same-named filesystem pack.
       if (meta.slug === 'homebrew') {
-        console.warn(
-          `[grimoire] WARN ignoring on-disk pack at ${dir} — slug 'homebrew' is reserved for in-app authored content`
-        );
+        logger.warn({ dir }, "ignoring on-disk pack — slug 'homebrew' is reserved for in-app authored content");
         continue;
       }
       metas.push({ dir, meta });
     } catch (err) {
-      console.error(`[grimoire] failed to read meta.json in ${dir}:`, err);
+      logger.error({ err, dir }, 'failed to read meta.json');
     }
   }
   metas.sort((a, b) => a.meta.slug.localeCompare(b.meta.slug));
@@ -108,12 +107,13 @@ export async function loadAllPacks(): Promise<LoaderResult> {
       result.warnings += stats.warnings;
     } catch (err) {
       result.errors += 1;
-      console.error(`[grimoire] pack ${meta.slug} failed:`, err);
+      logger.error({ err, pack: meta.slug }, 'pack load failed');
     }
   }
 
-  console.log(
-    `[grimoire] content layer ready (${result.packsLoaded} packs, ${result.rowsLoaded} rows, ${result.warnings} warnings, ${result.errors} errors)`
+  logger.info(
+    { packsLoaded: result.packsLoaded, rowsLoaded: result.rowsLoaded, warnings: result.warnings, errors: result.errors },
+    'content layer ready'
   );
   return result;
 }
@@ -269,9 +269,7 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
           .run();
         stats.rowsLoaded += 1;
         if (prev.packSlug !== ctx.meta.slug) {
-          console.warn(
-            `[grimoire] pack ${ctx.meta.slug} took over row ${identityKey} previously owned by pack ${prev.packSlug}`
-          );
+          logger.warn({ pack: ctx.meta.slug, row: identityKey, previousPack: prev.packSlug }, 'pack took over row from another pack');
           stats.warnings += 1;
         }
       }
@@ -290,16 +288,14 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
     for (const r of allDbRows) {
       const key = `${r.kind}/${r.slug}@${r.version}`;
       if (!ctx.rowsSeen.has(key)) {
-        console.warn(`[grimoire] WARN pack=${ctx.meta.slug} orphaned row: ${key}`);
+        logger.warn({ pack: ctx.meta.slug, row: key }, 'orphaned row detected — present in DB but missing from disk');
         stats.warnings += 1;
       }
     }
   });
 
   const elapsed = Date.now() - started;
-  console.log(
-    `[grimoire] pack ${ctx.meta.slug} loaded: ${stats.rowsLoaded} rows, ${stats.warnings} warnings (${elapsed}ms)`
-  );
+  logger.info({ pack: ctx.meta.slug, rowsLoaded: stats.rowsLoaded, warnings: stats.warnings, elapsedMs: elapsed }, 'pack loaded');
   return stats;
 }
 
