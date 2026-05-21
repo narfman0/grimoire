@@ -1,9 +1,20 @@
 # Fly.io deployment config for grimoire (SvelteKit + SQLite).
+#
+# Do NOT use `fly launch` here — it would try to scaffold its own
+# Dockerfile via @flydotio/dockerfile (which has been flaky), but this
+# repo ships a working Dockerfile already. Use `fly deploy` directly.
+#
 # One-time setup:
-#   fly launch --no-deploy
-#   fly volumes create grimoire_data --size 3
-#   fly secrets set ORIGIN=https://<your-app>.fly.dev ADMIN_USERNAME=narfman0
+#   fly apps create grimoire                      # or pick a new name + edit `app` below
+#   fly volumes create grimoire_data --size 3 --region iad
+#   fly secrets set \
+#     ORIGIN=https://<your-app>.fly.dev \
+#     ADMIN_USERNAME=narfman0 \
+#     RESEND_API_KEY=... \
+#     SENTRY_DSN=...
 #   fly deploy
+#
+# Subsequent deploys: `fly deploy` (uses ./Dockerfile + this fly.toml).
 
 app            = "grimoire"
 primary_region = "iad"
