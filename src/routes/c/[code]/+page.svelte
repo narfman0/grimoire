@@ -264,10 +264,8 @@
   // ---- Content grants (DM only) ----
   let grants = data.grants;
   let grantError: string | null = null;
-  $: grantedAuthorIds = new Set(grants.filter((g) => g.grantType === 'author').map((g) => g.grantKey));
-  $: ungrantedMembers = data.campaignMembers.filter((m) => !grantedAuthorIds.has(m.id));
-  let selectedMemberId = '';
-  $: if (!selectedMemberId && ungrantedMembers.length > 0) selectedMemberId = ungrantedMembers[0].id;
+  let grantModalOpen = false;
+  $: grantedPackCount = grants.filter((g) => g.grantType === 'pack').length;
 
   function isPackGranted(slug: string): boolean {
     return grants.some((g) => g.grantType === 'pack' && g.grantKey === slug);
@@ -291,26 +289,19 @@
     }
   }
 
-  async function addAuthorGrant() {
-    if (!selectedMemberId) return;
+  async function enableAllPacks() {
     grantError = null;
-    const res = await fetch(`/api/campaigns/${data.campaign.code}/grants`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ grantType: 'author', grantKey: selectedMemberId })
-    });
-    if (!res.ok) {
-      grantError = `error ${res.status}`;
-      return;
+    for (const pack of data.availablePacks) {
+      if (!isPackGranted(pack.slug)) await togglePackGrant(pack.slug);
     }
-    const g = await res.json();
-    grants = [...grants, { id: g.id, grantType: 'author' as const, grantKey: g.grantKey, label: g.label }];
-    selectedMemberId = '';
   }
 
-  async function removeGrant(id: string) {
-    const res = await fetch(`/api/campaigns/${data.campaign.code}/grants/${id}`, { method: 'DELETE' });
-    if (res.ok) grants = grants.filter((g) => g.id !== id);
+  async function disableAllPacks() {
+    grantError = null;
+    for (const g of grants.filter((g) => g.grantType === 'pack')) {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}/grants/${g.id}`, { method: 'DELETE' });
+      if (res.ok) grants = grants.filter((x) => x.id !== g.id);
+    }
   }
 
   // 2024 PHB ability-generation methods. We don't enforce a particular one;
@@ -385,6 +376,8 @@
     abilities = { ...abilities };
   }
 </script>
+
+<svelte:window on:keydown={(e) => { if (e.key === 'Escape' && grantModalOpen) grantModalOpen = false; }} />
 
 <header class="mb-6">
   {#if editingCampaign && data.role === 'dm'}
@@ -802,79 +795,74 @@
 
 {#if data.role === 'dm'}
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
-  <h2 class="mb-3 text-sm font-semibold text-slate-200">Content grants</h2>
-  <p class="mb-3 text-xs text-slate-500">
-    Control which content packs and homebrew authors are available to characters in this campaign.
-    Author grants make that author's published homebrew visible in all pickers, regardless of
-    whether a player has personally subscribed.
-  </p>
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2 min-w-0">
+      <span class="font-semibold text-slate-200">Content grants</span>
+      <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
+        {grantedPackCount} of {data.availablePacks.length} packs
+      </span>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
+        disabled={grantedPackCount === data.availablePacks.length}
+        on:click={enableAllPacks}
+      >All</button>
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-red-700 hover:text-red-300 disabled:opacity-40"
+        disabled={grantedPackCount === 0}
+        on:click={disableAllPacks}
+      >None</button>
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-slate-500 hover:text-slate-100"
+        on:click={() => grantModalOpen = true}
+      >Advanced…</button>
+    </div>
+  </div>
+  {#if grantError}
+    <p class="mt-2 text-xs text-red-400">{grantError}</p>
+  {/if}
+</section>
 
-  <div class="mb-4">
-    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Packs</h3>
+{#if grantModalOpen}
+<div class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Content grants">
+  <button class="absolute inset-0 bg-black/60 cursor-default" tabindex="-1" aria-label="Close" on:click={() => grantModalOpen = false} />
+  <div class="relative w-full max-w-sm rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-xl">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-200">Content grants</h2>
+      <button class="text-slate-500 hover:text-slate-300" on:click={() => grantModalOpen = false}>✕</button>
+    </div>
     {#if data.availablePacks.length === 0}
       <p class="text-xs text-slate-500">No packs loaded.</p>
     {:else}
-      <ul class="space-y-1">
+      <ul class="space-y-2">
         {#each data.availablePacks as pack}
-          <li class="flex items-center gap-2">
+          <li class="flex items-center gap-3">
             <input
               type="checkbox"
-              id="pack-{pack.slug}"
+              id="modal-pack-{pack.slug}"
               checked={isPackGranted(pack.slug)}
               on:change={() => togglePackGrant(pack.slug)}
               class="accent-emerald-500"
             />
-            <label for="pack-{pack.slug}" class="cursor-pointer text-slate-300">{pack.name}</label>
-            <span class="font-mono text-xs text-slate-500">({pack.slug})</span>
+            <label for="modal-pack-{pack.slug}" class="flex-1 cursor-pointer text-slate-300">{pack.name}</label>
+            <span class="font-mono text-xs text-slate-500">{pack.slug}</span>
           </li>
         {/each}
       </ul>
-    {/if}
-  </div>
-
-  <div>
-    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Homebrew authors</h3>
-    {#if grants.filter((g) => g.grantType === 'author').length > 0}
-      <ul class="mb-2 space-y-1">
-        {#each grants.filter((g) => g.grantType === 'author') as g (g.id)}
-          <li class="flex items-center gap-2">
-            <span class="font-mono text-slate-300">{g.label}</span>
-            <button
-              class="text-xs text-slate-500 hover:text-red-400"
-              on:click={() => removeGrant(g.id)}
-            >×</button>
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <p class="mb-2 text-xs text-slate-500">No author grants yet.</p>
-    {/if}
-    {#if ungrantedMembers.length > 0}
-      <div class="flex gap-2">
-        <select
-          class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-          bind:value={selectedMemberId}
-        >
-          {#each ungrantedMembers as m}
-            <option value={m.id}>{m.username}</option>
-          {/each}
-        </select>
-        <button
-          class="rounded bg-emerald-700 px-3 py-1 text-xs hover:bg-emerald-600 disabled:opacity-40"
-          disabled={!selectedMemberId}
-          on:click={addAuthorGrant}
-        >
-          Add
-        </button>
-      </div>
-    {:else}
-      <p class="text-xs text-slate-500">All campaign members have been granted.</p>
     {/if}
     {#if grantError}
-      <p class="mt-1 text-xs text-red-400">{grantError}</p>
+      <p class="mt-3 text-xs text-red-400">{grantError}</p>
     {/if}
+    <div class="mt-5 flex justify-end">
+      <button
+        class="rounded bg-slate-700 px-4 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+        on:click={() => grantModalOpen = false}
+      >Done</button>
+    </div>
   </div>
-</section>
+</div>
+{/if}
 {/if}
 
 <section class="mt-6 rounded-lg border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-300">

@@ -27,7 +27,10 @@ export const init: ServerInit = async () => {
     .set({ isAdmin: true })
     .where(eq(schema.users.username, adminUsername));
 
-  const shutdown = () => { closeDb(); process.exit(0); };
+  const shutdown = () => {
+    // Brief drain window for in-flight requests before closing the DB
+    setTimeout(() => { closeDb(); process.exit(0); }, 5000);
+  };
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 };
