@@ -263,8 +263,11 @@
 
   // ---- Content grants (DM only) ----
   let grants = data.grants;
-  let grantAuthorInput = '';
   let grantError: string | null = null;
+  $: grantedAuthorIds = new Set(grants.filter((g) => g.grantType === 'author').map((g) => g.grantKey));
+  $: ungrantedMembers = data.campaignMembers.filter((m) => !grantedAuthorIds.has(m.id));
+  let selectedMemberId = '';
+  $: if (!selectedMemberId && ungrantedMembers.length > 0) selectedMemberId = ungrantedMembers[0].id;
 
   function isPackGranted(slug: string): boolean {
     return grants.some((g) => g.grantType === 'pack' && g.grantKey === slug);
@@ -283,27 +286,26 @@
       });
       if (res.ok) {
         const g = await res.json();
-        grants = [...grants, { id: g.id ?? crypto.randomUUID(), grantType: 'pack', grantKey: slug, label: slug }];
+        grants = [...grants, { id: g.id, grantType: 'pack' as const, grantKey: slug, label: slug }];
       }
     }
   }
 
   async function addAuthorGrant() {
-    const username = grantAuthorInput.trim();
-    if (!username) return;
+    if (!selectedMemberId) return;
     grantError = null;
     const res = await fetch(`/api/campaigns/${data.campaign.code}/grants`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ grantType: 'author', grantKey: username })
+      body: JSON.stringify({ grantType: 'author', grantKey: selectedMemberId })
     });
     if (!res.ok) {
-      grantError = res.status === 404 ? 'user not found' : res.status === 409 ? 'already added' : `error ${res.status}`;
+      grantError = `error ${res.status}`;
       return;
     }
     const g = await res.json();
-    grants = [...grants, { id: g.id ?? crypto.randomUUID(), grantType: 'author' as const, grantKey: g.grantKey, label: g.label ?? username }];
-    grantAuthorInput = '';
+    grants = [...grants, { id: g.id, grantType: 'author' as const, grantKey: g.grantKey, label: g.label }];
+    selectedMemberId = '';
   }
 
   async function removeGrant(id: string) {
@@ -847,21 +849,27 @@
     {:else}
       <p class="mb-2 text-xs text-slate-500">No author grants yet.</p>
     {/if}
-    <div class="flex gap-2">
-      <input
-        class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-        placeholder="username"
-        bind:value={grantAuthorInput}
-        on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAuthorGrant(); } }}
-      />
-      <button
-        class="rounded bg-emerald-700 px-3 py-1 text-xs hover:bg-emerald-600 disabled:opacity-40"
-        disabled={!grantAuthorInput.trim()}
-        on:click={addAuthorGrant}
-      >
-        Add
-      </button>
-    </div>
+    {#if ungrantedMembers.length > 0}
+      <div class="flex gap-2">
+        <select
+          class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+          bind:value={selectedMemberId}
+        >
+          {#each ungrantedMembers as m}
+            <option value={m.id}>{m.username}</option>
+          {/each}
+        </select>
+        <button
+          class="rounded bg-emerald-700 px-3 py-1 text-xs hover:bg-emerald-600 disabled:opacity-40"
+          disabled={!selectedMemberId}
+          on:click={addAuthorGrant}
+        >
+          Add
+        </button>
+      </div>
+    {:else}
+      <p class="text-xs text-slate-500">All campaign members have been granted.</p>
+    {/if}
     {#if grantError}
       <p class="mt-1 text-xs text-red-400">{grantError}</p>
     {/if}

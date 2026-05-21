@@ -100,17 +100,25 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .from(schema.packs)
     .where(ne(schema.packs.slug, 'homebrew'));
 
-  // Resolve author user IDs → usernames.
+  // All campaign members with usernames — feeds both the author grant dropdown
+  // and the username resolution for existing grants.
+  const memberUserRows = await db
+    .select({ id: schema.users.id, username: schema.users.username })
+    .from(schema.campaignMembers)
+    .innerJoin(schema.users, eq(schema.users.id, schema.campaignMembers.userId))
+    .where(eq(schema.campaignMembers.campaignId, campaign.id));
+
+  const authorUsernameMap = new Map(memberUserRows.map((u) => [u.id, u.username]));
+  // Also resolve any granted authors who may no longer be members.
   const grantedAuthorIds = grantRows
-    .filter((g) => g.grantType === 'author')
+    .filter((g) => g.grantType === 'author' && !authorUsernameMap.has(g.grantKey))
     .map((g) => g.grantKey);
-  const authorUsernameMap = new Map<string, string>();
   if (grantedAuthorIds.length > 0) {
-    const authorUsers = await db
+    const extra = await db
       .select({ id: schema.users.id, username: schema.users.username })
       .from(schema.users)
       .where(inArray(schema.users.id, grantedAuthorIds));
-    for (const u of authorUsers) authorUsernameMap.set(u.id, u.username);
+    for (const u of extra) authorUsernameMap.set(u.id, u.username);
   }
 
   // Phase 4: list of user-owned characters that AREN'T already linked to
@@ -162,6 +170,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       label: g.grantType === 'author' ? (authorUsernameMap.get(g.grantKey) ?? g.grantKey) : g.grantKey
     })),
     availablePacks: availablePackRows,
+    campaignMembers: memberUserRows,
     notes: noteRows
       .map((n) => ({
         id: n.id,

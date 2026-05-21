@@ -19,6 +19,7 @@ const TABLE_NAMES = [
   'notifications',
   'content_reports',
   'homebrew_subscriptions',
+  'campaign_content_grants',
   'action_log',
   'participants',
   'encounters',
@@ -30,6 +31,7 @@ const TABLE_NAMES = [
   'campaigns',
   'content',
   'packs',
+  'auth_log',
   'users'
 ] as const;
 

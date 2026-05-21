@@ -301,6 +301,25 @@ export async function seedActionLog(
   return id;
 }
 
+export async function seedContentGrant(
+  db: DbType,
+  opts: {
+    campaignId: string;
+    grantType: 'pack' | 'author';
+    grantKey: string;
+  }
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.insert(schema.campaignContentGrants).values({
+    id,
+    campaignId: opts.campaignId,
+    grantType: opts.grantType,
+    grantKey: opts.grantKey,
+    createdAt: new Date()
+  });
+  return id;
+}
+
 export async function seedEncounter(
   db: DbType,
   opts: { campaignId: string; name?: string; status?: 'staging' | 'live' | 'ended' }
