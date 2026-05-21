@@ -11,10 +11,11 @@ export const init: ServerInit = async () => {
   await deleteExpiredSessions();
   setInterval(() => { deleteExpiredSessions().catch(console.error); }, SESSION_GC_INTERVAL_MS);
 
+  const adminUsername = process.env.ADMIN_USERNAME ?? 'narfman0';
   await db
     .update(schema.users)
     .set({ isAdmin: true })
-    .where(eq(schema.users.username, 'narfman0'));
+    .where(eq(schema.users.username, adminUsername));
 
   const shutdown = () => { closeDb(); process.exit(0); };
   process.once('SIGTERM', shutdown);

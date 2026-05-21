@@ -50,13 +50,23 @@ If `better-sqlite3` fails to build, install a C++ toolchain. On Fedora:
 ## Deploy
 
 ```bash
-docker compose build && docker compose up -d
+ORIGIN=https://grimoire.example.com docker compose build && docker compose up -d
 ```
 
 The compose file exposes `${GRIMOIRE_PORT:-49300}` (web), with a
 `grimoire-data` volume holding `grimoire.db`. Migrations run on container
 startup. Behind a reverse proxy, make sure `text/event-stream`
 isn't buffered (nginx: `proxy_buffering off;`).
+
+**Required env vars for production:**
+
+| Variable | Description |
+|---|---|
+| `ORIGIN` | Public URL — required for SvelteKit CSRF origin check (e.g. `https://grimoire.example.com`) |
+| `ADMIN_USERNAME` | Username promoted to admin on each boot (default: `narfman0`) |
+| `RESEND_API_KEY` | Transactional email via Resend; falls back to console logging when unset |
+
+**Single-instance only:** Grimoire uses SQLite and an in-process rate-limit store. Run one container. Multiple replicas would conflict on the SQLite file. The path to horizontal scaling is Postgres + a distributed rate-limit store — the Drizzle schema is intentionally kept portable for that migration.
 
 ## More
 

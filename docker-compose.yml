@@ -15,6 +15,10 @@ services:
     environment:
       DATABASE_URL: /data/grimoire.db
       NODE_ENV: production
+      # Required: public URL for CSRF origin check (e.g. https://grimoire.example.com)
+      ORIGIN: ${ORIGIN}
+      # Optional: username to bootstrap as admin (default: narfman0)
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-narfman0}
     volumes:
       - grimoire-data:/data
 
