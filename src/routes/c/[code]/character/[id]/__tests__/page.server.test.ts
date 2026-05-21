@@ -205,6 +205,69 @@ describe('/c/[code]/character/[id] +page.server load', () => {
     expect(acolyte.abilityChoices).toEqual(['int', 'wis', 'cha']);
   });
 
+  // Locks the featOptions.asiBudget / abilityChoices contract — the ASI
+  // configure panel in +page.svelte reads both fields to decide whether to
+  // show the ability-bump picker and which abilities are selectable. When
+  // either field is absent the panel must not appear (null / [] fallbacks).
+  it('featOptions returns null asiBudget and empty abilityChoices when absent from feat data', async () => {
+    await seedMinimumContent(db);
+    await seedContent(db, [
+      { kind: 'feat', slug: 'alert', name: 'Alert', data: { category: 'general' } }
+    ]);
+    const dmId = await seedUser(db, { username: 'dm-fi' });
+    const owner = await seedUser(db, { username: 'owner-fi' });
+    const { campaignId, code } = await seedCampaign(db, { dmId, playerIds: [owner] });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: owner,
+      name: 'Hero',
+      document: minCharDoc('fi'),
+      linkToCampaign: true
+    });
+    const data = await runLoad(load, loadEvent({
+      user: { id: owner, username: 'owner-fi', isAdmin: false, email: null, emailVerified: false },
+      params: { code, id: characterId }
+    }));
+    const alert = data.featOptions.find((f: { slug: string }) => f.slug === 'alert');
+    expect(alert).toBeDefined();
+    expect(alert.asiBudget).toBeNull();
+    expect(alert.abilityChoices).toEqual([]);
+  });
+
+  it('featOptions surfaces abilityChoices and asiBudget for ASI-style feats', async () => {
+    await seedMinimumContent(db);
+    await seedContent(db, [
+      {
+        kind: 'feat',
+        slug: 'ability-score-improvement',
+        name: 'Ability Score Improvement',
+        data: {
+          category: 'general',
+          abilityChoices: ['str', 'dex', 'con', 'int', 'wis', 'cha'],
+          asiBudget: 2
+        }
+      }
+    ]);
+    const dmId = await seedUser(db, { username: 'dm-asi' });
+    const owner = await seedUser(db, { username: 'owner-asi' });
+    const { campaignId, code } = await seedCampaign(db, { dmId, playerIds: [owner] });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: owner,
+      name: 'Hero',
+      document: minCharDoc('asi'),
+      linkToCampaign: true
+    });
+    const data = await runLoad(load, loadEvent({
+      user: { id: owner, username: 'owner-asi', isAdmin: false, email: null, emailVerified: false },
+      params: { code, id: characterId }
+    }));
+    const asi = data.featOptions.find((f: { slug: string }) => f.slug === 'ability-score-improvement');
+    expect(asi).toBeDefined();
+    expect(asi.asiBudget).toBe(2);
+    expect(asi.abilityChoices).toEqual(['str', 'dex', 'con', 'int', 'wis', 'cha']);
+  });
+
   // Locks: a member can view but the character must be linked to *this*
   // campaign — otherwise 404. A regression in the join would silently let
   // a member view characters from any campaign they're a member of.
