@@ -1,7 +1,7 @@
 import { destroySession } from '$lib/server/auth/sessions';
 import type { RequestHandler } from './$types';
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Log out (destroy current session)' }
 } as const;
 

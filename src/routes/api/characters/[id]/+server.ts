@@ -107,7 +107,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   return new Response(null, { status: 204 });
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Fetch a character by ID' },
   PATCH: { summary: 'Update a character', body: UpdateCharacterRequest },
   DELETE: { summary: 'Delete a character' }

@@ -95,7 +95,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   return new Response(null, { status: 204 });
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Fetch an encounter with its participants' },
   PATCH: { summary: 'Update an encounter (DM only)', body: UpdateEncounterRequest },
   DELETE: { summary: 'Delete an encounter (DM only)' }

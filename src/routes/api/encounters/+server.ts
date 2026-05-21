@@ -72,7 +72,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   });
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'List encounters for a campaign' },
   POST: { summary: 'Create an encounter under a campaign (DM only)', body: CreateEncounterRequest }
 } as const;

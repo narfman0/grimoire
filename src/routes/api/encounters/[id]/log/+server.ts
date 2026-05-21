@@ -135,7 +135,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   return json(serialize(stored[0]), { status: 201 });
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Read the action log for an encounter (chronological)' },
   POST: { summary: 'Append a resolution to the action log', body: SubmitActionLogRequest }
 } as const;

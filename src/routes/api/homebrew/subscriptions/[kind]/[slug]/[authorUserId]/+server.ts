@@ -67,7 +67,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
   return json({ pinnedVersion: result[0].pinnedVersion });
 };
 
-export const openapi = {
+export const _openapi = {
   DELETE: { summary: 'Unsubscribe from a homebrew entry' },
   PATCH: { summary: 'Change the pinned version for a subscription', body: SubscriptionPinPatch }
 } as const;

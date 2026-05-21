@@ -8,6 +8,6 @@ export const GET: RequestHandler = () =>
     { headers: { 'cache-control': 'public, max-age=3600' } }
   );
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'List available public content sources' }
 } as const;

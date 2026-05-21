@@ -64,6 +64,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   return json({ id: partId });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Add a participant to an encounter (DM only)', body: AddParticipantRequest }
 } as const;

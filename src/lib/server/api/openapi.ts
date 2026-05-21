@@ -65,7 +65,7 @@ function defaultTag(openApiPath: string): string {
 // ---------------------------------------------------------------------------
 
 export function buildSpec(
-  routes: Record<string, { openapi?: RouteOpenApi }>
+  routes: Record<string, { _openapi?: RouteOpenApi }>
 ): object {
   const registry = new OpenAPIRegistry();
   const registeredNames = new Set<string>();
@@ -84,7 +84,7 @@ export function buildSpec(
   }
 
   for (const [filePath, mod] of Object.entries(routes)) {
-    const routeSpec = mod.openapi;
+    const routeSpec = mod._openapi;
     if (!routeSpec) continue;
 
     const openApiPath = filePathToOpenApiPath(filePath);

@@ -29,6 +29,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   return json({ ok: true });
 };
 
-export const openapi = {
+export const _openapi = {
   DELETE: { summary: 'Remove a content grant from a campaign (DM only)' }
 } as const;

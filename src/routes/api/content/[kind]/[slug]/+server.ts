@@ -47,6 +47,6 @@ export const GET: RequestHandler = async ({ params }) => {
   );
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Fetch the latest public version of a content row by kind and slug' }
 } as const;

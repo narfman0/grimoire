@@ -8,6 +8,6 @@ export const GET: RequestHandler = async () => {
   return json({ status: 'ok' });
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Health check — returns ok if the database is reachable' }
 } as const;

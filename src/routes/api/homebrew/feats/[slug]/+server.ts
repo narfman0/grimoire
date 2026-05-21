@@ -98,7 +98,7 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
   return json({ deleted: true, inUseBy: referencing.map((c) => ({ id: c.id, name: c.name })) });
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Fetch a homebrew feat by slug' },
   PATCH: { summary: 'Update a homebrew feat', body: FeatHomebrewPatch },
   DELETE: { summary: 'Delete a homebrew feat' }

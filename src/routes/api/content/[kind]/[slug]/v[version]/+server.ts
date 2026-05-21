@@ -47,6 +47,6 @@ export const GET: RequestHandler = async ({ params }) => {
   );
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'Fetch a specific pinned version of a content row' }
 } as const;

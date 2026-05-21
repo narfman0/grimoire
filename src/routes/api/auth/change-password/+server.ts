@@ -53,6 +53,6 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
   return json({ ok: true });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Change password for the logged-in user' }
 } as const;

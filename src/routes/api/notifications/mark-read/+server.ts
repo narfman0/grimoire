@@ -37,6 +37,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   return json({ ok: true });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Mark notifications as read', body: MarkReadBody }
 } as const;

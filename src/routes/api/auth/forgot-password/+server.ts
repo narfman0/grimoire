@@ -44,6 +44,6 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   return new Response(null, { status: 204 });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Request a password reset email' }
 } as const;

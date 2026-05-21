@@ -103,6 +103,6 @@ export const GET: RequestHandler = async ({ url }) => {
   );
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'List public catalog content rows' }
 } as const;

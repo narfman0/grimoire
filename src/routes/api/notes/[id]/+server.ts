@@ -59,7 +59,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   return new Response(null, { status: 204 });
 };
 
-export const openapi = {
+export const _openapi = {
   PATCH: { summary: 'Update a note', body: UpdateNoteRequest },
   DELETE: { summary: 'Delete a note' }
 } as const;

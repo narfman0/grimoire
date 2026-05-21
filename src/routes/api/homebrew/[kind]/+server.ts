@@ -105,7 +105,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
   return json(serialize(row));
 };
 
-export const openapi = {
+export const _openapi = {
   GET: { summary: 'List the caller\'s homebrew entries of a given kind' },
   POST: { summary: 'Create a homebrew entry', body: HomebrewCreate }
 } as const;

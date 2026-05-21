@@ -63,7 +63,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   return new Response(null, { status: 204 });
 };
 
-export const openapi = {
+export const _openapi = {
   PATCH: { summary: 'Update a participant (initiative, HP, conditions)', body: UpdateParticipantRequest },
   DELETE: { summary: 'Remove a participant from an encounter (DM only)' }
 } as const;

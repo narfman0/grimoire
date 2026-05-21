@@ -49,6 +49,6 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
   return json({ visibility: body.visibility });
 };
 
-export const openapi = {
+export const _openapi = {
   PUT: { summary: 'Change the visibility of a homebrew entry (private/unlisted/public)', body: VisibilityPut }
 } as const;

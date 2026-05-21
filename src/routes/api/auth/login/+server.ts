@@ -14,7 +14,7 @@ const LoginRequest = z.object({
   password: z.string().min(1).max(256)
 });
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Log in with username and password', body: LoginRequest }
 } as const;
 

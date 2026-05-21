@@ -102,7 +102,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   return new Response(null, { status: 204 });
 };
 
-export const openapi = {
+export const _openapi = {
   PATCH: { summary: 'Amend a log entry (DM only)', body: UpdateActionLogRequest },
   DELETE: { summary: 'Delete a log entry (DM only)' }
 } as const;

@@ -144,6 +144,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   return json({ inserted, updated, skipped, failed });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Bulk import content rows as homebrew (admin only)', body: ImportContentRequest }
 } as const;

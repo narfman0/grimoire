@@ -98,6 +98,6 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
   });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Publish the latest draft of a homebrew entry and notify subscribers', body: PublishBody }
 } as const;

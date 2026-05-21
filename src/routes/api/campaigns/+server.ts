@@ -48,6 +48,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   return json({ id, code });
 };
 
-export const openapi = {
+export const _openapi = {
   POST: { summary: 'Create a new campaign', body: CreateCampaignRequest }
 } as const;

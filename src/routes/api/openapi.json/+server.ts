@@ -6,7 +6,7 @@ import type { RequestHandler } from './$types';
 // +server.ts module under /src/routes/api/. Each module may export an
 // `openapi` const of type RouteOpenApi; buildSpec() collects those into
 // an OpenAPI 3.1 document.
-const routes = import.meta.glob<{ openapi?: RouteOpenApi }>(
+const routes = import.meta.glob<{ _openapi?: RouteOpenApi }>(
   '/src/routes/api/**/+server.ts',
   { eager: true }
 );
