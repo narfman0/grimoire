@@ -662,20 +662,69 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     spellInfo.slots[lvl] = { max: slot.max, used: Math.min(slot.max, Math.max(0, used)) };
   }
 
-  // (h) Resistances/immunities/vulnerabilities
+  // (h) Resistances/immunities/vulnerabilities. The flat sets carry every
+  // damage type granted; the qualifier maps carry the qualifier (nonmagical,
+  // spell, creature-type slug) for entries that aren't unconditional. An
+  // unconditional modifier trumps a later qualified one for the same type
+  // (resistance to bludgeoning + resistance to nonmagical bludgeoning =>
+  // unconditional resistance to bludgeoning).
   const resistances = new Set<string>();
   const immunities = new Set<string>();
   const vulnerabilities = new Set<string>();
+  const resistanceQualifiers: Record<string, string> = {};
+  const immunityQualifiers: Record<string, string> = {};
+  const vulnerabilityQualifiers: Record<string, string> = {};
+  const unconditional = {
+    res: new Set<string>(),
+    imm: new Set<string>(),
+    vul: new Set<string>()
+  };
+  function recordQualified(
+    set: Set<string>,
+    quals: Record<string, string>,
+    unc: Set<string>,
+    type: string,
+    qualifier: string | undefined
+  ): void {
+    set.add(type);
+    if (qualifier === undefined) {
+      unc.add(type);
+      delete quals[type];
+    } else if (!unc.has(type) && quals[type] === undefined) {
+      quals[type] = qualifier;
+    }
+  }
   for (const m of allMods) {
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target as string;
-    if (!target) continue;
-    if (target.startsWith('resistance.') && m.raw.value === true)
-      resistances.add(target.slice('resistance.'.length));
-    if (target.startsWith('immunity.') && m.raw.value === true)
-      immunities.add(target.slice('immunity.'.length));
-    if (target.startsWith('vulnerability.') && m.raw.value === true)
-      vulnerabilities.add(target.slice('vulnerability.'.length));
+    if (!target || m.raw.value !== true) continue;
+    const qualifier =
+      typeof m.raw.qualifier === 'string' ? (m.raw.qualifier as string) : undefined;
+    if (target.startsWith('resistance.')) {
+      recordQualified(
+        resistances,
+        resistanceQualifiers,
+        unconditional.res,
+        target.slice('resistance.'.length),
+        qualifier
+      );
+    } else if (target.startsWith('immunity.')) {
+      recordQualified(
+        immunities,
+        immunityQualifiers,
+        unconditional.imm,
+        target.slice('immunity.'.length),
+        qualifier
+      );
+    } else if (target.startsWith('vulnerability.')) {
+      recordQualified(
+        vulnerabilities,
+        vulnerabilityQualifiers,
+        unconditional.vul,
+        target.slice('vulnerability.'.length),
+        qualifier
+      );
+    }
   }
 
   // (i) Senses
@@ -713,6 +762,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     resistances,
     immunities,
     vulnerabilities,
+    resistanceQualifiers,
+    immunityQualifiers,
+    vulnerabilityQualifiers,
     senses,
     languages: [...languages].sort(),
     tools: [...tools].sort(),

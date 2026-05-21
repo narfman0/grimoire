@@ -260,6 +260,62 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.7: resistance/immunity/vulnerability qualifiers ----------------------
+// Locks the contract that a `qualifier` field on a resistance/immunity/
+// vulnerability modifier (nonmagical, spell, creature-type slug) lands on
+// the qualifier map without losing the flat set membership. The
+// damage-resolution layer (encounter tooling) decides whether the qualifier
+// applies; the flat set still shows the type in the UI.
+
+describe('C.7 — resistance qualifiers', () => {
+	const CHAR_WITH_QUALIFIED_RESISTS: CharacterDocument = {
+		id: 'test-avatar-of-battle',
+		name: 'Battle-Anointed',
+		classes: [{ slug: 'cleric', level: 1, hpRolledPerLevel: [8] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'avatar-of-battle' }],
+		abilityScores: { str: 10, dex: 10, con: 14, int: 10, wis: 16, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 10,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('flat resistance set still contains the type (for UI iteration)', () => {
+		const d = derive(CHAR_WITH_QUALIFIED_RESISTS, lookup());
+		expect(d.stats.resistances.has('bludgeoning')).toBe(true);
+		expect(d.stats.resistances.has('piercing')).toBe(true);
+		expect(d.stats.resistances.has('slashing')).toBe(true);
+	});
+
+	it('qualifier map carries the qualifier for damage resolution', () => {
+		const d = derive(CHAR_WITH_QUALIFIED_RESISTS, lookup());
+		expect(d.stats.resistanceQualifiers.bludgeoning).toBe('nonmagical');
+		expect(d.stats.resistanceQualifiers.piercing).toBe('nonmagical');
+	});
+
+	it('immunity qualifier survives on a separate map', () => {
+		const d = derive(CHAR_WITH_QUALIFIED_RESISTS, lookup());
+		expect(d.stats.immunities.has('poison')).toBe(true);
+		expect(d.stats.immunityQualifiers.poison).toBe('spell');
+	});
+
+	it('unqualified entries do not appear in the qualifier map (fire from tiefling)', () => {
+		const tiefling: CharacterDocument = {
+			...CHAR_WITH_QUALIFIED_RESISTS,
+			species: { kind: 'species', slug: 'tiefling' },
+			feats: []
+		};
+		const d = derive(tiefling, lookup());
+		expect(d.stats.resistances.has('fire')).toBe(true);
+		expect(d.stats.resistanceQualifiers.fire).toBeUndefined();
+	});
+});
+
 // --- C.1: armor + weapon proficiency targets ---------------------------------
 // Locks the contract that `proficiency.armor.<slug>` and
 // `proficiency.weapon.<slug>` modifier targets actually land on the derived

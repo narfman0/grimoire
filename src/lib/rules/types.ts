@@ -171,6 +171,17 @@ export interface StatBlock {
   resistances: Set<string>;
   immunities: Set<string>;
   vulnerabilities: Set<string>;
+  /** Qualifiers per damage type, when the resist/immune/vulnerable applies
+   *  only under a condition (`nonmagical`, `spell`, or a creature-type
+   *  slug). Unqualified entries do not appear here. The flat
+   *  resistances/immunities/vulnerabilities sets still contain every type
+   *  for backward compatibility — the UI can iterate them; the
+   *  damage-resolution layer consults these maps to decide whether the
+   *  incoming damage actually qualifies. An unqualified entry trumps a
+   *  qualified one (an unconditional resistance wins). */
+  resistanceQualifiers: Record<string, string>;
+  immunityQualifiers: Record<string, string>;
+  vulnerabilityQualifiers: Record<string, string>;
   senses: Record<string, number>; // darkvision, tremorsense, …
   /** Languages known. Populated from proficienciesChosen.languages plus any
    *  `proficiency.language.<slug>` modifier (class/species/feature/feat). */

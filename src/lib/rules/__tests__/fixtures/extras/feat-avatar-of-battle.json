@@ -1,0 +1,35 @@
+{
+  "kind": "feat",
+  "slug": "avatar-of-battle",
+  "version": 1,
+  "name": "Avatar of Battle (test)",
+  "data": {
+    "category": "General",
+    "modifiers": [
+      {
+        "kind": "stat-modifier",
+        "target": "resistance.bludgeoning",
+        "value": true,
+        "qualifier": "nonmagical"
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "resistance.piercing",
+        "value": true,
+        "qualifier": "nonmagical"
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "resistance.slashing",
+        "value": true,
+        "qualifier": "nonmagical"
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "immunity.poison",
+        "value": true,
+        "qualifier": "spell"
+      }
+    ]
+  }
+}
