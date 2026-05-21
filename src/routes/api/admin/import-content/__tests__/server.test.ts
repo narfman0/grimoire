@@ -23,6 +23,18 @@ async function seedHomebrewPack(db: Db): Promise<void> {
   });
 }
 
+/** Seed a stand-in SRD-5.2 pack row for tests that pre-insert pack-loaded
+ *  (owner=null) content rows. content.pack_slug FKs into packs.slug. */
+async function seedSrdPack(db: Db): Promise<void> {
+  await db.insert(schema.packs).values({
+    slug: 'srd-5.2',
+    name: 'SRD 5.2',
+    version: '1',
+    defaultSource: 'srd-5.2',
+    loadedAt: new Date()
+  });
+}
+
 describe('POST /api/admin/import-content', () => {
   let db: Db;
   beforeEach(async () => {
@@ -120,10 +132,98 @@ describe('POST /api/admin/import-content', () => {
     expect(JSON.parse(row1.data as string)).toEqual({ level: 3, damageDice: '8d6' });
   });
 
-  // Pack-loaded rows have ownerUserId=null (or the pack author's id);
-  // importing the same slug under a different owner would 409 on the
-  // unique index. Surface as a per-row failure with a clear message
-  // instead of aborting the whole batch.
+  // A pack-loaded row (owner=null) with the same kind+slug should NOT
+  // block the import — the DB unique index includes owner_user_id, so
+  // SRD's Alert and narfman0's Alert coexist. Verifies the tier-1 fix
+  // for opt-in legacy ruleset support.
+  it('allows insert when only a pack-loaded (null-owner) row holds the slug', async () => {
+    const adminId = await seedUser(db, { username: 'admin', isAdmin: true });
+    await seedSrdPack(db);
+    // Pre-seed a pack-owned row (owner=null) — simulates an SRD row.
+    await db.insert(schema.content).values({
+      id: crypto.randomUUID(),
+      kind: 'feat',
+      slug: 'alert',
+      version: 1,
+      source: 'srd-5.2',
+      scopeId: null,
+      ownerUserId: null,
+      packSlug: 'srd-5.2',
+      name: 'Alert',
+      data: '{}',
+      visibility: 'private',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const res = await POST(
+      makeEvent({
+        user: adminOf(adminId),
+        body: { rows: [{ kind: 'feat', slug: 'alert', name: 'Alert', data: { foo: 'bar' } }] }
+      })
+    );
+    const body = await res.json();
+    expect(body).toEqual({ inserted: 1, updated: 0, skipped: 0, failed: [] });
+
+    // Both rows exist in the table now; the homebrew one is the admin's.
+    const rows = await db
+      .select()
+      .from(schema.content)
+      .where(and(eq(schema.content.kind, 'feat'), eq(schema.content.slug, 'alert')));
+    expect(rows.length).toBe(2);
+    const owned = rows.find((r) => r.ownerUserId === adminId);
+    expect(owned!.source).toBe('homebrew');
+  });
+
+  // The disambiguating suffix is applied to the homebrew row's name when
+  // (and only when) a pack-loaded row already holds the slug — so pickers
+  // can distinguish "Alert" (SRD) from "Alert (2014)" (homebrew variant).
+  it('applies nameSuffixOnGlobalConflict on insert when a pack row exists', async () => {
+    const adminId = await seedUser(db, { username: 'admin', isAdmin: true });
+    await seedSrdPack(db);
+    await db.insert(schema.content).values({
+      id: crypto.randomUUID(),
+      kind: 'feat',
+      slug: 'alert',
+      version: 1,
+      source: 'srd-5.2',
+      scopeId: null,
+      ownerUserId: null,
+      packSlug: 'srd-5.2',
+      name: 'Alert',
+      data: '{}',
+      visibility: 'private',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const res = await POST(
+      makeEvent({
+        user: adminOf(adminId),
+        body: {
+          nameSuffixOnGlobalConflict: ' (2014)',
+          rows: [
+            { kind: 'feat', slug: 'alert', name: 'Alert', data: {} },
+            // Non-conflicting slug: suffix MUST NOT apply.
+            { kind: 'feat', slug: 'something-new', name: 'Something New', data: {} }
+          ]
+        }
+      })
+    );
+    const body = await res.json();
+    expect(body.inserted).toBe(2);
+
+    const ownedRows = await db
+      .select({ slug: schema.content.slug, name: schema.content.name })
+      .from(schema.content)
+      .where(eq(schema.content.ownerUserId, adminId));
+    const names = Object.fromEntries(ownedRows.map((r) => [r.slug, r.name]));
+    expect(names).toEqual({ alert: 'Alert (2014)', 'something-new': 'Something New' });
+  });
+
+  // Cross-user collisions (a *different* human user already owns this slug)
+  // stay a hard failure — there's no UI affordance to disambiguate which
+  // homebrew "Fireball" the player wanted yet.
   it('reports a per-row failure when another user already owns the slug', async () => {
     const adminId = await seedUser(db, { username: 'admin', isAdmin: true });
     const otherId = await seedUser(db, { username: 'other' });

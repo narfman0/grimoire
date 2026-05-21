@@ -35,7 +35,13 @@ const ImportRow = z.object({
 
 const ImportContentRequest = z.object({
   mode: z.enum(['skip', 'replace']).optional(),
-  rows: z.array(ImportRow).min(1).max(10000)
+  rows: z.array(ImportRow).min(1).max(10000),
+  /** When an incoming row's (kind, slug) collides with a globally-owned
+   *  (pack-loaded) row, append this string to the imported row's name so
+   *  pickers can disambiguate. Example: ' (2014)' turns "Alert" into
+   *  "Alert (2014)" in the homebrew row, while SRD's "Alert" stays as-is.
+   *  No-op for rows without a global collision. */
+  nameSuffixOnGlobalConflict: z.string().max(64).optional()
 });
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -45,14 +51,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const body = await parseJson(request, ImportContentRequest);
   const ownerUserId = locals.user.id;
   const mode = body.mode ?? 'skip';
+  const suffix = body.nameSuffixOnGlobalConflict ?? '';
 
   let inserted = 0;
   let updated = 0;
   let skipped = 0;
   const failed: Array<{ kind: string; slug: string; error: string }> = [];
 
-  // Pull every (kind, slug) the caller already owns; cheap one-shot
-  // lookup avoids N round-trips inside the txn.
+  // Cache the caller's own rows so we know which slugs need insert vs
+  // update — cheap one-shot avoids N round-trips inside the txn.
   const existingOwned = await db
     .select({
       id: schema.content.id,
@@ -64,19 +71,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const ownedById = new Map<string, string>(); // `${kind}/${slug}` → id
   for (const r of existingOwned) ownedById.set(`${r.kind}/${r.slug}`, r.id);
 
-  // Pull every (kind, slug) that exists globally and is NOT owned by the
-  // caller. Inserting a clash here would 409 against the unique index
-  // (kind, slug, version, scope_id) since pack-loaded rows have
-  // ownerUserId='packs'-side identity but the same kind+slug+version=1
-  // shape we're about to write. Report those as failed (with a clear
-  // message) so the caller knows what the conflict was.
-  const otherById = new Map<string, string>(); // `${kind}/${slug}` → ownerUserId
+  // Cache pack-loaded (owner=null) slugs so we can flag conflicts and
+  // optionally apply the disambiguating name suffix. The DB unique index
+  // is on (kind, slug, version, scope_id, owner_user_id) — pack rows
+  // (owner=null) and homebrew rows (owner=caller) coexist fine.
+  const globalSlugs = new Set<string>();
+  const otherOwned = new Map<string, string>(); // for messaging only
   const allRows = await db
     .select({ kind: schema.content.kind, slug: schema.content.slug, ownerUserId: schema.content.ownerUserId })
     .from(schema.content);
   for (const r of allRows) {
     if (r.ownerUserId === ownerUserId) continue;
-    otherById.set(`${r.kind}/${r.slug}`, r.ownerUserId ?? '(unowned)');
+    const key = `${r.kind}/${r.slug}`;
+    if (r.ownerUserId === null) globalSlugs.add(key);
+    else otherOwned.set(key, r.ownerUserId);
   }
 
   const now = new Date();
@@ -84,11 +92,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     for (const r of body.rows) {
       const key = `${r.kind}/${r.slug}`;
       const existingId = ownedById.get(key);
+      const conflictsWithGlobal = globalSlugs.has(key);
+      const insertName = conflictsWithGlobal && suffix ? `${r.name}${suffix}` : r.name;
 
       if (existingId) {
         if (mode === 'replace') {
           tx.update(schema.content)
-            .set({ name: r.name, data: JSON.stringify(r.data), updatedAt: now })
+            .set({ name: insertName, data: JSON.stringify(r.data), updatedAt: now })
             .where(eq(schema.content.id, existingId))
             .run();
           updated++;
@@ -98,16 +108,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         continue;
       }
 
-      const otherOwner = otherById.get(key);
-      if (otherOwner) {
-        // A different user (or pack-loaded global row) already holds
-        // this slug. Importing would either 409 on the unique index or
-        // create a parallel row depending on the version; safest to
-        // report and skip.
+      // Cross-user (non-pack) collisions are still reported as failures —
+      // distinct authors writing the same homebrew slug is ambiguous and
+      // currently has no UI affordance to disambiguate.
+      const otherUser = otherOwned.get(key);
+      if (otherUser) {
         failed.push({
           kind: r.kind,
           slug: r.slug,
-          error: `slug already owned by another user (${otherOwner})`
+          error: `slug already owned by another user (${otherUser})`
         });
         continue;
       }
@@ -123,7 +132,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             scopeId: null,
             ownerUserId,
             packSlug: HOMEBREW_PACK_SLUG,
-            name: r.name,
+            name: insertName,
             data: JSON.stringify(r.data),
             visibility: 'private',
             createdAt: now,
