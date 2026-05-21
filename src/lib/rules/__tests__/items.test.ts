@@ -64,8 +64,7 @@ describe('Driftglobe (DMG) grants Cast Light + Cast Daylight', () => {
 
     // Spell slots untouched
     expect(after.stats.spellSlots).toEqual(before.stats.spellSlots);
-    // Light/daylight not added to known spells (character.spells unchanged in input)
-    expect(character.spells.known.some((s) => s.slug === 'light')).toBe(false);
+    // Driftglobe's daylight not added to known spells (character.spells unchanged in input)
     expect(character.spells.known.some((s) => s.slug === 'daylight')).toBe(false);
   });
 

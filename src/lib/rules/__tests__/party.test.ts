@@ -127,32 +127,39 @@ describe('Half-Orc Zealot Barbarian L3', () => {
   });
 });
 
-describe('Tortle Chronurgy Wizard L5', () => {
+describe("Ray'Quasar — Tortle Chronurgy Magic Wizard 10", () => {
   it('composes the basic stat block', () => {
     const lookup = chronurgy.makeLookup(PACKS);
     const d = derive(chronurgy.CHARACTER, lookup);
 
-    expect(d.stats.totalLevel).toBe(5);
-    expect(d.stats.proficiencyBonus).toBe(3);
+    expect(d.stats.totalLevel).toBe(10);
+    expect(d.stats.proficiencyBonus).toBe(4);
 
-    // Tortle ASIs: +2 STR (8 → 10), +1 WIS (12 → 13)
-    expect(d.stats.abilities.str.score).toBe(10);
-    expect(d.stats.abilities.wis.score).toBe(13);
-    expect(d.stats.abilities.int.score).toBe(15);
-    expect(d.stats.abilities.int.mod).toBe(2);
+    // Tortle-package species: STR+2 (raw 4 → 6), WIS+1 (raw 9 → 10)
+    expect(d.stats.abilities.str.score).toBe(6);
+    expect(d.stats.abilities.wis.score).toBe(10);
+    // Skill Expert feat ASI: INT+1 (raw 19 → 20)
+    expect(d.stats.abilities.int.score).toBe(20);
+    expect(d.stats.abilities.int.mod).toBe(5);
+    // Amulet of Health: CON OVERRIDE 19
+    expect(d.stats.abilities.con.score).toBe(19);
+    expect(d.stats.abilities.con.mod).toBe(4);
 
-    // HP: 6 + 4 + 4 + 4 + 4 = 22 base + (CON +2 × 5) = 32
-    expect(d.stats.hp.max).toBe(32);
+    // HP: sum(hpRolledPerLevel) 42 + CON mod(+4) × 10 = 82
+    expect(d.stats.hp.max).toBe(82);
 
-    // AC: Tortle natural armor = 17, no Dex
+    // AC: Tortle natural armor OVERRIDE 17 (DEX not added)
     expect(d.stats.ac).toBe(17);
 
-    // Saves: Wizard is INT + WIS
+    // Saves: Wizard is proficient in INT + WIS
     expect(d.stats.saves.int.proficient).toBe(true);
     expect(d.stats.saves.wis.proficient).toBe(true);
 
-    // Skills: arcana + investigation chosen + Survival from Tortle
+    // Skills: chosen proficiencies + Survival auto from tortle-package
     expect(d.stats.skills.arcana.proficient).toBe(true);
+    expect(d.stats.skills.arcana.expertise).toBe(true); // Skill Expert expertise choice
+    expect(d.stats.skills.arcana.bonus).toBe(13); // INT+5 + PB+4 + expertise PB+4
+    expect(d.stats.skills.stealth.proficient).toBe(true); // Skill Expert skill choice
     expect(d.stats.skills.investigation.proficient).toBe(true);
     expect(d.stats.skills.survival.proficient).toBe(true);
 
@@ -162,14 +169,16 @@ describe('Tortle Chronurgy Wizard L5', () => {
 
     // Spellcasting
     expect(d.stats.spellcastingAbility).toBe('int');
-    // DC = 8 + prof(3) + INT mod(2) = 13
-    expect(d.stats.spellSaveDC).toBe(13);
-    // Attack = prof(3) + INT mod(2) = +5
-    expect(d.stats.spellAttackBonus).toBe(5);
-    // Wizard 5 slot table: 4 / 3 / 2
+    // DC = 8 + prof(4) + INT mod(5) = 17
+    expect(d.stats.spellSaveDC).toBe(17);
+    // Attack = prof(4) + INT mod(5) = +9
+    expect(d.stats.spellAttackBonus).toBe(9);
+    // Wizard 10 slot table: 4 / 3 / 3 / 3 / 2
     expect(d.stats.spellSlots[1].max).toBe(4);
     expect(d.stats.spellSlots[2].max).toBe(3);
-    expect(d.stats.spellSlots[3].max).toBe(2);
+    expect(d.stats.spellSlots[3].max).toBe(3);
+    expect(d.stats.spellSlots[4].max).toBe(3);
+    expect(d.stats.spellSlots[5].max).toBe(2);
   });
 
   it('produces Fire Bolt with the spell attack bonus', () => {
@@ -178,9 +187,8 @@ describe('Tortle Chronurgy Wizard L5', () => {
 
     const fb = d.actions.find((a) => a.sourceContent.slug === 'fire-bolt');
     expect(fb).toBeDefined();
-    // Fire bolt's `attack.ability` is "spellcasting" → INT mod (2) added,
-    // plus prof bonus (3) → +5
-    expect(fb!.attackBonus).toBe(5);
+    // Fire bolt: spellcasting attack → INT mod(5) + prof(4) = +9
+    expect(fb!.attackBonus).toBe(9);
     expect(fb!.damageRolls?.[0].type).toBe('fire');
   });
 

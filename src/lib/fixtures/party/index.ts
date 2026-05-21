@@ -15,7 +15,7 @@ export const PARTY: Record<string, { slug: string; character: CharacterDocument;
   'tortle-chronurgy-wizard': {
     slug: 'tortle-chronurgy-wizard',
     character: TORTLE,
-    label: 'Shellmar — Tortle Chronurgy Magic Wizard L5'
+    label: "Ray'Quasar — Tortle Chronurgy Magic Wizard 10"
   }
 };
 
