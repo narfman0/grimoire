@@ -8,8 +8,8 @@ WORKDIR /app
 
 # --- deps stage: install deps once, cache mountable ---------------------
 FROM base AS deps
-COPY pnpm-workspace.yaml package.json ./
-RUN pnpm install --frozen-lockfile=false
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+RUN pnpm install --frozen-lockfile
 
 # --- web build ----------------------------------------------------------
 FROM deps AS web-build
@@ -22,7 +22,8 @@ COPY --from=deps      /app/node_modules ./node_modules
 COPY --from=web-build /app/build         ./build
 COPY --from=web-build /app/drizzle       ./drizzle
 COPY --from=web-build /app/scripts       ./scripts
-COPY --from=web-build /app/package.json  ./package.json
+COPY --from=web-build /app/package.json      ./package.json
+COPY --from=web-build /app/content-packs     ./content-packs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1

