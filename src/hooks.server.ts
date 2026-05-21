@@ -1,9 +1,18 @@
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { loadAllPacks } from '$lib/server/content';
-import { loadUserFromCookie } from '$lib/server/auth/sessions';
+import { loadUserFromCookie, deleteExpiredSessions } from '$lib/server/auth/sessions';
+import { closeDb } from '$lib/server/db';
+
+const SESSION_GC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export const init: ServerInit = async () => {
   await loadAllPacks();
+  await deleteExpiredSessions();
+  setInterval(() => { deleteExpiredSessions().catch(console.error); }, SESSION_GC_INTERVAL_MS);
+
+  const shutdown = () => { closeDb(); process.exit(0); };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
 };
 
 export const handle: Handle = async ({ event, resolve }) => {

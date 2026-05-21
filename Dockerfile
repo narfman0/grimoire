@@ -24,4 +24,6 @@ COPY --from=web-build /app/drizzle       ./drizzle
 COPY --from=web-build /app/scripts       ./scripts
 COPY --from=web-build /app/package.json  ./package.json
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
 CMD ["sh", "-c", "node scripts/migrate.mjs && node build"]

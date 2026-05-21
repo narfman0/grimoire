@@ -1,4 +1,4 @@
-import { and, eq, gt, ne } from 'drizzle-orm';
+import { and, eq, gt, lt, ne } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { db, schema } from '$lib/server/db';
 
@@ -35,6 +35,10 @@ export async function destroyAllSessionsExcept(userId: string, exceptId: string)
   await db
     .delete(schema.sessions)
     .where(and(eq(schema.sessions.userId, userId), ne(schema.sessions.id, exceptId)));
+}
+
+export async function deleteExpiredSessions(): Promise<void> {
+  await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, new Date()));
 }
 
 export interface SessionUser {
