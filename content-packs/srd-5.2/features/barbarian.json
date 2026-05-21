@@ -136,6 +136,50 @@
   },
   {
     "kind": "feature",
+    "slug": "weapon-mastery",
+    "version": 1,
+    "name": "Weapon Mastery",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 1,
+      "note": "At L1 pick 2 weapons to apply their mastery property. Count scales: L1=2, L4=3, L10=4. You can swap one chosen weapon's mastery when you finish a Long Rest. Mastery properties (Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex) are not yet first-class engine targets; surfaced as a choice+trait flag.",
+      "choice": {
+        "kind": "weapon-mastery",
+        "pick": 2,
+        "from": "weapons-with-proficiency"
+      },
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.weapon-mastery-chosen",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "danger-sense",
+    "version": 1,
+    "name": "Danger Sense",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 2,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.dex",
+          "mode": "OVERRIDE",
+          "value": "vs-seen-effects"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
     "slug": "reckless-attack",
     "version": 1,
     "name": "Reckless Attack",
@@ -178,21 +222,43 @@
   },
   {
     "kind": "feature",
-    "slug": "danger-sense",
+    "slug": "primal-path",
     "version": 1,
-    "name": "Danger Sense",
+    "name": "Primal Path",
     "data": {
       "ownerKind": "class",
       "ownerSlug": "barbarian",
-      "minLevel": 2,
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "save.advantage.dex",
-          "mode": "OVERRIDE",
-          "value": "vs-seen-effects"
-        }
-      ]
+      "minLevel": 3,
+      "note": "At L3 the Barbarian chooses a Primal Path subclass (e.g. Path of the Berserker). The chosen subclass slug lives on character.classes[].subclass.",
+      "choice": {
+        "kind": "subclass",
+        "pick": 1,
+        "from": "barbarian-subclasses"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "primal-knowledge",
+    "version": 1,
+    "name": "Primal Knowledge",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 3,
+      "note": "At L3 (and again at L10), choose one skill from the Barbarian skill list (Animal Handling, Athletics, Intimidation, Nature, Perception, Survival) to gain proficiency in. Because the character already has 2 skills from L1, this effectively expands the skill list. The second grant at L10 is not yet modelled as a separate entry; a single choice is surfaced here. The engine stores chosen skills on character.classes[].choices.primalKnowledge.",
+      "choice": {
+        "kind": "skill-proficiency",
+        "pick": 1,
+        "from": [
+          "animal-handling",
+          "athletics",
+          "intimidation",
+          "nature",
+          "perception",
+          "survival"
+        ]
+      }
     }
   },
   {
@@ -212,6 +278,102 @@
           "value": 10,
           "appliesWhen": {
             "requires": "no-heavy-armor"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "feral-instinct",
+    "version": 1,
+    "name": "Feral Instinct",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 7,
+      "note": "Advantage on Initiative rolls. Additionally, if you are Surprised at the start of combat and aren't Incapacitated, you can act normally on your first turn — but only if you enter your Rage before doing anything else. The initiative.advantage and 'act-despite-surprise' mechanics are not representable as stat-modifier targets in the current DSL; both are surfaced as trait tags for the UI to communicate to the player.",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.feral-instinct-initiative-advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.feral-instinct-act-when-surprised",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "brutal-strike",
+    "version": 1,
+    "name": "Brutal Strike",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 9,
+      "note": "When you use Reckless Attack you can forgo the advantage on one attack to instead make that attack a Brutal Strike. On a hit, the attack deals an extra 1d10 damage of the weapon's type, and you can apply one Brutal Strike effect: Forceful Blow (push the target 15 ft and possibly knock Prone — CON save DC 8+STR+PB) or Hamstring Blow (target's speed is halved until the start of your next turn). At L13 the extra damage increases to 2d10 and you can apply two effects; at L17 three effects. The forced-movement, prone condition, and speed-reduction effects are not directly representable as stat-modifier targets; the extra damage die and the 'forgo reckless advantage' mechanic are also out-of-scope for the current action-modifier DSL. Surfaced as a trait tag with an annotated activity.",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.brutal-strike",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "activities": [
+        {
+          "id": "brutal-strike",
+          "type": "attack",
+          "name": "Brutal Strike",
+          "cost": "free",
+          "note": "Forgo Reckless Attack advantage on one attack. On hit: +1d10 weapon damage (L9), +2d10 (L13), +3d10 (L17), plus one Brutal Strike effect (Forceful Blow or Hamstring Blow). Forceful Blow: CON save (DC 8+STR mod+PB) or pushed 15 ft and knocked Prone. Hamstring Blow: target speed halved until start of your next turn. Engine cannot fully simulate; track manually."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "relentless-rage",
+    "version": 1,
+    "name": "Relentless Rage",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 11,
+      "note": "When you are Raging and you are reduced to 0 HP, you can make a DC 10 CON saving throw. On a success, you drop to 1 HP instead. Each time you use this feature after the first, the DC increases by 5 (DC 10, 15, 20, …). The DC resets to 10 after a Long Rest. The escalating-DC mechanic is not representable as a static stat-modifier; surfaced as a triggered save activity. The engine should prompt the player to roll when the condition is met.",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "relentless-rage-save",
+          "name": "Relentless Rage",
+          "on": [
+            "self.reduced-to-0hp"
+          ],
+          "scope": {
+            "predicates": [
+              {
+                "condition": "rage"
+              }
+            ]
+          },
+          "grants": {
+            "activityType": "save",
+            "cost": "free",
+            "save": {
+              "ability": "con",
+              "dc": {
+                "base": 10,
+                "note": "DC starts at 10 and increases by 5 for each use after the first; resets on Long Rest. Track manually."
+              }
+            },
+            "effect": "drop-to-1hp-on-success"
           }
         }
       ]

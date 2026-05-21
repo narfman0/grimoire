@@ -38,7 +38,22 @@
       { "level": 3, "slug": "ranger-subclass" },
       { "level": 3, "slug": "roving" },
       { "level": 4, "slug": "ability-score-improvement" },
-      { "level": 5, "slug": "extra-attack-ranger" }
+      { "level": 5, "slug": "extra-attack-ranger" },
+      { "level": 6, "slug": "tireless" },
+      { "level": 7, "slug": "ranger-subclass" },
+      { "level": 8, "slug": "ability-score-improvement" },
+      { "level": 9, "slug": "expertise-ranger" },
+      { "level": 10, "slug": "nature-s-veil" },
+      { "level": 11, "slug": "ranger-subclass" },
+      { "level": 12, "slug": "ability-score-improvement" },
+      { "level": 13, "slug": "relentless-hunter" },
+      { "level": 14, "slug": "land-s-stride" },
+      { "level": 15, "slug": "ranger-subclass" },
+      { "level": 16, "slug": "ability-score-improvement" },
+      { "level": 17, "slug": "precise-hunter" },
+      { "level": 18, "slug": "feral-senses" },
+      { "level": 19, "slug": "ability-score-improvement" },
+      { "level": 20, "slug": "foe-slayer" }
     ],
     "note": "2024 SRD 5.2 Ranger. Half-caster (Wis). The half-caster progression isn't yet first-class in derive.ts — computeSpellcasting() uses fullCasterSlots for any caster class. Surfacing spellcasting.ability and progression='half' here so future engine work can branch."
   }

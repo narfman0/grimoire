@@ -8,7 +8,7 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
-      "note": "Choose 2 of your skill proficiencies; your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies. A third pick is added at Rogue 6. v0 derive.ts hard-codes expertise=false in the skills loop; the choice is surfaced for the editor but the doubled-PB bonus isn't yet emitted.",
+      "note": "Choose 2 of your skill proficiencies; your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies. A second pick of 2 skills is added at Rogue 6 (see expertise-rogue-l6). v0 derive.ts hard-codes expertise=false in the skills loop; the choice is surfaced for the editor but the doubled-PB bonus isn't yet emitted.",
       "choice": {
         "kind": "expertise",
         "pick": 2,
@@ -25,7 +25,7 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
-      "note": "2024 SRD 5.2 Sneak Attack: once per turn, when you hit with an attack roll using a Finesse or Ranged weapon and either you have Advantage or an ally of the target is within 5 ft of it (and you don't have Disadvantage), deal extra damage. Scales by rogue level: [1d6,1d6,2d6,2d6,3d6,3d6,4d6,4d6,5d6,5d6,6d6,6d6,7d6,7d6,8d6,8d6,9d6,9d6,10d6,10d6]. v0 hard-codes the L1 +1d6 bonus and doesn't scale; engine-extension needed to: (a) read perClass/table for damage.bonus dice values, (b) enforce 'once per turn', (c) gate on advantage/ally-adjacency. The {or:[...]} predicate covers Finesse OR Ranged weapon classification.",
+      "note": "2024 SRD 5.2 Sneak Attack: once per turn, when you hit with an attack roll using a Finesse or Ranged weapon and either you have Advantage or an ally of the target is within 5 ft of it (and you don't have Disadvantage), deal extra damage. Scales by rogue level: [1d6,1d6,2d6,2d6,3d6,3d6,4d6,4d6,5d6,5d6,6d6,6d6,7d6,7d6,8d6,8d6,9d6,9d6,10d6,10d6]. v0 models the dice value as a perClass table; once-per-turn enforcement and advantage/ally-adjacency gating require engine extension.",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -37,12 +37,8 @@
             "predicates": [
               {
                 "or": [
-                  {
-                    "weapon.property": "finesse"
-                  },
-                  {
-                    "attack.range": "ranged"
-                  }
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
                 ]
               }
             ]
@@ -51,7 +47,31 @@
             {
               "target": "damage.bonus",
               "mode": "ADD",
-              "value": "1d6"
+              "value": {
+                "perClass": "rogue",
+                "table": [
+                  "1d6",
+                  "1d6",
+                  "2d6",
+                  "2d6",
+                  "3d6",
+                  "3d6",
+                  "4d6",
+                  "4d6",
+                  "5d6",
+                  "5d6",
+                  "6d6",
+                  "6d6",
+                  "7d6",
+                  "7d6",
+                  "8d6",
+                  "8d6",
+                  "9d6",
+                  "9d6",
+                  "10d6",
+                  "10d6"
+                ]
+              }
             }
           ]
         }
@@ -141,7 +161,7 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 3,
-      "note": "Bonus Action: give yourself Advantage on the next attack roll you make this turn, but your Speed is 0 until end of turn. Once per turn. v0 doesn't model 'advantage' as a first-class predicate that the engine can apply across actions; surfaced as a utility activity and a tagged modifier.",
+      "note": "Bonus Action: give yourself Advantage on the next attack roll you make this turn, but your Speed is 0 until end of turn. Once per turn. v0 doesn't model 'advantage on next attack' or 'speed = 0' as first-class evaluator targets; surfaced as a utility activity and tagged modifier.",
       "activities": [
         {
           "id": "steady-aim",
@@ -161,7 +181,7 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 5,
-      "note": "When you deal Sneak Attack damage, you can spend some of that damage (forgoing dice) to add a maneuver effect: Disarm, Poison, Trip, or Withdraw. Each maneuver has a cost in Sneak Attack dice and most impose a save (DC = 8 + Dex mod + PB). v0 surfaces each maneuver as a separate action-modifier toggle (defaultEnabled:false); the dice-spend accounting and the imposed saves/conditions are NOT simulated — engine extension needed.",
+      "note": "When you deal Sneak Attack damage, you can spend some of that damage (forgoing Sneak Attack dice) to add a maneuver effect. Available options at L5: Disarm (1d6), Poison (1d6), Trip (1d6), Withdraw (1d6). The die cost is forfeited from Sneak Attack dice. v0 surfaces each maneuver as a separate action-modifier toggle (defaultEnabled:false); the dice-spend accounting and the imposed saves/conditions are NOT simulated — engine extension needed.",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -173,12 +193,8 @@
             "predicates": [
               {
                 "or": [
-                  {
-                    "weapon.property": "finesse"
-                  },
-                  {
-                    "attack.range": "ranged"
-                  }
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
                 ]
               }
             ]
@@ -201,12 +217,8 @@
             "predicates": [
               {
                 "or": [
-                  {
-                    "weapon.property": "finesse"
-                  },
-                  {
-                    "attack.range": "ranged"
-                  }
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
                 ]
               }
             ]
@@ -229,12 +241,8 @@
             "predicates": [
               {
                 "or": [
-                  {
-                    "weapon.property": "finesse"
-                  },
-                  {
-                    "attack.range": "ranged"
-                  }
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
                 ]
               }
             ]
@@ -257,12 +265,8 @@
             "predicates": [
               {
                 "or": [
-                  {
-                    "weapon.property": "finesse"
-                  },
-                  {
-                    "attack.range": "ranged"
-                  }
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
                 ]
               }
             ]
@@ -287,20 +291,16 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 5,
-      "note": "Reaction: when an attacker you can see hits you with an attack roll, halve the attack's damage against you. v0 doesn't yet model damage reduction as a target the engine can apply; surfaced as a declarative trigger so the UI can prompt the player.",
+      "note": "Reaction: when an attacker you can see hits you with an attack roll, halve the attack's damage against you (you choose to use this after the hit is confirmed). v0 doesn't yet model damage reduction as a target the engine can apply; surfaced as a declarative trigger so the UI can prompt the player.",
       "triggers": [
         {
           "kind": "trigger",
           "id": "uncanny-dodge",
           "name": "Uncanny Dodge",
-          "on": [
-            "damage.taken-from-attacker-you-see"
-          ],
+          "on": ["self.hit-by-attack"],
           "scope": {
             "predicates": [
-              {
-                "attack.attacker.visible": true
-              }
+              { "attack.attacker.visible": true }
             ]
           },
           "grants": {
@@ -309,6 +309,316 @@
           }
         }
       ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "expertise-rogue-l6",
+    "version": 1,
+    "name": "Expertise (Rogue, Level 6)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 6,
+      "note": "Choose 2 more skill proficiencies to gain Expertise in (proficiency bonus doubled). This is the second Expertise pick granted at Rogue 6. v0 surfaces the choice; the doubled-PB application requires engine support.",
+      "choice": {
+        "kind": "expertise",
+        "pick": 2,
+        "from": "proficient-skills"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "evasion-rogue",
+    "version": 1,
+    "name": "Evasion",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 7,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.evasion",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "When you are subjected to an effect that allows a DEX saving throw to take half damage, you instead take no damage on a success and half damage on a failure. v0 tags the trait; the split save-result behavior needs engine support to intercept the damage-from-dex-save path."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "improved-cunning-strike",
+    "version": 1,
+    "name": "Improved Cunning Strike",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 9,
+      "note": "You can use up to two Cunning Strike effects when you deal Sneak Attack damage, and you can use Cunning Strike even if you forgo your Sneak Attack damage. v0 tags this upgrade; the two-maneuver concurrent spend isn't separately enforced by the engine beyond the existing Cunning Strike toggle rows.",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.improved-cunning-strike",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "reliable-talent",
+    "version": 1,
+    "name": "Reliable Talent",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 11,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.reliable-talent",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "Whenever you make an ability check using a skill or tool proficiency, you can treat a d20 roll of 9 or lower as a 10. v0 tags the trait; the die-floor behavior needs engine support in the dice roller (treat rolls ≤ 9 as 10 on proficient checks)."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "subtle-strikes",
+    "version": 1,
+    "name": "Subtle Strikes",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 13,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "subtle-strikes-sneak-attack-vs-ally",
+          "name": "Subtle Strikes",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "or": [
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
+                ]
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "tag.subtle-strikes.sneak-attack-vs-ally-adjacent",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "note": "When you attack a creature, you don't need Advantage on the attack roll to use Sneak Attack if at least one ally of yours is within 5 feet of the creature — even if that ally has the Incapacitated condition. The existing 2024 Sneak Attack rule already covers the ally-adjacent case; Subtle Strikes additionally removes the need for the ally to be non-incapacitated. v0 tags this relaxation; the evaluator's advantage/ally-adjacency gate already allows ally-adjacent Sneak Attack — this just widens the ally eligibility."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "devious-strikes",
+    "version": 1,
+    "name": "Devious Strikes",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 14,
+      "note": "Gain three new Cunning Strike options: Daze (2d6), Knock Out (6d6), and Obscure (3d6). v0 surfaces each as an action-modifier toggle.",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "devious-strikes-daze",
+          "name": "Devious Strikes: Daze",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "or": [
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
+                ]
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "tag.devious-strikes.daze",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "devious-strikes-knock-out",
+          "name": "Devious Strikes: Knock Out",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "or": [
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
+                ]
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "tag.devious-strikes.knock-out",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "devious-strikes-obscure",
+          "name": "Devious Strikes: Obscure",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "or": [
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
+                ]
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "tag.devious-strikes.obscure",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "slippery-mind",
+    "version": 1,
+    "name": "Slippery Mind",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 15,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.save.wis",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.save.cha",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "Your cunning mind is exceptionally difficult to control. You gain proficiency in WIS and CHA saving throws."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "elusive",
+    "version": 1,
+    "name": "Elusive",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 17,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.elusive.no-advantage-against",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "No attack roll can have Advantage against you unless you have the Incapacitated condition. v0 tags the trait; stripping advantage from all incoming attacks requires engine support to filter the advantage-granting trigger for the attacking character."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "stroke-of-luck",
+    "version": 1,
+    "name": "Stroke of Luck",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 18,
+      "activities": [
+        {
+          "id": "stroke-of-luck",
+          "type": "utility",
+          "name": "Stroke of Luck",
+          "cost": "free",
+          "uses": {
+            "max": 1,
+            "per": "short-rest"
+          },
+          "note": "If you fail an ability check or miss with an attack roll, you can turn the roll into a 20. Once per short rest."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "death-strike",
+    "version": 1,
+    "name": "Death Strike",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "rogue",
+      "minLevel": 20,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "death-strike-toggle",
+          "name": "Death Strike",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "or": [
+                  { "weapon.property": "finesse" },
+                  { "attack.range": "ranged" }
+                ]
+              },
+              { "condition": "target.surprised" }
+            ]
+          },
+          "effects": [
+            {
+              "target": "tag.death-strike",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "note": "When you hit a Surprised creature with an attack and deal Sneak Attack damage to it, the creature must make a CON saving throw (DC 8 + DEX modifier + PB). On a failed save, the damage of your attack is doubled. v0 tags the effect; the conditional damage-doubling and the CON save aren't simulated by the evaluator. Surfaced as a toggle for DM/player adjudication."
     }
   }
 ]

@@ -66,6 +66,7 @@
     "name": "Magic Initiate (Wizard)",
     "data": {
       "category": "origin",
+      "repeatable": true,
       "spellList": "wizard",
       "activities": [
         {
@@ -123,6 +124,7 @@
     "name": "Skilled",
     "data": {
       "category": "origin",
+      "repeatable": true,
       "skillChoices": {
         "from": "any",
         "pick": 3,
@@ -997,6 +999,590 @@
           "value": 1
         }
       ]
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "magic-initiate-cleric",
+    "version": 1,
+    "name": "Magic Initiate (Cleric)",
+    "data": {
+      "category": "origin",
+      "repeatable": true,
+      "spellList": "cleric",
+      "activities": [
+        {
+          "id": "magic-initiate-cleric-level1",
+          "type": "utility",
+          "name": "Magic Initiate 1st-Level Spell",
+          "cost": "action",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
+          "note": "Cast the chosen 1st-level Cleric spell once without a spell slot; can also cast it using any spell slot of an appropriate level. Two Cleric cantrips are also learned (no resource cost). On level-up you may replace one chosen spell with another of the same level from the Cleric list."
+        }
+      ],
+      "note": "SRD 5.2 Magic Initiate (Cleric). Two cantrips + one 1st-level spell from the Cleric list. Spellcasting ability is INT, WIS, or CHA (chosen at feat selection). Repeatable; must choose a different spell list each time. Spell Change: on gaining a new level you can swap one chosen spell for another of the same level from the Cleric list.",
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "magic-initiate-druid",
+    "version": 1,
+    "name": "Magic Initiate (Druid)",
+    "data": {
+      "category": "origin",
+      "repeatable": true,
+      "spellList": "druid",
+      "activities": [
+        {
+          "id": "magic-initiate-druid-level1",
+          "type": "utility",
+          "name": "Magic Initiate 1st-Level Spell",
+          "cost": "action",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
+          "note": "Cast the chosen 1st-level Druid spell once without a spell slot; can also cast it using any spell slot of an appropriate level. Two Druid cantrips are also learned (no resource cost). On level-up you may replace one chosen spell with another of the same level from the Druid list."
+        }
+      ],
+      "note": "SRD 5.2 Magic Initiate (Druid). Two cantrips + one 1st-level spell from the Druid list. Spellcasting ability is INT, WIS, or CHA (chosen at feat selection). Repeatable; must choose a different spell list each time. Spell Change: on gaining a new level you can swap one chosen spell for another of the same level from the Druid list.",
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "grappler",
+    "version": 1,
+    "name": "Grappler",
+    "data": {
+      "category": "general",
+      "prerequisite": {
+        "level": 4,
+        "ability": {
+          "or": [
+            { "str": 13 },
+            { "dex": 13 }
+          ]
+        }
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "attack.advantage",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "target.condition:grappled-by-self"
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "grappler-punch-and-grab",
+          "name": "Punch and Grab",
+          "on": [
+            "attack.hit"
+          ],
+          "scope": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.kind": "unarmed" },
+              { "attack.as-part-of": "Attack action" }
+            ]
+          },
+          "grants": {
+            "actionType": "grapple",
+            "cost": "free",
+            "constraint": "Once per turn, when you hit a creature with an Unarmed Strike as part of the Attack action, you can use both the Damage and the Grapple option."
+          }
+        }
+      ],
+      "note": "SRD 5.2 Grappler. Ability Score Increase: +1 STR or DEX (max 20). Punch and Grab: once per turn, hitting a creature with an Unarmed Strike as part of the Attack action lets you use both the Damage and Grapple option simultaneously. Attack Advantage: you have Advantage on attack rolls against a creature Grappled by you. Fast Wrestler: no extra movement cost to move a creature Grappled by you if it is your size or smaller. v0 evaluator does not evaluate the conditional attack advantage or the free-movement grapple rule from predicates at runtime; Fast Wrestler surfaces as a note."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-archery",
+    "version": 1,
+    "name": "Archery",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "archery-ranged-attack-bonus",
+          "name": "Archery Bonus",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "ranged" },
+              { "attack.classification": "weapon" }
+            ]
+          },
+          "effects": [
+            {
+              "target": "attack.bonus.ranged",
+              "mode": "ADD",
+              "value": 2
+            }
+          ]
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Archery. +2 bonus to attack rolls made with Ranged weapons. Prerequisite: must have a class feature that grants a Fighting Style feat."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-defense",
+    "version": 1,
+    "name": "Defense",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "ac",
+          "mode": "ADD",
+          "value": 1,
+          "appliesWhen": {
+            "requires": "wearing.armor:any"
+          }
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Defense. +1 AC while wearing Light, Medium, or Heavy armor. Prerequisite: must have a class feature that grants a Fighting Style feat."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-great-weapon-fighting",
+    "version": 1,
+    "name": "Great Weapon Fighting",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "gwf-reroll-1s-2s",
+          "name": "Great Weapon Fighting Reroll",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "weapon.property": "two-handed-or-versatile" },
+              { "weapon.held": "two-hands" }
+            ]
+          },
+          "effects": [
+            {
+              "target": "damage.reroll-1s-and-2s",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ],
+          "note": "When rolling damage for a melee attack with a Two-Handed or Versatile weapon held in two hands, treat any 1 or 2 on a damage die as a 3. v0 evaluator does not implement damage.reroll-1s-and-2s — surfaces as a tagged modifier only."
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-two-weapon-fighting",
+    "version": 1,
+    "name": "Two-Weapon Fighting",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "twf-ability-mod-to-offhand",
+          "name": "Two-Weapon Fighting Damage",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.is-light-weapon-extra-attack": true }
+            ]
+          },
+          "effects": [
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "dexMod"
+            }
+          ],
+          "note": "When making the extra attack granted by the Light property, add your ability modifier to that attack's damage if you aren't already. The engine should apply the relevant STR/DEX modifier; using dexMod here as the default for ranged/finesse. The DM or engine may substitute strMod for STR-based builds."
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Two-Weapon Fighting. When you make an extra attack as a result of using a weapon with the Light property, you can add your ability modifier to the damage of that attack if you aren't already adding it. Prerequisite: must have a class feature that grants a Fighting Style feat."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-combat-prowess",
+    "version": 1,
+    "name": "Boon of Combat Prowess",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19
+      },
+      "abilityChoices": [
+        "str", "dex", "con", "int", "wis", "cha"
+      ],
+      "activities": [
+        {
+          "id": "boon-combat-prowess-peerless-aim",
+          "type": "utility",
+          "name": "Peerless Aim",
+          "cost": "free",
+          "uses": {
+            "max": 1,
+            "per": "turn"
+          },
+          "note": "When you miss with an attack roll, you can choose to hit instead. Once you use this benefit, you can't use it again until the start of your next turn."
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of Combat Prowess. Ability Score Increase: +1 to one ability score (max 30). Peerless Aim: once per turn, when you miss an attack roll, you can hit instead.",
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-dimensional-travel",
+    "version": 1,
+    "name": "Boon of Dimensional Travel",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19
+      },
+      "abilityChoices": [
+        "str", "dex", "con", "int", "wis", "cha"
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "boon-dimensional-travel-blink-steps",
+          "name": "Blink Steps",
+          "on": [
+            "action.attack",
+            "action.magic"
+          ],
+          "scope": {
+            "predicates": []
+          },
+          "grants": {
+            "actionType": "teleport",
+            "cost": "free",
+            "constraint": "Immediately after taking the Attack action or the Magic action, teleport up to 30 feet to an unoccupied space you can see."
+          }
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of Dimensional Travel. Ability Score Increase: +1 to one ability score (max 30). Blink Steps: immediately after you take the Attack action or the Magic action, you can teleport up to 30 feet to an unoccupied space you can see.",
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-fate",
+    "version": 1,
+    "name": "Boon of Fate",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19
+      },
+      "abilityChoices": [
+        "str", "dex", "con", "int", "wis", "cha"
+      ],
+      "activities": [
+        {
+          "id": "boon-fate-improve-fate",
+          "type": "utility",
+          "name": "Improve Fate",
+          "cost": "free",
+          "uses": {
+            "max": 1,
+            "per": "initiative-or-short-rest"
+          },
+          "note": "When you or another creature within 60 feet of you succeeds on or fails a D20 Test, you can roll 2d4 and apply the total as a bonus or penalty to the d20 roll. Once used, you can't use this again until you roll Initiative or finish a Short or Long Rest."
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of Fate. Ability Score Increase: +1 to one ability score (max 30). Improve Fate: when a creature within 60 ft succeeds or fails a D20 Test, roll 2d4 and apply as bonus or penalty; recharges on Initiative roll or Short/Long Rest.",
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-irresistible-offense",
+    "version": 1,
+    "name": "Boon of Irresistible Offense",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19
+      },
+      "abilityChoices": [
+        "str", "dex"
+      ],
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "boon-irresistible-offense-overcome-defenses",
+          "name": "Overcome Defenses",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": []
+          },
+          "effects": [
+            {
+              "target": "damage.ignore-resistance",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ],
+          "note": "Bludgeoning, Piercing, and Slashing damage you deal always ignores Resistance. v0 evaluator does not implement damage.ignore-resistance — surfaces as a tagged modifier only."
+        }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "boon-irresistible-offense-overwhelming-strike",
+          "name": "Overwhelming Strike",
+          "on": [
+            "attack.crit"
+          ],
+          "scope": {
+            "predicates": []
+          },
+          "grants": {
+            "actionType": "bonus-damage",
+            "constraint": "When you roll a 20 on the d20 for an attack roll, deal extra damage equal to the ability score increased by this feat. The extra damage type matches the attack's type."
+          }
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of Irresistible Offense. Ability Score Increase: +1 STR or DEX (max 30). Overcome Defenses: BPS damage ignores Resistance. Overwhelming Strike: on a natural 20 attack, deal extra damage equal to the chosen ability score."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-spell-recall",
+    "version": 1,
+    "name": "Boon of Spell Recall",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19,
+        "feature": "spellcasting"
+      },
+      "abilityChoices": [
+        "int", "wis", "cha"
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "boon-spell-recall-free-casting",
+          "name": "Free Casting",
+          "on": [
+            "spell.cast-with-slot"
+          ],
+          "scope": {
+            "predicates": [
+              { "spell.slot-level": { "lte": 4 } }
+            ]
+          },
+          "grants": {
+            "actionType": "slot-refund-chance",
+            "constraint": "Whenever you cast a spell with a level 1-4 spell slot, roll 1d4. If the number rolled equals the slot's level, the slot is not expended."
+          }
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of Spell Recall. Prerequisite: Level 19+, Spellcasting Feature. Ability Score Increase: +1 INT, WIS, or CHA (max 30). Free Casting: after casting a spell using a slot of level 1-4, roll 1d4; if the roll equals the slot level, the slot is not expended.",
+      "modifiers": []
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-the-night-spirit",
+    "version": 1,
+    "name": "Boon of the Night Spirit",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19
+      },
+      "abilityChoices": [
+        "str", "dex", "con", "int", "wis", "cha"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.bludgeoning",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.piercing",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.slashing",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.acid",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.cold",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.fire",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.force",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.lightning",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.necrotic",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.poison",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.radiant",
+          "mode": "OVERRIDE",
+          "value": false,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.thunder",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "requires": "environment:dim-light-or-darkness"
+          }
+        }
+      ],
+      "activities": [
+        {
+          "id": "boon-night-spirit-merge-with-shadows",
+          "type": "utility",
+          "name": "Merge with Shadows",
+          "cost": "bonus",
+          "note": "While within Dim Light or Darkness, give yourself the Invisible condition as a Bonus Action. The condition ends immediately after you take an Action, Bonus Action, or Reaction."
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of the Night Spirit. Ability Score Increase: +1 to one ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, use a Bonus Action to become Invisible (ends on any action/bonus action/reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant. v0 evaluator cannot conditionally apply all damage resistances based on lighting; all resistance modifiers above are conditional on environment:dim-light-or-darkness and surface as tagged modifiers in bright light."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "boon-of-truesight",
+    "version": 1,
+    "name": "Boon of Truesight",
+    "data": {
+      "category": "epic-boon",
+      "prerequisite": {
+        "level": 19
+      },
+      "abilityChoices": [
+        "str", "dex", "con", "int", "wis", "cha"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "sense.truesight",
+          "mode": "ADD",
+          "value": 60
+        }
+      ],
+      "note": "SRD 5.2 Epic Boon of Truesight. Ability Score Increase: +1 to one ability score (max 30). Truesight: you have Truesight with a range of 60 feet. The sense.truesight target is modeled analogously to sense.darkvision — v0 evaluator may need a matching evaluator path added if truesight is not yet wired."
     }
   }
 ]

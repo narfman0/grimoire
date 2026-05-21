@@ -46,7 +46,19 @@
       { "level": 3, "slug": "paladin-subclass" },
       { "level": 4, "slug": "ability-score-improvement" },
       { "level": 5, "slug": "extra-attack" },
-      { "level": 5, "slug": "faithful-steed" }
+      { "level": 5, "slug": "faithful-steed" },
+      { "level": 6, "slug": "aura-of-protection" },
+      { "level": 7, "slug": "aura-of-courage" },
+      { "level": 8, "slug": "ability-score-improvement" },
+      { "level": 9, "slug": "channel-oath" },
+      { "level": 10, "slug": "divine-health" },
+      { "level": 11, "slug": "radiant-strikes" },
+      { "level": 12, "slug": "ability-score-improvement" },
+      { "level": 14, "slug": "restoring-touch" },
+      { "level": 16, "slug": "ability-score-improvement" },
+      { "level": 17, "slug": "aura-expansion" },
+      { "level": 19, "slug": "ability-score-improvement" },
+      { "level": 20, "slug": "holy-nimbus" }
     ]
   }
 }

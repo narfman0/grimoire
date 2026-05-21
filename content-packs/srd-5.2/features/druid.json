@@ -47,7 +47,7 @@
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 1,
-      "note": "Player chooses Magician or Warden at L1. Magician grants an extra cantrip and +Wis-mod to Arcana/Nature checks; Warden grants martial weapon proficiency and medium armor. v0 stores the pick as a flag only.",
+      "note": "Player chooses Magician or Warden at L1. Magician: learn one additional Druid cantrip and add your Wisdom modifier to Arcana and Nature skill checks (not yet evaluator-wired; trait flag only). Warden: proficiency with Martial weapons and training in Medium armor. v0 expresses the Warden armor/weapon grants as proficiency modifiers gated on the choice; Magician's cantrip and skill bonus are left as a trait flag pending evaluator support for choice-gated skill bonuses.",
       "choice": {
         "kind": "primal-order",
         "pick": 1,
@@ -62,6 +62,24 @@
           "target": "trait.primal-order",
           "mode": "OVERRIDE",
           "value": "unset"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.armor.medium",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "choice": "primal-order.warden"
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.weapon.martial",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": {
+            "choice": "primal-order.warden"
+          }
         }
       ]
     }
@@ -140,17 +158,18 @@
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 5,
-      "note": "Once per turn, when the druid has no Wild Shape uses left they may expend a spell slot (any level) to regain one Wild Shape use, or vice versa (1/long-rest, expend a Wild Shape use to regain a level-1 spell slot). v0 surfaces the once-per-long-rest leg as a utility activity; the per-turn leg is left to UI adjudication.",
+      "note": "Two legs: (A) Once per turn, if you have no Wild Shape uses remaining, you can expend a spell slot of any level to regain one Wild Shape use — this is unlimited but gated per-turn; (B) Once per Long Rest, expend one Wild Shape use to regain one expended level-1 spell slot. v0 surfaces leg B as a 1/long-rest utility activity; leg A (per-turn, spell-slot-funded) is left to UI adjudication and cannot be expressed in the current activity DSL.",
       "activities": [
         {
-          "id": "wild-resurgence",
+          "id": "wild-resurgence-slot-recovery",
           "type": "utility",
-          "name": "Wild Resurgence (slot recovery)",
+          "name": "Wild Resurgence (regain spell slot from Wild Shape)",
           "cost": "bonus",
           "uses": {
             "max": 1,
             "per": "long-rest"
-          }
+          },
+          "note": "Expend 1 Wild Shape use to regain a level-1 spell slot. Once per Long Rest."
         }
       ]
     }

@@ -37,7 +37,25 @@
       { "level": 3, "slug": "steady-aim" },
       { "level": 4, "slug": "ability-score-improvement" },
       { "level": 5, "slug": "cunning-strike" },
-      { "level": 5, "slug": "uncanny-dodge" }
+      { "level": 5, "slug": "uncanny-dodge" },
+      { "level": 6, "slug": "expertise-rogue-l6" },
+      { "level": 7, "slug": "evasion-rogue" },
+      { "level": 7, "slug": "rogue-subclass" },
+      { "level": 8, "slug": "ability-score-improvement" },
+      { "level": 9, "slug": "improved-cunning-strike" },
+      { "level": 10, "slug": "ability-score-improvement" },
+      { "level": 11, "slug": "reliable-talent" },
+      { "level": 11, "slug": "rogue-subclass" },
+      { "level": 12, "slug": "ability-score-improvement" },
+      { "level": 13, "slug": "subtle-strikes" },
+      { "level": 14, "slug": "devious-strikes" },
+      { "level": 15, "slug": "slippery-mind" },
+      { "level": 15, "slug": "rogue-subclass" },
+      { "level": 16, "slug": "ability-score-improvement" },
+      { "level": 17, "slug": "elusive" },
+      { "level": 18, "slug": "stroke-of-luck" },
+      { "level": 19, "slug": "ability-score-improvement" },
+      { "level": 20, "slug": "death-strike" }
     ],
     "note": "2024 SRD 5.2 Rogue. Weapon proficiencies are simple weapons + martial weapons with the Finesse or Light property; we model the martial subset as a custom proficiency tag 'martial-finesse-or-light' (engine doesn't yet enforce property-based subset proficiency)."
   }

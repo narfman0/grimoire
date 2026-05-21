@@ -7,6 +7,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "orc",
+      "note": "SRD 5.2: As a bonus action, Dash. You also gain temporary HP equal to your Proficiency Bonus. Usable PB times per short or long rest.",
       "activities": [
         {
           "id": "adrenaline-rush-dash",
@@ -28,6 +29,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "orc",
+      "note": "SRD 5.2: When you are reduced to 0 HP but not killed outright, you drop to 1 HP instead. Once per long rest.",
       "triggers": [
         {
           "kind": "trigger",
@@ -43,12 +45,94 @@
   },
   {
     "kind": "feature",
+    "slug": "powerful-build-orc",
+    "version": 1,
+    "name": "Powerful Build",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "orc",
+      "note": "SRD 5.2: You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "resourceful",
+    "version": 1,
+    "name": "Resourceful",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "human",
+      "note": "SRD 5.2: You gain Heroic Inspiration whenever you finish a Long Rest.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.resourceful", "mode": "OVERRIDE", "value": true }
+      ],
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "resourceful-inspiration",
+          "name": "Resourceful",
+          "on": ["rest.long-rest.end"],
+          "scope": { "predicates": [{ "self": true }] },
+          "grants": { "type": "heroic-inspiration" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "skillful",
+    "version": 1,
+    "name": "Skillful",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "human",
+      "note": "SRD 5.2: You gain proficiency in one skill of your choice. Modeled as a choice slot; the chosen skill proficiency is applied at character creation.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "tag.skillful-skill-choice", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "versatile",
+    "version": 1,
+    "name": "Versatile",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "human",
+      "note": "SRD 5.2: You gain an Origin feat of your choice. This is in addition to the Origin feat granted by your background. The choice is made at character creation and cannot be changed.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "tag.versatile-origin-feat-choice", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "dwarven-resilience",
+    "version": 1,
+    "name": "Dwarven Resilience",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dwarf",
+      "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Poisoned condition. You also have Resistance to Poison damage.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.advantage.poisoned", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
     "slug": "dwarven-toughness",
     "version": 1,
     "name": "Dwarven Toughness",
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dwarf",
+      "note": "SRD 5.2: Your hit point maximum increases by 1, and it increases by 1 again whenever you gain a level.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" }
       ]
@@ -62,8 +146,33 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dwarf",
+      "note": "SRD 5.2: As a Bonus Action, you gain Tremorsense with a range of 60 feet for 10 minutes; you must be on a stone surface or touching such a surface to use this sense. Usable PB times per long rest.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "tremorsense", "mode": "UPGRADE", "value": 60, "appliesWhen": { "requires": "touching-stone" } }
+        { "kind": "stat-modifier", "target": "trait.stonecunning", "mode": "OVERRIDE", "value": true }
+      ],
+      "activities": [
+        {
+          "id": "stonecunning-activate",
+          "type": "utility",
+          "name": "Stonecunning",
+          "cost": "bonus",
+          "effect": { "type": "grant-sense", "sense": "tremorsense", "range": 60, "duration": "10-minutes", "requires": "touching-stone" },
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "dwarven-tool-proficiency",
+    "version": 1,
+    "name": "Tool Proficiency",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "dwarf",
+      "note": "SRD 5.2: You gain proficiency with one of the following tools of your choice: Jeweler's Tools, Mason's Tools, Smith's Tools, or Tinker's Tools. The choice is made at character creation.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "tag.dwarven-tool-choice", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -89,7 +198,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dragonborn",
-      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + proficiency bonus. Damage 1d10 at L1, 2d10 L5, 3d10 L11, 4d10 L17 (modeled here as a flat 1d10; UI/sheet can scale by totalLevel later). Damage type follows trait.draconic-ancestry.",
+      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + proficiency bonus. Damage 1d10 at L1, 2d10 L5, 3d10 L11, 4d10 L17 (modeled here as a flat 1d10; UI/sheet can scale by totalLevel later). Damage type follows trait.draconic-ancestry. Usable PB times per long rest.",
       "activities": [
         {
           "id": "breath-weapon",
@@ -127,16 +236,16 @@
       "ownerKind": "species",
       "ownerSlug": "dragonborn",
       "minLevel": 5,
-      "note": "SRD 5.2: at L5, bonus action to sprout wings; fly speed equals walking speed for 10 minutes, 1/long rest. Modeled as a player-invoked trigger so the speed only applies while the wings are active.",
-      "triggers": [
+      "note": "SRD 5.2: at L5, bonus action to sprout wings; fly speed equals walking speed for 10 minutes, 1/long rest. Modeled as a player-invoked bonus action activity.",
+      "activities": [
         {
-          "kind": "trigger",
-          "id": "draconic-flight",
+          "id": "draconic-flight-activate",
+          "type": "utility",
           "name": "Draconic Flight",
-          "on": ["turn.start"],
-          "scope": { "predicates": [{ "self": true }] },
-          "grants": { "type": "grant-speed", "speed": "fly", "value": "walk", "duration": "10-minutes" },
-          "limit": { "per": "long-rest", "uses": 1 }
+          "cost": "bonus",
+          "minLevel": 5,
+          "effect": { "type": "grant-speed", "speed": "fly", "value": "walk", "duration": "10-minutes" },
+          "uses": { "max": 1, "per": "long-rest" }
         }
       ]
     }
@@ -149,6 +258,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "elf",
+      "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Charmed condition.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "save.advantage.charmed", "mode": "OVERRIDE", "value": true }
       ]
@@ -162,9 +272,9 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "elf",
-      "note": "SRD 5.2: gain proficiency in Insight, Perception, or Survival (player's choice). Modeled here as Perception by default; the choice mechanism plugs in later via character.background.choices or species choice slot.",
+      "note": "SRD 5.2: You gain proficiency in the Insight, Perception, or Survival skill (player's choice at character creation). Modeled as a choice slot; the chosen proficiency is applied at character creation.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "proficiency.skill.perception", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "tag.keen-senses-skill-choice", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -176,7 +286,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "elf",
-      "note": "4-hour meditation = long rest; gain proficiency with a weapon or tool of player's choice. Informational flag only for v0.",
+      "note": "SRD 5.2: You don't need to sleep. Instead, you meditate deeply for 4 hours a day (the game terms this a semiconscious state), after which you gain the same benefit as a human from 8 hours of sleep. While meditating you can dream after a fashion; such dreams are actually mental exercises that have become reflexive through years of practice. You also gain proficiency with one weapon or tool of your choice at the end of each trance. Informational flag only — rest mechanics and bonus proficiency require engine support.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.trance", "mode": "OVERRIDE", "value": true }
       ]
@@ -204,6 +314,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "gnome",
+      "note": "SRD 5.2: You have advantage on Intelligence, Wisdom, and Charisma saving throws against spells and other magical effects.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "save.advantage.int", "mode": "OVERRIDE", "value": "magic" },
         { "kind": "stat-modifier", "target": "save.advantage.wis", "mode": "OVERRIDE", "value": "magic" },
@@ -254,16 +365,23 @@
       "ownerKind": "species",
       "ownerSlug": "goliath",
       "minLevel": 5,
-      "note": "SRD 5.2: at L5, bonus action to grow to Large for 10 minutes (advantage on Strength checks, +10 to walking speed) once per long rest, only if you have room. Modeled as player-invoked trigger.",
-      "triggers": [
+      "note": "SRD 5.2: at L5, bonus action to grow to Large for 10 minutes (advantage on Strength checks, +10 to walking speed) once per long rest, only if you have room. Modeled as a player-invoked bonus action activity.",
+      "activities": [
         {
-          "kind": "trigger",
-          "id": "large-form",
+          "id": "large-form-activate",
+          "type": "utility",
           "name": "Large Form",
-          "on": ["turn.start"],
-          "scope": { "predicates": [{ "self": true }] },
-          "grants": { "type": "grow-large", "duration": "10-minutes" },
-          "limit": { "per": "long-rest", "uses": 1 }
+          "cost": "bonus",
+          "minLevel": 5,
+          "effect": {
+            "type": "grow-large",
+            "duration": "10-minutes",
+            "grants": [
+              { "kind": "stat-modifier", "target": "ability.str.check.advantage", "mode": "OVERRIDE", "value": true },
+              { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10 }
+            ]
+          },
+          "uses": { "max": 1, "per": "long-rest" }
         }
       ]
     }
@@ -276,6 +394,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "goliath",
+      "note": "SRD 5.2: You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
       ]
@@ -289,6 +408,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "halfling",
+      "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Frightened condition.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "save.advantage.frightened", "mode": "OVERRIDE", "value": true }
       ]
@@ -302,7 +422,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "halfling",
-      "note": "SRD 5.2: can move through space of any creature of a size larger than yourself. Informational flag.",
+      "note": "SRD 5.2: You can move through the space of any creature of a size larger than yours, but you can't stop in the same space as that creature. Informational flag.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.halfling-nimbleness", "mode": "OVERRIDE", "value": true }
       ]
@@ -316,7 +436,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "halfling",
-      "note": "SRD 5.2 (2024): when you roll a 1 on the d20 for an attack, ability check, or save, you can reroll and must use the new roll. No per-rest cap in 2024 rules. Modeled as a trigger without a use limit.",
+      "note": "SRD 5.2 (2024): When you roll a 1 on the d20 for a D20 Test, you can reroll the die, and you must use the new roll. No per-rest limit.",
       "triggers": [
         {
           "kind": "trigger",
@@ -331,27 +451,13 @@
   },
   {
     "kind": "feature",
-    "slug": "naturally-stealthy",
-    "version": 1,
-    "name": "Naturally Stealthy",
-    "data": {
-      "ownerKind": "species",
-      "ownerSlug": "halfling",
-      "note": "SRD 5.2: can hide behind a creature larger than yourself. Informational flag.",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.naturally-stealthy", "mode": "OVERRIDE", "value": true }
-      ]
-    }
-  },
-  {
-    "kind": "feature",
     "slug": "fiendish-legacy",
     "version": 1,
     "name": "Fiendish Legacy",
     "data": {
       "ownerKind": "species",
       "ownerSlug": "tiefling",
-      "note": "Choice of Abyssal (poison resistance + Poison Spray / Ray of Sickness / Hold Person), Chthonic (necrotic resistance + Chill Touch / False Life / Ray of Enfeeblement), or Infernal (fire resistance + Fire Bolt / Hellish Rebuke / Darkness) folded into trait.fiendish-legacy flag for v0. Modeled here as a generic per-long-rest cast slot; specific spell choice lives on the chosen legacy and plugs in when the choice system lands.",
+      "note": "Choice of Abyssal (poison resistance + Poison Spray / Ray of Sickness / Hold Person), Chthonic (necrotic resistance + Chill Touch / False Life / Ray of Enfeeblement), or Infernal (fire resistance + Fire Bolt / Hellish Rebuke / Darkness) folded into trait.fiendish-legacy flag for v0. Resistance and spell lists are per-choice; specific resistance/spells deferred until choice system lands.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.fiendish-legacy-chosen", "mode": "OVERRIDE", "value": true }
       ],
@@ -383,7 +489,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "tiefling",
-      "note": "SRD 5.2: know the Thaumaturgy cantrip; ability for it = Cha/Wis/Int per fiendish-legacy choice. Modeled as informational flag for v0; cantrip granting plugs in later.",
+      "note": "SRD 5.2: You know the Thaumaturgy cantrip. When you cast it with this trait, the spellcasting ability is determined by your Fiendish Legacy choice (Abyssal: Wis; Chthonic: Int; Infernal: Cha). Cantrip-granting deferred until spell system lands.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.otherworldly-presence", "mode": "OVERRIDE", "value": true }
       ]

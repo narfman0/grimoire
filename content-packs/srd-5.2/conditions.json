@@ -1,137 +1,11 @@
 [
   {
     "kind": "condition",
-    "slug": "prone",
-    "version": 1,
-    "name": "Prone",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "movement.crawl-only",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attack.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked-by-melee.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked-by-ranged-5ft+.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "frightened",
-    "version": 1,
-    "name": "Frightened",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "ability-check.disadvantage",
-          "mode": "OVERRIDE",
-          "value": "while-source-in-sight"
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attack.disadvantage",
-          "mode": "OVERRIDE",
-          "value": "while-source-in-sight"
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "unconscious",
-    "version": 1,
-    "name": "Unconscious",
-    "data": {
-      "implies": [
-        "prone",
-        "incapacitated"
-      ],
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.str",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.dex",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked-within-5ft.crit-on-hit",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "rage",
-    "version": 1,
-    "name": "Rage",
-    "data": {
-      "owner": "self-applied",
-      "note": "Active condition applied by the Rage feature. Modifiers actually live on the rage feature; this row exists so the condition can be tracked on the character."
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "charmed",
-    "version": 1,
-    "name": "Charmed",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "attack.cannot-target-source",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "ability-check.source-has-advantage-socially",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ],
-      "note": "Charmed creature can't attack the charmer or target the charmer with harmful Activities/magical effects. The charmer has Advantage on any ability check to interact socially with the creature."
-    }
-  },
-  {
-    "kind": "condition",
     "slug": "blinded",
     "version": 1,
     "name": "Blinded",
     "data": {
+      "implies": [],
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -157,7 +31,32 @@
           "mode": "OVERRIDE",
           "value": true
         }
-      ]
+      ],
+      "note": "SRD 5.2: A Blinded creature can't see and automatically fails any ability check requiring sight. Attack rolls against the creature have Advantage, and the creature's attack rolls have Disadvantage."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "charmed",
+    "version": 1,
+    "name": "Charmed",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "attack.cannot-target-source",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "ability-check.source-has-advantage-socially",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Charmed creature can't attack the charmer or target the charmer with harmful abilities or magical effects. The charmer has Advantage on any ability check to interact socially with the creature."
     }
   },
   {
@@ -166,6 +65,7 @@
     "version": 1,
     "name": "Deafened",
     "data": {
+      "implies": [],
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -179,345 +79,8 @@
           "mode": "OVERRIDE",
           "value": true
         }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "grappled",
-    "version": 1,
-    "name": "Grappled",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "speed.walk",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.fly",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.swim",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.climb",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attack.disadvantage.not-against-grappler",
-          "mode": "OVERRIDE",
-          "value": true
-        }
       ],
-      "note": "Speed becomes 0. Has Disadvantage on attack rolls against targets other than the grappler. Ends if the grappler is Incapacitated or if the creature is moved out of the grappler's reach."
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "incapacitated",
-    "version": 1,
-    "name": "Incapacitated",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "action.disabled",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "bonus.disabled",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "reaction.disabled",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "concentration.broken",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speech.cannot-speak",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "initiative.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ],
-      "note": "Can't take Actions, Bonus Actions, or Reactions. Can't speak. Concentration breaks. Disadvantage on Initiative."
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "paralyzed",
-    "version": 1,
-    "name": "Paralyzed",
-    "data": {
-      "implies": [
-        "incapacitated"
-      ],
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "movement.cannot-move",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.str",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.dex",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked-within-5ft.crit-on-hit",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "petrified",
-    "version": 1,
-    "name": "Petrified",
-    "data": {
-      "implies": [
-        "incapacitated"
-      ],
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "movement.cannot-move",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "weight.multiply",
-          "mode": "MULTIPLY",
-          "value": 10
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "aging.stop",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.str",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.dex",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.all",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "immunity.poison",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "immunity.disease",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "poisoned",
-    "version": 1,
-    "name": "Poisoned",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "attack.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "ability-check.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "restrained",
-    "version": 1,
-    "name": "Restrained",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "speed.walk",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.fly",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.swim",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.climb",
-          "mode": "OVERRIDE",
-          "value": 0
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attack.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.disadvantage.dex",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "stunned",
-    "version": 1,
-    "name": "Stunned",
-    "data": {
-      "implies": [
-        "incapacitated"
-      ],
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.str",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.auto-fail.dex",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ]
-    }
-  },
-  {
-    "kind": "condition",
-    "slug": "invisible",
-    "version": 1,
-    "name": "Invisible",
-    "data": {
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "stealth.surprise-immune",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "concealed",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attack.advantage",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "attacked.disadvantage",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ],
-      "note": "Heavily obscured for purposes of being seen. Attack rolls against the invisible creature have Disadvantage, and the invisible creature's attack rolls have Advantage. Surprised condition immunity is implicit. Sound, tracks, etc. still detectable."
+      "note": "SRD 5.2: A Deafened creature can't hear and automatically fails any ability check requiring hearing."
     }
   },
   {
@@ -526,7 +89,17 @@
     "version": 1,
     "name": "Exhaustion",
     "data": {
+      "implies": [],
       "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "attack.d20-bonus",
+          "mode": "ADD",
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -2
+          }
+        },
         {
           "kind": "stat-modifier",
           "target": "save.str",
@@ -754,15 +327,601 @@
         },
         {
           "kind": "stat-modifier",
-          "target": "speed.all",
+          "target": "speed.walk",
           "mode": "ADD",
           "value": {
             "perConditionStack": "exhaustion",
             "perLevel": -5
           }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "ADD",
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -5
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "ADD",
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -5
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "ADD",
+          "value": {
+            "perConditionStack": "exhaustion",
+            "perLevel": -5
+          }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "tag.exhaustion-level-5-dead-at-10",
+          "mode": "OVERRIDE",
+          "value": true
         }
       ],
-      "note": "2024 PHB Exhaustion: each level imposes -2 to all D20 Tests (saves, skills, initiative) and -5 ft to all speeds, stacking per level. Track the level via conditionStacks.exhaustion (1-10). Level 6+ = death (not enforced by engine)."
+      "note": "SRD 5.2 (2024): Each Exhaustion level imposes -2 to all D20 Tests (attack rolls, ability checks, saving throws, initiative) and -5 ft to all speeds, stacking per level. Level 5: speed becomes 0 (speed.all floor at 0). Level 10: the creature dies. Track via conditionStacks.exhaustion (1-10). Speed minimum of 0 must be enforced by the evaluator."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "frightened",
+    "version": 1,
+    "name": "Frightened",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "ability-check.disadvantage",
+          "mode": "OVERRIDE",
+          "value": "while-source-in-sight"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attack.disadvantage",
+          "mode": "OVERRIDE",
+          "value": "while-source-in-sight"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "tag.frightened-cannot-approach-source",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: Disadvantage on ability checks and attack rolls while the source of fear is within line of sight. The creature can't willingly move closer to the source of its fear. The movement restriction (tag.frightened-cannot-approach-source) is spatial and must be enforced by the movement system."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "grappled",
+    "version": 1,
+    "name": "Grappled",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "OVERRIDE",
+          "value": 0
+        }
+      ],
+      "note": "SRD 5.2: A Grappled creature's speed becomes 0 and it can't benefit from any bonus to its speed. The condition ends if the grappler is Incapacitated or if the creature is moved beyond the grappler's reach. In SRD 5.2 (2024), grappled no longer imposes attack roll disadvantage — that was a 2014 rule."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "incapacitated",
+    "version": 1,
+    "name": "Incapacitated",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "action.disabled",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "reaction.disabled",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "concentration.broken",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speech.cannot-speak",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "initiative.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: An Incapacitated creature can't take Actions or Reactions, can't speak, and loses Concentration. It has Disadvantage on Initiative rolls. Bonus Actions are not explicitly blocked by this condition in SRD 5.2 — they are indirectly blocked because most Bonus Actions require an Action trigger."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "invisible",
+    "version": 1,
+    "name": "Invisible",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "concealed",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attack.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: An Invisible creature is Heavily Obscured for purposes of being seen. It can still be detected by sound, tracks, or other non-visual means. The creature's attack rolls have Advantage; attack rolls against it have Disadvantage."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "paralyzed",
+    "version": 1,
+    "name": "Paralyzed",
+    "data": {
+      "implies": [
+        "incapacitated"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "movement.cannot-move",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.str",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.dex",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "tag.attacked-within-5ft-auto-crit",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Paralyzed creature is Incapacitated (implied), can't move or speak, automatically fails STR and DEX saving throws, attack rolls against it have Advantage, and any attack that hits it within 5 ft is a Critical Hit. The auto-crit-within-5ft mechanic (tag.attacked-within-5ft-auto-crit) requires evaluator support."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "petrified",
+    "version": 1,
+    "name": "Petrified",
+    "data": {
+      "implies": [
+        "incapacitated"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "movement.cannot-move",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "tag.weight-multiplied-x10",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "tag.aging-stopped",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.str",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.dex",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.all",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "immunity.poison",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "immunity.disease",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Petrified creature is transformed into solid inanimate matter. It is Incapacitated (implied), can't move or speak, isn't aware of its surroundings, automatically fails STR and DEX saves, attack rolls against it have Advantage, it has Resistance to all damage, and is immune to poison and disease. Weight x10 and aging halt are tracked via tags."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "poisoned",
+    "version": 1,
+    "name": "Poisoned",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "attack.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "ability-check.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Poisoned creature has Disadvantage on attack rolls and ability checks."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "prone",
+    "version": 1,
+    "name": "Prone",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "movement.crawl-only",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attack.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked-by-melee.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked-by-ranged.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Prone creature's only movement option is to crawl (half speed cost). The creature has Disadvantage on attack rolls. Melee attack rolls against the creature have Advantage; ranged attack rolls against it have Disadvantage. Standing up costs half the creature's speed."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "restrained",
+    "version": 1,
+    "name": "Restrained",
+    "data": {
+      "implies": [],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attack.disadvantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.disadvantage.dex",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Restrained creature's speed becomes 0. Its attack rolls have Disadvantage; attack rolls against it have Advantage. It has Disadvantage on DEX saving throws."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "stunned",
+    "version": 1,
+    "name": "Stunned",
+    "data": {
+      "implies": [
+        "incapacitated"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "movement.cannot-move",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.str",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.dex",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: A Stunned creature is Incapacitated (implied), can't move, can speak only falteringly, automatically fails STR and DEX saving throws, and attack rolls against it have Advantage."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "unconscious",
+    "version": 1,
+    "name": "Unconscious",
+    "data": {
+      "implies": [
+        "incapacitated",
+        "prone"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "movement.cannot-move",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.fly",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.swim",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "speed.climb",
+          "mode": "OVERRIDE",
+          "value": 0
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.str",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.auto-fail.dex",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "attacked.advantage",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "tag.attacked-within-5ft-auto-crit",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "SRD 5.2: An Unconscious creature is Incapacitated and Prone (both implied), can't move or speak, is unaware of its surroundings, drops whatever it's holding, automatically fails STR and DEX saving throws, attack rolls against it have Advantage, and any attack that hits within 5 ft is a Critical Hit. The auto-crit-within-5ft mechanic (tag.attacked-within-5ft-auto-crit) requires evaluator support."
+    }
+  },
+  {
+    "kind": "condition",
+    "slug": "rage",
+    "version": 1,
+    "name": "Rage",
+    "data": {
+      "owner": "self-applied",
+      "note": "Active condition applied by the Rage feature. Modifiers actually live on the rage feature; this row exists so the condition can be tracked on the character."
     }
   }
 ]

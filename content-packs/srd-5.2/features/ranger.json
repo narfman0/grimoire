@@ -28,7 +28,7 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 1,
-      "note": "2024 SRD 5.2 Favored Enemy: you always have Hunter's Mark prepared (auto-prepared; does not count against the prepared-spell limit) and can cast it without a spell slot a number of times equal to your proficiency bonus per long rest. You may still cast it using slots. Number of free casts increases (PB scaling). v0 surfaces the resource pool only; the auto-prepared Hunter's Mark spell and the slotless-cast plumbing need engine support.",
+      "note": "2024 SRD 5.2 Favored Enemy: you always have Hunter's Mark prepared (auto-prepared; does not count against the prepared-spell limit) and can cast it without a spell slot a number of times equal to your proficiency bonus per long rest. You may still cast it using slots. Number of free casts scales with PB. v0 surfaces the resource pool only; the auto-prepared Hunter's Mark spell and the slotless-cast plumbing need engine support.",
       "activities": [
         {
           "id": "favored-enemy-hunters-mark",
@@ -111,6 +111,17 @@
   },
   {
     "kind": "feature",
+    "slug": "fighting-style-druidic-warrior",
+    "version": 1,
+    "name": "Fighting Style: Druidic Warrior",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fighting-style-ranger",
+      "note": "Learn two Druid cantrips of your choice. They count as Ranger spells; WIS is your spellcasting ability for them. Whenever you gain a Ranger level, you can replace one of these cantrips with another Druid cantrip. v0 surfaces the choice; the cantrip slots live on character.spells.known."
+    }
+  },
+  {
+    "kind": "feature",
     "slug": "ranger-subclass",
     "version": 1,
     "name": "Ranger Subclass",
@@ -135,25 +146,28 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 3,
-      "note": "Walking speed +10, plus climb and swim speeds equal to your walking speed (while not wearing heavy armor). v0 emits the +10 walk + flat climb/swim speed modifiers; the post-bonus equality (climb=walk including +10) is approximated by also ADDing 10 to climb/swim baselines from a 30-ft starting walk. If a species has a different base walk, the engineer-extension is to compute climb/swim from the post-modifier walk speed.",
+      "note": "Walking speed +10, plus climb and swim speeds equal to your walking speed (while not wearing heavy armor). v0 emits the +10 walk + flat climb/swim speed modifiers; the post-bonus equality (climb=walk including +10) is approximated by also UPGRADEing climb/swim to 40 (assuming 30-ft base walk). If a species has a different base walk, the engineer-extension is to compute climb/swim from the post-modifier walk speed.",
       "modifiers": [
         {
           "kind": "stat-modifier",
           "target": "speed.walk",
           "mode": "ADD",
-          "value": 10
+          "value": 10,
+          "appliesWhen": { "requires": "no-heavy-armor" }
         },
         {
           "kind": "stat-modifier",
           "target": "speed.climb",
           "mode": "UPGRADE",
-          "value": 40
+          "value": 40,
+          "appliesWhen": { "requires": "no-heavy-armor" }
         },
         {
           "kind": "stat-modifier",
           "target": "speed.swim",
           "mode": "UPGRADE",
-          "value": 40
+          "value": 40,
+          "appliesWhen": { "requires": "no-heavy-armor" }
         }
       ]
     }
@@ -175,6 +189,200 @@
           "value": 2
         }
       ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "tireless",
+    "version": 1,
+    "name": "Tireless",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 6,
+      "activities": [
+        {
+          "id": "tireless-temp-hp",
+          "type": "heal",
+          "name": "Tireless: Gain Temporary HP",
+          "cost": "action",
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          },
+          "note": "As an action, give yourself Temporary HP equal to 1d8 + your WIS modifier. Uses per long rest equal your proficiency bonus."
+        }
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.tireless.exhaustion-reduction",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "You can give yourself Temporary HP (1d8 + WIS modifier) as an action, a number of times per long rest equal to your proficiency bonus. Additionally, whenever you finish a Short Rest, your Exhaustion level decreases by 1 (if you have any). v0 surfaces the temp-HP activity with PB uses; the Exhaustion-reduction on short rest isn't simulated by the engine and is flagged as a trait tag."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "expertise-ranger",
+    "version": 1,
+    "name": "Expertise (Ranger)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 9,
+      "note": "Choose two of your skill proficiencies. Your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies. v0 surfaces the choices; derive.ts doesn't yet apply doubled-PB to skill checks.",
+      "choice": {
+        "kind": "expertise",
+        "pick": 2,
+        "from": "proficient-skills"
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "nature-s-veil",
+    "version": 1,
+    "name": "Nature's Veil",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 10,
+      "activities": [
+        {
+          "id": "natures-veil",
+          "type": "utility",
+          "name": "Nature's Veil",
+          "cost": "bonus",
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          },
+          "note": "Bonus Action: draw on nature magic and become Invisible until the start of your next turn. Uses per long rest equal your proficiency bonus."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "relentless-hunter",
+    "version": 1,
+    "name": "Relentless Hunter",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 13,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.relentless-hunter.hunters-mark-no-concentration",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "Taking damage no longer breaks your Concentration on Hunter's Mark. v0 tags this as a trait; the Concentration-break suppression requires engine support to filter the damage-breaks-concentration trigger specifically for Hunter's Mark."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "land-s-stride",
+    "version": 1,
+    "name": "Land's Stride",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 14,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.lands-stride.no-difficult-terrain-penalty",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.lands-stride.no-nonmagical-plant-damage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "Moving through nonmagical Difficult Terrain costs no extra movement. In addition, you can pass through nonmagical plants without being slowed and without taking damage from them (e.g., thornbushes). v0 tags both effects; the engine doesn't yet model terrain costs or hazard damage suppression."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "precise-hunter",
+    "version": 1,
+    "name": "Precise Hunter",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 17,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "attack.advantage",
+          "mode": "OVERRIDE",
+          "value": true,
+          "appliesWhen": { "condition": "target.hunters-mark" }
+        }
+      ],
+      "note": "You have Advantage on attack rolls against the creature currently marked by your Hunter's Mark. v0 sets attack.advantage OVERRIDE true gated on the hunters-mark condition tag; the engine must evaluate whether the current attack's target has the Hunter's Mark condition."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "feral-senses",
+    "version": 1,
+    "name": "Feral Senses",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 18,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.feral-senses.no-disadvantage-from-invisible-attackers",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "You gain Preternatural Awareness: when you take the Hide action or start your turn Hidden, you gain Preternatural Awareness until the start of your next turn. While you have it, no attack roll against you can have Advantage and you can't have Disadvantage on attack rolls. v0 tags the trait; the evaluator doesn't yet strip advantage/disadvantage based on preternatural awareness."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "foe-slayer",
+    "version": 1,
+    "name": "Foe Slayer",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "ranger",
+      "minLevel": 20,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "foe-slayer-damage",
+          "name": "Foe Slayer",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "condition": "target.hunters-mark" }
+            ]
+          },
+          "effects": [
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "wisMod"
+            }
+          ]
+        }
+      ],
+      "note": "The first time each turn that you hit a creature marked by Hunter's Mark, you deal extra damage to it equal to your WIS modifier. v0 applies the WIS mod as a damage bonus whenever the target has the hunters-mark condition; the 'first time each turn' once-per-turn cap isn't enforced."
     }
   }
 ]

@@ -54,7 +54,16 @@
         "slug": "warlock-subclass",
         "choice": { "kind": "subclass", "pick": 1, "from": "warlock-subclasses" }
       },
-      { "level": 4, "slug": "ability-score-improvement" }
+      { "level": 4, "slug": "ability-score-improvement" },
+      { "level": 8, "slug": "ability-score-improvement" },
+      { "level": 11, "slug": "mystic-arcanum-6" },
+      { "level": 12, "slug": "ability-score-improvement" },
+      { "level": 13, "slug": "mystic-arcanum-7" },
+      { "level": 15, "slug": "mystic-arcanum-8" },
+      { "level": 16, "slug": "ability-score-improvement" },
+      { "level": 17, "slug": "mystic-arcanum-9" },
+      { "level": 19, "slug": "ability-score-improvement" },
+      { "level": 20, "slug": "eldritch-master" }
     ]
   }
 }

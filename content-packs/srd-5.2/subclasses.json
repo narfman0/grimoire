@@ -6,7 +6,7 @@
     "name": "Path of the Berserker",
     "data": {
       "parentClass": "barbarian",
-      "features": ["frenzy", "mindless-rage"]
+      "features": ["frenzy", "mindless-rage", "intimidating-presence", "retaliation"]
     }
   },
   {
@@ -16,7 +16,7 @@
     "name": "College of Lore",
     "data": {
       "parentClass": "bard",
-      "features": ["bonus-proficiencies-lore", "cutting-words", "magical-secrets-lore"]
+      "features": ["bonus-proficiencies-lore", "cutting-words", "magical-secrets-lore", "peerless-skill"]
     }
   },
   {
@@ -31,7 +31,8 @@
         "life-domain-heavy-armor",
         "disciple-of-life",
         "preserve-life",
-        "blessed-healer"
+        "blessed-healer",
+        "supreme-healing"
       ]
     }
   },
@@ -42,7 +43,7 @@
     "name": "Circle of the Land",
     "data": {
       "parentClass": "druid",
-      "features": ["circle-of-the-land-spells", "lands-aid", "natural-recovery"]
+      "features": ["circle-of-the-land-spells", "lands-aid", "natural-recovery", "natures-ward", "natures-sanctuary"]
     }
   },
   {
@@ -52,7 +53,7 @@
     "name": "Champion",
     "data": {
       "parentClass": "fighter",
-      "features": ["improved-critical", "remarkable-athlete"]
+      "features": ["improved-critical", "remarkable-athlete", "additional-fighting-style", "superior-critical"]
     }
   },
   {
@@ -62,7 +63,7 @@
     "name": "Way of the Open Hand",
     "data": {
       "parentClass": "monk",
-      "features": ["open-hand-technique", "wholeness-of-body"]
+      "features": ["open-hand-technique", "wholeness-of-body", "tranquility", "quivering-palm"]
     }
   },
   {
@@ -87,7 +88,7 @@
     "name": "Hunter",
     "data": {
       "parentClass": "ranger",
-      "features": ["hunters-lore", "hunters-prey"]
+      "features": ["hunters-lore", "hunters-prey", "defensive-tactics", "hunter-multiattack", "superior-hunters-defense"]
     }
   },
   {
@@ -97,7 +98,7 @@
     "name": "Thief",
     "data": {
       "parentClass": "rogue",
-      "features": ["fast-hands", "second-story-work"]
+      "features": ["fast-hands", "second-story-work", "supreme-sneak", "use-magic-device", "thiefs-reflexes"]
     }
   },
   {
@@ -110,7 +111,9 @@
       "features": [
         "draconic-resilience",
         "dragon-ancestry",
-        "elemental-affinity"
+        "elemental-affinity",
+        "dragon-wings",
+        "draconic-presence"
       ]
     }
   },
@@ -124,7 +127,9 @@
       "features": [
         "fiend-spells",
         "dark-ones-blessing",
-        "dark-ones-own-luck"
+        "dark-ones-own-luck",
+        "fiendish-resilience",
+        "hurl-through-hell"
       ]
     }
   },
@@ -135,7 +140,7 @@
     "name": "Evocation",
     "data": {
       "parentClass": "wizard",
-      "features": ["evocation-savant", "sculpt-spells", "potent-cantrip"]
+      "features": ["evocation-savant", "sculpt-spells", "potent-cantrip", "empowered-evocation", "overchannel"]
     }
   }
 ]

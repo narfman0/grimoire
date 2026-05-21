@@ -216,5 +216,140 @@
         "from": "warlock-subclasses"
       }
     }
+  },
+  {
+    "kind": "feature",
+    "slug": "mystic-arcanum-6",
+    "version": 1,
+    "name": "Mystic Arcanum (6th Level)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "warlock",
+      "minLevel": 11,
+      "note": "SRD 5.2: At Warlock 11, choose one 6th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest. You can also cast the spell using a Pact Magic slot if you have one of sufficient level. NOTE: This slug (mystic-arcanum-6) is not yet listed in warlock.json classes features[]; the class JSON will need entries at levels 11, 13, 15, and 17 for the four arcanum tiers.",
+      "choice": {
+        "kind": "mystic-arcanum",
+        "spellLevel": 6,
+        "pick": 1,
+        "from": "warlock-spells-level-6"
+      },
+      "activities": [
+        {
+          "id": "mystic-arcanum-6",
+          "type": "utility",
+          "name": "Mystic Arcanum (6th-level spell)",
+          "cost": "action",
+          "uses": { "max": 1, "per": "long-rest" },
+          "note": "Cast your chosen 6th-level arcanum spell without expending a spell slot."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "mystic-arcanum-7",
+    "version": 1,
+    "name": "Mystic Arcanum (7th Level)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "warlock",
+      "minLevel": 13,
+      "note": "SRD 5.2: At Warlock 13, choose one 7th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-13 entry for this slug.",
+      "choice": {
+        "kind": "mystic-arcanum",
+        "spellLevel": 7,
+        "pick": 1,
+        "from": "warlock-spells-level-7"
+      },
+      "activities": [
+        {
+          "id": "mystic-arcanum-7",
+          "type": "utility",
+          "name": "Mystic Arcanum (7th-level spell)",
+          "cost": "action",
+          "uses": { "max": 1, "per": "long-rest" },
+          "note": "Cast your chosen 7th-level arcanum spell without expending a spell slot."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "mystic-arcanum-8",
+    "version": 1,
+    "name": "Mystic Arcanum (8th Level)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "warlock",
+      "minLevel": 15,
+      "note": "SRD 5.2: At Warlock 15, choose one 8th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-15 entry for this slug.",
+      "choice": {
+        "kind": "mystic-arcanum",
+        "spellLevel": 8,
+        "pick": 1,
+        "from": "warlock-spells-level-8"
+      },
+      "activities": [
+        {
+          "id": "mystic-arcanum-8",
+          "type": "utility",
+          "name": "Mystic Arcanum (8th-level spell)",
+          "cost": "action",
+          "uses": { "max": 1, "per": "long-rest" },
+          "note": "Cast your chosen 8th-level arcanum spell without expending a spell slot."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "mystic-arcanum-9",
+    "version": 1,
+    "name": "Mystic Arcanum (9th Level)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "warlock",
+      "minLevel": 17,
+      "note": "SRD 5.2: At Warlock 17, choose one 9th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-17 entry for this slug.",
+      "choice": {
+        "kind": "mystic-arcanum",
+        "spellLevel": 9,
+        "pick": 1,
+        "from": "warlock-spells-level-9"
+      },
+      "activities": [
+        {
+          "id": "mystic-arcanum-9",
+          "type": "utility",
+          "name": "Mystic Arcanum (9th-level spell)",
+          "cost": "action",
+          "uses": { "max": 1, "per": "long-rest" },
+          "note": "Cast your chosen 9th-level arcanum spell without expending a spell slot."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "eldritch-master",
+    "version": 1,
+    "name": "Eldritch Master",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "warlock",
+      "minLevel": 20,
+      "note": "SRD 5.2: At Warlock 20, when you finish a Short Rest, you can recover all expended Pact Magic spell slots. Once you use this feature, you must finish a Long Rest before you can use it again.",
+      "activities": [
+        {
+          "id": "eldritch-master",
+          "type": "utility",
+          "name": "Eldritch Master",
+          "cost": "free",
+          "trigger": "short-rest-completed",
+          "uses": { "max": 1, "per": "long-rest" },
+          "note": "Recover all expended Pact Magic spell slots. Once used, must finish a Long Rest before using again."
+        }
+      ]
+    }
   }
 ]

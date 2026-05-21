@@ -8,62 +8,14 @@
       "abilityChoices": ["int", "wis", "cha"],
       "skillProficiencies": ["insight", "religion"],
       "toolProficiencies": [],
-      "languages": [],
+      "languages": { "count": 2, "from": "any" },
+      "equipment": "Book (prayers), Holy Symbol, Parchment (10 sheets), Robe, 8 GP",
+      "feature": "Shelter of the Faithful",
+      "featureDescription": "As an acolyte, you command the respect of those who share your faith, and you can perform the religious ceremonies of your deity. You and your adventuring companions can expect to receive free healing and care at a temple, shrine, or other established presence of your faith, though you must provide any material components needed for spells. Those who share your religion will support you (but only you) at a modest lifestyle. You might also have ties to a specific temple dedicated to your chosen deity or pantheon, and you have a residence there. This could be the temple where you used to serve, if you remain on good terms with it, or a temple where you have found a new home. While near your temple, you can call upon the priests for assistance, provided the assistance you ask for is not hazardous and you remain in good standing with your temple.",
       "originFeat": "magic-initiate-cleric",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.insight", "mode": "OVERRIDE", "value": true },
         { "kind": "stat-modifier", "target": "proficiency.skill.religion", "mode": "OVERRIDE", "value": true }
-      ]
-    }
-  },
-  {
-    "kind": "background",
-    "slug": "soldier",
-    "version": 1,
-    "name": "Soldier",
-    "data": {
-      "abilityChoices": ["str", "dex", "con"],
-      "skillProficiencies": ["athletics", "intimidation"],
-      "toolProficiencies": ["gaming-set"],
-      "languages": [],
-      "originFeat": "savage-attacker",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "proficiency.skill.athletics", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.intimidation", "mode": "OVERRIDE", "value": true }
-      ]
-    }
-  },
-  {
-    "kind": "background",
-    "slug": "criminal",
-    "version": 1,
-    "name": "Criminal",
-    "data": {
-      "abilityChoices": ["dex", "con", "int"],
-      "skillProficiencies": ["sleight-of-hand", "stealth"],
-      "toolProficiencies": ["thieves-tools"],
-      "languages": [],
-      "originFeat": "alert",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "proficiency.skill.sleight-of-hand", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.stealth", "mode": "OVERRIDE", "value": true }
-      ]
-    }
-  },
-  {
-    "kind": "background",
-    "slug": "sage",
-    "version": 1,
-    "name": "Sage",
-    "data": {
-      "abilityChoices": ["con", "int", "wis"],
-      "skillProficiencies": ["arcana", "history"],
-      "toolProficiencies": ["calligraphers-supplies"],
-      "languages": [],
-      "originFeat": "magic-initiate-wizard",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "proficiency.skill.arcana", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.history", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -77,10 +29,35 @@
       "skillProficiencies": ["deception", "sleight-of-hand"],
       "toolProficiencies": ["forgery-kit"],
       "languages": [],
+      "equipment": "Costume, Forgery Kit, 15 GP",
+      "feature": "False Identity",
+      "featureDescription": "You have created a second identity that includes documentation, established acquaintances, and disguises that allow you to assume that persona. Additionally, you can forge documents including official papers and personal letters, as long as you have seen an example of the kind of document or the handwriting you are trying to copy.",
       "originFeat": "skilled",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.deception", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.sleight-of-hand", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "proficiency.skill.sleight-of-hand", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.forgery-kit", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "criminal",
+    "version": 1,
+    "name": "Criminal",
+    "data": {
+      "abilityChoices": ["dex", "con", "int"],
+      "skillProficiencies": ["sleight-of-hand", "stealth"],
+      "toolProficiencies": ["thieves-tools"],
+      "languages": [],
+      "equipment": "Crowbar, Costume, Thieves' Tools, 15 GP",
+      "feature": "Criminal Contact",
+      "featureDescription": "You have a reliable and trustworthy contact who acts as your liaison to a network of other criminals. You know how to get messages to and from your contact, even over great distances; specifically, you know the local messengers, corrupt caravan masters, and seedy sailors who can deliver messages for you.",
+      "originFeat": "alert",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.sleight-of-hand", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.stealth", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.thieves-tools", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -94,10 +71,14 @@
       "skillProficiencies": ["acrobatics", "performance"],
       "toolProficiencies": ["musical-instrument"],
       "languages": [],
+      "equipment": "Costume, Musical Instrument (choose one), Perfume, 8 GP",
+      "feature": "By Popular Demand",
+      "featureDescription": "You can always find a place to perform, usually in an inn or tavern but possibly with a circus, at a theater, or even in a noble's court. At such a place, you receive free lodging and food of a modest or comfortable standard (depending on the quality of the establishment), as long as you perform each night. In addition, your performance makes you something of a local figure. When strangers recognize you in a town where you have performed, they typically take a liking to you.",
       "originFeat": "musician",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.acrobatics", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.performance", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "proficiency.skill.performance", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.musical-instrument", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -111,10 +92,14 @@
       "skillProficiencies": ["animal-handling", "survival"],
       "toolProficiencies": ["artisans-tools"],
       "languages": [],
+      "equipment": "Artisan's Tools (choose one), Shovel, Iron Pot, Common Clothes, 10 GP",
+      "feature": "Rustic Hospitality",
+      "featureDescription": "Since you come from the ranks of the common folk, you fit in among them with ease. You can find a place to hide, rest, or recuperate among other commoners, unless you have shown yourself to be a danger to them. They will shield you from the law or anyone else searching for you, though they will not risk their lives for you.",
       "originFeat": "healer",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.animal-handling", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.artisans-tools", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -128,10 +113,14 @@
       "skillProficiencies": ["stealth", "survival"],
       "toolProficiencies": ["cartographers-tools"],
       "languages": [],
+      "equipment": "Cartographer's Tools, Traveler's Clothes, Staff, Hunting Trap, 10 GP",
+      "feature": "Wanderer",
+      "featureDescription": "You have an excellent memory for maps and geography, and you can always recall the general layout of terrain, settlements, and other features around you. In addition, you can find food and fresh water for yourself and up to five other people each day, provided that the land offers berries, small game, water, and so forth.",
       "originFeat": "magic-initiate-druid",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.stealth", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.cartographers-tools", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -144,11 +133,15 @@
       "abilityChoices": ["con", "wis", "cha"],
       "skillProficiencies": ["medicine", "religion"],
       "toolProficiencies": ["herbalism-kit"],
-      "languages": [],
-      "originFeat": "healer",
+      "languages": { "count": 1, "from": "any" },
+      "equipment": "Herbalism Kit, Scroll Case with notes, Winter Blanket, Common Clothes, 5 GP",
+      "feature": "Discovery",
+      "featureDescription": "The quiet seclusion of your extended hermitage gave you access to a unique and powerful discovery. The exact nature of this revelation depends on the nature of your seclusion. It might be a great truth about the cosmos, the deities, the powerful beings of the outer planes, or the forces of nature. It might be a site that no one else has ever seen. You might have uncovered a fact that has long been forgotten, or unearthed some relic of the past that could rewrite history. It might be information that would be damaging to the people who or institutions that consigned you to exile, and hence the reason for your return to society.",
+      "originFeat": "magic-initiate-druid",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.medicine", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.religion", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "proficiency.skill.religion", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.herbalism-kit", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -161,11 +154,57 @@
       "abilityChoices": ["str", "int", "cha"],
       "skillProficiencies": ["history", "persuasion"],
       "toolProficiencies": ["gaming-set"],
-      "languages": [],
+      "languages": { "count": 1, "from": "any" },
+      "equipment": "Fine Clothes, Gaming Set (choose one), Signet Ring, Scroll of Pedigree, 25 GP",
+      "feature": "Position of Privilege",
+      "featureDescription": "Thanks to your noble birth, people are inclined to think the best of you. You are welcome in high society, and people assume you have the right to be wherever you are. The common folk make every effort to accommodate you and avoid your displeasure, and other people of high birth treat you as a member of the same social sphere. You can secure an audience with a local noble if you need to.",
       "originFeat": "skilled",
       "modifiers": [
         { "kind": "stat-modifier", "target": "proficiency.skill.history", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "proficiency.skill.persuasion", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "proficiency.skill.persuasion", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.gaming-set", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "sage",
+    "version": 1,
+    "name": "Sage",
+    "data": {
+      "abilityChoices": ["con", "int", "wis"],
+      "skillProficiencies": ["arcana", "history"],
+      "toolProficiencies": ["calligraphers-supplies"],
+      "languages": { "count": 2, "from": "any" },
+      "equipment": "Calligrapher's Supplies, Book (on an area of study), Parchment (8 sheets), 8 GP",
+      "feature": "Researcher",
+      "featureDescription": "When you attempt to learn or recall a piece of lore, if you do not know that information, you often know where and from whom you can obtain it. Usually, this information comes from a library, scriptorium, university, or a sage or other learned person or creature. Your DM might rule that the knowledge you seek is secreted away in an almost inaccessible place, or that it simply cannot be found. Unearthing the deepest secrets of the multiverse can require an adventure or even a whole campaign.",
+      "originFeat": "magic-initiate-wizard",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.arcana", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.history", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.calligraphers-supplies", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "background",
+    "slug": "soldier",
+    "version": 1,
+    "name": "Soldier",
+    "data": {
+      "abilityChoices": ["str", "dex", "con"],
+      "skillProficiencies": ["athletics", "intimidation"],
+      "toolProficiencies": ["gaming-set"],
+      "languages": [],
+      "equipment": "Gaming Set (choose one), Healer's Kit, Traveler's Clothes, Trophy from a Fallen Enemy, 14 GP",
+      "feature": "Military Rank",
+      "featureDescription": "You have a military rank from your career as a soldier. Soldiers loyal to your former military organization still recognize your authority and influence, and they defer to you if they are of a lower rank. You can invoke your rank to exert influence over other soldiers and requisition simple equipment or horses for temporary use. You can also usually gain access to friendly military encampments and fortresses where your rank is recognized.",
+      "originFeat": "savage-attacker",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.skill.athletics", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.skill.intimidation", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.tool.gaming-set", "mode": "OVERRIDE", "value": true }
       ]
     }
   }

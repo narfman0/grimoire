@@ -135,7 +135,7 @@
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 2,
-      "note": "At Sorcerer 2 the sorcerer picks 2 Metamagic options (and may change one on a long rest). Each spends a different number of Sorcery Points when applied to a spell. v0 models each option as a defaultEnabled:false action-modifier toggle that tags the cast; the Sorcery Point cost accounting and the spell-modification mechanics (extra target, no components, ignore resistance, etc.) are NOT simulated — engine extension needed.",
+      "note": "At Sorcerer 2 the sorcerer picks 2 Metamagic options (and may change one on a long rest). Additional picks at Sorcerer 10 (3 total) and Sorcerer 17 (4 total). Each option spends a different number of Sorcery Points when applied to a spell. v0 models each option as a defaultEnabled:false action-modifier toggle that tags the cast; the Sorcery Point cost accounting and the spell-modification mechanics (extra target, no components, ignore resistance, etc.) are NOT simulated — engine extension needed. SRD 5.2 options: Careful, Distant, Empowered, Extended, Heightened, Quickened, Seeking, Subtle, Transmuted, Twinned.",
       "choice": {
         "kind": "metamagic",
         "pick": 2,
@@ -146,7 +146,9 @@
           "extended-spell",
           "heightened-spell",
           "quickened-spell",
+          "seeking-spell",
           "subtle-spell",
+          "transmuted-spell",
           "twinned-spell"
         ]
       },
@@ -262,6 +264,40 @@
               "value": true
             }
           ]
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-seeking",
+          "name": "Metamagic: Seeking Spell",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "cast"
+          },
+          "effects": [
+            {
+              "target": "tag.metamagic.seeking",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ],
+          "note": "Cost: 2 Sorcery Points. If you make an attack roll for a spell and miss, you can spend 2 Sorcery Points to reroll the d20, using the new roll. You can use Seeking Spell even if you've already used a Metamagic option during the casting. Engine does not yet support mid-resolution reroll triggers; tag only."
+        },
+        {
+          "kind": "action-modifier",
+          "id": "metamagic-transmuted",
+          "name": "Metamagic: Transmuted Spell",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "activityType": "cast"
+          },
+          "effects": [
+            {
+              "target": "tag.metamagic.transmuted",
+              "mode": "OVERRIDE",
+              "value": true
+            }
+          ],
+          "note": "Cost: 1 Sorcery Point. When you cast a spell that deals a type of damage from the following list, you can spend 1 Sorcery Point to change that damage type to one of the other listed types: Acid, Cold, Fire, Lightning, Poison, Thunder. Engine does not yet swap damage types at resolution; tag only."
         },
         {
           "kind": "action-modifier",

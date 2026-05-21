@@ -63,11 +63,11 @@
           "mode": "ADD",
           "value": 2,
           "appliesWhen": {
-            "requires": "one-handed-no-shield"
+            "requires": "one-handed-no-other-weapon"
           }
         }
       ],
-      "note": "Applies when wielding a melee weapon in one hand with no other weapons. v0 surfaces the modifier; the requires-tag is not yet enforced by the engine."
+      "note": "Applies when wielding a melee weapon in one hand and no other weapons (a shield is permitted; a second weapon or unarmed offhand is not). v0 surfaces the modifier; the requires-tag condition 'one-handed-no-other-weapon' is not yet enforced by the engine."
     }
   },
   {
@@ -299,7 +299,7 @@
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 1,
-      "note": "Uses regain 1 on a Short Rest (in addition to all on a Long Rest). v0 surfaces the long-rest pool; the short-rest 1-back recovery is not yet modelled.",
+      "note": "Uses recharge on a Short or Long Rest. Heal 1d10 + Fighter level HP. Uses: L1=2, L4=3, L10=4.",
       "activities": [
         {
           "id": "second-wind",
@@ -344,9 +344,9 @@
                 4
               ]
             },
-            "per": "long-rest"
+            "per": "short-rest"
           },
-          "note": "Regain 1d10 + Fighter level HP."
+          "note": "Regain 1d10 + Fighter level HP. All uses recharge on a Short or Long Rest."
         }
       ]
     }
@@ -360,7 +360,7 @@
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 1,
-      "note": "At L1 pick 3 weapons; gain access to their masteries. Count scales: L1=3, L4=4, L10=5, L16=6. Swap one chosen weapon's mastery on each long rest. v0 surfaces the chosen-weapon flag; weapon-mastery effects (Cleave, Push, Slow, etc.) aren't simulated.",
+      "note": "At L1 pick 3 weapons; gain access to their masteries. Mastery count scales: L1=3, L4=4, L10=5, L16=6. On a Long Rest you may swap one chosen weapon's mastery for another. v0 surfaces the initial choice flag and pick count; the per-level scaling of picks and the per-long-rest swap aren't enforced automatically. Weapon-mastery effects (Cleave, Push, Slow, Vex, etc.) aren't simulated.",
       "choice": {
         "kind": "weapon-mastery-chosen",
         "pick": 3,

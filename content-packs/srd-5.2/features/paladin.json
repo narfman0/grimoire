@@ -66,7 +66,7 @@
             },
             "per": "long-rest"
           },
-          "note": "Pool of healing power equal to 5 x Paladin level. As a Bonus Action, touch a creature and draw from the pool to restore HP, OR spend 5 points to end one disease or one Poisoned condition. v0 surfaces the pool as a single resource; HP-vs-cure-pool spend distinction isn't enforced."
+          "note": "Pool of healing power equal to 5 × Paladin level. As a Bonus Action, touch a creature and draw from the pool to restore HP, OR spend 5 points to end one disease or one Poisoned condition on the target. v0 surfaces the pool as a single resource; HP-vs-cure-pool spend distinction isn't enforced."
         }
       ]
     }
@@ -105,7 +105,7 @@
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 2,
-      "note": "Choose one Fighting Style. Paladin's available styles in 2024 SRD 5.2: Blessed Warrior, Blind Fighting, Defense, Dueling, Great Weapon Fighting, Interception, Protection. Defense/Dueling/Great Weapon Fighting/Blind Fighting/Interception/Protection rows live in features/fighter.json; Blessed Warrior is paladin-specific (below).",
+      "note": "Choose one Fighting Style. Paladin's available styles in SRD 5.2: Blessed Warrior, Blind Fighting, Defense, Dueling, Great Weapon Fighting, Interception, Protection. Defense/Dueling/Great Weapon Fighting/Blind Fighting/Interception/Protection rows live in features/fighter.json; Blessed Warrior is paladin-specific (below).",
       "choice": {
         "kind": "fighting-style",
         "pick": 1,
@@ -175,7 +175,7 @@
           ]
         }
       ],
-      "note": "When you hit a creature with a Melee weapon or Unarmed Strike, expend a spell slot to deal extra Radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8 from a 4th-level slot, capped). Once per turn. v0 doesn't consume the spell slot automatically and uses a placeholder magic identifier `divineSmiteSlotDice` for the bonus die total; surfaces as a toggle the player flips per-attack."
+      "note": "When you hit a creature with a Melee weapon or Unarmed Strike, expend a spell slot to deal extra Radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8 from a 4th-level slot). Extra 1d8 if the target is an Undead or a Fiend. Once per turn. v0 doesn't consume the spell slot automatically and uses a placeholder magic identifier `divineSmiteSlotDice` for the bonus die total; surfaces as a toggle the player flips per-attack. The Undead/Fiend bonus is noted but not auto-applied."
     }
   },
   {
@@ -187,7 +187,7 @@
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 2,
-      "note": "Paladin's 2024 Channel Divinity analogue. Subclass grants specific Channel Oath options at L3. v0 surfaces the resource as 1 use/short rest; later levels scale uses (2 at higher tiers in some printings; SRD 5.2 keeps a single resource recovered on Short or Long Rest).",
+      "note": "Paladin's Channel Divinity resource. Subclass grants specific Channel Oath options at L3+. Uses: 2 per rest at L2, recovers on Short or Long Rest. At L9 the class gains a third use. v0 surfaces 2 uses/short-rest at L2-8, and the L9 entry in the class JSON adds a second row to bump it to 3.",
       "activities": [
         {
           "id": "channel-oath",
@@ -195,7 +195,31 @@
           "name": "Channel Oath",
           "cost": "action",
           "uses": {
-            "max": 1,
+            "max": {
+              "perClass": "paladin",
+              "table": [
+                0,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3
+              ]
+            },
             "per": "short-rest"
           }
         }
@@ -211,7 +235,7 @@
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 3,
-      "note": "Placeholder for Sacred Oath subclass selection (Oath of Devotion, Glory, Vengeance, Ancients in 2024). The chosen subclass slug lives on character.classes[].subclass.",
+      "note": "Placeholder for Sacred Oath subclass selection (Oath of Devotion, Glory, Vengeance, Ancients in 2024 SRD 5.2). The chosen subclass slug lives on character.classes[].subclass.",
       "choice": {
         "kind": "subclass",
         "pick": 1,
@@ -239,6 +263,221 @@
             "per": "long-rest"
           },
           "note": "Cast Find Steed without expending a spell slot, once per Long Rest. You can also cast it using a Paladin spell slot normally. The Find Steed spell row should be added to character.spells.known when this feature is online."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "aura-of-protection",
+    "version": 1,
+    "name": "Aura of Protection",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 6,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "save.bonus.str",
+          "mode": "ADD",
+          "value": "chaMod",
+          "appliesWhen": { "condition": "in-aura-of-protection" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.bonus.dex",
+          "mode": "ADD",
+          "value": "chaMod",
+          "appliesWhen": { "condition": "in-aura-of-protection" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.bonus.con",
+          "mode": "ADD",
+          "value": "chaMod",
+          "appliesWhen": { "condition": "in-aura-of-protection" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.bonus.int",
+          "mode": "ADD",
+          "value": "chaMod",
+          "appliesWhen": { "condition": "in-aura-of-protection" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.bonus.wis",
+          "mode": "ADD",
+          "value": "chaMod",
+          "appliesWhen": { "condition": "in-aura-of-protection" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.bonus.cha",
+          "mode": "ADD",
+          "value": "chaMod",
+          "appliesWhen": { "condition": "in-aura-of-protection" }
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.aura-of-protection",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "While conscious, the paladin and friendly creatures within 10 feet add the paladin's CHA modifier (minimum +1) to all saving throws. The aura applies to the paladin unconditionally; for allies, the engine would need to evaluate proximity. v0 applies the CHA-mod bonus to the paladin's own saves unconditionally (no condition needed for self), and tags the trait so the UI can surface the aura to allies. The save.bonus.* targets are DSL-adjacent; the evaluator may key off save.{ability} instead — see BUBBLE UP."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "aura-of-courage",
+    "version": 1,
+    "name": "Aura of Courage",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 7,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "immunity.frightened",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.aura-of-courage",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "While the paladin is conscious, the paladin and friendly creatures within 10 feet are immune to the Frightened condition. v0 grants Frightened immunity to the paladin's own stat block and tags the trait; ally immunity requires proximity logic not yet in the engine."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "divine-health",
+    "version": 1,
+    "name": "Divine Health",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 10,
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "immunity.disease",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "radiant-strikes",
+    "version": 1,
+    "name": "Radiant Strikes",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 11,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "radiant-strikes-damage",
+          "name": "Radiant Strikes",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "attack.range": "melee"
+              },
+              {
+                "attack.classification": "weapon"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": "1d8"
+            },
+            {
+              "target": "damage.type-on-bonus",
+              "mode": "OVERRIDE",
+              "value": "radiant"
+            }
+          ]
+        }
+      ],
+      "note": "Your strikes blaze with radiance. When you hit a target with a melee weapon or Unarmed Strike, you deal an extra 1d8 Radiant damage. If you also use Divine Smite on the attack, you can roll the Divine Smite's bonus dice twice and use either total."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "restoring-touch",
+    "version": 1,
+    "name": "Restoring Touch",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 14,
+      "activities": [
+        {
+          "id": "restoring-touch",
+          "type": "utility",
+          "name": "Restoring Touch",
+          "cost": "action",
+          "note": "When you use Lay on Hands to restore HP to a creature, you can also end one of the following conditions afflicting the creature: Blinded, Charmed, Deafened, Frightened, Paralyzed, or Stunned. This costs no extra points from the Lay on Hands pool."
+        }
+      ],
+      "note": "Enhances Lay on Hands. No separate resource cost; the benefit is automatic when Lay on Hands restores HP. v0 surfaces this as a utility activity tooltip; the auto-condition-clear isn't enforced by the engine."
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "aura-expansion",
+    "version": 1,
+    "name": "Aura Expansion",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 17,
+      "note": "The radius of all paladin auras (Aura of Protection and Aura of Courage) expands from 10 feet to 30 feet. v0 tags the trait so the UI can update displayed aura radius; proximity logic in the engine must also be updated to use 30 ft for Paladin level >= 17.",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "trait.aura-radius-30ft",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "holy-nimbus",
+    "version": 1,
+    "name": "Holy Nimbus",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "paladin",
+      "minLevel": 20,
+      "activities": [
+        {
+          "id": "holy-nimbus",
+          "type": "utility",
+          "name": "Holy Nimbus",
+          "cost": "bonus",
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
+          "note": "Bonus Action: emit an aura of sunlight for 1 minute. While the aura is active: (1) bright light fills a 30-foot radius around you, and dim light extends 60 feet beyond that; (2) enemies in the bright light have Disadvantage on saving throws against your spells and Channel Oath features; (3) when an enemy enters the bright light for the first time on a turn or starts its turn there, the enemy takes 10 Radiant damage. The aura ends early if you have the Incapacitated condition. v0 surfaces the once-per-long-rest activation; the aura's ongoing damage, light emission, and save-disadvantage aren't simulated."
         }
       ]
     }
