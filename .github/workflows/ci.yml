@@ -33,3 +33,22 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  deploy:
+    # Only on master pushes (skips PRs and feature-branch CI runs); needs:ci
+    # gates on the type-check + test + build jobs above so red CI never
+    # ships. concurrency: drops in-flight deploys when a newer push lands
+    # so a fast string of merges doesn't pile up on Fly.
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-grimoire
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy to Fly
+        run: flyctl deploy --remote-only --app grimoire-wispy-fog-2051
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
