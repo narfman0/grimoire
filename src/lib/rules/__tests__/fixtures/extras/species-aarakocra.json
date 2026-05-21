@@ -1,0 +1,54 @@
+{
+  "kind": "species",
+  "slug": "aarakocra",
+  "version": 1,
+  "name": "Aarakocra",
+  "data": {
+    "description": "**Age**: Aarakocra reach maturity by age 3. Compared to humans, aarakocra don't usually live longer than 30 years.\n**Alignment**: Most aarakocra are good and rarely choose sides when it comes to law and chaos. Tribal leaders and warriors might be lawful, while explorers and adventurers might tend toward chaotic.\n**Size**: Aarakocra are about 5 feet tall. They have thin, lightweight bodies that weigh between 80 and 100 pounds. Your size is Medium.\n**Flight**: You have a flying speed of 50 feet. To use this speed, you can't be wearing medium or heavy armor.\n**Talons**: Your talons are natural weapons, which you can use to make unarmed strikes. If you hit with them, you deal slashing damage equal to 1d4 + your Strength modifier, instead of the bludgeoning damage normal for an unarmed strike.\n**Language**: You can speak, read, and write Common, Aarakocra, and Auran.",
+    "traits": [
+      {
+        "name": "Age",
+        "description": "Aarakocra reach maturity by age 3. Compared to humans, aarakocra don't usually live longer than 30 years."
+      },
+      {
+        "name": "Alignment",
+        "description": "Most aarakocra are good and rarely choose sides when it comes to law and chaos. Tribal leaders and warriors might be lawful, while explorers and adventurers might tend toward chaotic."
+      },
+      {
+        "name": "Size",
+        "description": "Aarakocra are about 5 feet tall. They have thin, lightweight bodies that weigh between 80 and 100 pounds. Your size is Medium."
+      },
+      {
+        "name": "Flight",
+        "description": "You have a flying speed of 50 feet. To use this speed, you can't be wearing medium or heavy armor."
+      },
+      {
+        "name": "Talons",
+        "description": "Your talons are natural weapons, which you can use to make unarmed strikes. If you hit with them, you deal slashing damage equal to 1d4 + your Strength modifier, instead of the bludgeoning damage normal for an unarmed strike."
+      },
+      {
+        "name": "Language",
+        "description": "You can speak, read, and write Common, Aarakocra, and Auran."
+      }
+    ],
+    "size": "medium",
+    "speed": {
+      "walk": 30
+    },
+    "languages": [],
+    "modifiers": [
+      {
+        "kind": "stat-modifier",
+        "target": "speed.walk",
+        "mode": "OVERRIDE",
+        "value": 30
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "speed.fly",
+        "mode": "OVERRIDE",
+        "value": true
+      }
+    ]
+  }
+}

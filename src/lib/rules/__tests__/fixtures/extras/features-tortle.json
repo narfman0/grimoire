@@ -1,0 +1,33 @@
+[
+  {
+    "kind": "feature",
+    "slug": "hold-breath-tortle",
+    "version": 1,
+    "name": "Hold Breath",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "tortle",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "flag.hold-breath-1hr", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "shell-defense",
+    "version": 1,
+    "name": "Shell Defense",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "tortle",
+      "activities": [
+        {
+          "id": "shell-defense-activate",
+          "type": "utility",
+          "name": "Shell Defense",
+          "cost": "action"
+        }
+      ]
+    }
+  }
+]

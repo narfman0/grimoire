@@ -1,0 +1,40 @@
+[
+  {
+    "kind": "feature",
+    "slug": "divine-fury",
+    "version": 1,
+    "name": "Divine Fury",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "path-of-the-zealot",
+      "minLevel": 3,
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "divine-fury-bonus",
+          "name": "Divine Fury (first hit/turn while raging)",
+          "appliesWhen": { "condition": "rage" },
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "attack.range": "melee" }]
+          },
+          "effects": [{ "target": "damage.bonus", "mode": "ADD", "value": 1 }]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "warrior-of-the-gods",
+    "version": 1,
+    "name": "Warrior of the Gods",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "path-of-the-zealot",
+      "minLevel": 3,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "flag.no-material-component-on-revive", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  }
+]

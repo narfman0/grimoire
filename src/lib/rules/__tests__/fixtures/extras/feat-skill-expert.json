@@ -1,0 +1,40 @@
+{
+  "kind": "feat",
+  "slug": "skill-expert",
+  "version": 1,
+  "name": "Skill Expert",
+  "data": {
+    "modifiers": [],
+    "category": "General",
+    "choices": {
+      "asi": {
+        "bonus": 1
+      },
+      "skillProficiency": {
+        "allowedSkills": [
+          "athletics",
+          "acrobatics",
+          "sleight of hand",
+          "stealth",
+          "arcana",
+          "history",
+          "investigation",
+          "nature",
+          "religion",
+          "animal handling",
+          "insight",
+          "medicine",
+          "perception",
+          "survival",
+          "deception",
+          "intimidation",
+          "performance",
+          "persuasion"
+        ]
+      },
+      "expertise": {
+        "allowedSkills": "proficient"
+      }
+    }
+  }
+}

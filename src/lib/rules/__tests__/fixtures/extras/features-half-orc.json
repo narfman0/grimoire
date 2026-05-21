@@ -1,0 +1,49 @@
+[
+  {
+    "kind": "feature",
+    "slug": "relentless-endurance-half-orc",
+    "version": 1,
+    "name": "Relentless Endurance",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "half-orc",
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "relentless-endurance",
+          "name": "Relentless Endurance",
+          "on": ["damage.reduce-to-zero"],
+          "scope": { "predicates": [{ "self": true }] },
+          "grants": { "type": "set-hp", "value": 1 },
+          "limit": { "per": "long-rest", "uses": 1 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "savage-attacks-half-orc",
+    "version": 1,
+    "name": "Savage Attacks",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "half-orc",
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "savage-attacks-extra-die",
+          "name": "Savage Attacks (crit extra die)",
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" }
+            ]
+          },
+          "effects": [
+            { "target": "crit.extra-weapon-die", "mode": "ADD", "value": 1 }
+          ]
+        }
+      ]
+    }
+  }
+]

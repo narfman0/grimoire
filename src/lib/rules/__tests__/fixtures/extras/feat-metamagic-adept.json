@@ -1,0 +1,17 @@
+{
+  "kind": "feat",
+  "slug": "metamagic-adept",
+  "version": 1,
+  "name": "Metamagic Adept",
+  "data": {
+    "modifiers": [
+      {
+        "kind": "stat-modifier",
+        "target": "resource.sorcery-points",
+        "mode": "ADD",
+        "value": 2
+      }
+    ],
+    "category": "General"
+  }
+}

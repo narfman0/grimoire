@@ -1,0 +1,78 @@
+{
+  "kind": "subclass",
+  "slug": "gloom-stalker",
+  "version": 1,
+  "name": "Gloom Stalker",
+  "data": {
+    "parentClass": "ranger",
+    "subclassFeatures": [
+      {
+        "level": 3,
+        "name": "Dread Ambusher",
+        "description": "You have mastered the art of creating fearsome ambushes, granting you the following benefits.\n**Ambusher's Leap**: At the start of your first turn of each combat, your Speed increases by 10 feet until the end of that turn.\n**Dreadful Strike**: When you attack a creature and hit it with a weapon, you can deal an extra 2d6 Psychic damage. You can use this benefit only once per turn, you can use it a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest.\n**Initiative Bonus**: When you roll Initiative, you can add your Wisdom modifier to the roll."
+      },
+      {
+        "level": 3,
+        "name": "Gloom Stalker",
+        "description": "Draw on Shadow Magic to Fight Your Foes\nGloom Stalkers are at home in the darkest places, wielding magic drawn from the Shadowfell to combat enemies that lurk in darkness."
+      },
+      {
+        "level": 3,
+        "name": "Gloom Stalker Spells",
+        "description": "When you reach a Ranger level specified in the Gloom Stalker Spells table, you thereafter always have the listed spells prepared.\n[Table: Gloom Stalker Spells]"
+      },
+      {
+        "level": 3,
+        "name": "Umbral Sight",
+        "description": "You gain Darkvision with a range of 60 feet. If you already have Darkvision when you gain this feature, its range increases by 60 feet.\nYou are also adept at evading creatures that rely on Darkvision. While entirely in Darkness, you have the Invisible condition to any creature that relies on Darkvision to see you in that Darkness."
+      },
+      {
+        "level": 7,
+        "name": "Iron Mind",
+        "description": "You have honed your ability to resist mind-altering powers. You gain proficiency in Wisdom saving throws. If you already have this proficiency, you instead gain proficiency in Intelligence or Charisma saving throws (your choice)."
+      },
+      {
+        "level": 11,
+        "name": "Stalker's Flurry",
+        "description": "The Psychic damage of your Dreadful Strike becomes 2d8. In addition, when you use the Dreadful Strike effect of your Dread Ambusher feature, you can cause one of the following additional effects.\n**Sudden Strike**: You can make another attack with the same weapon against a different creature that is within 5 feet of the original target and that is within the weapon's range.\n**Mass Fear**: The target and each creature within 10 feet of it must make a Wisdom saving throw against your spell save DC. On a failed save, a creature has the Frightened condition until the start of your next turn."
+      },
+      {
+        "level": 15,
+        "name": "Shadowy Dodge",
+        "description": "When a creature makes an attack roll against you, you can take a Reaction to impose Disadvantage on that roll. Whether the attack hits or misses, you can then teleport up to 30 feet to an unoccupied space you can see."
+      }
+    ],
+    "spells": [
+      {
+        "level": 1,
+        "spells": [
+          "disguise-self"
+        ]
+      },
+      {
+        "level": 2,
+        "spells": [
+          "rope-trick"
+        ]
+      },
+      {
+        "level": 3,
+        "spells": [
+          "fear"
+        ]
+      },
+      {
+        "level": 4,
+        "spells": [
+          "greater-invisibility"
+        ]
+      },
+      {
+        "level": 5,
+        "spells": [
+          "seeming"
+        ]
+      }
+    ]
+  }
+}

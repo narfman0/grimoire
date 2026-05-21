@@ -1,0 +1,45 @@
+{
+  "kind": "species",
+  "slug": "tiefling",
+  "version": 1,
+  "name": "Tiefling",
+  "data": {
+    "size": "medium",
+    "speed": {
+      "walk": 30
+    },
+    "languages": [],
+    "modifiers": [
+      {
+        "kind": "stat-modifier",
+        "target": "ability.int",
+        "mode": "ADD",
+        "value": 1
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "ability.cha",
+        "mode": "ADD",
+        "value": 2
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "speed.walk",
+        "mode": "OVERRIDE",
+        "value": 30
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "sense.darkvision",
+        "mode": "UPGRADE",
+        "value": 60
+      },
+      {
+        "kind": "stat-modifier",
+        "target": "resistance.fire",
+        "mode": "OVERRIDE",
+        "value": true
+      }
+    ]
+  }
+}

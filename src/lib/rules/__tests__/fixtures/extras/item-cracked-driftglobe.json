@@ -1,0 +1,33 @@
+{
+  "kind": "item",
+  "slug": "cracked-driftglobe",
+  "version": 1,
+  "name": "Cracked Driftglobe",
+  "data": {
+    "itemType": "wondrous",
+    "rarity": "uncommon",
+    "requiresAttunement": false,
+    "attunementNote": "",
+    "weight": 1,
+    "value": null,
+    "description": "This small sphere of thick glass weighs 1 pound. If you are within 60 feet of it, you can speak its command word and cause it to emanate the light spell.",
+    "properties": [],
+    "wondrous": true,
+    "weapon": false,
+    "armor": false,
+    "charges": null,
+    "recharge": null,
+    "modifiers": [],
+    "activities": [
+      {
+        "id": "cracked-driftglobe-cast-light",
+        "type": "cast-spell",
+        "name": "Cracked Driftglobe — Cast Light",
+        "cost": "action",
+        "spell": {
+          "slug": "light"
+        }
+      }
+    ]
+  }
+}

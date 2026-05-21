@@ -1,0 +1,43 @@
+{
+  "kind": "spell",
+  "slug": "zephyr-strike",
+  "version": 1,
+  "name": "Zephyr Strike",
+  "data": {
+    "level": 1,
+    "school": "transmutation",
+    "castingTime": "bonus action",
+    "range": {
+      "value": 0,
+      "units": "self"
+    },
+    "components": [
+      "v"
+    ],
+    "duration": "1 minute",
+    "concentration": true,
+    "ritual": false,
+    "classes": [],
+    "description": "You move like the wind. Until the spell ends, your movement doesn't provoke opportunity attacks. Once before the spell ends, you can give yourself advantage on one weapon attack roll on your turn. That attack deals an extra 1d8 force damage on a hit. Whether you hit or miss, your walking speed increases by 30 feet until the end of that turn.",
+    "activities": [
+      {
+        "id": "zephyr-strike-cast",
+        "type": "damage",
+        "name": "Cast Zephyr Strike",
+        "cost": "bonus",
+        "target": {
+          "affects": "creature",
+          "count": 1
+        },
+        "damage": {
+          "parts": [
+            {
+              "dice": "1d8",
+              "type": "force"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

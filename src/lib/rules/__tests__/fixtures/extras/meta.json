@@ -1,0 +1,7 @@
+{
+  "slug": "test-fixtures",
+  "name": "Test fixture content",
+  "version": "1.0.0",
+  "default_source": "test-fixtures",
+  "author": null
+}

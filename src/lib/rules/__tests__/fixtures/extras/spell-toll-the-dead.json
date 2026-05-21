@@ -1,0 +1,50 @@
+{
+  "kind": "spell",
+  "slug": "toll-the-dead",
+  "version": 1,
+  "name": "Toll the Dead",
+  "data": {
+    "level": 0,
+    "school": "necromancy",
+    "castingTime": "action",
+    "range": {
+      "value": 60,
+      "units": "ft"
+    },
+    "components": [
+      "v",
+      "s"
+    ],
+    "duration": "instantaneous",
+    "concentration": false,
+    "ritual": false,
+    "classes": [],
+    "description": "You point at one creature you can see within range, and the single chime of a dolorous bell is audible within 10 feet of the target. The target must succeed on a Wisdom saving throw or take 1d8 Necrotic damage. If the target is missing any of its Hit Points, it instead takes 1d12 Necrotic damage.\n\n**Cantrip Upgrade**: The damage increases by one die when you reach levels 5 (2d8 or 2d12), 11 (3d8 or 3d12), and 17 (4d8 or 4d12).",
+    "activities": [
+      {
+        "id": "toll-the-dead-cast",
+        "type": "save",
+        "name": "Cast Toll the Dead",
+        "cost": "action",
+        "target": {
+          "affects": "creature",
+          "count": 1
+        },
+        "save": {
+          "ability": "wisdom",
+          "dc": {
+            "calc": "spell"
+          }
+        },
+        "damage": {
+          "parts": [
+            {
+              "dice": "1d8",
+              "type": "necrotic"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

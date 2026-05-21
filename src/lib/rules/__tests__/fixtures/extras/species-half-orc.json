@@ -1,0 +1,18 @@
+{
+  "kind": "species",
+  "slug": "half-orc",
+  "version": 1,
+  "name": "Half-Orc (legacy)",
+  "data": {
+    "size": "medium",
+    "speed": { "walk": 30 },
+    "languages": ["common", "orc"],
+    "modifiers": [
+      { "kind": "stat-modifier", "target": "ability.str", "mode": "ADD", "value": 2 },
+      { "kind": "stat-modifier", "target": "ability.con", "mode": "ADD", "value": 1 },
+      { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
+      { "kind": "stat-modifier", "target": "proficiency.skill.intimidation", "mode": "OVERRIDE", "value": true }
+    ],
+    "features": ["relentless-endurance-half-orc", "savage-attacks-half-orc"]
+  }
+}

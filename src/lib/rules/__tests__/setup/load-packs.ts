@@ -1,15 +1,30 @@
-// Test helper: walk both `content-packs/` (in-repo SRD) and
-// `$GRIMOIRE_PACKS_DIR` (default `../grimoire-packs`) from disk and build a
-// Map keyed by `${kind}/${slug}`. Mirrors the server's pack loader but
-// without DB upserts — lets unit tests run derive() against real pack
-// content with no DB or server boot.
+// Test helper: walk `content-packs/` (in-repo SRD) plus the in-repo
+// `__tests__/fixtures/extras/` pack — synthetic test content for rows
+// the engine tests need that aren't in SRD (Tortle/Half-Orc species,
+// Chronurgy/Zealot subclasses, Skill Expert / Metamagic Adept feats).
+//
+// Mirrors the server's pack loader but without DB upserts — lets unit
+// tests run derive() against real pack content with no DB or server
+// boot, and with no dependency on the private `../grimoire-packs`
+// sibling (which CI doesn't have access to).
+//
+// To add a new pack-content row a test needs, drop the JSON file into
+// `src/lib/rules/__tests__/fixtures/extras/` and it'll be in every
+// fixture's lookup. To exercise content already in SRD, no copy is
+// needed — the SRD walk picks it up automatically.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ContentRow } from '../../types';
 
 const SRD_DIR = 'content-packs';
-const EXTRA_DIR = process.env.GRIMOIRE_PACKS_DIR ?? '../grimoire-packs';
+const EXTRAS_PACK_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'fixtures',
+  'extras'
+);
 
 interface PackMeta {
   slug: string;
@@ -19,7 +34,14 @@ interface PackMeta {
 export function loadAllPacks(): Map<string, ContentRow> {
   const map = new Map<string, ContentRow>();
   walkRoot(SRD_DIR, map);
-  if (existsSync(EXTRA_DIR)) walkRoot(EXTRA_DIR, map);
+  // The extras dir is a single pack rooted directly (not under a parent
+  // wrapper of packs), so call walkPack on it directly with its own meta.
+  if (existsSync(join(EXTRAS_PACK_DIR, 'meta.json'))) {
+    const meta = JSON.parse(
+      readFileSync(join(EXTRAS_PACK_DIR, 'meta.json'), 'utf8')
+    ) as PackMeta;
+    walkPack(EXTRAS_PACK_DIR, meta, map);
+  }
   return map;
 }
 

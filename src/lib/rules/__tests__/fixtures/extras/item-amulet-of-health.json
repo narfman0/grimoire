@@ -1,0 +1,30 @@
+{
+  "kind": "item",
+  "slug": "amulet-of-health",
+  "version": 1,
+  "name": "Amulet of Health",
+  "data": {
+    "itemType": "wondrous",
+    "rarity": "rare",
+    "requiresAttunement": true,
+    "attunementNote": "",
+    "weight": 1,
+    "value": null,
+    "description": "Your Constitution score is 19 while you wear this amulet. It has no effect on you if your Constitution score is already 19 or higher without it.",
+    "properties": [],
+    "wondrous": true,
+    "weapon": false,
+    "armor": false,
+    "charges": null,
+    "recharge": null,
+    "modifiers": [
+      {
+        "kind": "stat-modifier",
+        "target": "ability.con",
+        "mode": "OVERRIDE",
+        "value": 19
+      }
+    ],
+    "activities": []
+  }
+}

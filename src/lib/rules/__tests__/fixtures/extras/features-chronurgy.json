@@ -1,0 +1,38 @@
+[
+  {
+    "kind": "feature",
+    "slug": "chronal-shift",
+    "version": 1,
+    "name": "Chronal Shift",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "chronurgy-magic",
+      "minLevel": 2,
+      "triggers": [
+        {
+          "kind": "trigger",
+          "id": "chronal-shift",
+          "name": "Chronal Shift",
+          "on": ["attack.declare", "save.declare", "check.declare"],
+          "scope": { "predicates": [{ "distance.from-self.ft": { "lte": 30 } }] },
+          "grants": { "type": "force-reroll" },
+          "limit": { "per": "long-rest", "uses": 2 }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "temporal-awareness",
+    "version": 1,
+    "name": "Temporal Awareness",
+    "data": {
+      "ownerKind": "subclass",
+      "ownerSlug": "chronurgy-magic",
+      "minLevel": 2,
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "initiative", "mode": "ADD", "value": "intMod" }
+      ]
+    }
+  }
+]

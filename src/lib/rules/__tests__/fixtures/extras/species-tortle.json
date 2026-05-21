@@ -1,0 +1,18 @@
+{
+  "kind": "species",
+  "slug": "tortle",
+  "version": 1,
+  "name": "Tortle",
+  "data": {
+    "size": "medium",
+    "speed": { "walk": 30, "swim": 30 },
+    "languages": ["common", "aquan"],
+    "modifiers": [
+      { "kind": "stat-modifier", "target": "ability.str", "mode": "ADD", "value": 2 },
+      { "kind": "stat-modifier", "target": "ability.wis", "mode": "ADD", "value": 1 },
+      { "kind": "stat-modifier", "target": "ac.formula", "mode": "OVERRIDE", "value": { "base": 17 } },
+      { "kind": "stat-modifier", "target": "proficiency.skill.survival", "mode": "OVERRIDE", "value": true }
+    ],
+    "features": ["hold-breath-tortle", "shell-defense"]
+  }
+}
