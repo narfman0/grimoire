@@ -174,3 +174,13 @@
 {#if error}
   <p class="mt-4 rounded border border-red-800 bg-red-950/60 px-4 py-2 text-red-200">{error}</p>
 {/if}
+
+{#if data.user.isAdmin}
+  <section class="mt-8 rounded-lg border border-amber-900/40 bg-amber-950/20 p-5">
+    <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-500">Admin</h2>
+    <div class="flex flex-wrap gap-3 text-sm">
+      <a class="rounded border border-amber-800/50 px-3 py-1.5 text-amber-300 hover:bg-amber-900/30" href="/admin/db">Database explorer</a>
+      <a class="rounded border border-amber-800/50 px-3 py-1.5 text-amber-300 hover:bg-amber-900/30" href="/admin/reports">Reports queue</a>
+    </div>
+  </section>
+{/if}
