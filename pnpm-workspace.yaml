@@ -1,8 +1,12 @@
-allowBuilds:
-  '@sentry/cli': true
 # Explicit allowlist for postinstall scripts. pnpm@11 hides these by
 # default; we opt in to the ones that need to run native builds or
 # generate preprocessors.
+allowBuilds:
+  '@sentry/cli': true
+  better-sqlite3: true
+  esbuild: true
+  sqlite3: true
+  svelte-preprocess: true
 onlyBuiltDependencies:
   - '@sentry/cli'
   - better-sqlite3
