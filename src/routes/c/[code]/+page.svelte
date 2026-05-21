@@ -261,6 +261,56 @@
 
   const abilityKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 
+  // ---- Content grants (DM only) ----
+  let grants = data.grants;
+  let grantAuthorInput = '';
+  let grantError: string | null = null;
+
+  function isPackGranted(slug: string): boolean {
+    return grants.some((g) => g.grantType === 'pack' && g.grantKey === slug);
+  }
+
+  async function togglePackGrant(slug: string) {
+    const existing = grants.find((g) => g.grantType === 'pack' && g.grantKey === slug);
+    if (existing) {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}/grants/${existing.id}`, { method: 'DELETE' });
+      if (res.ok) grants = grants.filter((g) => g.id !== existing.id);
+    } else {
+      const res = await fetch(`/api/campaigns/${data.campaign.code}/grants`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ grantType: 'pack', grantKey: slug })
+      });
+      if (res.ok) {
+        const g = await res.json();
+        grants = [...grants, { id: g.id ?? crypto.randomUUID(), grantType: 'pack', grantKey: slug, label: slug }];
+      }
+    }
+  }
+
+  async function addAuthorGrant() {
+    const username = grantAuthorInput.trim();
+    if (!username) return;
+    grantError = null;
+    const res = await fetch(`/api/campaigns/${data.campaign.code}/grants`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ grantType: 'author', grantKey: username })
+    });
+    if (!res.ok) {
+      grantError = res.status === 404 ? 'user not found' : res.status === 409 ? 'already added' : `error ${res.status}`;
+      return;
+    }
+    const g = await res.json();
+    grants = [...grants, { id: g.id ?? crypto.randomUUID(), grantType: 'author' as const, grantKey: g.grantKey, label: g.label ?? username }];
+    grantAuthorInput = '';
+  }
+
+  async function removeGrant(id: string) {
+    const res = await fetch(`/api/campaigns/${data.campaign.code}/grants/${id}`, { method: 'DELETE' });
+    if (res.ok) grants = grants.filter((g) => g.id !== id);
+  }
+
   // 2024 PHB ability-generation methods. We don't enforce a particular one;
   // we surface presets + a live point-buy counter and let the player + DM
   // decide. Min/max on inputs is wide enough for rolled extremes (3..20
@@ -747,6 +797,77 @@
     </a>
   </div>
 </section>
+
+{#if data.role === 'dm'}
+<section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
+  <h2 class="mb-3 text-sm font-semibold text-slate-200">Content grants</h2>
+  <p class="mb-3 text-xs text-slate-500">
+    Control which content packs and homebrew authors are available to characters in this campaign.
+    Author grants make that author's published homebrew visible in all pickers, regardless of
+    whether a player has personally subscribed.
+  </p>
+
+  <div class="mb-4">
+    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Packs</h3>
+    {#if data.availablePacks.length === 0}
+      <p class="text-xs text-slate-500">No packs loaded.</p>
+    {:else}
+      <ul class="space-y-1">
+        {#each data.availablePacks as pack}
+          <li class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="pack-{pack.slug}"
+              checked={isPackGranted(pack.slug)}
+              on:change={() => togglePackGrant(pack.slug)}
+              class="accent-emerald-500"
+            />
+            <label for="pack-{pack.slug}" class="cursor-pointer text-slate-300">{pack.name}</label>
+            <span class="font-mono text-xs text-slate-500">({pack.slug})</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+
+  <div>
+    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Homebrew authors</h3>
+    {#if grants.filter((g) => g.grantType === 'author').length > 0}
+      <ul class="mb-2 space-y-1">
+        {#each grants.filter((g) => g.grantType === 'author') as g (g.id)}
+          <li class="flex items-center gap-2">
+            <span class="font-mono text-slate-300">{g.label}</span>
+            <button
+              class="text-xs text-slate-500 hover:text-red-400"
+              on:click={() => removeGrant(g.id)}
+            >×</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="mb-2 text-xs text-slate-500">No author grants yet.</p>
+    {/if}
+    <div class="flex gap-2">
+      <input
+        class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+        placeholder="username"
+        bind:value={grantAuthorInput}
+        on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAuthorGrant(); } }}
+      />
+      <button
+        class="rounded bg-emerald-700 px-3 py-1 text-xs hover:bg-emerald-600 disabled:opacity-40"
+        disabled={!grantAuthorInput.trim()}
+        on:click={addAuthorGrant}
+      >
+        Add
+      </button>
+    </div>
+    {#if grantError}
+      <p class="mt-1 text-xs text-red-400">{grantError}</p>
+    {/if}
+  </div>
+</section>
+{/if}
 
 <section class="mt-6 rounded-lg border border-dashed border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-300">
   <h2 class="mb-2 text-sm font-semibold text-slate-200">Rules-engine sheet previews</h2>

@@ -266,7 +266,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         participantPcConditions[participant.id] = [...(doc.conditions ?? [])];
         participantPcConcentrating[participant.id] = doc.concentrating ?? null;
         try {
-          const { lookup } = await buildContentLookup(char.ownerUserId ?? undefined);
+          const { lookup } = await buildContentLookup(char.ownerUserId ?? undefined, campaign.id);
           const d = serializeDerived(derive(doc, lookup));
           const s = d.stats;
           participantPcActions[participant.id] = (d.actions ?? []).map((a) => ({

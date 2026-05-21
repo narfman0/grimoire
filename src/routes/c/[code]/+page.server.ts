@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { PUBLIC_SOURCES } from '$lib/server/api/public-sources';
@@ -88,6 +88,31 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     .from(schema.notes)
     .where(eq(schema.notes.campaignId, campaign.id));
 
+  // Content grants (DM-managed): which packs and authors are enabled for this campaign.
+  const grantRows = await db
+    .select()
+    .from(schema.campaignContentGrants)
+    .where(eq(schema.campaignContentGrants.campaignId, campaign.id));
+
+  // All real packs (exclude synthetic 'homebrew' pack).
+  const availablePackRows = await db
+    .select({ slug: schema.packs.slug, name: schema.packs.name })
+    .from(schema.packs)
+    .where(ne(schema.packs.slug, 'homebrew'));
+
+  // Resolve author user IDs → usernames.
+  const grantedAuthorIds = grantRows
+    .filter((g) => g.grantType === 'author')
+    .map((g) => g.grantKey);
+  const authorUsernameMap = new Map<string, string>();
+  if (grantedAuthorIds.length > 0) {
+    const authorUsers = await db
+      .select({ id: schema.users.id, username: schema.users.username })
+      .from(schema.users)
+      .where(inArray(schema.users.id, grantedAuthorIds));
+    for (const u of authorUsers) authorUsernameMap.set(u.id, u.username);
+  }
+
   // Phase 4: list of user-owned characters that AREN'T already linked to
   // this campaign — feeds the "+ link existing" picker. Subquery filter:
   // owned by current user, id not in this campaign's join rows.
@@ -130,6 +155,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     campaign,
     user: locals.user,
     role: membership.role,
+    grants: grantRows.map((g) => ({
+      id: g.id,
+      grantType: g.grantType as 'pack' | 'author',
+      grantKey: g.grantKey,
+      label: g.grantType === 'author' ? (authorUsernameMap.get(g.grantKey) ?? g.grantKey) : g.grantKey
+    })),
+    availablePacks: availablePackRows,
     notes: noteRows
       .map((n) => ({
         id: n.id,

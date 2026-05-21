@@ -7,6 +7,7 @@ import {
   primaryKey
 } from 'drizzle-orm/sqlite-core';
 
+
 // Kept intentionally portable: only text/integer/blob, no SQLite-specific
 // column types. Migrating to Postgres later means swapping the import
 // (drizzle-orm/sqlite-core → drizzle-orm/pg-core), changing `integer` ms
@@ -479,3 +480,37 @@ export const notifications = sqliteTable(
 
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Campaign content grants — per-campaign opt-in for packs and homebrew authors.
+//
+// `grant_type` is 'pack' or 'author'.
+// `grant_key` is the pack slug (for pack grants) or user id (for author grants).
+//
+// Author grants: all characters in the campaign see that author's published
+// homebrew in pickers, regardless of whether the character owner subscribed.
+// Pack grants: recorded for UI bookkeeping; the lookup layer may use them for
+// restriction in a future pass (currently all pack content is globally visible).
+// ---------------------------------------------------------------------------
+
+export const campaignContentGrants = sqliteTable(
+  'campaign_content_grants',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    /** 'pack' | 'author' */
+    grantType: text('grant_type').notNull(),
+    /** pack slug when grantType='pack'; user id when grantType='author' */
+    grantKey: text('grant_key').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byCampaign: index('campaign_content_grants_by_campaign').on(t.campaignId),
+    unique: uniqueIndex('campaign_content_grants_unique').on(t.campaignId, t.grantType, t.grantKey)
+  })
+);
+
+export type CampaignContentGrant = typeof campaignContentGrants.$inferSelect;
+export type NewCampaignContentGrant = typeof campaignContentGrants.$inferInsert;

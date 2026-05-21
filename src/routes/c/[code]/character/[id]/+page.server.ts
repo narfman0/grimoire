@@ -62,7 +62,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   // derive() — that user's homebrew wins slug collisions against any
   // pack-loaded row of the same kind/slug.
   const { lookup, map: contentMap } = await buildContentLookup(
-    character.ownerUserId ?? undefined
+    character.ownerUserId ?? undefined,
+    campaign.id
   );
   const derived = document ? derive(document, lookup) : null;
 
