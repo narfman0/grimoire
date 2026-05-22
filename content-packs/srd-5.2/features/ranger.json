@@ -118,7 +118,10 @@
     "data": {
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-ranger",
-      "note": "Learn two Druid cantrips of your choice. They count as Ranger spells; WIS is your spellcasting ability for them. Whenever you gain a Ranger level, you can replace one of these cantrips with another Druid cantrip. v0 surfaces the choice; the cantrip slots live on character.spells.known."
+      "choices": {
+        "spell": { "allowedSpells": ["guidance", "shillelagh"], "pick": 2 }
+      },
+      "note": "Learn two Druid cantrips of your choice. They count as Ranger spells; WIS is your spellcasting ability for them. SRD druid cantrips: guidance, shillelagh."
     }
   },
   {

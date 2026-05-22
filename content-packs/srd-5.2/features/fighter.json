@@ -40,12 +40,10 @@
           "kind": "stat-modifier",
           "target": "ac",
           "mode": "ADD",
-          "value": 1,
-          "appliesWhen": {
-            "requires": "wearing-armor"
-          }
+          "value": 1
         }
-      ]
+      ],
+      "note": "+1 AC when wearing armor. The engine does not enforce the armor requirement via appliesWhen (requires-field is not evaluated); +1 applies unconditionally — same as the feat version."
     }
   },
   {
@@ -281,13 +279,20 @@
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
         {
-          "kind": "stat-modifier",
-          "target": "trait.unarmed-fighting-d8",
-          "mode": "OVERRIDE",
-          "value": true
+          "kind": "action-modifier",
+          "id": "unarmed-fighting-die-fighter",
+          "name": "Unarmed Fighting: Enhanced Die",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "weapon.kind": "unarmed" }]
+          },
+          "effects": [
+            { "target": "damage.dice", "mode": "OVERRIDE", "value": "1d6" }
+          ]
         }
       ],
-      "note": "Unarmed strike damage becomes 1d6 (1d8 if no shield and not wielding any weapons in either hand). At the start of each of your turns, you can deal 1d4 bludgeoning to a creature Grappled by you. v0 surfaces this as a trait flag; activities are not synthesized."
+      "note": "Unarmed strikes deal 1d6 + STR bludgeoning (1d8 with two free hands — engine cannot detect free-hand status; 1d6 applied unconditionally). Start of each turn: deal 1d4 to one Grappled creature (Out of Scope — no turn-start grapple-damage evaluator target)."
     }
   },
   {

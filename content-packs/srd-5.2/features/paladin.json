@@ -129,7 +129,10 @@
     "data": {
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-paladin",
-      "note": "Learn two Cleric cantrips of your choice. They count as Paladin spells; CHA is your spellcasting ability for them. Whenever you gain a Paladin level, you can replace one of these cantrips with another Cleric cantrip. v0 surfaces the choice; the cantrip slots live on character.spells.known."
+      "choices": {
+        "spell": { "allowedSpells": ["sacred-flame", "toll-the-dead", "guidance", "light"], "pick": 2 }
+      },
+      "note": "Learn two Cleric cantrips of your choice. They count as Paladin spells; CHA is your spellcasting ability for them. SRD cleric cantrips: sacred-flame, toll-the-dead, guidance, light."
     }
   },
   {
