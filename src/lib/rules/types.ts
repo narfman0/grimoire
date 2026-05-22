@@ -277,13 +277,60 @@ export type ActionCost =
    *  `feet` is the cost from the character's movement speed budget for the turn. */
   | { movement: number };
 
+/** Known trigger event names. The engine validates trigger declarations
+ *  against this list and emits a soft validation warning on unknowns so
+ *  pack authors get feedback on typos. The encounter runtime is what
+ *  actually fires events. Add new names here when a pack legitimately
+ *  needs a new lifecycle hook. */
+export const KNOWN_TRIGGER_EVENTS = [
+  // Attack lifecycle (self-as-attacker)
+  'attack.declare',
+  'attack.hit',
+  'attack.crit',
+  'attack.miss',
+  'attack.reduce-to-zero',
+  // Save / check / ability-check lifecycle
+  'save.declare',
+  'save.fail',
+  'check.declare',
+  // Damage taken (self-as-target)
+  'damage.taken',
+  'attack.targets-self.declare',
+  'attack.targets-self.hit',
+  // Spell lifecycle
+  'spell.cast',
+  'spell.slot-spent',
+  // Turn / round lifecycle
+  'turn.start',
+  'turn.end',
+  'round.start',
+  // Ally / enemy lifecycle
+  'creature.attack.hit',
+  'creature.takes-fall-damage',
+  'creature.turn-start'
+] as const;
+export type TriggerEvent = (typeof KNOWN_TRIGGER_EVENTS)[number];
+
+/** Grant payload on a TriggerDeclaration. Discriminated by `type`. The
+ *  encounter runtime maps each grant to a player choice (e.g. "do you want
+ *  to use Heavy Armor Master to reduce this damage?"). */
+export type TriggerGrant =
+  | { type: 'force-reroll' }
+  | { type: 'damage.reduce'; amount: number | string }
+  | { type: 'damage.reflect'; amount: number | string }
+  | { type: 'impose-disadvantage'; on: 'attack' | 'save' | 'check' }
+  | { type: 'convert-hit-to-miss' }
+  | { type: 'bonus-action-weapon-attack' }
+  | { type: 'reaction-weapon-attack' }
+  | { type: string; [k: string]: unknown }; // forward-compat: unknown grant shapes still pass through
+
 export interface TriggerDeclaration {
   id: string;
   sourceContent: { kind: string; slug: string };
   name: string;
   on: string[];
   scope?: unknown;
-  grants?: unknown;
+  grants?: TriggerGrant | unknown;
   limit?: { per: string; uses: number };
 }
 

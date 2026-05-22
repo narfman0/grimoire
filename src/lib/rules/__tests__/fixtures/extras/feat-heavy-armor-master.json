@@ -1,0 +1,22 @@
+{
+  "kind": "feat",
+  "slug": "heavy-armor-master",
+  "version": 1,
+  "name": "Heavy Armor Master (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "heavy-armor-master-damage-reduction",
+        "name": "Heavy Armor Master",
+        "on": ["damage.taken"],
+        "scope": {
+          "predicates": [{ "damage.type": ["bludgeoning", "piercing", "slashing"] }]
+        },
+        "grants": { "type": "damage.reduce", "amount": 3 }
+      }
+    ]
+  }
+}

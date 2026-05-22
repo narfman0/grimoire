@@ -30,7 +30,7 @@ import type {
   TriggerDeclaration,
   ValidationIssue
 } from './types';
-import { ABILITIES } from './types';
+import { ABILITIES, KNOWN_TRIGGER_EVENTS } from './types';
 
 interface ActiveContent {
   ref: ContentRef;
@@ -904,13 +904,24 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // -------------------------------------------------------------------------
 
   const triggers: TriggerDeclaration[] = [];
+  const knownEvents = new Set<string>(KNOWN_TRIGGER_EVENTS);
   for (const m of allMods) {
     if (m.kind !== 'trigger') continue;
+    const on = ((m.raw.on as string[] | undefined) ?? []).slice();
+    for (const ev of on) {
+      if (!knownEvents.has(ev)) {
+        validations.push({
+          severity: 'warning',
+          code: 'unknown-trigger-event',
+          message: `Trigger '${m.id}' references unknown event '${ev}'.`
+        });
+      }
+    }
     triggers.push({
       id: m.id,
       sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
       name: (m.raw.name as string | undefined) ?? m.id,
-      on: ((m.raw.on as string[] | undefined) ?? []).slice(),
+      on,
       scope: m.raw.scope,
       grants: m.raw.grants,
       limit: m.raw.limit as { per: string; uses: number } | undefined

@@ -260,6 +260,63 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.8: damage-taken / attack-targets-self trigger events -----------------
+// Derive doesn't fire events — the encounter runtime does. This commit
+// captures the engine *contract*: the set of known event names + grant
+// types, and a soft validation warning when a pack references an unknown
+// event name (catches typos like "damage.takne").
+
+describe('C.8 — damage-taken trigger events + soft validation', () => {
+	function charWithFeat(featSlug: string): CharacterDocument {
+		return {
+			id: `test-c8-${featSlug}`,
+			name: 'C.8 Test',
+			classes: [{ slug: 'fighter', level: 5, hpRolledPerLevel: [10, 6, 6, 6, 6] }],
+			species: { kind: 'species', slug: 'human' },
+			feats: [{ kind: 'feat', slug: featSlug }],
+			abilityScores: { str: 14, dex: 10, con: 14, int: 10, wis: 10, cha: 10 },
+			proficienciesChosen: { skills: [] },
+			inventory: [],
+			spells: { known: [], prepared: [] },
+			currentHp: 40,
+			tempHp: 0,
+			hitDiceSpent: {},
+			conditions: [],
+			modifierToggles: {}
+		};
+	}
+
+	it('flows the damage.taken trigger event through to TriggerDeclaration.on', () => {
+		const d = derive(charWithFeat('heavy-armor-master'), lookup());
+		const t = d.triggers.find((t) => t.id === 'heavy-armor-master-damage-reduction');
+		expect(t).toBeDefined();
+		expect(t!.on).toEqual(['damage.taken']);
+	});
+
+	it('passes damage.reduce grant payload through verbatim', () => {
+		const d = derive(charWithFeat('heavy-armor-master'), lookup());
+		const t = d.triggers.find((t) => t.id === 'heavy-armor-master-damage-reduction');
+		const g = t!.grants as { type: string; amount: number };
+		expect(g.type).toBe('damage.reduce');
+		expect(g.amount).toBe(3);
+	});
+
+	it('emits a soft validation warning when a trigger references an unknown event', () => {
+		const d = derive(charWithFeat('c8-unknown-event'), lookup());
+		const w = d.validations.find(
+			(v) => v.code === 'unknown-trigger-event' && v.message.includes('damage.takne')
+		);
+		expect(w).toBeDefined();
+		expect(w!.severity).toBe('warning');
+	});
+
+	it('does not emit warnings for valid events', () => {
+		const d = derive(charWithFeat('heavy-armor-master'), lookup());
+		const warns = d.validations.filter((v) => v.code === 'unknown-trigger-event');
+		expect(warns).toEqual([]);
+	});
+});
+
 // --- C.3: action-modifier effect targets + predicates + limit ----------------
 // Locks the four missing damage effect targets (damage.dice, damage.die.min,
 // damage.ignore-resistance, damage.reroll-and-keep-higher), the

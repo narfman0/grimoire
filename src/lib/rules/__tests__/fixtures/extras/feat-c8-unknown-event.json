@@ -1,0 +1,19 @@
+{
+  "kind": "feat",
+  "slug": "c8-unknown-event",
+  "version": 1,
+  "name": "C.8 Unknown-Event (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-typo-event",
+        "name": "C.8 Typo",
+        "on": ["damage.takne"],
+        "grants": { "type": "damage.reduce", "amount": 1 }
+      }
+    ]
+  }
+}
