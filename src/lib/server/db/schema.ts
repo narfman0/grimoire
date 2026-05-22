@@ -23,8 +23,7 @@ export const campaigns = sqliteTable('campaigns', {
 export const characters = sqliteTable('characters', {
   id: text('id').primaryKey(),
   campaignId: text('campaign_id')
-    .notNull()
-    .references(() => campaigns.id),
+    .references(() => campaigns.id), // nullable: standalone characters have no home campaign
   ownerUserId: text('owner_user_id'), // FK to users.id; nullable for legacy/test rows pre-auth
   name: text('name').notNull(),
   document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required

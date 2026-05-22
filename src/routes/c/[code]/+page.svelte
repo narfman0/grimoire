@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import CharacterCard from '$lib/components/CharacterCard.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -530,17 +531,17 @@
   {:else}
     <ul class="mb-4 divide-y divide-slate-800">
       {#each data.characters as character (character.id)}
-        <li class="flex items-center justify-between py-2">
-          <a
-            class="font-medium hover:text-emerald-300"
+        <li class="flex items-center justify-between gap-3 py-2">
+          <CharacterCard
+            name={character.name}
             href={`/c/${data.campaign.code}/character/${character.id}`}
-          >
-            {character.name}
-            {#if !character.hasDocument}
-              <span class="ml-2 rounded bg-amber-900/50 px-1.5 py-0.5 text-xs text-amber-200">stub</span>
+            descLine={character.descLine}
+            isStub={!character.hasDocument}
+          />
+          <div class="flex shrink-0 items-center gap-2">
+            {#if character.totalLevel > 0}
+              <span class="font-mono text-[10px] text-slate-600">L{character.totalLevel}</span>
             {/if}
-          </a>
-          <div class="flex items-center gap-2">
             <button
               class="text-xs text-slate-400 hover:text-amber-300"
               title="Remove from this campaign — character is kept"

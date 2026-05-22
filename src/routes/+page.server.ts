@@ -4,6 +4,10 @@ import { db, schema } from '$lib/server/db';
 import type { CharacterDocument } from '$lib/rules/types';
 import type { PageServerLoad } from './$types';
 
+type SpeciesOption = { slug: string; name: string; source: string };
+type ClassOption = { slug: string; name: string; source: string; hitDie: number };
+type SubclassOption = { slug: string; name: string; source: string; parentClass: string };
+
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) throw redirect(303, '/login');
 
@@ -139,9 +143,45 @@ export const load: PageServerLoad = async ({ locals }) => {
     };
   });
 
+  const speciesRows = await db
+    .select({ slug: schema.content.slug, name: schema.content.name, source: schema.content.source })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'species'));
+
+  const classRows = await db
+    .select({ slug: schema.content.slug, name: schema.content.name, source: schema.content.source, data: schema.content.data })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'class'));
+
+  const subclassRows = await db
+    .select({ slug: schema.content.slug, name: schema.content.name, source: schema.content.source, data: schema.content.data })
+    .from(schema.content)
+    .where(eq(schema.content.kind, 'subclass'));
+
+  const speciesOptions: SpeciesOption[] = speciesRows.map((r) => ({
+    slug: r.slug,
+    name: r.name,
+    source: r.source
+  }));
+
+  const classOptions: ClassOption[] = classRows.map((r) => ({
+    slug: r.slug,
+    name: r.name,
+    source: r.source,
+    hitDie: (JSON.parse(r.data as string) as { hitDie?: number }).hitDie ?? 8
+  }));
+
+  const subclassOptions: SubclassOption[] = subclassRows.map((r) => {
+    const data = JSON.parse(r.data as string) as { parentClass?: string };
+    return { slug: r.slug, name: r.name, source: r.source, parentClass: data.parentClass ?? '' };
+  });
+
   return {
     user: locals.user,
     campaigns,
-    characters
+    characters,
+    speciesOptions,
+    classOptions,
+    subclassOptions
   };
 };

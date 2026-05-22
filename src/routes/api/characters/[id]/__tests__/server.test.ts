@@ -232,3 +232,55 @@ describe('DELETE /api/characters/[id]', () => {
     expect(rows.length).toBe(0);
   });
 });
+
+// ---- Standalone characters (no campaign) ----
+
+async function standaloneFixture(db: Db) {
+  const owner = await seedUser(db, { username: 'owner' });
+  const characterId = await seedCharacter(db, {
+    campaignId: null,
+    ownerUserId: owner,
+    name: 'Standalone Hero',
+    document: minDoc('seed')
+  });
+  return { owner, characterId };
+}
+
+describe('standalone character (no campaign)', () => {
+  let db: Db;
+  beforeEach(() => { db = setupTestDb(); });
+
+  it('GET returns the character to its owner', async () => {
+    const { owner, characterId } = await standaloneFixture(db);
+    const res = await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe(characterId);
+    expect(body.campaignId).toBeNull();
+  });
+
+  it('GET returns 403 to a non-owner', async () => {
+    const { characterId } = await standaloneFixture(db);
+    const stranger = await seedUser(db, { username: 'stranger' });
+    await expectHttpError(
+      GET(makeEvent({ user: { id: stranger, username: 'stranger', isAdmin: false, email: null, emailVerified: false }, params: { id: characterId } })),
+      403
+    );
+  });
+
+  it('PATCH updates for the owner', async () => {
+    const { owner, characterId } = await standaloneFixture(db);
+    const res = await PATCH(makeEvent({ user: ownerOf(owner), params: { id: characterId }, body: { name: 'Renamed' } }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.name).toBe('Renamed');
+  });
+
+  it('DELETE removes the row for the owner', async () => {
+    const { owner, characterId } = await standaloneFixture(db);
+    const res = await DELETE(makeEvent({ user: ownerOf(owner), params: { id: characterId }, method: 'DELETE' }));
+    expect(res.status).toBe(204);
+    const rows = await db.select().from(schema.characters).where(eq(schema.characters.id, characterId));
+    expect(rows.length).toBe(0);
+  });
+});

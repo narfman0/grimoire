@@ -180,7 +180,7 @@ export const CharacterList = z
 
 export const CreateCharacterRequest = z
   .object({
-    campaignCode: CampaignCode,
+    campaignCode: CampaignCode.optional(),
     name: CharacterName,
     document: CharacterDocument.optional()
   })

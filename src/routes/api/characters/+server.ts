@@ -11,7 +11,7 @@ const ListQuery = z.object({ campaign: CampaignCode.optional() });
 
 function serializeCharacter(r: {
   id: string;
-  campaignId: string;
+  campaignId: string | null;
   ownerUserId: string | null;
   name: string;
   document: string | null;
@@ -76,33 +76,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { campaignCode, name, document } = await parseJson(request, CreateCharacterRequest);
 
-  const m = await getMembershipByCode(locals.user.id, campaignCode);
-  if (!m) throw error(403, 'not a member of this campaign');
+  let campaignId: string | null = null;
+  if (campaignCode) {
+    const m = await getMembershipByCode(locals.user.id, campaignCode);
+    if (!m) throw error(403, 'not a member of this campaign');
+    campaignId = m.campaignId;
+  }
 
   const id = crypto.randomUUID();
   const now = new Date();
   await db.insert(schema.characters).values({
     id,
-    campaignId: m.campaignId,
+    campaignId,
     ownerUserId: locals.user.id,
     name,
     document: document ? JSON.stringify({ ...document, id }) : null,
     updatedAt: now
   });
-  // Phase 2: also insert the M:N link row so the new character shows up in
-  // the JOIN'd reads (campaign page, encounter pickers, character sheet).
-  // characters.campaignId is still the soft "home" pointer; this row is
-  // the authoritative "this PC is in this campaign" record.
-  await db.insert(schema.campaignCharacters).values({
-    campaignId: m.campaignId,
-    characterId: id,
-    role: 'player',
-    addedAt: now
-  });
+
+  if (campaignId) {
+    await db.insert(schema.campaignCharacters).values({
+      campaignId,
+      characterId: id,
+      role: 'player',
+      addedAt: now
+    });
+  }
 
   return json({
     id,
-    campaignId: m.campaignId,
+    campaignId,
     ownerUserId: locals.user.id,
     name,
     document: document ? { ...document, id } : null,

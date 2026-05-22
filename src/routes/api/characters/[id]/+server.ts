@@ -27,7 +27,7 @@ async function load(id: string) {
 
 function serialize(r: {
   id: string;
-  campaignId: string;
+  campaignId: string | null;
   ownerUserId: string | null;
   name: string;
   document: string | null;
@@ -43,11 +43,14 @@ function serialize(r: {
   };
 }
 
-/** Anyone in the campaign can view + edit. v0 permission policy; refine later. */
-async function requireCampaignAccess(userId: string, campaignId: string) {
-  const role = await getMembershipByCampaignId(userId, campaignId);
+/** Standalone characters (no campaign) are accessible only to their owner. */
+async function requireAccess(userId: string, r: { campaignId: string | null; ownerUserId: string | null }) {
+  if (!r.campaignId) {
+    if (r.ownerUserId !== userId) throw error(403, 'not the owner of this character');
+    return;
+  }
+  const role = await getMembershipByCampaignId(userId, r.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
-  return role;
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -55,7 +58,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   const { id } = parseParams(params, Params);
   const row = await load(id);
   if (!row) throw error(404, 'character not found');
-  await requireCampaignAccess(locals.user.id, row.campaignId);
+  await requireAccess(locals.user.id, row);
   return json(serialize(row));
 };
 
@@ -66,7 +69,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireCampaignAccess(locals.user.id, existing.campaignId);
+  await requireAccess(locals.user.id, existing);
 
   const now = new Date();
   const nextName = patch.name ?? existing.name;
@@ -101,7 +104,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const { id } = parseParams(params, Params);
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireCampaignAccess(locals.user.id, existing.campaignId);
+  await requireAccess(locals.user.id, existing);
 
   await db.delete(schema.characters).where(eq(schema.characters.id, id));
   return new Response(null, { status: 204 });

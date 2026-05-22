@@ -12,7 +12,7 @@ const EMPTY_PAGE = {
   availablePacks: [] as { slug: string; name: string }[],
   campaignMembers: [] as { id: string; username: string }[],
   notes: [] as { id: string; title: string; body: string; updatedAt: number }[],
-  characters: [] as { id: string; campaignId: string | null; ownerUserId: string | null; name: string; hasDocument: boolean; updatedAt: number }[],
+  characters: [] as { id: string; campaignId: string | null; ownerUserId: string | null; name: string; hasDocument: boolean; descLine: string; totalLevel: number; updatedAt: number }[],
   linkableCharacters: [] as { id: string; name: string; descLine: string }[],
   speciesOptions: [] as { slug: string; name: string; source: string }[],
   classOptions: [] as { slug: string; name: string; source: string; hitDie: number }[],
@@ -237,14 +237,35 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         updatedAt: n.updatedAt.getTime()
       }))
       .sort((a, b) => b.updatedAt - a.updatedAt),
-    characters: characterRows.map((r) => ({
-      id: r.id,
-      campaignId: r.campaignId,
-      ownerUserId: r.ownerUserId,
-      name: r.name,
-      hasDocument: r.document != null,
-      updatedAt: r.updatedAt.getTime()
-    })),
+    characters: characterRows.map((r) => {
+      let descLine = '';
+      let totalLevel = 0;
+      if (r.document) {
+        try {
+          const doc = JSON.parse(r.document) as {
+            classes?: Array<{ slug?: string; level?: number; subclass?: string }>;
+            species?: { slug?: string };
+          };
+          const cls = (doc.classes ?? [])
+            .map((k) => `${k.slug ?? '?'}${k.subclass ? ` (${k.subclass})` : ''} ${k.level ?? '?'}`)
+            .join(', ');
+          descLine = `${doc.species?.slug ?? 'unknown'} — ${cls}`;
+          totalLevel = (doc.classes ?? []).reduce((s, k) => s + (k.level ?? 0), 0);
+        } catch {
+          // ignore
+        }
+      }
+      return {
+        id: r.id,
+        campaignId: r.campaignId,
+        ownerUserId: r.ownerUserId,
+        name: r.name,
+        hasDocument: r.document != null,
+        descLine,
+        totalLevel,
+        updatedAt: r.updatedAt.getTime()
+      };
+    }),
     linkableCharacters,
     speciesOptions: speciesRows.map((r) => ({
       slug: r.slug,

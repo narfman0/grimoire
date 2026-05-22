@@ -228,7 +228,7 @@ export async function seedCampaign(
 export async function seedCharacter(
   db: DbType,
   opts: {
-    campaignId: string;
+    campaignId?: string | null;
     ownerUserId: string;
     name?: string;
     document?: unknown;
@@ -241,13 +241,13 @@ export async function seedCharacter(
   const id = crypto.randomUUID();
   await db.insert(schema.characters).values({
     id,
-    campaignId: opts.campaignId,
+    campaignId: opts.campaignId ?? null,
     ownerUserId: opts.ownerUserId,
     name: opts.name ?? 'Test PC',
     document: opts.document !== undefined ? JSON.stringify(opts.document) : null,
     updatedAt: new Date()
   });
-  if (opts.linkToCampaign) {
+  if (opts.linkToCampaign && opts.campaignId) {
     await db.insert(schema.campaignCharacters).values({
       campaignId: opts.campaignId,
       characterId: id,
