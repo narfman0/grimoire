@@ -6,8 +6,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 188 |
-| ⚠️ Partial | 66 |
+| ✅ Full | 189 |
+| ⚠️ Partial | 67 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 17 |
 
@@ -214,6 +214,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | subclass | evocation | Feature: evocation-savant (L3) | ⚠️ Partial | Pick-2 wizard-evocation spell choice surfaced; per-level free-copy not auto-tracked | 2026-05-21 |
 | subclass | evocation | Feature: sculpt-spells (L3) | ⚠️ Partial | Action-modifier tag on evocation casts; ally auto-success logic left to play | 2026-05-21 |
 | subclass | evocation | Feature: potent-cantrip (L6) | ⚠️ Partial | Action-modifier tag on cantrip casts; half-on-save semantics not enforced by evaluator | 2026-05-21 |
+| subclass | evocation | Feature: empowered-evocation (L10) | ✅ Full | damage.bonus ADD intMod for evocation casts (spell.school:evocation predicate valid); dead spell.list:wizard predicate removed | 2026-05-22 |
+| subclass | evocation | Feature: overchannel (L14) | ⚠️ Partial | Toggle action-modifier on evocation casts L1-5 (spell.level:{gte:1,lte:5} range now evaluates; dead spell.list predicate removed); tag.overchannel effect is informational only; max-damage and self-damage escalation left to player | 2026-05-22 |
 
 ---
 

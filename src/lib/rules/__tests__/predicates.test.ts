@@ -50,6 +50,21 @@ describe('predicateMatches', () => {
     expect(predicateMatches({ level: 6 }, { predicates: [{ level: { lte: 5 } }] })).toBe(false);
   });
 
+  it('handles combined gte+lte range (both bounds checked)', () => {
+    // { gte: 1, lte: 5 } must pass only when 1 ≤ value ≤ 5.
+    expect(predicateMatches({ level: 3 }, { predicates: [{ level: { gte: 1, lte: 5 } }] })).toBe(true);
+    expect(predicateMatches({ level: 1 }, { predicates: [{ level: { gte: 1, lte: 5 } }] })).toBe(true);
+    expect(predicateMatches({ level: 5 }, { predicates: [{ level: { gte: 1, lte: 5 } }] })).toBe(true);
+    expect(predicateMatches({ level: 6 }, { predicates: [{ level: { gte: 1, lte: 5 } }] })).toBe(false);
+    expect(predicateMatches({ level: 0 }, { predicates: [{ level: { gte: 1, lte: 5 } }] })).toBe(false);
+  });
+
+  it('handles array activityType in block (any-of)', () => {
+    expect(predicateMatches({ activityType: 'cast' }, { activityType: ['cast', 'save', 'attack'] })).toBe(true);
+    expect(predicateMatches({ activityType: 'save' }, { activityType: ['cast', 'save', 'attack'] })).toBe(true);
+    expect(predicateMatches({ activityType: 'heal' }, { activityType: ['cast', 'save', 'attack'] })).toBe(false);
+  });
+
   it('handles eq / neq', () => {
     expect(predicateMatches({ a: 1 }, { predicates: [{ a: { eq: 1 } }] })).toBe(true);
     expect(predicateMatches({ a: 1 }, { predicates: [{ a: { neq: 2 } }] })).toBe(true);

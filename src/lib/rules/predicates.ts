@@ -5,7 +5,7 @@
 export type PredicateContext = Record<string, unknown>;
 
 export interface PredicateBlock {
-  activityType?: string;
+  activityType?: string | string[];
   predicates?: Array<Record<string, unknown>>;
 }
 
@@ -29,8 +29,13 @@ function matchValue(value: unknown, expected: unknown): boolean {
     const exp = expected as Record<string, unknown>;
     if ('eq' in exp) return value === exp.eq;
     if ('neq' in exp) return value !== exp.neq;
-    if ('gte' in exp) return typeof value === 'number' && value >= (exp.gte as number);
-    if ('lte' in exp) return typeof value === 'number' && value <= (exp.lte as number);
+    if ('gte' in exp || 'lte' in exp) {
+      // Range check: both bounds evaluated together so { gte: 1, lte: 5 } works.
+      if (typeof value !== 'number') return false;
+      if ('gte' in exp && value < (exp.gte as number)) return false;
+      if ('lte' in exp && value > (exp.lte as number)) return false;
+      return true;
+    }
     if ('in' in exp && Array.isArray(exp.in))
       return (exp.in as unknown[]).includes(value);
     return false;
@@ -43,7 +48,13 @@ function matchValue(value: unknown, expected: unknown): boolean {
 
 export function predicateMatches(ctx: PredicateContext, block: PredicateBlock | undefined): boolean {
   if (!block) return true;
-  if (block.activityType != null && ctx.activityType !== block.activityType) return false;
+  if (block.activityType != null) {
+    const allowed = block.activityType;
+    const fail = Array.isArray(allowed)
+      ? !allowed.includes(ctx.activityType as string)
+      : ctx.activityType !== allowed;
+    if (fail) return false;
+  }
   for (const p of block.predicates ?? []) {
     for (const [key, expected] of Object.entries(p)) {
       if (key === 'or' && Array.isArray(expected)) {

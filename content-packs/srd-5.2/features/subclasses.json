@@ -1340,7 +1340,7 @@
           "defaultEnabled": true,
           "appliesTo": {
             "activityType": "cast",
-            "predicates": [{ "spell.school": "evocation" }, { "spell.list": "wizard" }]
+            "predicates": [{ "spell.school": "evocation" }]
           },
           "effects": [
             { "target": "damage.bonus", "mode": "ADD", "value": "intMod" }
@@ -1367,7 +1367,7 @@
           "defaultEnabled": false,
           "appliesTo": {
             "activityType": "cast",
-            "predicates": [{ "spell.school": "evocation" }, { "spell.list": "wizard" }, { "spell.level": { "gte": 1, "lte": 5 } }]
+            "predicates": [{ "spell.school": "evocation" }, { "spell.level": { "gte": 1, "lte": 5 } }]
           },
           "effects": [
             { "target": "tag.overchannel", "mode": "OVERRIDE", "value": true }
