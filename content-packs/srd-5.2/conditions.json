@@ -327,34 +327,7 @@
         },
         {
           "kind": "stat-modifier",
-          "target": "speed.walk",
-          "mode": "ADD",
-          "value": {
-            "perConditionStack": "exhaustion",
-            "perLevel": -5
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.fly",
-          "mode": "ADD",
-          "value": {
-            "perConditionStack": "exhaustion",
-            "perLevel": -5
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.swim",
-          "mode": "ADD",
-          "value": {
-            "perConditionStack": "exhaustion",
-            "perLevel": -5
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "speed.climb",
+          "target": "speed.all",
           "mode": "ADD",
           "value": {
             "perConditionStack": "exhaustion",

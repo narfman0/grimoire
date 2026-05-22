@@ -8,20 +8,19 @@
       "ownerKind": "subclass",
       "ownerSlug": "path-of-the-berserker",
       "minLevel": 3,
-      "note": "While Raging, immediately after taking the Attack action on your turn you can make one additional melee weapon attack as a bonus action (Frenzied Strike). On a hit, you can choose to push the target up to 10 ft or knock it prone. Frenzy no longer imposes exhaustion in the 2024 rules. v0 surfaces this as a tagged action-modifier; the bonus-action Frenzied Strike isn't synthesized as a discrete action yet.",
-      "modifiers": [
+      "note": "While Raging, immediately after taking the Attack action on your turn you can make one additional melee weapon attack as a bonus action (Frenzied Strike). On a hit, you can choose to push the target up to 10 ft or knock it prone. Frenzy no longer imposes exhaustion in the 2024 rules. Push/prone rider requires manual tracking; engine cannot enforce 'after Attack action' timing.",
+      "activities": [
         {
-          "kind": "action-modifier",
-          "id": "frenzy-rider",
+          "id": "frenzied-strike",
           "name": "Frenzied Strike",
-          "appliesWhen": { "condition": "rage" },
-          "appliesTo": {
-            "activityType": "attack",
-            "predicates": [{ "attack.range": "melee" }]
-          },
-          "effects": [
-            { "target": "tag.frenzy-rider-available", "mode": "OVERRIDE", "value": true }
-          ]
+          "type": "attack",
+          "cost": "bonus",
+          "note": "Requires Rage. Use immediately after your Attack action. On hit: push target 10 ft or knock Prone (manual tracking).",
+          "attack": {
+            "ability": "str",
+            "classification": "weapon",
+            "range": "melee"
+          }
         }
       ]
     }
@@ -183,8 +182,8 @@
           "kind": "trigger",
           "id": "peerless-skill",
           "name": "Peerless Skill",
-          "on": ["self.check.declare"],
-          "scope": { "predicates": [{ "self.is-target": true }] },
+          "on": ["check.declare"],
+          "scope": { "predicates": [{ "self.is-source": true }] },
           "grants": {
             "activityType": "utility",
             "cost": "free",
@@ -684,10 +683,20 @@
       "ownerKind": "subclass",
       "ownerSlug": "oath-of-devotion",
       "minLevel": 6,
-      "note": "You and your allies have Immunity to the Charmed condition while within 10 ft of you (expanded to 30 ft at L18 via the class Aura Expansion feature). The aura is suppressed while you have the Incapacitated condition. v0 applies the self portion; ally-aura broadcasting isn't modelled.",
+      "note": "You and allies within 10 ft are immune to Charmed (expanded to 30 ft at L18 via class Aura Expansion). Aura suppressed while Incapacitated — engine cannot gate outboundEffects on !condition, so that edge case requires manual handling.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "immunity.charmed", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "aura.charmed-immunity.radius", "mode": "OVERRIDE", "value": 10 }
+        { "kind": "stat-modifier", "target": "immunity.charmed", "mode": "OVERRIDE", "value": true }
+      ],
+      "outboundEffects": [
+        {
+          "id": "aura-of-devotion",
+          "name": "Aura of Devotion",
+          "rangeFt": 10,
+          "targets": "ally",
+          "modifiers": [
+            { "kind": "stat-modifier", "target": "immunity.charmed", "mode": "OVERRIDE", "value": true }
+          ]
+        }
       ]
     }
   },

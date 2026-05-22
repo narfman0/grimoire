@@ -1426,8 +1426,12 @@ function computeSpeeds(
           val = applyNumericMode(val, mode, value);
         }
       }
-      speeds[key] = val;
+      speeds[key] = Math.max(0, val);
     }
+  }
+  // Clamp all speeds to 0 (SRD: exhaustion can reduce speed to 0 but not below)
+  for (const key of Object.keys(speeds)) {
+    speeds[key] = Math.max(0, speeds[key]);
   }
   return speeds;
 }

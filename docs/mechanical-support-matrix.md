@@ -1,13 +1,13 @@
 # SRD 5.2 Mechanical Support Matrix
 
-Generated: 2026-05-21 | Last full audit: 2026-05-21
+Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 171 |
-| ⚠️ Partial | 69 |
+| ✅ Full | 173 |
+| ⚠️ Partial | 68 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -36,7 +36,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | barbarian | Feature: fast-movement (L5) | ✅ Full | speed.walk ADD 10 with no-heavy-armor condition | 2026-05-21 |
 | class | barbarian | Feature: feral-instinct (L7) | 🚫 Out of Scope | initiative.advantage not a supported evaluator target; both effects surfaced as trait tags | 2026-05-21 |
 | class | barbarian | Feature: brutal-strike (L9) | 🚫 Out of Scope | Forced movement, speed reduction, and per-hit extra-die rider are all out of scope; trait tag + annotated activity only | 2026-05-21 |
-| class | barbarian | Feature: relentless-rage (L11) | ⚠️ Partial | Trigger on self.reduced-to-0hp fires a free CON save; escalating DC not auto-tracked (manual note in feature) | 2026-05-21 |
+| class | barbarian | Feature: relentless-rage (L11) | ⚠️ Partial | Trigger on damage.reduce-to-zero (self) fires a free CON save; escalating DC (10/15/20…) not auto-tracked (manual note in feature) | 2026-05-22 |
 | class | bard | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, DEX/CHA saves, light armor, simple weapons, 3 musical instruments, pick 3 from all skills | 2026-05-21 |
 | class | bard | Feature: bardic-inspiration (L1) | ✅ Full | Resource activity correct (PB/long-rest); die-size surfaced via damageRolls type=inspiration with perClass bard table (d6→d8→d10→d12 by level) | 2026-05-21 |
 | class | bard | Feature: spellcasting-bard (L1) | ✅ Full | spellcasting.ability OVERRIDE cha | 2026-05-21 |
@@ -153,12 +153,13 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | Kind | Slug | Mechanic | Status | Notes | Audited |
 |------|------|----------|--------|-------|---------|
 | subclass | path-of-the-berserker | Parent Class (barbarian) / Feature List | ✅ Full | parentClass=barbarian, features=[frenzy, mindless-rage, intimidating-presence, retaliation] | 2026-05-21 |
-| subclass | path-of-the-berserker | Feature: frenzy (L3) | ⚠️ Partial | action-modifier tag surfaced; discrete bonus-action Frenzied Strike not synthesized; push/prone rider out of scope | 2026-05-21 |
+| subclass | path-of-the-berserker | Feature: frenzy (L3) | ⚠️ Partial | Bonus-action Frenzied Strike attack activity added (STR/weapon/melee); push/prone rider is Out of Scope; activity not rage-gated by engine (timing constraint manual) | 2026-05-22 |
 | subclass | path-of-the-berserker | Feature: mindless-rage (L3) | ✅ Full | immunity.charmed and immunity.frightened OVERRIDE true gated on rage condition | 2026-05-21 |
 | subclass | college-of-lore | Parent Class (bard) / Feature List | ✅ Full | parentClass=bard, features=[bonus-proficiencies-lore, cutting-words, magical-secrets-lore, peerless-skill] | 2026-05-21 |
 | subclass | college-of-lore | Feature: bonus-proficiencies-lore (L3) | ✅ Full | choices.skillProficiencies {pick:3} emits proficiency.skill.<slug> modifiers for each of the 3 picked skills | 2026-05-21 |
 | subclass | college-of-lore | Feature: cutting-words (L3) | ⚠️ Partial | Trigger on enemy attack/check/damage within 60 ft; reaction activity surfaced; Bardic Inspiration die spend not auto-deducted | 2026-05-21 |
 | subclass | college-of-lore | Feature: magical-secrets-lore (L6) | ✅ Full | choices.spell {} injects player-picked spells as deferred active-content refs (actions synthesized); picks stored in featureChoices | 2026-05-21 |
+| subclass | college-of-lore | Feature: peerless-skill (L14) | ⚠️ Partial | Trigger on check.declare (fixed from self.check.declare); grants free utility to add Bardic Inspiration die to own check; die auto-deduction not wired | 2026-05-22 |
 | subclass | life-domain | Parent Class (cleric) / Feature List | ✅ Full | parentClass=cleric, features=[life-domain-spells, life-domain-heavy-armor, disciple-of-life, preserve-life, blessed-healer, supreme-healing] | 2026-05-21 |
 | subclass | life-domain | Feature: life-domain-spells (L3) | ⚠️ Partial | spellListAdditions injects Bless, Cure Wounds, Spiritual Weapon, Mass Healing Word; 6 others (Lesser Restoration, Revivify, Aura of Life, Death Ward, Mass Cure Wounds, Raise Dead) not in SRD pack | 2026-05-21 |
 | subclass | life-domain | Feature: life-domain-heavy-armor (L3) | ✅ Full | proficiency.armor.heavy OVERRIDE true | 2026-05-21 |
@@ -179,7 +180,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | oath-of-devotion | Feature: devotion-spells (L3) | ⚠️ Partial | trait.oath-spells.devotion flag; auto-prep injection not wired | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: channel-divinity-sacred-weapon (L3) | ✅ Full | Bonus-action utility activity + action-modifier adding chaMod to attack.bonus.melee; chaMod now resolves via evaluateValue (engine updated) | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: channel-divinity-holy-rebuke (L3) | ✅ Full | Reaction save activity (CON vs spell DC, 2d8+paladinLevel radiant) | 2026-05-21 |
-| subclass | oath-of-devotion | Feature: aura-of-devotion (L6) | ⚠️ Partial | immunity.charmed OVERRIDE true for self; aura.charmed-immunity.radius=10 tagged; ally proximity logic not in engine | 2026-05-21 |
+| subclass | oath-of-devotion | Feature: aura-of-devotion (L6) | ✅ Full | Self immunity via stat-modifier + outboundEffects broadcasts immunity.charmed to allies within 10 ft; incapacitation suppression not engine-enforceable (manual) | 2026-05-22 |
 | subclass | hunter | Parent Class (ranger) / Feature List | ✅ Full | parentClass=ranger, features=[hunters-lore, hunters-prey, defensive-tactics, hunter-multiattack, superior-hunters-defense] | 2026-05-21 |
 | subclass | hunter | Feature: hunters-lore (L3) | ✅ Full | Bonus-action utility at 120 ft; DM reveals immunity/resistance/vulnerability | 2026-05-21 |
 | subclass | hunter | Feature: hunters-prey (L3) | ✅ Full | Split into parent (choices.feature) + 3 sub-features: colossus-slayer (action-modifier 1d8), horde-breaker (trigger free attack), giant-killer (trigger reaction attack); only chosen sub-feature loads | 2026-05-21 |
@@ -227,6 +228,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | feat | elemental-adept | Full Feat Implementation | 🚫 Out of Scope | damage.ignore-resistance and damage.die.min not supported by evaluator — tagged action-modifier only | 2026-05-21 |
 | feat | mobile | Full Feat Implementation | ⚠️ Partial | speed.walk ADD 10 correct; movement.dash-difficult-terrain-no-extra-cost not a supported evaluator target — tagged; Mobile Evade trigger surfaced | 2026-05-21 |
 | feat | defensive-duelist | Full Feat Implementation | ✅ Full | Parry trigger (reaction: add PB to AC on melee hit while wielding finesse) + DEX+1 | 2026-05-21 |
+| feat | fighting-style-unarmed-fighting | Full Feat Implementation | ⚠️ Partial | damage.dice OVERRIDE 1d6 for unarmed attacks; 1d8 with two free hands not enforceable; grapple-rider 1d4/turn Out of Scope | 2026-05-22 |
 
 ---
 
@@ -296,7 +298,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | condition | blinded | Mechanical Effects (modifiers) | ✅ Full | vision.cannot-see, ability-check auto-fail sight, attack.disadvantage, attacked.advantage | 2026-05-21 |
 | condition | charmed | Mechanical Effects (modifiers) | ⚠️ Partial | attack.cannot-target-source tagged; charmer social-check advantage tagged — both are non-standard targets not yet evaluated | 2026-05-21 |
 | condition | deafened | Mechanical Effects (modifiers) | ✅ Full | hearing.cannot-hear + ability-check auto-fail hearing-required | 2026-05-21 |
-| condition | exhaustion | Mechanical Effects (modifiers) | ⚠️ Partial | Per-level −2 to all D20 Tests and −5 to all speeds via perConditionStack; speed floor at 0 and death-at-10 must be engine-enforced | 2026-05-21 |
+| condition | exhaustion | Mechanical Effects (modifiers) | ✅ Full | Per-level −2 to all D20 Tests + −5 to all speeds (speed.all perConditionStack); speed clamped to ≥0 by computeSpeeds; death-at-10 surfaced as tag.exhaustion-level-5-dead-at-10 (player-tracked) | 2026-05-22 |
 | condition | frightened | Mechanical Effects (modifiers) | ⚠️ Partial | Disadvantage on checks and attacks while source in sight tagged; movement restriction (cannot-approach-source) is a spatial constraint not enforced by engine | 2026-05-21 |
 | condition | grappled | Mechanical Effects (modifiers) | ✅ Full | All speeds OVERRIDE 0; 2024 version correctly omits attack-roll disadvantage | 2026-05-21 |
 | condition | incapacitated | Mechanical Effects (modifiers) | ✅ Full | action.disabled, reaction.disabled, concentration.broken, speech.cannot-speak, initiative.disadvantage | 2026-05-21 |

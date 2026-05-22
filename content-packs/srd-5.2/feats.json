@@ -1153,13 +1153,10 @@
           "kind": "stat-modifier",
           "target": "ac",
           "mode": "ADD",
-          "value": 1,
-          "appliesWhen": {
-            "requires": "wearing.armor:any"
-          }
+          "value": 1
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Defense. +1 AC while wearing Light, Medium, or Heavy armor. Prerequisite: must have a class feature that grants a Fighting Style feat."
+      "note": "SRD 5.2 Fighting Style: Defense. +1 AC while wearing armor. Engine applies unconditionally (armor-worn check not a supported stat-modifier gate; edge case for unarmored characters)."
     }
   },
   {
@@ -1360,6 +1357,32 @@
         "spell": { "allowedSpells": ["guidance","shillelagh"], "pick": 2 }
       },
       "note": "SRD 5.2 Fighting Style: Druidic Warrior (Ranger). Learn two Druid cantrips. WIS is your spellcasting ability for them. SRD druid cantrips: guidance, shillelagh."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-unarmed-fighting",
+    "version": 1,
+    "name": "Unarmed Fighting",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "unarmed-fighting-die",
+          "name": "Unarmed Fighting: Enhanced Die",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "weapon.kind": "unarmed" }]
+          },
+          "effects": [
+            { "target": "damage.dice", "mode": "OVERRIDE", "value": "1d6" }
+          ]
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Unarmed Fighting. Unarmed strikes deal 1d6 + STR bludgeoning damage (1d8 if two free hands — engine cannot detect free-hand status; 1d6 applied unconditionally). Start of each turn: deal 1d4 to one creature you are grappling (Out of Scope — no turn-start grapple-damage evaluator target)."
     }
   },
   {

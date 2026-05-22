@@ -2,6 +2,8 @@
 //   - conditionStacks.exhaustion = 1 → -2 to d20 tests, -5 to all speeds
 //   - conditionStacks.exhaustion = 3 → -6 to d20 tests, -15 to all speeds
 //   - conditionStacks.exhaustion = 5 → -10 to d20 tests, -25 to all speeds
+//   - conditionStacks.exhaustion = 6 → speed floor 0 (30 - 30 = 0, not negative)
+//   - conditionStacks.exhaustion = 7 → speed floor 0 (30 - 35 would be -5, clamped to 0)
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { derive } from '../derive';
@@ -111,5 +113,33 @@ describe('Exhaustion tier 3', () => {
       conditionStacks: { exhaustion: 3 }
     }, lookup());
     expect(exhausted.stats.initiative).toBe(base.stats.initiative - 6);
+  });
+});
+
+describe('Exhaustion speed floor', () => {
+  // SRD 5.2: speed is reduced by 5 ft per level but cannot go below 0.
+  it('speed reaches exactly 0 at tier 6 (30 - 30)', () => {
+    const exhausted = derive({
+      ...BASE,
+      conditionStacks: { exhaustion: 6 }
+    }, lookup());
+    expect(exhausted.stats.speeds.walk).toBe(0);
+  });
+
+  it('speed is clamped at 0, not negative, at tier 7 (30 - 35 → 0)', () => {
+    const exhausted = derive({
+      ...BASE,
+      conditionStacks: { exhaustion: 7 }
+    }, lookup());
+    expect(exhausted.stats.speeds.walk).toBeGreaterThanOrEqual(0);
+    expect(exhausted.stats.speeds.walk).toBe(0);
+  });
+
+  it('speed is clamped at 0 at tier 10 (maximum exhaustion)', () => {
+    const exhausted = derive({
+      ...BASE,
+      conditionStacks: { exhaustion: 10 }
+    }, lookup());
+    expect(exhausted.stats.speeds.walk).toBe(0);
   });
 });

@@ -364,10 +364,11 @@
           "id": "relentless-rage-save",
           "name": "Relentless Rage",
           "on": [
-            "self.reduced-to-0hp"
+            "damage.reduce-to-zero"
           ],
           "scope": {
             "predicates": [
+              { "self": true },
               {
                 "condition": "rage"
               }
