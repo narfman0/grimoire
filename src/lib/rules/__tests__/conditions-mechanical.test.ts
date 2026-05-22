@@ -176,3 +176,35 @@ describe('Unconscious condition: data.implies resolves prone + incapacitated', (
     expect(missing).toHaveLength(0);
   });
 });
+
+describe('Inbound attack modifier flags (attackedAdvantage etc.)', () => {
+  it('attackedAdvantage is true when paralyzed', () => {
+    const d = derive({ ...BASE_CHARACTER, conditions: ['paralyzed'] }, lookup());
+    expect(d.stats.attackedAdvantage).toBe(true);
+    expect(d.stats.attackedWithin5ftAutoCrit).toBe(true);
+  });
+
+  it('attackedAdvantage is true when unconscious', () => {
+    const d = derive({ ...BASE_CHARACTER, conditions: ['unconscious'] }, lookup());
+    expect(d.stats.attackedAdvantage).toBe(true);
+    expect(d.stats.attackedWithin5ftAutoCrit).toBe(true);
+  });
+
+  it('attackedAdvantage is false for a healthy character', () => {
+    const d = derive({ ...BASE_CHARACTER, conditions: [] }, lookup());
+    expect(d.stats.attackedAdvantage).toBe(false);
+    expect(d.stats.attackedWithin5ftAutoCrit).toBe(false);
+  });
+
+  it('attackedByMeleeAdvantage and attackedByRangedDisadvantage are true when prone', () => {
+    const d = derive({ ...BASE_CHARACTER, conditions: ['prone'] }, lookup());
+    expect(d.stats.attackedByMeleeAdvantage).toBe(true);
+    expect(d.stats.attackedByRangedDisadvantage).toBe(true);
+    expect(d.stats.attackedAdvantage).toBe(false);
+  });
+
+  it('attackedDisadvantage is false for a non-invisible character', () => {
+    const d = derive({ ...BASE_CHARACTER, conditions: [] }, lookup());
+    expect(d.stats.attackedDisadvantage).toBe(false);
+  });
+});

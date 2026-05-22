@@ -330,7 +330,18 @@
           "value": true
         }
       ],
-      "note": "While the paladin is conscious, the paladin and friendly creatures within 10 feet are immune to the Frightened condition. v0 grants Frightened immunity to the paladin's own stat block and tags the trait; ally immunity requires proximity logic not yet in the engine."
+      "outboundEffects": [
+        {
+          "id": "aura-of-courage",
+          "name": "Aura of Courage",
+          "rangeFt": 10,
+          "targets": "ally",
+          "modifiers": [
+            { "kind": "stat-modifier", "target": "immunity.frightened", "mode": "OVERRIDE", "value": true }
+          ]
+        }
+      ],
+      "note": "While the paladin is conscious, the paladin and friendly creatures within 10 feet are immune to the Frightened condition. Paladin self: immunity.frightened; allies within 10 ft: outboundEffects broadcast immunity.frightened."
     }
   },
   {

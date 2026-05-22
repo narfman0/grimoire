@@ -929,7 +929,29 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     languages: [...languages].sort(),
     tools: [...tools].sort(),
     armorProficiencies: [...armorProficiencies].sort(),
-    weaponProficiencies: [...weaponProficiencies].sort()
+    weaponProficiencies: [...weaponProficiencies].sort(),
+    attackedAdvantage: allMods.some(
+      (m) => m.kind === 'stat-modifier' && m.raw.target === 'attacked.advantage' && m.raw.value === true
+    ),
+    attackedDisadvantage: allMods.some(
+      (m) => m.kind === 'stat-modifier' && m.raw.target === 'attacked.disadvantage' && m.raw.value === true
+    ),
+    attackedByMeleeAdvantage: allMods.some(
+      (m) =>
+        m.kind === 'stat-modifier' && m.raw.target === 'attacked-by-melee.advantage' && m.raw.value === true
+    ),
+    attackedByRangedDisadvantage: allMods.some(
+      (m) =>
+        m.kind === 'stat-modifier' &&
+        m.raw.target === 'attacked-by-ranged.disadvantage' &&
+        m.raw.value === true
+    ),
+    attackedWithin5ftAutoCrit: allMods.some(
+      (m) =>
+        m.kind === 'stat-modifier' &&
+        m.raw.target === 'tag.attacked-within-5ft-auto-crit' &&
+        m.raw.value === true
+    )
   };
 
   // -------------------------------------------------------------------------
@@ -2002,6 +2024,12 @@ function applyActionEffect(
       break;
     case 'attack.no-disadvantage.within-5ft':
       if (rawValue === true) action.attackNoDisadvantageWithin5ft = true;
+      break;
+    case 'attack.ignores-cover':
+      if (rawValue === true) action.attackIgnoresCover = true;
+      break;
+    case 'attack.no-disadvantage.long-range':
+      if (rawValue === true) action.attackNoDisadvantageLongRange = true;
       break;
     default:
       // Other targets are no-op in v0.

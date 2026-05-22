@@ -125,7 +125,7 @@
       "speed": { "walk": 30 },
       "languages": ["common"],
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.frightened", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.frightened", "mode": "OVERRIDE", "value": true }
       ],
       "features": ["brave", "halfling-nimbleness", "luck"]
     }

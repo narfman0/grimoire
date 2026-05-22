@@ -853,10 +853,9 @@
         },
         {
           "kind": "stat-modifier",
-          "target": "save.advantage.frightened",
+          "target": "save.advantage.vs-condition.frightened",
           "mode": "OVERRIDE",
-          "value": true,
-          "note": "Steel Will: Advantage on saves vs. Frightened. save.advantage.frightened is not a supported evaluator target — surfaced as a tag."
+          "value": true
         },
         {
           "kind": "stat-modifier",
@@ -1071,16 +1070,14 @@
           "id": "elemental-affinity-bonus",
           "name": "Elemental Affinity (CHA bonus damage)",
           "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast",
-            "predicates": [{ "damage.type.matches-dragon-ancestry": true }]
-          },
+          "appliesTo": { "activityType": "cast" },
           "effects": [
             { "target": "damage.bonus", "mode": "ADD", "value": "chaMod" }
           ]
         },
         { "kind": "stat-modifier", "target": "trait.elemental-affinity-resistance", "mode": "OVERRIDE", "value": true }
-      ]
+      ],
+      "note": "Toggle is off by default — player enables it when casting a spell of their ancestry's damage type. The ancestry-type predicate (damage.type.matches-dragon-ancestry) was removed as it has no evaluator support; player management is the correct v0 pattern. The CHA-mod damage bonus resolves correctly via evaluateValue(chaMod). Resistance must be wired separately at character-build time (trait.elemental-affinity-resistance is a flag; actual resistance added via the draconic-ancestry sub-feature)."
     }
   },
   {

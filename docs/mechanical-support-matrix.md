@@ -6,10 +6,10 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 176 |
-| ⚠️ Partial | 74 |
+| ✅ Full | 184 |
+| ⚠️ Partial | 69 |
 | ❌ Missing | 0 |
-| 🚫 Out of Scope | 19 |
+| 🚫 Out of Scope | 18 |
 
 **Status legend:**
 - ✅ Full — correct as-is
@@ -27,7 +27,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | barbarian | Feature: rage (L1) | ✅ Full | Resistance modifiers, rage-damage action-modifier, enter-rage activity with per-level uses table | 2026-05-21 |
 | class | barbarian | Feature: unarmored-defense-barbarian (L1) | ✅ Full | ac.formula OVERRIDE 10+DEX+CON requires no-armor | 2026-05-21 |
 | class | barbarian | Feature: weapon-mastery (L1) | ⚠️ Partial | Feature entry exists; mastery effects (Cleave/Push/etc.) are unsupported engine targets — choice flag only | 2026-05-21 |
-| class | barbarian | Feature: danger-sense (L2) | ⚠️ Partial | save.advantage.dex OVERRIDE vs-seen-effects — evaluator reads the target but condition qualifier not enforced | 2026-05-21 |
+| class | barbarian | Feature: danger-sense (L2) | ✅ Full | save.advantage.dex OVERRIDE true; was silently dead (value "vs-seen-effects" failed boolean check); fixed to true; "unless incapacitated" not enforced (engine limitation) | 2026-05-22 |
 | class | barbarian | Feature: reckless-attack (L2) | ✅ Full | action-modifier toggle granting attack.advantage + attacker.grants-advantage-against | 2026-05-21 |
 | class | barbarian | Feature: primal-path (L3) | ✅ Full | Feature entry exists with subclass choice slot | 2026-05-21 |
 | class | barbarian | Feature: primal-knowledge (L3+L10) | ✅ Full | Two feature rows (primal-knowledge + primal-knowledge-l10); both use data.choices.skillProficiency so engine synthesizes proficiency.skill.{chosen}; L10 entry added to class features list | 2026-05-21 |
@@ -63,7 +63,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | druid | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | druid | Feature: wild-resurgence (L5) | ⚠️ Partial | Leg B (1/long-rest Wild Shape → level-1 slot) surfaced; leg A (per-turn, spell-slot-funded Wild Shape refund) not expressible in activity DSL | 2026-05-21 |
 | class | fighter | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/CON saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
-| class | fighter | Feature: fighting-style-fighter (L1) | ⚠️ Partial | All 10 styles implemented: archery (+2 ranged), blind-fighting (blindsight 10), defense (+1 AC), dueling (+2 dmg, unconditional), GWF (tag, reroll unsupported), interception (trigger), protection (trigger), thrown-weapon (+2), two-weapon (trait flag), unarmed-fighting (1d6 action-modifier); GWF reroll and dueling one-handed gate are engine limitations | 2026-05-22 |
+| class | fighter | Feature: fighting-style-fighter (L1) | ⚠️ Partial | All 10 styles implemented: archery (+2 attack.roll, fixed from stat-modifier), blind-fighting (blindsight 10), defense (+1 AC), dueling (+2 damage.bonus action-modifier, fixed from stat-modifier), GWF (tag, reroll unsupported), interception (trigger), protection (trigger), thrown-weapon (+2), two-weapon (trait flag), unarmed-fighting (1d6 action-modifier); GWF reroll and dueling one-handed gate engine limitations | 2026-05-22 |
 | class | fighter | Feature: second-wind (L2) | ✅ Full | Heal activity with per-level uses table and 1d10+fighterLevel damage part | 2026-05-21 |
 | class | fighter | Feature: weapon-mastery-fighter (L1) | ⚠️ Partial | Pick-3 choice flag; per-level scaling and mastery property effects unsupported | 2026-05-21 |
 | class | fighter | Feature: action-surge (L2) | ✅ Full | Utility activity with per-level uses table (1/short-rest, 2 at L17) | 2026-05-21 |
@@ -98,7 +98,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | paladin | Feature: extra-attack (L5) | ✅ Full | Shared feature | 2026-05-21 |
 | class | paladin | Feature: faithful-steed (L5) | ✅ Full | 1/long-rest cast activity for Find Steed | 2026-05-21 |
 | class | paladin | Feature: aura-of-protection (L6) | ✅ Full | Paladin's own saves: save.str/dex/con/int/wis/cha ADD chaMod (unconditional); ally saves via outboundEffects 10ft radius. Fixed: wrong save.bonus.{ab} targets, dead appliesWhen.condition "in-aura-of-protection" | 2026-05-22 |
-| class | paladin | Feature: aura-of-courage (L7) | ✅ Full | immunity.frightened for self; trait.aura-of-courage tag for UI; ally immunity is proximity-based (engine limitation, no outboundEffect yet) | 2026-05-22 |
+| class | paladin | Feature: aura-of-courage (L7) | ✅ Full | immunity.frightened for self + outboundEffects broadcasts immunity.frightened to allies within 10 ft | 2026-05-22 |
 | class | paladin | Feature: divine-health (L10) | ✅ Full | immunity.disease OVERRIDE true | 2026-05-22 |
 | class | paladin | Feature: radiant-strikes (L11) | ✅ Full | damage.dice ADD 1d8 radiant on melee weapon attacks. Fixed: was using damage.bonus (dice string unsupported) + dead damage.type-on-bonus target | 2026-05-22 |
 | class | paladin | Feature: restoring-touch (L14) | 🚫 Out of Scope | Condition-clear rider on Lay on Hands not engine-enforceable; surfaced as activity tooltip | 2026-05-22 |
@@ -192,19 +192,20 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | subclass | way-of-the-open-hand | Feature: wholeness-of-body (L6) | ⚠️ Partial | Bonus-action heal activity 2d8+wisMod correct; removed broken focusPoints uses.max; cost of 3 focus points is player-managed | 2026-05-22 |
 | subclass | oath-of-devotion | Parent Class (paladin) / Feature List | ✅ Full | parentClass=paladin, features=[devotion-spells, channel-divinity-sacred-weapon, channel-divinity-holy-rebuke, aura-of-devotion] | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: devotion-spells (L3) | ⚠️ Partial | trait.oath-spells.devotion flag; auto-prep injection not wired | 2026-05-21 |
-| subclass | oath-of-devotion | Feature: channel-divinity-sacred-weapon (L3) | ✅ Full | Bonus-action utility activity + action-modifier adding chaMod to attack.bonus.melee; chaMod now resolves via evaluateValue (engine updated) | 2026-05-21 |
+| subclass | oath-of-devotion | Feature: channel-divinity-sacred-weapon (L3) | ✅ Full | Bonus-action utility activity + action-modifier adding chaMod to attack.roll; Fixed: weapon.classification (invalid predicate) → attack.classification; attack.bonus.melee (unrecognized) → attack.roll | 2026-05-22 |
 | subclass | oath-of-devotion | Feature: channel-divinity-holy-rebuke (L3) | ✅ Full | Reaction save activity (CON vs spell DC, 2d8+paladinLevel radiant) | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: aura-of-devotion (L6) | ✅ Full | Self immunity via stat-modifier + outboundEffects broadcasts immunity.charmed to allies within 10 ft; incapacitation suppression not engine-enforceable (manual) | 2026-05-22 |
 | subclass | hunter | Parent Class (ranger) / Feature List | ✅ Full | parentClass=ranger, features=[hunters-lore, hunters-prey, defensive-tactics, hunter-multiattack, superior-hunters-defense] | 2026-05-21 |
 | subclass | hunter | Feature: hunters-lore (L3) | ✅ Full | Bonus-action utility at 120 ft; DM reveals immunity/resistance/vulnerability | 2026-05-21 |
 | subclass | hunter | Feature: hunters-prey (L3) | ⚠️ Partial | Split into 3 sub-features. colossus-slayer: fixed dead damage.bonus→damage.dice and invalid weapon.classification→attack.classification; target.below-max-hp cannot be checked — player-managed toggle. horde-breaker and giant-killer: triggers present | 2026-05-22 |
+| subclass | hunter | Feature: defensive-tactics (L7) | ✅ Full | escape-the-horde (trigger OA: speed→0 on attacker), multiattack-defense (trigger: +4 AC after first hit), steel-will (save.advantage.vs-condition.frightened fixed from dead save.advantage.frightened) | 2026-05-22 |
 | subclass | thief | Parent Class (rogue) / Feature List | ✅ Full | parentClass=rogue, features=[fast-hands, second-story-work, supreme-sneak, use-magic-device, thiefs-reflexes] | 2026-05-21 |
 | subclass | thief | Feature: fast-hands (L3) | ✅ Full | trait.fast-hands flag extending Cunning Action bonus action to Utilize/Sleight-of-Hand/Thieves' Tools | 2026-05-21 |
 | subclass | thief | Feature: second-story-work (L3) | ✅ Full | speed.climb UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue; jump-distance DEX bonus is out of scope | 2026-05-21 |
 | subclass | draconic-sorcery | Parent Class (sorcerer) / Feature List | ✅ Full | parentClass=sorcerer, features=[draconic-resilience, dragon-ancestry, elemental-affinity, dragon-wings, draconic-presence] | 2026-05-21 |
 | subclass | draconic-sorcery | Feature: draconic-resilience (L3) | ✅ Full | hp.max ADD sorcererLevel + ac.formula OVERRIDE 13+DEX requires no-armor | 2026-05-21 |
 | subclass | draconic-sorcery | Feature: dragon-ancestry (L3) | ✅ Full | Pick-1 dragon-type choice + proficiency.language.draconic OVERRIDE true | 2026-05-21 |
-| subclass | draconic-sorcery | Feature: elemental-affinity (L6) | ⚠️ Partial | Action-modifier for chaMod bonus (now resolves); trait tag for resistance; dynamic ancestry-type predicate (damage.type.matches-dragon-ancestry) not evaluable by engine | 2026-05-21 |
+| subclass | draconic-sorcery | Feature: elemental-affinity (L6) | ✅ Full | Toggle off-by-default action-modifier applies chaMod damage bonus (evaluateValue resolves correctly); dead ancestry-type predicate removed; resistance trait flag present; player manages the toggle | 2026-05-22 |
 | subclass | fiend-patron | Parent Class (warlock) / Feature List | ✅ Full | parentClass=warlock, features=[fiend-spells, dark-ones-blessing, dark-ones-own-luck, fiendish-resilience, hurl-through-hell] | 2026-05-21 |
 | subclass | fiend-patron | Feature: fiend-spells (L3) | ⚠️ Partial | spellListAdditions injects Burning Hands, Scorching Ray, Fireball, Wall of Fire; 4 others (Command, Blindness/Deafness, Stinking Cloud, Fire Shield) not in SRD pack | 2026-05-21 |
 | subclass | fiend-patron | Feature: dark-ones-blessing (L3) | ✅ Full | Trigger amount now { sum: ["warlockLevel", "chaMod"] } resolved by new evaluateValue sum shape | 2026-05-21 |
@@ -227,7 +228,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | feat | skilled | Full Feat Implementation | ✅ Full | Pick-3 skill/tool choice; proficiencies applied from character document | 2026-05-21 |
 | feat | tough | Full Feat Implementation | ✅ Full | hp.max ADD { sum: [totalLevel, totalLevel] } = +2/level using sum evaluator | 2026-05-22 |
 | feat | great-weapon-master | Full Feat Implementation | ✅ Full | Heavy-weapon-mastery action-modifier (PB damage bonus) + Hew trigger (bonus-action attack on crit/kill) + STR+1 | 2026-05-21 |
-| feat | sharpshooter | Full Feat Implementation | 🚫 Out of Scope | Cover-bypass and range/melee-proximity disadvantage-removal targets not supported by evaluator; DEX+1 applies; tagged modifiers only | 2026-05-21 |
+| feat | sharpshooter | Full Feat Implementation | ✅ Full | DEX+1; attack.ignores-cover OVERRIDE true; attack.no-disadvantage.long-range OVERRIDE true — all three targets now handled by applyActionEffect | 2026-05-22 |
 | feat | polearm-master | Full Feat Implementation | ✅ Full | Pole Strike bonus-action attack (1d4) + Reactive Strike reaction trigger; no-limit Hew note correct per 2024 | 2026-05-21 |
 | feat | sentinel | Full Feat Implementation | ⚠️ Partial | Guardian trigger (reaction OA on Disengage/ally-hit) correct; Halt effect (on-hit.target.speed=0) not a supported evaluator target — tagged modifier | 2026-05-21 |
 | feat | war-caster | Full Feat Implementation | 🚫 Out of Scope | save.advantage.concentration and spellcasting.somatic-with-occupied-hands not supported by evaluator; Reactive Spell trigger surfaced; tagged modifiers only | 2026-05-21 |
@@ -260,6 +261,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | species | human | Feature: skillful | ✅ Full | trait.skillful-skill-choice flag; proficiency applied from character document | 2026-05-21 |
 | species | human | Feature: versatile | ✅ Full | trait.versatile-origin-feat-choice flag; extra Origin feat applied from character document | 2026-05-21 |
 | species | dwarf | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, darkvision 60, Common+Dwarvish; features=[dwarven-resilience, dwarven-toughness, stonecunning, dwarven-tool-proficiency] | 2026-05-21 |
+| species | dwarf | Feature: dwarven-resilience | ✅ Full | save.advantage.vs-condition.poisoned + resistance.poison (was save.advantage.poisoned — wrong format, silently dropped; fixed 2026-05-22) | 2026-05-22 |
 | species | dwarf | Feature: dwarven-toughness | ✅ Full | hp.max ADD totalLevel | 2026-05-21 |
 | species | dwarf | Feature: stonecunning | ✅ Full | Bonus-action Tremorsense 60 ft (10 min, PB/long-rest); trait flag | 2026-05-21 |
 | species | dragonborn | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, Common+Draconic, no darkvision; features=[draconic-ancestry, breath-weapon, damage-resistance-draconic, draconic-flight] | 2026-05-21 |
@@ -268,7 +270,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | species | dragonborn | Feature: damage-resistance-draconic | ✅ Full | Resistance now granted by draconic-ancestry sub-features (acid/lightning/fire/poison/cold per ancestry) | 2026-05-22 |
 | species | dragonborn | Feature: draconic-flight (L5) | ⚠️ Partial | 1/long-rest bonus-action utility activity granting fly at walk speed; walkSpeed identifier not supported — fly value is "walk" (symbolic, engine must resolve) | 2026-05-21 |
 | species | elf | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, darkvision 60, Common+Elvish; fey-ancestry + trance modifiers on species row; features=[fey-ancestry, keen-senses, trance, elven-lineage] | 2026-05-21 |
-| species | elf | Feature: fey-ancestry | ✅ Full | save.advantage.charmed OVERRIDE true | 2026-05-21 |
+| species | elf | Feature: fey-ancestry | ✅ Full | save.advantage.vs-condition.charmed OVERRIDE true (was save.advantage.charmed — wrong format, silently dropped; fixed 2026-05-22) | 2026-05-22 |
 | species | elf | Feature: keen-senses | ✅ Full | choices.skillProficiency {allowedSkills:[insight,perception,survival]} emits proficiency.skill.<slug> from species.choices | 2026-05-21 |
 | species | elf | Feature: trance | ⚠️ Partial | trait.trance flag; rest-time halving and bonus proficiency on trance require engine support | 2026-05-21 |
 | species | elf | Feature: elven-lineage | ⚠️ Partial | Sub-feature split: Drow gets darkvision-120 + faerie-fire; High Elf gets prestidigitation+detect-magic+misty-step (all ✅); Wood Elf gets +5 speed; dancing-lights/darkness/druidcraft/longstrider/pass-without-trace not in SRD pack | 2026-05-22 |
@@ -279,8 +281,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | species | goliath | Feature: giant-ancestry | ✅ Full | Feature-pick choice (choices.feature); 6 sub-features authored: Cloud (30ft teleport utility), Fire (1d10 fire damage activity), Frost (damage.reduce trigger 1d12+strMod), Hill (knock-prone trigger, descriptive), Stone (damage.reduce trigger 1d12+conMod), Storm (push trigger, descriptive). Trigger uses scales with PB via evaluateValue. Hill/Storm forced-save mechanics marked Out of Scope. | 2026-05-21 |
 | species | goliath | Feature: large-form (L5) | ✅ Full | 1/long-rest bonus-action activity; grants STR-check advantage + walk+10; duration 10 min | 2026-05-21 |
 | species | goliath | Feature: powerful-build-goliath | ✅ Full | trait.powerful-build OVERRIDE true | 2026-05-21 |
-| species | halfling | Size / Speed / Feature List | ✅ Full | Small, 30 ft walk, Common; frightened save advantage on species row; features=[brave, halfling-nimbleness, luck] | 2026-05-21 |
-| species | halfling | Feature: brave | ✅ Full | save.advantage.frightened OVERRIDE true | 2026-05-21 |
+| species | halfling | Size / Speed / Feature List | ✅ Full | Small, 30 ft walk, Common; save.advantage.vs-condition.frightened on species row (was save.advantage.frightened, fixed 2026-05-22); features=[brave, halfling-nimbleness, luck] | 2026-05-22 |
+| species | halfling | Feature: brave | ✅ Full | save.advantage.vs-condition.frightened OVERRIDE true (was save.advantage.frightened — wrong format, silently dropped; fixed 2026-05-22) | 2026-05-22 |
 | species | halfling | Feature: halfling-nimbleness | ✅ Full | trait.halfling-nimbleness flag (move through larger creature's space) | 2026-05-21 |
 | species | halfling | Feature: luck | ✅ Full | Trigger on d20.roll-natural-one: reroll and must use new roll; unlimited uses | 2026-05-21 |
 | species | halfling | Feature: naturally-stealthy | ✅ Full | Correctly absent — this was a 2014 feature removed in SRD 5.2; halfling features[] does not include this slug | 2026-05-21 |
@@ -314,19 +316,19 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | condition | blinded | Mechanical Effects (modifiers) | ✅ Full | vision.cannot-see, ability-check auto-fail sight, attack.disadvantage, attacked.advantage | 2026-05-21 |
 | condition | charmed | Mechanical Effects (modifiers) | ⚠️ Partial | attack.cannot-target-source tagged; charmer social-check advantage tagged — both are non-standard targets not yet evaluated | 2026-05-21 |
 | condition | deafened | Mechanical Effects (modifiers) | ✅ Full | hearing.cannot-hear + ability-check auto-fail hearing-required | 2026-05-21 |
-| condition | exhaustion | Mechanical Effects (modifiers) | ✅ Full | Per-level −2 to all D20 Tests + −5 to all speeds (speed.all perConditionStack); speed clamped to ≥0 by computeSpeeds; death-at-10 surfaced as tag.exhaustion-level-5-dead-at-10 (player-tracked) | 2026-05-22 |
+| condition | exhaustion | Mechanical Effects (modifiers) | ✅ Full | Per-level −2 to attacks (action-modifier attack.roll, fixed from dead attack.d20-bonus stat-modifier), all saves, all skills, initiative; speed penalty via speed.all ADD perConditionStack; speed ≥0 clamped; death-at-10 tag | 2026-05-22 |
 | condition | frightened | Mechanical Effects (modifiers) | ⚠️ Partial | Disadvantage on checks and attacks while source in sight tagged; movement restriction (cannot-approach-source) is a spatial constraint not enforced by engine | 2026-05-21 |
 | condition | grappled | Mechanical Effects (modifiers) | ✅ Full | speed.all OVERRIDE 0 (covers walk/fly/swim/climb/burrow); 2024 version correctly omits attack-roll disadvantage | 2026-05-22 |
 | condition | incapacitated | Mechanical Effects (modifiers) | ✅ Full | action.disabled, reaction.disabled, concentration.broken, speech.cannot-speak, initiative.disadvantage | 2026-05-21 |
 | condition | invisible | Mechanical Effects (modifiers) | ✅ Full | concealed OVERRIDE true, attack.advantage, attacked.disadvantage | 2026-05-21 |
-| condition | paralyzed | Mechanical Effects (modifiers) | ⚠️ Partial | Implies incapacitated, speed.all OVERRIDE 0, STR/DEX auto-fail, attacked.advantage; auto-crit-within-5ft (tag.attacked-within-5ft-auto-crit) requires evaluator support | 2026-05-22 |
-| condition | petrified | Mechanical Effects (modifiers) | ⚠️ Partial | Implies incapacitated, speed.all OVERRIDE 0, STR/DEX auto-fail, attacked.advantage, resistance.all, immunity.poison/disease; weight/aging tags informational; auto-crit-within-5ft not yet in engine | 2026-05-22 |
+| condition | paralyzed | Mechanical Effects (modifiers) | ✅ Full | Implies incapacitated, speed.all OVERRIDE 0, STR/DEX auto-fail, stats.attackedAdvantage + stats.attackedWithin5ftAutoCrit now set on StatBlock | 2026-05-22 |
+| condition | petrified | Mechanical Effects (modifiers) | ✅ Full | Implies incapacitated, speed.all OVERRIDE 0, STR/DEX auto-fail, resistance.all, immunity.poison/disease, stats.attackedAdvantage + stats.attackedWithin5ftAutoCrit; weight/aging flavor has no engine target | 2026-05-22 |
 | condition | poisoned | Mechanical Effects (modifiers) | ✅ Full | attack.disadvantage + ability-check.disadvantage | 2026-05-21 |
 | condition | prone | Mechanical Effects (modifiers) | ✅ Full | crawl-only movement, attack.disadvantage, attacked-by-melee.advantage, attacked-by-ranged.disadvantage | 2026-05-21 |
 | condition | rage | Mechanical Effects (modifiers) | ✅ Full | Condition row exists as self-applied marker; modifiers live on the rage feature | 2026-05-21 |
 | condition | restrained | Mechanical Effects (modifiers) | ✅ Full | speed.all OVERRIDE 0, attack.disadvantage, attacked.advantage, save.disadvantage.dex | 2026-05-22 |
 | condition | stunned | Mechanical Effects (modifiers) | ✅ Full | Implies incapacitated, speed.all OVERRIDE 0, STR/DEX auto-fail, attacked.advantage; "speaks only falteringly" is flavor with no engine target | 2026-05-22 |
-| condition | unconscious | Mechanical Effects (modifiers) | ⚠️ Partial | Implies incapacitated+prone, speed.all OVERRIDE 0, STR/DEX auto-fail, attacked.advantage; auto-crit-within-5ft (tag.attacked-within-5ft-auto-crit) requires evaluator support | 2026-05-22 |
+| condition | unconscious | Mechanical Effects (modifiers) | ✅ Full | Implies incapacitated+prone, speed.all OVERRIDE 0, STR/DEX auto-fail, stats.attackedAdvantage + stats.attackedWithin5ftAutoCrit now set on StatBlock | 2026-05-22 |
 
 ---
 

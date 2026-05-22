@@ -120,7 +120,7 @@
       "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Poisoned condition. You also have Resistance to Poison damage.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "save.advantage.poisoned", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.poisoned", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -427,7 +427,7 @@
       "ownerSlug": "elf",
       "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Charmed condition.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.charmed", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.charmed", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -787,7 +787,7 @@
       "ownerSlug": "halfling",
       "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Frightened condition.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.frightened", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.frightened", "mode": "OVERRIDE", "value": true }
       ]
     }
   },

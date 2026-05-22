@@ -173,9 +173,10 @@
           "kind": "stat-modifier",
           "target": "save.advantage.dex",
           "mode": "OVERRIDE",
-          "value": "vs-seen-effects"
+          "value": true
         }
-      ]
+      ],
+      "note": "Advantage on DEX saving throws. SRD 5.2 caveat 'unless Incapacitated' not enforced — engine cannot gate save-advantage on the absence of a condition; applied unconditionally."
     }
   },
   {

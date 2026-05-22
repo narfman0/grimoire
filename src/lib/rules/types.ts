@@ -220,6 +220,19 @@ export interface StatBlock {
    *  `proficiency.weapon.<slug>` modifiers. The class-based heuristic in
    *  computeAttackProficiency falls back to this set. */
   weaponProficiencies: string[];
+  /** All attack rolls against this creature have Advantage (Paralyzed,
+   *  Stunned, Unconscious, Petrified, Restrained, Blinded). Read by the
+   *  encounter layer when adjudicating incoming attacks. */
+  attackedAdvantage: boolean;
+  /** All attack rolls against this creature have Disadvantage (Invisible). */
+  attackedDisadvantage: boolean;
+  /** Melee attack rolls against this creature have Advantage (Prone). */
+  attackedByMeleeAdvantage: boolean;
+  /** Ranged attack rolls against this creature have Disadvantage (Prone). */
+  attackedByRangedDisadvantage: boolean;
+  /** Any attack that hits this creature within 5 ft is a Critical Hit
+   *  (Paralyzed, Petrified, Unconscious). Read by the encounter layer. */
+  attackedWithin5ftAutoCrit: boolean;
 }
 
 export interface AppliedModifier {
@@ -273,6 +286,11 @@ export interface Action {
   /** Ranged attacks made with this action don't suffer disadvantage when an
    *  enemy is within 5 ft (Crossbow Expert). */
   attackNoDisadvantageWithin5ft?: boolean;
+  /** This attack ignores half and three-quarters cover (Sharpshooter). */
+  attackIgnoresCover?: boolean;
+  /** Ranged attacks made with this action don't suffer disadvantage from
+   *  long range (Sharpshooter). */
+  attackNoDisadvantageLongRange?: boolean;
   /** Trigger id this action is gated on. When set, the action is only
    *  available *after* the named trigger has fired this turn/round (e.g.
    *  War Magic grants a bonus-action weapon attack after casting a
