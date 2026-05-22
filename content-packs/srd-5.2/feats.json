@@ -841,18 +841,9 @@
           "kind": "action-modifier",
           "id": "elemental-adept-bypass-resistance",
           "name": "Ignore Resistance",
-          "defaultEnabled": true,
+          "defaultEnabled": false,
           "appliesTo": {
-            "activityType": [
-              "cast",
-              "save",
-              "attack"
-            ],
-            "predicates": [
-              {
-                "spell.damage-type": "$choice"
-              }
-            ]
+            "activityType": ["cast", "save", "attack"]
           },
           "effects": [
             {
@@ -866,18 +857,9 @@
           "kind": "action-modifier",
           "id": "elemental-adept-minimum-die",
           "name": "Damage Floor",
-          "defaultEnabled": true,
+          "defaultEnabled": false,
           "appliesTo": {
-            "activityType": [
-              "cast",
-              "save",
-              "attack"
-            ],
-            "predicates": [
-              {
-                "spell.damage-type": "$choice"
-              }
-            ]
+            "activityType": ["cast", "save", "attack"]
           },
           "effects": [
             {
@@ -888,7 +870,7 @@
           ]
         }
       ],
-      "note": "2024 SRD 5.2 Elemental Adept. Choose one of: acid, cold, fire, lightning, or thunder. Spells you cast ignore Resistance to that damage type, and when rolling spell damage of that type, treat any 1 on a damage die as a 2. Repeatable; new damage type each time. v0 does not yet implement damage.ignore-resistance or damage.die.min \u2014 surfaces as tagged modifiers only. The chosen type lives on the character document."
+      "note": "2024 SRD 5.2 Elemental Adept. Choose one of: acid, cold, fire, lightning, or thunder. Ignore Resistance and Damage Floor toggles (off by default) \u2014 player enables them when casting spells of the chosen type. The spell.damage-type predicate was removed as it has no evaluator support; player management is the correct v0 pattern. damage.ignore-resistance and damage.die.min now resolve in applyActionEffect."
     }
   },
   {
@@ -1173,21 +1155,19 @@
             "activityType": "attack",
             "predicates": [
               { "attack.range": "melee" },
-              { "weapon.property": "two-handed-or-versatile" },
-              { "weapon.held": "two-hands" }
+              { "weapon.property": ["two-handed", "versatile"] }
             ]
           },
           "effects": [
             {
-              "target": "damage.reroll-1s-and-2s",
-              "mode": "OVERRIDE",
-              "value": true
+              "target": "damage.die.min",
+              "mode": "UPGRADE",
+              "value": 3
             }
-          ],
-          "note": "When rolling damage for a melee attack with a Two-Handed or Versatile weapon held in two hands, treat any 1 or 2 on a damage die as a 3. v0 evaluator does not implement damage.reroll-1s-and-2s — surfaces as a tagged modifier only."
+          ]
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat."
+      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat. Modeled as damage.die.min UPGRADE 3 (minimum 3 on each damage die, equivalent to SRD reroll-1s-and-2s; weapon.held: two-hands predicate removed — engine cannot detect hand state)."
     }
   },
   {
@@ -1202,27 +1182,13 @@
       },
       "modifiers": [
         {
-          "kind": "action-modifier",
-          "id": "twf-ability-mod-to-offhand",
-          "name": "Two-Weapon Fighting Damage",
-          "defaultEnabled": true,
-          "appliesTo": {
-            "activityType": "attack",
-            "predicates": [
-              { "attack.is-light-weapon-extra-attack": true }
-            ]
-          },
-          "effects": [
-            {
-              "target": "damage.bonus",
-              "mode": "ADD",
-              "value": "dexMod"
-            }
-          ],
-          "note": "When making the extra attack granted by the Light property, add your ability modifier to that attack's damage if you aren't already. The engine should apply the relevant STR/DEX modifier; using dexMod here as the default for ranged/finesse. The DM or engine may substitute strMod for STR-based builds."
+          "kind": "stat-modifier",
+          "target": "trait.two-weapon-fighting-ability-mod",
+          "mode": "OVERRIDE",
+          "value": true
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Two-Weapon Fighting. When you make an extra attack as a result of using a weapon with the Light property, you can add your ability modifier to the damage of that attack if you aren't already adding it. Prerequisite: must have a class feature that grants a Fighting Style feat."
+      "note": "SRD 5.2 Fighting Style: Two-Weapon Fighting. Add ability modifier to the off-hand extra attack's damage. Modeled as trait.two-weapon-fighting-ability-mod flag (consistent with the class feature version); engine cannot distinguish the extra-attack-from-Light from regular attacks, so the encounter layer reads this flag. Prerequisite: must have a class feature that grants a Fighting Style feat."
     }
   },
   {

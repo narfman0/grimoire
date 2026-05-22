@@ -101,14 +101,14 @@
           },
           "effects": [
             {
-              "target": "damage.reroll-1s-and-2s",
-              "mode": "OVERRIDE",
-              "value": true
+              "target": "damage.die.min",
+              "mode": "UPGRADE",
+              "value": 3
             }
           ]
         }
       ],
-      "note": "When you roll damage with a melee weapon wielded with two hands (including Versatile used two-handed), reroll any 1 or 2 once. v0 evaluator does not implement damage.reroll-1s-and-2s; surfaces as tagged modifier only."
+      "note": "When you roll damage with a melee weapon wielded with two hands (including Versatile used two-handed), reroll any 1 or 2 once. Modeled as damage.die.min UPGRADE 3 (minimum 3 per die). Engine cannot enforce two-handed hold requirement."
     }
   },
   {

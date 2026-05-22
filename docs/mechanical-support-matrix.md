@@ -6,10 +6,10 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 184 |
-| ⚠️ Partial | 69 |
+| ✅ Full | 188 |
+| ⚠️ Partial | 66 |
 | ❌ Missing | 0 |
-| 🚫 Out of Scope | 18 |
+| 🚫 Out of Scope | 17 |
 
 **Status legend:**
 - ✅ Full — correct as-is
@@ -63,7 +63,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | druid | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | druid | Feature: wild-resurgence (L5) | ⚠️ Partial | Leg B (1/long-rest Wild Shape → level-1 slot) surfaced; leg A (per-turn, spell-slot-funded Wild Shape refund) not expressible in activity DSL | 2026-05-21 |
 | class | fighter | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/CON saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
-| class | fighter | Feature: fighting-style-fighter (L1) | ⚠️ Partial | All 10 styles implemented: archery (+2 attack.roll, fixed from stat-modifier), blind-fighting (blindsight 10), defense (+1 AC), dueling (+2 damage.bonus action-modifier, fixed from stat-modifier), GWF (tag, reroll unsupported), interception (trigger), protection (trigger), thrown-weapon (+2), two-weapon (trait flag), unarmed-fighting (1d6 action-modifier); GWF reroll and dueling one-handed gate engine limitations | 2026-05-22 |
+| class | fighter | Feature: fighting-style-fighter (L1) | ✅ Full | All 10 styles: archery (+2 attack.roll), blind-fighting (blindsight 10), defense (+1 AC), dueling (+2 damage.bonus melee), GWF (damage.die.min UPGRADE 3; was dead reroll-1s-and-2s tag), interception/protection (triggers), thrown-weapon (+2), two-weapon (trait flag), unarmed-fighting (1d6); dueling one-handed gate and GWF two-hand hold unsupported — engine limitation | 2026-05-22 |
 | class | fighter | Feature: second-wind (L2) | ✅ Full | Heal activity with per-level uses table and 1d10+fighterLevel damage part | 2026-05-21 |
 | class | fighter | Feature: weapon-mastery-fighter (L1) | ⚠️ Partial | Pick-3 choice flag; per-level scaling and mastery property effects unsupported | 2026-05-21 |
 | class | fighter | Feature: action-surge (L2) | ✅ Full | Utility activity with per-level uses table (1/short-rest, 2 at L17) | 2026-05-21 |
@@ -90,7 +90,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | paladin | Feature: spellcasting-paladin (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | paladin | Feature: lay-on-hands (L1) | ✅ Full | Bonus-action heal activity with 5×paladinLevel pool per-level table | 2026-05-21 |
 | class | paladin | Feature: weapon-mastery-paladin (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
-| class | paladin | Feature: fighting-style-paladin (L2) | ⚠️ Partial | 7 styles: blessed-warrior now has choices.spell (sacred-flame/toll-the-dead/guidance/light); blind-fighting ✅; defense ✅; dueling ✅ (unconditional); GWF tag (reroll unsupported); interception/protection triggers ✅; GWF engine limitation persists | 2026-05-22 |
+| class | paladin | Feature: fighting-style-paladin (L2) | ✅ Full | 7 styles: blessed-warrior (choices.spell), blind-fighting, defense, dueling (unconditional), GWF (damage.die.min 3, fixed from dead reroll tag), interception/protection triggers; dueling one-handed gate engine limitation | 2026-05-22 |
 | class | paladin | Feature: divine-smite (L2) | ⚠️ Partial | Action-modifier toggle; slot consumption not auto-deducted; divineSmiteSlotDice magic identifier not yet resolved by evaluator; Undead/Fiend bonus not auto-applied | 2026-05-21 |
 | class | paladin | Feature: channel-oath (L2) | ✅ Full | Utility activity with per-level uses table (2 at L2, 3 at L9) / short-rest | 2026-05-21 |
 | class | paladin | Feature: paladin-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -109,7 +109,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | ranger | Feature: favored-enemy (L1) | ⚠️ Partial | Resource pool for slotless Hunter's Mark casts surfaced; auto-prepared spell and slotless-cast plumbing not wired | 2026-05-21 |
 | class | ranger | Feature: weapon-mastery-ranger (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
 | class | ranger | Feature: deft-explorer (L2) | ✅ Full | choices.expertise (proficient) emits expertise modifier; choices.language emits language proficiency; terrain-bypass trait tag (spatial — 🚫 out of scope) | 2026-05-21 |
-| class | ranger | Feature: fighting-style-ranger (L2) | ⚠️ Partial | 6 styles: archery (+2 ranged) ✅; blind-fighting ✅; defense ✅; druidic-warrior now has choices.spell (guidance/shillelagh) ✅; thrown-weapon ✅; two-weapon-fighting (trait flag only) ⚠️ — off-hand modifier split not evaluatable | 2026-05-22 |
+| class | ranger | Feature: fighting-style-ranger (L2) | ✅ Full | 6 styles: archery (+2 ranged), blind-fighting, defense, druidic-warrior (choices.spell), thrown-weapon, two-weapon-fighting (trait flag); GWF via shared feature now uses damage.die.min 3 | 2026-05-22 |
 | class | ranger | Feature: ranger-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | ranger | Feature: roving (L3) | ✅ Full | walk+10 ADD; climb/swim UPGRADE walkSpeed (engine now discovers new speed keys + computes walk first so ctx.walkSpeed is correct) | 2026-05-21 |
 | class | ranger | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
@@ -241,7 +241,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | feat | charger | Full Feat Implementation | ⚠️ Partial | Trigger on Dash action with 10-ft straight move; bonus-action attack or shove surfaced; choice between +1d8 damage and push left to player | 2026-05-21 |
 | feat | grappler | Full Feat Implementation | ⚠️ Partial | +1 STR/DEX; Punch-and-Grab trigger ✅; Attack Advantage (trait tag, engine cannot check target's grapple state); Fast Wrestler movement rule Out of Scope | 2026-05-22 |
 | feat | dual-wielder | Full Feat Implementation | ⚠️ Partial | +1 AC unconditional (engine cannot check weapon-hold state — was silently-ignored appliesWhen.requires, now correctly documented); Quick Draw trigger ✅; one-handed non-Light allowance engine limitation | 2026-05-22 |
-| feat | elemental-adept | Full Feat Implementation | 🚫 Out of Scope | damage.ignore-resistance and damage.die.min not supported by evaluator — tagged action-modifier only | 2026-05-21 |
+| feat | elemental-adept | Full Feat Implementation | ✅ Full | damage.ignore-resistance + damage.die.min UPGRADE 2 now active; dead spell.damage-type predicate removed; defaultEnabled: false — player toggles for chosen-type spells | 2026-05-22 |
 | feat | mobile | Full Feat Implementation | ⚠️ Partial | speed.walk ADD 10 correct; movement.dash-difficult-terrain-no-extra-cost not a supported evaluator target — tagged; Mobile Evade trigger surfaced | 2026-05-21 |
 | feat | defensive-duelist | Full Feat Implementation | ✅ Full | Parry trigger (reaction: add PB to AC on melee hit while wielding finesse) + DEX+1 | 2026-05-21 |
 | feat | fighting-style-unarmed-fighting | Full Feat Implementation | ⚠️ Partial | damage.dice OVERRIDE 1d6 for unarmed attacks; 1d8 with two free hands not enforceable; grapple-rider 1d4/turn Out of Scope | 2026-05-22 |
