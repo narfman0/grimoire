@@ -150,28 +150,25 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 3,
-      "note": "Walking speed +10; climb and swim equal walking speed (including the +10) while not wearing heavy armor.",
+      "note": "Walking speed +10; climb and swim UPGRADE to walk speed (including the +10). SRD: only when not wearing heavy armor — rangers have no heavy armor proficiency in SRD, so applies correctly in practice. Engine cannot enforce the armor gate.",
       "modifiers": [
         {
           "kind": "stat-modifier",
           "target": "speed.walk",
           "mode": "ADD",
-          "value": 10,
-          "appliesWhen": { "requires": "no-heavy-armor" }
+          "value": 10
         },
         {
           "kind": "stat-modifier",
           "target": "speed.climb",
           "mode": "UPGRADE",
-          "value": "walkSpeed",
-          "appliesWhen": { "requires": "no-heavy-armor" }
+          "value": "walkSpeed"
         },
         {
           "kind": "stat-modifier",
           "target": "speed.swim",
           "mode": "UPGRADE",
-          "value": "walkSpeed",
-          "appliesWhen": { "requires": "no-heavy-armor" }
+          "value": "walkSpeed"
         }
       ]
     }

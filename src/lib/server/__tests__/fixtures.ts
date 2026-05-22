@@ -201,7 +201,9 @@ export async function seedCampaign(
   }
 ): Promise<{ campaignId: string; code: string }> {
   const campaignId = crypto.randomUUID();
-  const code = opts.code ?? `C${campaignId.slice(0, 5).toUpperCase()}`;
+  // Replace 0→2 and 1→3 to avoid Crockford base32 exclusions (0/O/1/I/L)
+  const safeSlice = campaignId.slice(0, 5).toUpperCase().replace(/0/g, '2').replace(/1/g, '3');
+  const code = opts.code ?? `C${safeSlice}`;
   await db.insert(schema.campaigns).values({
     id: campaignId,
     code,

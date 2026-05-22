@@ -285,12 +285,10 @@
           "kind": "stat-modifier",
           "target": "speed.walk",
           "mode": "ADD",
-          "value": 10,
-          "appliesWhen": {
-            "requires": "no-heavy-armor"
-          }
+          "value": 10
         }
-      ]
+      ],
+      "note": "Walk speed +10 ft. SRD: only when not wearing heavy armor — engine cannot detect armor state, applies unconditionally."
     }
   },
   {

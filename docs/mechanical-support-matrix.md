@@ -6,8 +6,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 174 |
-| ⚠️ Partial | 69 |
+| ✅ Full | 173 |
+| ⚠️ Partial | 70 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -33,7 +33,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | class | barbarian | Feature: primal-knowledge (L3+L10) | ✅ Full | Two feature rows (primal-knowledge + primal-knowledge-l10); both use data.choices.skillProficiency so engine synthesizes proficiency.skill.{chosen}; L10 entry added to class features list | 2026-05-21 |
 | class | barbarian | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature in features/shared.json; class references the slug | 2026-05-21 |
 | class | barbarian | Feature: extra-attack (L5) | ✅ Full | Shared feature, attacks-per-action UPGRADE 2 | 2026-05-21 |
-| class | barbarian | Feature: fast-movement (L5) | ✅ Full | speed.walk ADD 10 with no-heavy-armor condition | 2026-05-21 |
+| class | barbarian | Feature: fast-movement (L5) | ⚠️ Partial | speed.walk ADD 10; SRD: only without heavy armor — engine cannot detect armor state, applies unconditionally (barbarians can wear heavy armor) | 2026-05-22 |
 | class | barbarian | Feature: feral-instinct (L7) | 🚫 Out of Scope | initiative.advantage not a supported evaluator target; both effects surfaced as trait tags | 2026-05-21 |
 | class | barbarian | Feature: brutal-strike (L9) | 🚫 Out of Scope | Forced movement, speed reduction, and per-hit extra-die rider are all out of scope; trait tag + annotated activity only | 2026-05-21 |
 | class | barbarian | Feature: relentless-rage (L11) | ⚠️ Partial | Trigger on damage.reduce-to-zero (self) fires a free CON save; escalating DC (10/15/20…) not auto-tracked (manual note in feature) | 2026-05-22 |
