@@ -325,13 +325,12 @@
       "modifiers": [
         {
           "kind": "stat-modifier",
-          "target": "attack.advantage",
+          "target": "trait.precise-hunter.advantage-vs-hunters-mark-target",
           "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": { "condition": "target.hunters-mark" }
+          "value": true
         }
       ],
-      "note": "You have Advantage on attack rolls against the creature currently marked by your Hunter's Mark. v0 sets attack.advantage OVERRIDE true gated on the hunters-mark condition tag; the engine must evaluate whether the current attack's target has the Hunter's Mark condition."
+      "note": "You have Advantage on attack rolls against the creature currently marked by your Hunter's Mark. Engine cannot check the attack target's conditions during derive(); surfaced as a trait flag — the UI should communicate this to the player. Granting unconditional attack.advantage would be too strong."
     }
   },
   {
@@ -365,26 +364,13 @@
       "minLevel": 20,
       "modifiers": [
         {
-          "kind": "action-modifier",
-          "id": "foe-slayer-damage",
-          "name": "Foe Slayer",
-          "defaultEnabled": true,
-          "appliesTo": {
-            "activityType": "attack",
-            "predicates": [
-              { "condition": "target.hunters-mark" }
-            ]
-          },
-          "effects": [
-            {
-              "target": "damage.bonus",
-              "mode": "ADD",
-              "value": "wisMod"
-            }
-          ]
+          "kind": "stat-modifier",
+          "target": "trait.foe-slayer.damage-bonus-vs-hunters-mark-target",
+          "mode": "OVERRIDE",
+          "value": true
         }
       ],
-      "note": "The first time each turn that you hit a creature marked by Hunter's Mark, you deal extra damage to it equal to your WIS modifier. v0 applies the WIS mod as a damage bonus whenever the target has the hunters-mark condition; the 'first time each turn' once-per-turn cap isn't enforced."
+      "note": "The first time each turn that you hit a creature marked by Hunter's Mark, you deal extra damage equal to your WIS modifier. Engine cannot check attack target's conditions during derive(), and applying the WIS bonus unconditionally would affect all attacks (too strong). Surfaced as a trait flag — the UI should communicate this to the player who tracks it manually."
     }
   }
 ]

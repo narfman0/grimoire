@@ -1,15 +1,15 @@
 # SRD 5.2 Mechanical Support Matrix
 
-Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
+Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch 4)
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 173 |
-| ⚠️ Partial | 70 |
+| ✅ Full | 176 |
+| ⚠️ Partial | 74 |
 | ❌ Missing | 0 |
-| 🚫 Out of Scope | 12 |
+| 🚫 Out of Scope | 19 |
 
 **Status legend:**
 - ✅ Full — correct as-is
@@ -80,7 +80,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | class | monk | Feature: step-of-the-wind (L2) | ⚠️ Partial | Bonus-action utility activity; focus-point deduction not automatic | 2026-05-21 |
 | class | monk | Feature: patient-defense (L2) | ⚠️ Partial | Bonus-action utility activity; focus-point cost for Dodge+Disengage variant not auto-deducted | 2026-05-21 |
 | class | monk | Feature: flurry-of-blows (L2) | ⚠️ Partial | Bonus-action attack activity (models one of two strikes); focus-point deduction not automatic; L10 third strike not modelled | 2026-05-21 |
-| class | monk | Feature: unarmored-movement (L2) | ✅ Full | speed.walk ADD with per-level table, gated on no-armor-no-shield | 2026-05-21 |
+| class | monk | Feature: unarmored-movement (L2) | ⚠️ Partial | speed.walk ADD with per-level table; SRD: only without armor/shield — engine cannot detect equipment state, applies unconditionally | 2026-05-22 |
 | class | monk | Feature: monk-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | monk | Feature: deflect-attacks (L3) | ✅ Full | Trigger on self.hit-by-attack, reaction activity reducing damage 1d10+DEX+monk-level; note documents focus-point redirect option | 2026-05-21 |
 | class | monk | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
@@ -97,6 +97,13 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | class | paladin | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | paladin | Feature: extra-attack (L5) | ✅ Full | Shared feature | 2026-05-21 |
 | class | paladin | Feature: faithful-steed (L5) | ✅ Full | 1/long-rest cast activity for Find Steed | 2026-05-21 |
+| class | paladin | Feature: aura-of-protection (L6) | ✅ Full | Paladin's own saves: save.str/dex/con/int/wis/cha ADD chaMod (unconditional); ally saves via outboundEffects 10ft radius. Fixed: wrong save.bonus.{ab} targets, dead appliesWhen.condition "in-aura-of-protection" | 2026-05-22 |
+| class | paladin | Feature: aura-of-courage (L7) | ✅ Full | immunity.frightened for self; trait.aura-of-courage tag for UI; ally immunity is proximity-based (engine limitation, no outboundEffect yet) | 2026-05-22 |
+| class | paladin | Feature: divine-health (L10) | ✅ Full | immunity.disease OVERRIDE true | 2026-05-22 |
+| class | paladin | Feature: radiant-strikes (L11) | ✅ Full | damage.dice ADD 1d8 radiant on melee weapon attacks. Fixed: was using damage.bonus (dice string unsupported) + dead damage.type-on-bonus target | 2026-05-22 |
+| class | paladin | Feature: restoring-touch (L14) | 🚫 Out of Scope | Condition-clear rider on Lay on Hands not engine-enforceable; surfaced as activity tooltip | 2026-05-22 |
+| class | paladin | Feature: aura-expansion (L17) | 🚫 Out of Scope | 30-ft expansion of paladin auras; trait.aura-radius-30ft flag present; engine proximity system must be updated | 2026-05-22 |
+| class | paladin | Feature: holy-nimbus (L20) | ⚠️ Partial | 1/long-rest bonus-action activation surfaced; aura damage, light emission, and save-disadvantage not simulated | 2026-05-22 |
 | class | ranger | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/DEX saves, light/medium armor + shield, simple/martial weapons, pick 3 from list | 2026-05-21 |
 | class | ranger | Feature: spellcasting-ranger (L1) | ✅ Full | spellcasting.ability OVERRIDE wis; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | ranger | Feature: favored-enemy (L1) | ⚠️ Partial | Resource pool for slotless Hunter's Mark casts surfaced; auto-prepared spell and slotless-cast plumbing not wired | 2026-05-21 |
@@ -108,9 +115,16 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | class | ranger | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | ranger | Feature: extra-attack-ranger (L5) | ✅ Full | attacks-per-action UPGRADE 2, ranger-specific feature entry | 2026-05-21 |
 | class | ranger | Feature: expertise-ranger (L9) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} emits two expertise.skill.<slug> modifiers | 2026-05-21 |
+| class | ranger | Feature: tireless (L6) | ✅ Full | PB-uses/long-rest heal activity (1d8+WIS temp HP); exhaustion-reduction on short rest is trait flag (engine limitation) | 2026-05-22 |
+| class | ranger | Feature: nature-s-veil (L10) | ✅ Full | PB-uses/long-rest bonus-action utility grants Invisible until start of next turn | 2026-05-22 |
+| class | ranger | Feature: relentless-hunter (L13) | 🚫 Out of Scope | Concentration-break suppression for Hunter's Mark requires trigger evaluation; trait.relentless-hunter flag present | 2026-05-22 |
+| class | ranger | Feature: land-s-stride (L14) | 🚫 Out of Scope | Difficult terrain and plant-damage suppression are spatial mechanics; trait tags present | 2026-05-22 |
+| class | ranger | Feature: precise-hunter (L17) | 🚫 Out of Scope | Engine cannot check attack target's conditions; trait flag present. Was dead code — appliesWhen.condition "target.hunters-mark" never matched character.conditions[]. Fixed 2026-05-22. | 2026-05-22 |
+| class | ranger | Feature: feral-senses (L18) | 🚫 Out of Scope | Preternatural Awareness (strip advantage/disadvantage) not evaluatable; trait flag present | 2026-05-22 |
+| class | ranger | Feature: foe-slayer (L20) | 🚫 Out of Scope | Engine cannot check attack target's conditions; trait flag present. Was dead code — predicate "condition":"target.hunters-mark" never matched action context. Fixed 2026-05-22. | 2026-05-22 |
 | class | rogue | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, DEX/INT saves, light armor, simple + martial-finesse-or-light, thieves' tools, pick 4 from list | 2026-05-21 |
 | class | rogue | Feature: expertise-rogue (L1) + expertise-rogue-l6 (L6) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} on each feature row; engine emits expertise.skill.<slug> modifiers | 2026-05-21 |
-| class | rogue | Feature: sneak-attack (L1) | ⚠️ Partial | Action-modifier with per-level dice table correct; once-per-turn cap and advantage/ally-adjacency gating not enforced by engine | 2026-05-21 |
+| class | rogue | Feature: sneak-attack (L1) | ⚠️ Partial | damage.dice (fixed from dead damage.bonus + non-functional or-predicate; engine now supports or-predicate + dice bonus); once-per-turn cap and advantage/ally-adjacency gating still not enforced | 2026-05-22 |
 | class | rogue | Feature: thieves-cant (L1) | ✅ Full | proficiency.language.thieves-cant OVERRIDE true | 2026-05-21 |
 | class | rogue | Feature: weapon-mastery-rogue (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
 | class | rogue | Feature: cunning-action (L2) | ✅ Full | Bonus-action utility activity (Dash/Disengage/Hide) | 2026-05-21 |
@@ -183,7 +197,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | subclass | oath-of-devotion | Feature: aura-of-devotion (L6) | ✅ Full | Self immunity via stat-modifier + outboundEffects broadcasts immunity.charmed to allies within 10 ft; incapacitation suppression not engine-enforceable (manual) | 2026-05-22 |
 | subclass | hunter | Parent Class (ranger) / Feature List | ✅ Full | parentClass=ranger, features=[hunters-lore, hunters-prey, defensive-tactics, hunter-multiattack, superior-hunters-defense] | 2026-05-21 |
 | subclass | hunter | Feature: hunters-lore (L3) | ✅ Full | Bonus-action utility at 120 ft; DM reveals immunity/resistance/vulnerability | 2026-05-21 |
-| subclass | hunter | Feature: hunters-prey (L3) | ✅ Full | Split into parent (choices.feature) + 3 sub-features: colossus-slayer (action-modifier 1d8), horde-breaker (trigger free attack), giant-killer (trigger reaction attack); only chosen sub-feature loads | 2026-05-21 |
+| subclass | hunter | Feature: hunters-prey (L3) | ⚠️ Partial | Split into 3 sub-features. colossus-slayer: fixed dead damage.bonus→damage.dice and invalid weapon.classification→attack.classification; target.below-max-hp cannot be checked — player-managed toggle. horde-breaker and giant-killer: triggers present | 2026-05-22 |
 | subclass | thief | Parent Class (rogue) / Feature List | ✅ Full | parentClass=rogue, features=[fast-hands, second-story-work, supreme-sneak, use-magic-device, thiefs-reflexes] | 2026-05-21 |
 | subclass | thief | Feature: fast-hands (L3) | ✅ Full | trait.fast-hands flag extending Cunning Action bonus action to Utilize/Sleight-of-Hand/Thieves' Tools | 2026-05-21 |
 | subclass | thief | Feature: second-story-work (L3) | ✅ Full | speed.climb UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue; jump-distance DEX bonus is out of scope | 2026-05-21 |

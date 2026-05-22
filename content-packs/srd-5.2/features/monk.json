@@ -250,12 +250,10 @@
               30,
               30
             ]
-          },
-          "appliesWhen": {
-            "requires": "no-armor-no-shield"
           }
         }
-      ]
+      ],
+      "note": "Speed bonus scales by monk level (table above). SRD: only when not wearing armor or holding a shield — engine cannot detect equipment state, applies unconditionally."
     }
   },
   {

@@ -308,7 +308,12 @@ describe('C.6 — outbound effects manifest', () => {
 	});
 
 	it('a character without outbound-effect content emits an empty manifest', () => {
-		const clean = { ...CHAR_WITH_AURA, feats: [] };
+		// Level-5 paladin: below the L6 threshold for aura-of-protection outboundEffect.
+		const clean = {
+			...CHAR_WITH_AURA,
+			feats: [],
+			classes: [{ slug: 'paladin', level: 5, hpRolledPerLevel: [10, 6, 6, 6, 6] }]
+		};
 		const d = derive(clean, lookup());
 		expect(d.outboundEffects).toEqual([]);
 	});

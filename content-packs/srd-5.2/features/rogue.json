@@ -46,7 +46,7 @@
           },
           "effects": [
             {
-              "target": "damage.bonus",
+              "target": "damage.dice",
               "mode": "ADD",
               "value": {
                 "perClass": "rogue",

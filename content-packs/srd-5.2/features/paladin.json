@@ -280,56 +280,31 @@
       "ownerSlug": "paladin",
       "minLevel": 6,
       "modifiers": [
+        { "kind": "stat-modifier", "target": "save.str", "mode": "ADD", "value": "chaMod" },
+        { "kind": "stat-modifier", "target": "save.dex", "mode": "ADD", "value": "chaMod" },
+        { "kind": "stat-modifier", "target": "save.con", "mode": "ADD", "value": "chaMod" },
+        { "kind": "stat-modifier", "target": "save.int", "mode": "ADD", "value": "chaMod" },
+        { "kind": "stat-modifier", "target": "save.wis", "mode": "ADD", "value": "chaMod" },
+        { "kind": "stat-modifier", "target": "save.cha", "mode": "ADD", "value": "chaMod" },
+        { "kind": "stat-modifier", "target": "trait.aura-of-protection", "mode": "OVERRIDE", "value": true }
+      ],
+      "outboundEffects": [
         {
-          "kind": "stat-modifier",
-          "target": "save.bonus.str",
-          "mode": "ADD",
-          "value": "chaMod",
-          "appliesWhen": { "condition": "in-aura-of-protection" }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.bonus.dex",
-          "mode": "ADD",
-          "value": "chaMod",
-          "appliesWhen": { "condition": "in-aura-of-protection" }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.bonus.con",
-          "mode": "ADD",
-          "value": "chaMod",
-          "appliesWhen": { "condition": "in-aura-of-protection" }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.bonus.int",
-          "mode": "ADD",
-          "value": "chaMod",
-          "appliesWhen": { "condition": "in-aura-of-protection" }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.bonus.wis",
-          "mode": "ADD",
-          "value": "chaMod",
-          "appliesWhen": { "condition": "in-aura-of-protection" }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.bonus.cha",
-          "mode": "ADD",
-          "value": "chaMod",
-          "appliesWhen": { "condition": "in-aura-of-protection" }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "trait.aura-of-protection",
-          "mode": "OVERRIDE",
-          "value": true
+          "id": "aura-of-protection",
+          "name": "Aura of Protection",
+          "rangeFt": 10,
+          "targets": "ally",
+          "modifiers": [
+            { "kind": "stat-modifier", "target": "save.str", "mode": "ADD", "value": "chaMod" },
+            { "kind": "stat-modifier", "target": "save.dex", "mode": "ADD", "value": "chaMod" },
+            { "kind": "stat-modifier", "target": "save.con", "mode": "ADD", "value": "chaMod" },
+            { "kind": "stat-modifier", "target": "save.int", "mode": "ADD", "value": "chaMod" },
+            { "kind": "stat-modifier", "target": "save.wis", "mode": "ADD", "value": "chaMod" },
+            { "kind": "stat-modifier", "target": "save.cha", "mode": "ADD", "value": "chaMod" }
+          ]
         }
       ],
-      "note": "While conscious, the paladin and friendly creatures within 10 feet add the paladin's CHA modifier (minimum +1) to all saving throws. The aura applies to the paladin unconditionally; for allies, the engine would need to evaluate proximity. v0 applies the CHA-mod bonus to the paladin's own saves unconditionally (no condition needed for self), and tags the trait so the UI can surface the aura to allies. The save.bonus.* targets are DSL-adjacent; the evaluator may key off save.{ability} instead — see BUBBLE UP."
+      "note": "While conscious, the paladin and friendly creatures within 10 feet add the paladin's CHA modifier (minimum +1) to all saving throws. Fixed: was using unsupported save.bonus.{ab} targets (now save.{ab}) and dead appliesWhen.condition. Paladin's own saves are unconditional; ally saves broadcast via outboundEffects within 10 ft. Consciousness-gating not engine-enforceable."
     }
   },
   {
@@ -405,14 +380,10 @@
           },
           "effects": [
             {
-              "target": "damage.bonus",
+              "target": "damage.dice",
               "mode": "ADD",
-              "value": "1d8"
-            },
-            {
-              "target": "damage.type-on-bonus",
-              "mode": "OVERRIDE",
-              "value": "radiant"
+              "value": "1d8",
+              "damageType": "radiant"
             }
           ]
         }

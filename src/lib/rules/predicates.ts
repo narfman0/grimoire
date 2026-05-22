@@ -46,6 +46,18 @@ export function predicateMatches(ctx: PredicateContext, block: PredicateBlock | 
   if (block.activityType != null && ctx.activityType !== block.activityType) return false;
   for (const p of block.predicates ?? []) {
     for (const [key, expected] of Object.entries(p)) {
+      if (key === 'or' && Array.isArray(expected)) {
+        // Logical OR: any sub-predicate object must fully match.
+        const anyMatch = expected.some((sub) => {
+          if (sub == null || typeof sub !== 'object') return false;
+          for (const [k, v] of Object.entries(sub as Record<string, unknown>)) {
+            if (!matchValue(getPath(ctx, k), v)) return false;
+          }
+          return true;
+        });
+        if (!anyMatch) return false;
+        continue;
+      }
       const actual = getPath(ctx, key);
       if (!matchValue(actual, expected)) return false;
     }

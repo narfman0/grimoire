@@ -757,16 +757,16 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.classification": "weapon" },
-              { "target.below-max-hp": true }
+              { "attack.classification": "weapon" }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": "1d8" }
+            { "target": "damage.dice", "mode": "ADD", "value": "1d8" }
           ],
           "limit": { "per": "turn", "uses": 1 }
         }
-      ]
+      ],
+      "note": "Once per turn when you hit a creature with a weapon and the target is below its HP maximum, deal an extra 1d8 damage of the weapon's type. Engine cannot check target HP — player enables toggle only when applicable. Fixed: weapon.classification (invalid, now attack.classification) and damage.bonus string (now damage.dice)."
     }
   },
   {

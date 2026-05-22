@@ -102,4 +102,40 @@ describe('predicateMatches', () => {
       )
     ).toBe(false);
   });
+
+  // Logical OR: { "or": [{subPred1}, {subPred2}] } passes if any sub-predicate fully matches.
+  // Used by sneak-attack (weapon.property:finesse OR attack.range:ranged).
+  it('supports or-predicate: passes when any sub-predicate matches', () => {
+    const ctx = { weapon: { property: ['finesse'] }, attack: { range: 'melee' } };
+    expect(
+      predicateMatches(ctx, { predicates: [{ or: [{ 'weapon.property': 'finesse' }, { 'attack.range': 'ranged' }] }] })
+    ).toBe(true);
+  });
+
+  it('supports or-predicate: fails when no sub-predicate matches', () => {
+    const ctx = { weapon: { property: ['thrown'] }, attack: { range: 'melee' } };
+    expect(
+      predicateMatches(ctx, { predicates: [{ or: [{ 'weapon.property': 'finesse' }, { 'attack.range': 'ranged' }] }] })
+    ).toBe(false);
+  });
+
+  it('combines or-predicate with other predicates (AND semantics across predicates)', () => {
+    const ctx = { weapon: { property: ['finesse'] }, attack: { range: 'melee', ability: 'dex' } };
+    expect(
+      predicateMatches(ctx, {
+        predicates: [
+          { or: [{ 'weapon.property': 'finesse' }, { 'attack.range': 'ranged' }] },
+          { 'attack.ability': 'dex' }
+        ]
+      })
+    ).toBe(true);
+    expect(
+      predicateMatches(ctx, {
+        predicates: [
+          { or: [{ 'weapon.property': 'finesse' }, { 'attack.range': 'ranged' }] },
+          { 'attack.ability': 'str' }
+        ]
+      })
+    ).toBe(false);
+  });
 });
