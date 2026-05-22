@@ -375,6 +375,29 @@ export interface AvailableToggle {
   sourceContent: { kind: string; slug: string };
 }
 
+/** Effects this character emanates onto allies/enemies within a radius —
+ *  Paladin auras, Bardic Inspiration, Aura of Warding, etc. The encounter
+ *  layer reads this manifest and applies the contained modifiers to
+ *  affected creature tokens. Derive only emits the declaration. */
+export interface OutboundEffect {
+  id: string;
+  sourceContent: { kind: string; slug: string };
+  name: string;
+  /** Radius in feet, measured from this character's space. */
+  rangeFt: number;
+  /** Selector for affected creatures. `ally` includes self by default
+   *  unless `excludeSelf` is set; `creature` matches anyone in range. */
+  targets: 'ally' | 'enemy' | 'creature' | 'self';
+  excludeSelf?: boolean;
+  /** Whether the effect requires the source to be conscious / not
+   *  incapacitated. Encounter layer enforces. */
+  requiresAlive?: boolean;
+  /** Stat-modifier entries applied to each affected creature. */
+  modifiers?: Array<Record<string, unknown>>;
+  /** Gated on a condition the source must be in (Rage, Concentrating). */
+  appliesWhen?: { condition?: string };
+}
+
 export interface Derived {
   stats: StatBlock;
   actions: Action[];
@@ -386,4 +409,8 @@ export interface Derived {
    *  field. Composited with the player's `character.spells.prepared` list.
    *  The UI labels them as "always prepared from <source>". */
   alwaysPreparedFromContent: string[];
+  /** Aura/multi-target effects this character emanates onto nearby
+   *  creatures. Consumed by the encounter layer to derive ally-side
+   *  modifiers. */
+  outboundEffects: OutboundEffect[];
 }

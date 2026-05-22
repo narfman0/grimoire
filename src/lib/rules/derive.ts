@@ -23,6 +23,7 @@ import type {
   ContentRef,
   ContentRow,
   Derived,
+  OutboundEffect,
   Resource,
   SaveCell,
   SkillCell,
@@ -1152,6 +1153,36 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     });
   }
 
+  // C.6 — outbound effects manifest. Walks active content for
+  // `data.outboundEffects[]` entries and emits them gated on appliesWhen
+  // (condition presence) so the encounter layer only sees currently-live
+  // auras. Modifier shape is opaque at this layer — the encounter layer
+  // applies them to ally token derived stats.
+  const outboundEffects: OutboundEffect[] = [];
+  for (const a of active) {
+    const entries = a.data.outboundEffects as Array<Record<string, unknown>> | undefined;
+    if (!Array.isArray(entries)) continue;
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const appliesWhen = e.appliesWhen as { condition?: string } | undefined;
+      if (appliesWhen?.condition && !resolvedConditions.has(appliesWhen.condition)) continue;
+      const targets = (e.targets as string | undefined) ?? 'creature';
+      if (targets !== 'ally' && targets !== 'enemy' && targets !== 'creature' && targets !== 'self')
+        continue;
+      outboundEffects.push({
+        id: (e.id as string | undefined) ?? `${a.row.kind}/${a.row.slug}/aura/${i}`,
+        sourceContent: { kind: a.row.kind, slug: a.row.slug },
+        name: (e.name as string | undefined) ?? (e.id as string | undefined) ?? a.row.name,
+        rangeFt: typeof e.rangeFt === 'number' ? e.rangeFt : 0,
+        targets,
+        ...(e.excludeSelf === true ? { excludeSelf: true } : {}),
+        ...(e.requiresAlive === true ? { requiresAlive: true } : {}),
+        ...(Array.isArray(e.modifiers) ? { modifiers: e.modifiers as Array<Record<string, unknown>> } : {}),
+        ...(appliesWhen ? { appliesWhen } : {})
+      });
+    }
+  }
+
   return {
     stats,
     actions,
@@ -1159,7 +1190,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     resources,
     validations,
     toggles,
-    alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort()
+    alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort(),
+    outboundEffects
   };
 }
 

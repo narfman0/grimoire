@@ -260,6 +260,60 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.6: outbound effects manifest ------------------------------------------
+// `data.outboundEffects[]` emits aura/multi-target stat-grant declarations
+// on Derived.outboundEffects so the encounter layer can apply them to ally
+// tokens. appliesWhen.condition gates the entry on a live condition
+// (Rage, Concentrating, etc.).
+
+describe('C.6 — outbound effects manifest', () => {
+	const CHAR_WITH_AURA: CharacterDocument = {
+		id: 'test-c6',
+		name: 'Aura Source',
+		classes: [{ slug: 'paladin', level: 7, hpRolledPerLevel: [10, 6, 6, 6, 6, 6, 6] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'aura-of-alacrity' }],
+		abilityScores: { str: 16, dex: 10, con: 14, int: 10, wis: 12, cha: 16 },
+		proficienciesChosen: { skills: [] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 50,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('emits unconditional outbound effects', () => {
+		const d = derive(CHAR_WITH_AURA, lookup());
+		const aura = d.outboundEffects.find((e) => e.id === 'aura-of-alacrity');
+		expect(aura).toBeDefined();
+		expect(aura!.rangeFt).toBe(5);
+		expect(aura!.targets).toBe('ally');
+		expect(aura!.modifiers).toHaveLength(1);
+	});
+
+	it('filters out conditional effects when their gating condition is absent', () => {
+		const d = derive(CHAR_WITH_AURA, lookup());
+		const rageAura = d.outboundEffects.find((e) => e.id === 'rage-aura');
+		expect(rageAura).toBeUndefined();
+	});
+
+	it('includes conditional effects when the gating condition is present', () => {
+		const raging = { ...CHAR_WITH_AURA, conditions: ['rage'] };
+		const d = derive(raging, lookup());
+		const rageAura = d.outboundEffects.find((e) => e.id === 'rage-aura');
+		expect(rageAura).toBeDefined();
+		expect(rageAura!.rangeFt).toBe(10);
+	});
+
+	it('a character without outbound-effect content emits an empty manifest', () => {
+		const clean = { ...CHAR_WITH_AURA, feats: [] };
+		const d = derive(clean, lookup());
+		expect(d.outboundEffects).toEqual([]);
+	});
+});
+
 // --- C.4: spell-list compositing -------------------------------------------
 // `data.spellListAdditions` injects spells into active content (so their
 // actions appear in the sheet) and surfaces them on

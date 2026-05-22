@@ -1,0 +1,31 @@
+{
+  "kind": "feat",
+  "slug": "aura-of-alacrity",
+  "version": 1,
+  "name": "Aura of Alacrity (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "outboundEffects": [
+      {
+        "id": "aura-of-alacrity",
+        "name": "Aura of Alacrity",
+        "rangeFt": 5,
+        "targets": "ally",
+        "modifiers": [
+          { "kind": "stat-modifier", "target": "speed.all", "mode": "ADD", "value": 10 }
+        ]
+      },
+      {
+        "id": "rage-aura",
+        "name": "Rage Aura (test)",
+        "rangeFt": 10,
+        "targets": "ally",
+        "modifiers": [
+          { "kind": "stat-modifier", "target": "save.advantage.fear", "value": true }
+        ],
+        "appliesWhen": { "condition": "rage" }
+      }
+    ]
+  }
+}
