@@ -143,6 +143,43 @@ function isChoiceAllowed(
   return allowed.includes(pick);
 }
 
+/** Locate the player's pick storage for a given active content row when
+ *  the row declares `data.choices`. Returns the (decl, picks) pair the
+ *  caller drives FEAT_MODIFIER_CHOICE_SPECS against. Returns undefined
+ *  when the row has no choices declaration. */
+function resolveChoicePicks(
+  a: ActiveContent,
+  character: CharacterDocument
+): { decl: Record<string, Record<string, unknown> | undefined>; picks: Record<string, Record<string, unknown> | undefined> } | undefined {
+  const decl = (a.data.choices ?? null) as Record<string, Record<string, unknown> | undefined> | null;
+  if (!decl) return undefined;
+  let picksRaw: Record<string, unknown> | undefined;
+  switch (a.row.kind) {
+    case 'feat':
+      picksRaw = character.feats.find((f) => f.slug === a.row.slug)?.choices;
+      break;
+    case 'species':
+      if (character.species.slug === a.row.slug) picksRaw = character.species.choices;
+      break;
+    case 'subspecies':
+      if (character.subspecies?.slug === a.row.slug) picksRaw = character.subspecies?.choices;
+      break;
+    case 'background':
+      if (character.background?.slug === a.row.slug) picksRaw = character.background?.choices;
+      break;
+    case 'feature':
+      picksRaw = character.featureChoices?.[a.row.slug];
+      break;
+    case 'subclass':
+      picksRaw = character.subclassChoices?.[a.row.slug];
+      break;
+    default:
+      picksRaw = undefined;
+  }
+  const picks = (picksRaw ?? {}) as Record<string, Record<string, unknown> | undefined>;
+  return { decl, picks };
+}
+
 export function derive(character: CharacterDocument, content: ContentLookup): Derived {
   // -------------------------------------------------------------------------
   // PHASE 1 — resolve active content
@@ -360,10 +397,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     //     skillProficiency?: { skill: string },
     //     expertise?: { skill: string }
     //   }
-    if (a.row.kind === 'feat') {
-      const featRef = character.feats.find((f) => f.slug === a.row.slug);
-      const decl = (a.data.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
-      const picks = (featRef?.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
+    // Resolve the picks-storage source for this row's kind. C.5 widened
+    // choice-synthesis from feat-only to any content kind that ships a
+    // `data.choices` decl with player picks on the character document.
+    const declPicks = resolveChoicePicks(a, character);
+    if (declPicks) {
+      const { decl, picks } = declPicks;
       for (const spec of FEAT_MODIFIER_CHOICE_SPECS) {
         const declEntry = decl[spec.declKey];
         const pickEntry = picks[spec.declKey];
@@ -376,7 +415,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         if (!isChoiceAllowed(allowed, pick, spec.defaultAllowed, spec.allowProficient)) continue;
         const value = typeof spec.value === 'function' ? spec.value(declEntry) : spec.value;
         allMods.push({
-          id: `feat/${a.row.slug}/${spec.idSuffix}`,
+          id: `${a.row.kind}/${a.row.slug}/${spec.idSuffix}`,
           kind: 'stat-modifier',
           source: a,
           raw: {
@@ -387,6 +426,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           }
         });
       }
+    }
+    if (a.row.kind === 'feat') {
+      const featRef = character.feats.find((f) => f.slug === a.row.slug);
+      const decl = (a.data.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
+      const picks = (featRef?.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
       // Spell + feature picks add new content refs to the active list (not
       // modifiers). Queued here, resolved alongside the feature-ref walk
       // below so their modifiers/activities/triggers feed back into derive.

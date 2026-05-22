@@ -260,6 +260,73 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.5: player-choice menu-picks for non-feat content ---------------------
+// Before C.5, only feat rows ran the choice-synthesis pass. Subclass-feature
+// menu picks (Acolyte of Nature, Aspect of the Wilds, etc.) had no landing
+// pad — either every option was granted (over-grant) or none were. This
+// commit lifts the synthesis to any active row with `data.choices`,
+// reading picks from `character.featureChoices[slug]` for features and
+// the matching ContentRef for species/subspecies/background/feat.
+
+describe('C.5 — player-choice menu-picks on subclass features', () => {
+	const CLERIC_WITH_ACOLYTE: CharacterDocument = {
+		id: 'test-c5',
+		name: 'Nature Acolyte',
+		classes: [
+			{ slug: 'cleric', level: 1, subclass: 'nature-domain-c5', hpRolledPerLevel: [8] }
+		],
+		species: { kind: 'species', slug: 'human' },
+		feats: [],
+		abilityScores: { str: 10, dex: 10, con: 14, int: 10, wis: 16, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 10,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {},
+		featureChoices: {
+			'acolyte-of-nature': {
+				skillProficiency: { skill: 'nature' },
+				language: { language: 'druidic' }
+			}
+		}
+	};
+
+	it('synthesizes skill proficiency from feature.choices pick', () => {
+		const d = derive(CLERIC_WITH_ACOLYTE, lookup());
+		expect(d.stats.skills.nature?.proficient).toBe(true);
+		// The other allowed skills were NOT picked, so they should NOT be proficient.
+		expect(d.stats.skills['animal-handling']?.proficient).toBe(false);
+	});
+
+	it('synthesizes language proficiency from feature.choices pick', () => {
+		const d = derive(CLERIC_WITH_ACOLYTE, lookup());
+		expect(d.stats.languages).toContain('druidic');
+		// Other allowed languages NOT picked.
+		expect(d.stats.languages).not.toContain('sylvan');
+	});
+
+	it('respects the allow-list — a non-allowed pick yields no modifier', () => {
+		const wrongPick: CharacterDocument = {
+			...CLERIC_WITH_ACOLYTE,
+			featureChoices: {
+				'acolyte-of-nature': { skillProficiency: { skill: 'acrobatics' } }
+			}
+		};
+		const d = derive(wrongPick, lookup());
+		expect(d.stats.skills.acrobatics?.proficient).toBe(false);
+	});
+
+	it('does nothing when no picks are present', () => {
+		const noPicks: CharacterDocument = { ...CLERIC_WITH_ACOLYTE, featureChoices: undefined };
+		const d = derive(noPicks, lookup());
+		// No nature proficiency since nothing was picked.
+		expect(d.stats.skills.nature?.proficient).toBe(false);
+	});
+});
+
 // --- C.9: synthesize gated weapon-attack actions from trigger grants ---------
 // War Magic / War Priest / Battle Magic / Eldritch Strike all want "after
 // spell cast, grant a BA weapon attack". The trigger declares

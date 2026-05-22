@@ -1,0 +1,10 @@
+{
+  "kind": "subclass",
+  "slug": "nature-domain-c5",
+  "version": 1,
+  "name": "Nature Domain (test fixture)",
+  "data": {
+    "parentClass": "cleric",
+    "subclassFeatures": [{ "level": 1, "name": "Acolyte of Nature" }]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "slug": "acolyte-of-nature",
+  "version": 1,
+  "name": "Acolyte of Nature (test fixture)",
+  "data": {
+    "ownerKind": "subclass",
+    "ownerSlug": "nature-domain-c5",
+    "minLevel": 1,
+    "choices": {
+      "skillProficiency": {
+        "allowedSkills": ["animal-handling", "nature", "survival"]
+      },
+      "language": {
+        "allowedLanguages": ["druidic", "sylvan", "elvish"]
+      }
+    }
+  }
+}

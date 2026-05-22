@@ -71,6 +71,15 @@ export interface CharacterDocument {
   conditionStacks?: Record<string, number>;
 
   modifierToggles: Record<string, boolean>;
+  /** Player picks for subclass-feature menus (Acolyte of Nature, Aspect of
+   *  the Wilds, Student of War, etc.). Keyed by the feature row's slug.
+   *  Value shape mirrors `ContentRef.choices`: a record of choice-decl
+   *  keys (e.g. `skillProficiency`, `language`) to the picked value. */
+  featureChoices?: Record<string, Record<string, unknown>>;
+  /** Player picks declared on the subclass row itself (rare — most subclass
+   *  picks live on the per-level feature row instead). Keyed by subclass
+   *  slug. */
+  subclassChoices?: Record<string, Record<string, unknown>>;
   /** Per-resource counter keyed by resource id (see derive().resources[].id). */
   resourcesSpent?: Record<string, number>;
   /** Whether the character has already used their action slot this turn.
