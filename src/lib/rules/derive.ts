@@ -601,6 +601,63 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Re-route item-sourced attack.bonus / damage.bonus stat-modifiers as
+  // synthetic action-modifiers. Magic weapons and spell focuses encode
+  // their +N enhancement as character-level stat-modifiers, but attack
+  // and damage bonuses are inherently per-action — applyTarget can't
+  // reach them at the character level. Push synthetic action-modifiers
+  // scoped to the matching action so applyActionEffect handles them
+  // uniformly in Phase 4.
+  //
+  // Scope rules:
+  //   attack.bonus            → weapon attacks made with this item
+  //   attack.bonus.melee      → ditto, melee only
+  //   attack.bonus.ranged     → ditto, ranged only
+  //   attack.bonus.spell      → any spell attack (item is a focus held
+  //                              while casting; not source-scoped)
+  //   damage.bonus[.*]        → mirrors attack.bonus shapes against
+  //                              the damage.bonus action-effect target
+  const itemBonusSynthesized: ActiveModifier[] = [];
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier') continue;
+    if (m.source.row.kind !== 'item') continue;
+    const target = (m.raw.target as string | undefined) ?? '';
+    const isAttack = target === 'attack.bonus' || target.startsWith('attack.bonus.');
+    const isDamage = target === 'damage.bonus' || target.startsWith('damage.bonus.');
+    if (!isAttack && !isDamage) continue;
+    const prefix = isAttack ? 'attack.bonus' : 'damage.bonus';
+    const scope = target.slice(prefix.length); // '' | '.melee' | '.ranged' | '.spell'
+    const itemSlug = m.source.row.slug;
+    const predicates: Array<Record<string, unknown>> = [];
+    if (scope === '.spell') {
+      predicates.push({ 'attack.classification': 'spell' });
+    } else {
+      predicates.push({ 'weapon.slug': itemSlug });
+      if (scope === '.melee' || scope === '.ranged') {
+        predicates.push({ 'attack.range': scope.slice(1) });
+      }
+    }
+    itemBonusSynthesized.push({
+      id: `${m.id}/item-action-bonus`,
+      kind: 'action-modifier',
+      source: m.source,
+      raw: {
+        kind: 'action-modifier',
+        name: (m.raw.name as string | undefined) ?? `${m.source.row.name ?? itemSlug} ${target}`,
+        appliesWhen: m.raw.appliesWhen,
+        appliesTo: { activityType: 'attack', predicates },
+        effects: [
+          {
+            target: isAttack ? 'attack.roll' : 'damage.bonus',
+            mode: (m.raw.mode as Mode | undefined) ?? 'ADD',
+            value: m.raw.value
+          }
+        ]
+      }
+    });
+  }
+  for (const synth of itemBonusSynthesized) allMods.push(synth);
+
   // -------------------------------------------------------------------------
   // PHASE 2 — compose stat block
   // -------------------------------------------------------------------------

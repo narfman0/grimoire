@@ -95,6 +95,192 @@ describe('Cracked Driftglobe (CoS) grants only Light', () => {
   });
 });
 
+// Locks the Phase 1b item-enhancement reroute: stat-modifier rows with
+// `attack.bonus[.*]` / `damage.bonus[.*]` targets on item sources used to
+// silently no-op because applyTarget never reads those character-level
+// targets. derive() now synthesizes scoped action-modifiers so the bonus
+// flows through applyActionEffect's attack.roll / damage.bonus paths.
+describe('item enhancement bonus on attacks (Phase 1b)', () => {
+  function fakeItem(slug: string, name: string, modifiers: Array<Record<string, unknown>>, extra: Record<string, unknown> = {}): ContentRow {
+    return {
+      kind: 'item',
+      slug,
+      version: 1,
+      name,
+      source: 'test',
+      data: {
+        category: 'weapon',
+        weaponType: 'martial-melee',
+        properties: [],
+        activities: [
+          {
+            id: `${slug}-attack`,
+            type: 'attack',
+            name: `${name} Attack`,
+            cost: 'action',
+            attack: {
+              ability: 'str',
+              classification: 'weapon',
+              range: 'melee',
+              damage: [{ dice: '1d8', type: 'slashing' }]
+            }
+          }
+        ],
+        modifiers,
+        ...extra
+      }
+    };
+  }
+
+  function wrapLookup(packs: Map<string, ContentRow>, extras: Record<string, ContentRow>) {
+    const base = chronurgy.makeLookup(packs);
+    return (ref: { kind: string; slug: string; version?: number }) => {
+      const key = `${ref.kind}/${ref.slug}`;
+      return extras[key] ?? base(ref);
+    };
+  }
+
+  it('applies bare attack.bonus + damage.bonus from a +1 weapon to its own attack', () => {
+    const plusOne = fakeItem('test-longsword-plus-1', '+1 Longsword', [
+      { kind: 'stat-modifier', target: 'attack.bonus', mode: 'ADD', value: 1 },
+      { kind: 'stat-modifier', target: 'damage.bonus', mode: 'ADD', value: 1 }
+    ]);
+    const lookup = wrapLookup(PACKS, { 'item/test-longsword-plus-1': plusOne });
+    const baseline = fakeItem('test-longsword-mundane', 'Test Longsword', []);
+    const baselineLookup = wrapLookup(PACKS, { 'item/test-longsword-mundane': baseline });
+
+    const enhanced = derive(
+      withInventory([{ contentKind: 'item', contentSlug: 'test-longsword-plus-1', version: 1, equipped: true, attuned: false }]),
+      lookup
+    );
+    const plain = derive(
+      withInventory([{ contentKind: 'item', contentSlug: 'test-longsword-mundane', version: 1, equipped: true, attuned: false }]),
+      baselineLookup
+    );
+
+    const enhancedAttack = enhanced.actions.find((a) => a.sourceContent.slug === 'test-longsword-plus-1');
+    const plainAttack = plain.actions.find((a) => a.sourceContent.slug === 'test-longsword-mundane');
+    expect(enhancedAttack).toBeDefined();
+    expect(plainAttack).toBeDefined();
+
+    // attack bonus bumped by exactly 1
+    expect(enhancedAttack!.attackBonus).toBe(plainAttack!.attackBonus! + 1);
+
+    // damage formula gained +1 on the first roll
+    const plainDmg = plainAttack!.damageRolls![0].formula; // "1d8" or "1d8+X"
+    const enhancedDmg = enhancedAttack!.damageRolls![0].formula;
+    // Tail integer of enhancedDmg should be exactly one more than plainDmg's tail
+    const tail = (f: string) => {
+      const m = f.match(/([+-]\d+)$/);
+      return m ? parseInt(m[1], 10) : 0;
+    };
+    expect(tail(enhancedDmg)).toBe(tail(plainDmg) + 1);
+
+    // audit trail surfaces the synthetic modifier
+    const audit = enhancedAttack!.appliedModifiers.map((m) => m.modifierId);
+    expect(audit.some((id) => id.endsWith('/item-action-bonus'))).toBe(true);
+  });
+
+  it('attack.bonus.melee fires on a melee weapon attack', () => {
+    const item = fakeItem('test-mw-melee', 'Melee-Only Bonus', [
+      { kind: 'stat-modifier', target: 'attack.bonus.melee', mode: 'ADD', value: 2 }
+    ]);
+    const lookup = wrapLookup(PACKS, { 'item/test-mw-melee': item });
+    const d = derive(
+      withInventory([{ contentKind: 'item', contentSlug: 'test-mw-melee', version: 1, equipped: true, attuned: false }]),
+      lookup
+    );
+    const baseline = derive(
+      withInventory([
+        { contentKind: 'item', contentSlug: 'test-mw-melee', version: 1, equipped: true, attuned: false }
+      ]),
+      wrapLookup(PACKS, { 'item/test-mw-melee': fakeItem('test-mw-melee', 'Plain', []) })
+    );
+    const got = d.actions.find((a) => a.sourceContent.slug === 'test-mw-melee')!;
+    const base = baseline.actions.find((a) => a.sourceContent.slug === 'test-mw-melee')!;
+    expect(got.attackBonus).toBe(base.attackBonus! + 2);
+  });
+
+  it('attack.bonus.ranged does NOT fire on a melee weapon attack', () => {
+    const item = fakeItem('test-mw-ranged-only', 'Ranged-Only Bonus', [
+      { kind: 'stat-modifier', target: 'attack.bonus.ranged', mode: 'ADD', value: 5 }
+    ]);
+    const lookup = wrapLookup(PACKS, { 'item/test-mw-ranged-only': item });
+    const baseline = wrapLookup(PACKS, {
+      'item/test-mw-ranged-only': fakeItem('test-mw-ranged-only', 'Plain', [])
+    });
+    const enhanced = derive(
+      withInventory([{ contentKind: 'item', contentSlug: 'test-mw-ranged-only', version: 1, equipped: true, attuned: false }]),
+      lookup
+    );
+    const plain = derive(
+      withInventory([{ contentKind: 'item', contentSlug: 'test-mw-ranged-only', version: 1, equipped: true, attuned: false }]),
+      baseline
+    );
+    const got = enhanced.actions.find((a) => a.sourceContent.slug === 'test-mw-ranged-only')!;
+    const base = plain.actions.find((a) => a.sourceContent.slug === 'test-mw-ranged-only')!;
+    expect(got.attackBonus).toBe(base.attackBonus!);
+  });
+
+  it('attack.bonus.spell from an equipped focus bumps spell-attack rolls', () => {
+    const focus = {
+      kind: 'item' as const,
+      slug: 'test-wand-of-power',
+      version: 1,
+      name: 'Test Wand of Power',
+      source: 'test',
+      data: {
+        category: 'wondrous',
+        modifiers: [
+          { kind: 'stat-modifier', target: 'attack.bonus.spell', mode: 'ADD', value: 2 }
+        ]
+      }
+    };
+    const lookup = wrapLookup(PACKS, { 'item/test-wand-of-power': focus });
+    const enhanced = derive(
+      withInventory([{ contentKind: 'item', contentSlug: 'test-wand-of-power', version: 1, equipped: true, attuned: false }]),
+      lookup
+    );
+    const plain = derive(chronurgy.CHARACTER, chronurgy.makeLookup(PACKS));
+
+    const enhancedBolt = enhanced.actions.find((a) => a.sourceContent.slug === 'fire-bolt' && a.attackBonus != null);
+    const plainBolt = plain.actions.find((a) => a.sourceContent.slug === 'fire-bolt' && a.attackBonus != null);
+    expect(enhancedBolt).toBeDefined();
+    expect(plainBolt).toBeDefined();
+    expect(enhancedBolt!.attackBonus).toBe(plainBolt!.attackBonus! + 2);
+  });
+
+  it('does not bleed an item bonus onto a different equipped weapon', () => {
+    const plusOne = fakeItem('test-sword-a', '+1 Sword A', [
+      { kind: 'stat-modifier', target: 'attack.bonus', mode: 'ADD', value: 1 }
+    ]);
+    const mundane = fakeItem('test-sword-b', 'Sword B', []);
+    const lookup = wrapLookup(PACKS, {
+      'item/test-sword-a': plusOne,
+      'item/test-sword-b': mundane
+    });
+    const d = derive(
+      withInventory([
+        { contentKind: 'item', contentSlug: 'test-sword-a', version: 1, equipped: true, attuned: false },
+        { contentKind: 'item', contentSlug: 'test-sword-b', version: 1, equipped: true, attuned: false }
+      ]),
+      lookup
+    );
+    const baseline = derive(
+      withInventory([
+        { contentKind: 'item', contentSlug: 'test-sword-b', version: 1, equipped: true, attuned: false }
+      ]),
+      wrapLookup(PACKS, { 'item/test-sword-b': mundane })
+    );
+    const swordA = d.actions.find((a) => a.sourceContent.slug === 'test-sword-a')!;
+    const swordB = d.actions.find((a) => a.sourceContent.slug === 'test-sword-b')!;
+    const baseB = baseline.actions.find((a) => a.sourceContent.slug === 'test-sword-b')!;
+    // Sword A gains +1, Sword B is unaffected by Sword A's enhancement
+    expect(swordA.attackBonus).toBe(swordB.attackBonus! + 1);
+    expect(swordB.attackBonus).toBe(baseB.attackBonus!);
+  });
+});
+
 describe('cast-spell activity with missing spell row', () => {
   it('still emits a utility-shaped action and does not throw', () => {
     // Synthesize an inventory item that points at a fabricated content slug
