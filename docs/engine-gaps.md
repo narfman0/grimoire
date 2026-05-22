@@ -116,6 +116,29 @@ emitting character (which is incorrect for most auras).
 
 **SRD reach:** Paladin Aura of Protection is a marquee SRD feature.
 
+### Item enhancement-bonus on weapon and spell attacks — DEFERRED
+
+Magic weapons and spell focuses encode their `+1`/`+2`/`+3` enhancement
+bonus as stat-modifiers with targets like `attack.bonus.melee`,
+`attack.bonus.spell`, and bare `attack.bonus`. `applyTarget` doesn't
+read any of these as character-level stats (attacks are per-action,
+not character-level), and the equipped-item modifier collection in
+derive flows through the same `applyTarget` switch — so today every
+`+N` magic weapon and spell focus contributes nothing to attack rolls.
+
+**SRD reach:** every magic weapon in `content-packs/srd-5.2/items/magic-items.json`
+(see e.g. `+1 Weapon` at line 28). The non-SRD audit found 60 affected
+items (35 in `wildemount/items.json`, 24 in `tashas/items.json`,
+1 in `phb-2024/items.json`).
+
+**Where to start:** equipped weapons need a per-action lookup that
+filters modifiers by item-slot-source and applies them to the
+synthesized weapon attack. The natural shape is an action-modifier on
+the item row scoped to the specific weapon (or scoped to "attacks made
+with this item") so the modifier flows through `applyActionEffect`'s
+existing `attack.roll` path. The pack-side fix lands after the engine
+ships the path.
+
 ## Related
 
 - [`grimoire-packs/docs/audit/deferred.md`](../../grimoire-packs/docs/audit/deferred.md)

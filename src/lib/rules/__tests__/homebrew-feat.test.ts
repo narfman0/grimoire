@@ -269,4 +269,32 @@ describe('homebrew feat → derive()', () => {
     const d = derive(character, baseLookup);
     expect(d.stats.abilities.str.score).toBe(17); // unchanged
   });
+
+  it('sense.darkvision ADD stacks on an existing species darkvision (60 → 120)', () => {
+    // Locks the engine contract grimoire-packs phb-2024 Gloom Stalker
+    // (umbral-sight) and Shadow Monk (warrior-of-shadow darkvision)
+    // depend on. Both rows say "Darkvision 60. If you already have
+    // Darkvision, its range increases by 60 ft." — the right mode is
+    // ADD (not MAX, which modes.ts drops; not UPGRADE, which takes
+    // max instead of stacking). Half-Orc base darkvision is 60 from
+    // the extras fixture; the homebrew ADD 60 must lift it to 120.
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'shadow-blooded',
+      version: 1,
+      name: 'Shadow-Blooded (test)',
+      source: 'test',
+      data: {
+        modifiers: [
+          { kind: 'stat-modifier', target: 'sense.darkvision', mode: 'ADD', value: 60 }
+        ]
+      }
+    };
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    expect(d.stats.senses.darkvision).toBe(120);
+  });
 });
