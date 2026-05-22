@@ -103,6 +103,87 @@ damage.bonus paths so the audit trail and mode semantics stay
 uniform. Unblocks 60+ magic weapons + spell focuses across SRD and
 packs.
 
+### Union-shape feature choices — DEFERRED
+
+Several subclass-feature picks let the player pick one of N options
+that map to *different* modifier kinds (Wild Heart Aspect of the Wilds:
+Owl=darkvision / Panther=climb-speed / Salmon=swim-speed; Transmuter's
+Stone: darkvision OR resistance OR speed bonus OR proficiency;
+Kobold Legacy: skill OR save-advantage OR cantrip). The `choices`
+slots today are single-kind (`skillProficiency` → one skill,
+`feature` → one feature row). There's no slot that emits an arbitrary
+stat-modifier from a named option.
+
+**SRD reach:** Multiple SRD subclass features (Aspect of the Wilds, etc.)
+sit at the audit's "menu-pick / engine-gap" tag.
+
+**Where to start:** Add a `modifierFromChoice` slot to the engine's
+choice spec:
+```ts
+modifierFromChoice: {
+  options: [
+    { id: 'owl',     label: 'Owl',     modifiers: [{ target: 'sense.darkvision', mode: 'UPGRADE', value: 60 }] },
+    { id: 'panther', label: 'Panther', modifiers: [{ target: 'speed.climb',      mode: 'UPGRADE', value: 'walkSpeed' }] },
+    { id: 'salmon',  label: 'Salmon',  modifiers: [{ target: 'speed.swim',       mode: 'UPGRADE', value: 'walkSpeed' }] }
+  ]
+}
+```
+On the character side: `featureChoices[slug].modifierFromChoice.option = 'owl'`. derive() synthesizes the option's modifiers. ~25 rows across SRD + packs unblock.
+
+### Multi-pick choice counts on skill / language slots — DEFERRED
+
+`spell` slots already carry `picks: N`; `skillProficiency`, `language`,
+and `toolProficiency` do not. So "pick 3 skills" (College of Lore),
+"pick 2 languages" (Mastermind), "pick 2 skills" (Kenku Recall) can't
+be expressed today — the row either over-grants all options or stays
+T1-STUB.
+
+**Where to start:** Add `picks: N` to the three single-pick slot specs
+and have the UI render N copies of the picker. ~15 rows unblock.
+
+### Spell upcast scaling — DEFERRED
+
+153 spells with "At Higher Levels" prose have no `scaling` /
+`upcastScaling` field, so casting at a higher slot silently doesn't
+adjust the activity's damage / heal / target count / duration.
+
+**SRD reach:** Magic Missile, Burning Hands, Cure Wounds, Fireball,
+Scorching Ray, Spiritual Weapon, etc. — basically every leveled
+damaging spell.
+
+**Where to start:** A `scaling` field on activities:
+```ts
+scaling: {
+  by: 'slotLevel',
+  baseSlotLevel: <spell.level>,
+  steps: [
+    { field: 'damage.parts.0.dice', perLevel: '1d6' }
+  ]
+}
+```
+When the encounter logs a cast at slot N > baseSlotLevel, derive()
+(or a runtime helper) walks the steps and computes the upscaled
+value. Big unlock — would T2-promote ~150 spell rows.
+
+### Spell-mechanic primitives that have no current home — DEFERRED
+
+A handful of spell mechanics need their own primitives before the
+content can encode them:
+
+- **Temp HP on cast** (Armor of Agathys, False Life, Heroism): no
+  shape today; suggestion is an `activities[].grants` field with
+  `{ type: 'temp-hp', amount: number | formula }`.
+- **Retaliatory damage trigger** (Armor of Agathys: "when a creature
+  hits you in melee, they take 5 cold"): same trigger registry that
+  encounter consumer matches on, but the source is a spell with an
+  active concentration / duration. Needs `concentrating.X` as a
+  trigger-scope predicate.
+- **Damage rider on weapon attacks for duration** (Magic Weapon, Holy
+  Weapon, Elemental Weapon): like item enhancement bonuses (Phase 1b)
+  but scoped to a self-buff with a duration timer. The action-modifier
+  + appliesWhen.condition shape works once the encounter runtime
+  exposes "spell-effect-active-on-self" as a condition slug.
+
 ## Related
 
 - [`grimoire-packs/docs/audit/deferred.md`](../../grimoire-packs/docs/audit/deferred.md)
