@@ -1,0 +1,12 @@
+{
+  "kind": "feat",
+  "slug": "fey-touched",
+  "version": 1,
+  "name": "Fey Touched (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "spellListAdditions": ["daylight"],
+    "freeCasts": [{ "slug": "daylight", "per": "long-rest", "uses": 1 }]
+  }
+}

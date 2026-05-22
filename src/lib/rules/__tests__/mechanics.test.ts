@@ -260,6 +260,59 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.4: spell-list compositing -------------------------------------------
+// `data.spellListAdditions` injects spells into active content (so their
+// actions appear in the sheet) and surfaces them on
+// Derived.alwaysPreparedFromContent for UI labelling. `data.freeCasts`
+// emits a per-rest Resource so the encounter runtime can let the player
+// cast the spell without a slot until the budget runs out.
+
+describe('C.4 — spell-list compositing', () => {
+	const FIGHTER_WITH_FEY_TOUCHED: CharacterDocument = {
+		id: 'test-c4',
+		name: 'Fey-Touched Fighter',
+		classes: [{ slug: 'fighter', level: 5, hpRolledPerLevel: [10, 6, 6, 6, 6] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'fey-touched' }],
+		abilityScores: { str: 10, dex: 14, con: 14, int: 14, wis: 10, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 40,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('alwaysPreparedFromContent lists the injected spell', () => {
+		const d = derive(FIGHTER_WITH_FEY_TOUCHED, lookup());
+		expect(d.alwaysPreparedFromContent).toContain('daylight');
+	});
+
+	it('the spell becomes active even without an entry in spells.prepared', () => {
+		const d = derive(FIGHTER_WITH_FEY_TOUCHED, lookup());
+		const daylightAction = d.actions.find((a) => a.sourceContent.slug === 'daylight');
+		expect(daylightAction).toBeDefined();
+	});
+
+	it('emits a free-cast Resource for the long-rest budget', () => {
+		const d = derive(FIGHTER_WITH_FEY_TOUCHED, lookup());
+		const r = d.resources.find((r) => r.id === 'free-cast/fey-touched/daylight');
+		expect(r).toBeDefined();
+		expect(r!.per).toBe('long-rest');
+		expect(r!.max).toBe(1);
+		expect(r!.used).toBe(0);
+	});
+
+	it('does nothing when the feat is not taken', () => {
+		const clean = { ...FIGHTER_WITH_FEY_TOUCHED, feats: [] };
+		const d = derive(clean, lookup());
+		expect(d.alwaysPreparedFromContent).not.toContain('daylight');
+		expect(d.resources.find((r) => r.id.startsWith('free-cast/fey-touched'))).toBeUndefined();
+	});
+});
+
 // --- C.5: player-choice menu-picks for non-feat content ---------------------
 // Before C.5, only feat rows ran the choice-synthesis pass. Subclass-feature
 // menu picks (Acolyte of Nature, Aspect of the Wilds, etc.) had no landing

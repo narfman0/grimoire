@@ -382,4 +382,8 @@ export interface Derived {
   resources: Resource[];
   validations: ValidationIssue[];
   toggles: AvailableToggle[];
+  /** Spell slugs auto-prepared by a feature/subclass/feat `spellListAdditions`
+   *  field. Composited with the player's `character.spells.prepared` list.
+   *  The UI labels them as "always prepared from <source>". */
+  alwaysPreparedFromContent: string[];
 }

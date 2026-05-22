@@ -322,6 +322,44 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     active.push({ ref: r, row, data });
   }
 
+  // C.4 — collect spell-list additions and free-cast budget from active
+  // content. spellListAdditions push spells into deferredRefs so they're
+  // active for action realization; alwaysPreparedFromContent surfaces them
+  // on Derived so the UI can label "from <feature>".
+  const alwaysPreparedFromContent = new Set<string>();
+  const freeCastEntries: Array<{
+    slug: string;
+    per: string;
+    uses: number;
+    sourceContent: { kind: string; slug: string };
+  }> = [];
+  for (const a of active) {
+    const additions = a.data.spellListAdditions as string[] | undefined;
+    if (Array.isArray(additions)) {
+      for (const slug of additions) {
+        alwaysPreparedFromContent.add(slug);
+        deferredRefs.push({ kind: 'spell', slug });
+      }
+    }
+    const freeCasts = a.data.freeCasts as
+      | Array<{ slug?: string; per?: string; uses?: number }>
+      | undefined;
+    if (Array.isArray(freeCasts)) {
+      for (const fc of freeCasts) {
+        if (!fc?.slug || !fc?.per) continue;
+        // Pull the spell row in too so the cast surface (action) exists.
+        alwaysPreparedFromContent.add(fc.slug);
+        deferredRefs.push({ kind: 'spell', slug: fc.slug });
+        freeCastEntries.push({
+          slug: fc.slug,
+          per: fc.per,
+          uses: fc.uses ?? 1,
+          sourceContent: { kind: a.row.kind, slug: a.row.slug }
+        });
+      }
+    }
+  }
+
   // Build raw modifier/activity/trigger lists from active content.
   const allMods: ActiveModifier[] = [];
   for (const a of active) {
@@ -1075,6 +1113,21 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
     }
   }
+  // C.4 — free-cast budget (e.g. Misty Step 1/long-rest from Fey Touched).
+  // Emits one resource per entry so the encounter runtime can let the
+  // player cast the spell without consuming a slot until the budget runs
+  // out. The spell row is already in `active` so its action is available.
+  for (const fc of freeCastEntries) {
+    const id = `free-cast/${fc.sourceContent.slug}/${fc.slug}`;
+    resources.push({
+      id,
+      name: `${fc.slug} (free cast)`,
+      max: fc.uses,
+      used: Math.min(fc.uses, spent[id] ?? 0),
+      per: fc.per,
+      sourceContent: fc.sourceContent
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Surface user-toggleable action modifiers for the edit UI. Only modifiers
@@ -1099,7 +1152,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     });
   }
 
-  return { stats, actions, triggers, resources, validations, toggles };
+  return {
+    stats,
+    actions,
+    triggers,
+    resources,
+    validations,
+    toggles,
+    alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort()
+  };
 }
 
 // ---------------------------------------------------------------------------
