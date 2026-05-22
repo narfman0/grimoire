@@ -6,8 +6,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 168 |
-| ⚠️ Partial | 72 |
+| ✅ Full | 171 |
+| ⚠️ Partial | 69 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -131,7 +131,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | warlock | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, WIS/CHA saves, light armor, simple weapons, pick 2 from list | 2026-05-21 |
 | class | warlock | Feature: pact-magic (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; pact slot table now handled by pactCasterSlots() in derive.ts (upstream); class uses progression:'pact' | 2026-05-21 |
 | class | warlock | Feature: eldritch-invocations (L1) | ✅ Full | Choice slot + 4 SRD invocations; agonizing-blast now uses chaMod (resolves correctly); per-level pick count scaling declared | 2026-05-21 |
-| class | warlock | Feature: pact-boon (L1) | ⚠️ Partial | Choice slot present (Blade/Chain/Tome/Talisman); mechanical effects of each boon deferred to future batch | 2026-05-21 |
+| class | warlock | Feature: pact-boon (L1) | ⚠️ Partial | Sub-feature split: Blade/Chain/Talisman trait flags + activities; Tome grants choices.spell {pick:3, all SRD cantrips}; weapon creation and familiar summoning are encounter-layer | 2026-05-22 |
 | class | warlock | Feature: magical-cunning (L2) | ⚠️ Partial | 1/long-rest ritual activity surfaced; slot-refresh effect descriptive only (pact slots not yet emitted) | 2026-05-21 |
 | class | warlock | Feature: warlock-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | warlock | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
@@ -174,7 +174,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | champion | Feature: remarkable-athlete (L3) | ✅ Full | initiative ADD strMod; climb/swim UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue (engine updated); running jump STR-mod bonus is out of scope | 2026-05-21 |
 | subclass | way-of-the-open-hand | Parent Class (monk) / Feature List | ✅ Full | parentClass=monk, features=[open-hand-technique, wholeness-of-body, tranquility, quivering-palm] | 2026-05-21 |
 | subclass | way-of-the-open-hand | Feature: open-hand-technique (L3) | ⚠️ Partial | action-modifier tag on Flurry of Blows attacks; three effect options and their saves/conditions left to play | 2026-05-21 |
-| subclass | way-of-the-open-hand | Feature: wholeness-of-body (L6) | ⚠️ Partial | Bonus-action heal activity 2d8+wisMod; uses.max=focusPoints is a DSL approximation — actual cost is 3 focus points | 2026-05-21 |
+| subclass | way-of-the-open-hand | Feature: wholeness-of-body (L6) | ⚠️ Partial | Bonus-action heal activity 2d8+wisMod correct; removed broken focusPoints uses.max; cost of 3 focus points is player-managed | 2026-05-22 |
 | subclass | oath-of-devotion | Parent Class (paladin) / Feature List | ✅ Full | parentClass=paladin, features=[devotion-spells, channel-divinity-sacred-weapon, channel-divinity-holy-rebuke, aura-of-devotion] | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: devotion-spells (L3) | ⚠️ Partial | trait.oath-spells.devotion flag; auto-prep injection not wired | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: channel-divinity-sacred-weapon (L3) | ✅ Full | Bonus-action utility activity + action-modifier adding chaMod to attack.bonus.melee; chaMod now resolves via evaluateValue (engine updated) | 2026-05-21 |
@@ -210,7 +210,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | feat | magic-initiate-wizard | Full Feat Implementation | ✅ Full | 1/long-rest level-1 spell cast activity; two cantrips noted; -cleric and -druid variants also present in feats.json | 2026-05-21 |
 | feat | savage-attacker | Full Feat Implementation | 🚫 Out of Scope | damage.reroll-and-keep-higher not a supported evaluator target — tagged action-modifier only | 2026-05-21 |
 | feat | skilled | Full Feat Implementation | ✅ Full | Pick-3 skill/tool choice; proficiencies applied from character document | 2026-05-21 |
-| feat | tough | Full Feat Implementation | ⚠️ Partial | Two hp.max ADD totalLevel modifiers (= +2/level); brittle workaround since evaluator lacks arithmetic on magic identifiers | 2026-05-21 |
+| feat | tough | Full Feat Implementation | ✅ Full | hp.max ADD { sum: [totalLevel, totalLevel] } = +2/level using sum evaluator | 2026-05-22 |
 | feat | great-weapon-master | Full Feat Implementation | ✅ Full | Heavy-weapon-mastery action-modifier (PB damage bonus) + Hew trigger (bonus-action attack on crit/kill) + STR+1 | 2026-05-21 |
 | feat | sharpshooter | Full Feat Implementation | 🚫 Out of Scope | Cover-bypass and range/melee-proximity disadvantage-removal targets not supported by evaluator; DEX+1 applies; tagged modifiers only | 2026-05-21 |
 | feat | polearm-master | Full Feat Implementation | ✅ Full | Pole Strike bonus-action attack (1d4) + Reactive Strike reaction trigger; no-limit Hew note correct per 2024 | 2026-05-21 |
@@ -245,9 +245,9 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | species | dwarf | Feature: dwarven-toughness | ✅ Full | hp.max ADD totalLevel | 2026-05-21 |
 | species | dwarf | Feature: stonecunning | ✅ Full | Bonus-action Tremorsense 60 ft (10 min, PB/long-rest); trait flag | 2026-05-21 |
 | species | dragonborn | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, Common+Draconic, no darkvision; features=[draconic-ancestry, breath-weapon, damage-resistance-draconic, draconic-flight] | 2026-05-21 |
-| species | dragonborn | Feature: draconic-ancestry | ✅ Full | Pick-1 dragon-type choice; trait.draconic-ancestry-chosen flag | 2026-05-21 |
+| species | dragonborn | Feature: draconic-ancestry | ✅ Full | choices.feature with 10 sub-features (black/blue/brass/bronze/copper/gold/green/red/silver/white); each grants trait.draconic-ancestry=<type> + correct damage resistance | 2026-05-22 |
 | species | dragonborn | Feature: breath-weapon | ✅ Full | DC calc:custom (8+conMod+PB); damage uses perTotalLevel table (1d10 L1-4, 2d10 L5-10, 3d10 L11-16, 4d10 L17-20); uses=proficiencyBonus/LR | 2026-05-21 |
-| species | dragonborn | Feature: damage-resistance-draconic | ⚠️ Partial | trait.draconic-damage-resistance flag; dynamic resistance type (from ancestry choice) not applied — engine limitation | 2026-05-21 |
+| species | dragonborn | Feature: damage-resistance-draconic | ✅ Full | Resistance now granted by draconic-ancestry sub-features (acid/lightning/fire/poison/cold per ancestry) | 2026-05-22 |
 | species | dragonborn | Feature: draconic-flight (L5) | ⚠️ Partial | 1/long-rest bonus-action utility activity granting fly at walk speed; walkSpeed identifier not supported — fly value is "walk" (symbolic, engine must resolve) | 2026-05-21 |
 | species | elf | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, darkvision 60, Common+Elvish; fey-ancestry + trance modifiers on species row; features=[fey-ancestry, keen-senses, trance, elven-lineage] | 2026-05-21 |
 | species | elf | Feature: fey-ancestry | ✅ Full | save.advantage.charmed OVERRIDE true | 2026-05-21 |

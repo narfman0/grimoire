@@ -533,7 +533,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "way-of-the-open-hand",
       "minLevel": 6,
-      "note": "As a bonus action, expend 3 Focus Points to heal yourself for 2d8 + your WIS modifier HP. v0 surfaces a bonus-action heal activity; focus-point accounting lives on the monk class row. 'focusPoints' resolves to the monk's total focus points pool — not correct for a per-use cost; the actual cost is 3 focus points. The uses.max here is a DSL limitation — the engine should deduct 3 focus points on use.",
+      "note": "As a bonus action, expend 3 Focus Points to heal yourself for 2d8 + your WIS modifier HP. Heal amount and dice are correct; focus-point deduction (3 per use) is player-managed since the engine has no per-ability-cost deduction from a shared pool.",
       "activities": [
         {
           "id": "wholeness-of-body",
@@ -543,8 +543,7 @@
           "damage": {
             "parts": [{ "dice": "2d8", "type": "healing", "scaling": { "addBonus": "wisMod" } }]
           },
-          "uses": { "max": "focusPoints", "per": "long-rest" },
-          "note": "Costs 3 Focus Points per use. uses.max is a DSL approximation — actual gate is focus-point availability."
+          "note": "Costs 3 Focus Points per use — player must deduct from their focus pool manually."
         }
       ]
     }

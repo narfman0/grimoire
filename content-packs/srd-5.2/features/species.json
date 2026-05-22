@@ -186,9 +186,172 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dragonborn",
-      "note": "Damage type is determined by player's trait.draconic-ancestry choice. Tracked as informational flag for v0.",
+      "note": "SRD 5.2: Choose your dragon ancestor type. The chosen sub-feature grants the correct damage resistance and stores the ancestry trait. Player pick in character.featureChoices.draconic-ancestry.feature.feature.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "draconic-ancestry-black",
+            "draconic-ancestry-blue",
+            "draconic-ancestry-brass",
+            "draconic-ancestry-bronze",
+            "draconic-ancestry-copper",
+            "draconic-ancestry-gold",
+            "draconic-ancestry-green",
+            "draconic-ancestry-red",
+            "draconic-ancestry-silver",
+            "draconic-ancestry-white"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-black",
+    "version": 1,
+    "name": "Draconic Ancestry: Black (Acid)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Black dragon ancestry: Acid damage type. Breath weapon: 30-ft line, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry-chosen", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "black" },
+        { "kind": "stat-modifier", "target": "resistance.acid", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-blue",
+    "version": 1,
+    "name": "Draconic Ancestry: Blue (Lightning)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Blue dragon ancestry: Lightning damage type. Breath weapon: 30-ft line, DEX save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "blue" },
+        { "kind": "stat-modifier", "target": "resistance.lightning", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-brass",
+    "version": 1,
+    "name": "Draconic Ancestry: Brass (Fire)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Brass dragon ancestry: Fire damage type. Breath weapon: 30-ft line, DEX save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "brass" },
+        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-bronze",
+    "version": 1,
+    "name": "Draconic Ancestry: Bronze (Lightning)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Bronze dragon ancestry: Lightning damage type. Breath weapon: 30-ft line, DEX save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "bronze" },
+        { "kind": "stat-modifier", "target": "resistance.lightning", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-copper",
+    "version": 1,
+    "name": "Draconic Ancestry: Copper (Acid)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Copper dragon ancestry: Acid damage type. Breath weapon: 30-ft line, DEX save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "copper" },
+        { "kind": "stat-modifier", "target": "resistance.acid", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-gold",
+    "version": 1,
+    "name": "Draconic Ancestry: Gold (Fire)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Gold dragon ancestry: Fire damage type. Breath weapon: 15-ft cone, CON save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "gold" },
+        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-green",
+    "version": 1,
+    "name": "Draconic Ancestry: Green (Poison)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Green dragon ancestry: Poison damage type. Breath weapon: 15-ft cone, CON save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "green" },
+        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-red",
+    "version": 1,
+    "name": "Draconic Ancestry: Red (Fire)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Red dragon ancestry: Fire damage type. Breath weapon: 15-ft cone, DEX save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "red" },
+        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-silver",
+    "version": 1,
+    "name": "Draconic Ancestry: Silver (Cold)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "Silver dragon ancestry: Cold damage type. Breath weapon: 15-ft cone, CON save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "silver" },
+        { "kind": "stat-modifier", "target": "resistance.cold", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "draconic-ancestry-white",
+    "version": 1,
+    "name": "Draconic Ancestry: White (Cold)",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "draconic-ancestry",
+      "note": "White dragon ancestry: Cold damage type. Breath weapon: 15-ft cone, CON save.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "white" },
+        { "kind": "stat-modifier", "target": "resistance.cold", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -228,10 +391,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dragonborn",
-      "note": "Resistance type follows trait.draconic-ancestry; modeled as informational flag for v0 since target damage type is dynamic.",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-damage-resistance", "mode": "OVERRIDE", "value": true }
-      ]
+      "note": "Resistance is now granted by the chosen draconic-ancestry sub-feature (e.g., draconic-ancestry-red grants resistance.fire). This entry retained for species features list compatibility."
     }
   },
   {

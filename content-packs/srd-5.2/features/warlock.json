@@ -179,25 +179,92 @@
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 1,
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.pact-boon",
-          "mode": "OVERRIDE",
-          "value": true
+      "note": "SRD 5.2: Choose Pact of the Blade, Chain, Tome, or Talisman. Player pick in character.featureChoices.pact-boon.feature.feature; the chosen sub-feature is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "pact-of-the-blade",
+            "pact-of-the-chain",
+            "pact-of-the-tome",
+            "pact-of-the-talisman"
+          ]
         }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "pact-of-the-blade",
+    "version": 1,
+    "name": "Pact of the Blade",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "pact-boon",
+      "note": "SRD 5.2: Perform the Pact of the Blade ritual (1 hour) to create a melee pact weapon. The weapon counts as magical; its damage type is chosen at creation. When attacking with the pact weapon, use your spellcasting ability modifier instead of STR or DEX for attack and damage rolls. Weapon creation and modifier override are encounter-layer; surfaced as a trait flag.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.pact-of-the-blade", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "pact-of-the-chain",
+    "version": 1,
+    "name": "Pact of the Chain",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "pact-boon",
+      "note": "SRD 5.2: You can cast Find Familiar as a ritual, choosing from special familiar forms (Imp, Pseudodragon, Quasit, Skeleton, Slaad Tadpole, Sphinx of Wonder, Sprite, Venomous Snake). You can communicate with the familiar telepathically at any range. Familiar summoning is encounter-layer; surfaced as a ritual activity.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.pact-of-the-chain", "mode": "OVERRIDE", "value": true }
       ],
-      "choice": {
-        "kind": "pact-boon",
-        "pick": 1,
-        "from": [
-          "pact-of-the-blade",
-          "pact-of-the-chain",
-          "pact-of-the-tome",
-          "pact-of-the-talisman"
-        ]
-      },
-      "note": "Player picks one of: Pact of the Blade, Pact of the Chain, Pact of the Tome, Pact of the Talisman. v0 models this as a trait flag only — no mechanical effects (no Mystic Arcanum-style spell access, no bonded weapon, no familiar, no extra cantrips, no talisman save bonus). Subsequent batches will author each boon as its own feature row with the real mechanics."
+      "activities": [
+        {
+          "id": "pact-of-the-chain-ritual",
+          "type": "utility",
+          "name": "Find Familiar (Pact of the Chain)",
+          "cost": "ritual",
+          "note": "Cast as a 1-hour ritual. Familiar forms: Imp, Pseudodragon, Quasit, Skeleton, Slaad Tadpole, Sphinx of Wonder, Sprite, Venomous Snake."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "pact-of-the-tome",
+    "version": 1,
+    "name": "Pact of the Tome",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "pact-boon",
+      "note": "SRD 5.2: Your Book of Shadows contains 3 cantrips from any spell list. You can cast them using CHA. If you lose the book, you can recreate it during a long rest.",
+      "choices": {
+        "spell": { "allowedSpells": ["fire-bolt","mage-hand","sacred-flame","eldritch-blast","toll-the-dead","guidance","light","vicious-mockery","shillelagh","prestidigitation"], "pick": 3 }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "pact-of-the-talisman",
+    "version": 1,
+    "name": "Pact of the Talisman",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "pact-boon",
+      "note": "SRD 5.2: When the wearer fails an ability check, they can add 1d4 to the roll. PB uses per long rest. The +1d4 rider on failed checks is encounter-layer; surfaced as a trait flag and resource.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.pact-of-the-talisman", "mode": "OVERRIDE", "value": true }
+      ],
+      "activities": [
+        {
+          "id": "pact-of-the-talisman-bonus",
+          "type": "utility",
+          "name": "Talisman (+1d4 to failed check)",
+          "cost": "free",
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" },
+          "note": "When wearer fails an ability check, add 1d4 to the roll. PB uses per long rest."
+        }
+      ]
     }
   },
   {

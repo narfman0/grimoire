@@ -146,16 +146,10 @@
           "kind": "stat-modifier",
           "target": "hp.max",
           "mode": "ADD",
-          "value": "totalLevel"
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "hp.max",
-          "mode": "ADD",
-          "value": "totalLevel"
+          "value": { "sum": ["totalLevel", "totalLevel"] }
         }
       ],
-      "note": "2024 Tough grants +2 HP per character level (HP max increases by 2*characterLevel on take, then +2 each level after). Modeled as two stat-modifiers both targeting hp.max with value 'totalLevel' (1 per level each = +2/level total) since the evaluator doesn't support arithmetic on magic identifiers in v0."
+      "note": "2024 Tough grants +2 HP per character level. Modeled as a single hp.max ADD { sum: [totalLevel, totalLevel] } = 2 * totalLevel."
     }
   },
   {
