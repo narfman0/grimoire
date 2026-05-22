@@ -638,10 +638,10 @@
           "defaultEnabled": false,
           "appliesTo": {
             "activityType": "attack",
-            "predicates": [{ "weapon.classification": "weapon" }]
+            "predicates": [{ "attack.classification": "weapon" }]
           },
           "effects": [
-            { "target": "attack.bonus.melee", "mode": "ADD", "value": "chaMod" }
+            { "target": "attack.roll", "mode": "ADD", "value": "chaMod" }
           ]
         }
       ]

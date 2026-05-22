@@ -92,13 +92,18 @@
       "implies": [],
       "modifiers": [
         {
-          "kind": "stat-modifier",
-          "target": "attack.d20-bonus",
-          "mode": "ADD",
-          "value": {
-            "perConditionStack": "exhaustion",
-            "perLevel": -2
-          }
+          "kind": "action-modifier",
+          "id": "exhaustion-attack-penalty",
+          "name": "Exhaustion: Attack Penalty",
+          "defaultEnabled": true,
+          "appliesTo": { "activityType": "attack" },
+          "effects": [
+            {
+              "target": "attack.roll",
+              "mode": "ADD",
+              "value": { "perConditionStack": "exhaustion", "perLevel": -2 }
+            }
+          ]
         },
         {
           "kind": "stat-modifier",

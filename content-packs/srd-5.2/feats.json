@@ -1122,14 +1122,14 @@
           },
           "effects": [
             {
-              "target": "attack.bonus.ranged",
+              "target": "attack.roll",
               "mode": "ADD",
               "value": 2
             }
           ]
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Archery. +2 bonus to attack rolls made with Ranged weapons. Prerequisite: must have a class feature that grants a Fighting Style feat."
+      "note": "SRD 5.2 Fighting Style: Archery. +2 bonus to attack rolls made with Ranged weapons. Fixed: was using attack.bonus.ranged (unrecognized target), now attack.roll."
     }
   },
   {
@@ -1256,14 +1256,13 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "weapon.held": "one-hand" }
+              { "attack.range": "melee" }
             ]
           },
           "effects": [
             { "target": "damage.bonus", "mode": "ADD", "value": 2 }
           ],
-          "note": "+2 damage when wielding a melee weapon in one hand. The 'no other weapons held' constraint is not engine-enforced."
+          "note": "+2 damage with melee attacks. SRD: only when wielding in one hand with no other weapons — engine cannot check weapon-hold state (weapon.held was invalid context key). Fixed: now applies to all melee attacks unconditionally."
         }
       ],
       "note": "SRD 5.2 Fighting Style: Dueling. +2 damage when wielding a Melee weapon in one hand and no other weapons."

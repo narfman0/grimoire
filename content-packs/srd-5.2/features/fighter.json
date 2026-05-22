@@ -56,16 +56,20 @@
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
         {
-          "kind": "stat-modifier",
-          "target": "damage.bonus.melee",
-          "mode": "ADD",
-          "value": 2,
-          "appliesWhen": {
-            "requires": "one-handed-no-other-weapon"
-          }
+          "kind": "action-modifier",
+          "id": "dueling-damage-bonus",
+          "name": "Dueling",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [{ "attack.range": "melee" }]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+          ]
         }
       ],
-      "note": "Applies when wielding a melee weapon in one hand and no other weapons (a shield is permitted; a second weapon or unarmed offhand is not). v0 surfaces the modifier; the requires-tag condition 'one-handed-no-other-weapon' is not yet enforced by the engine."
+      "note": "+2 damage with melee weapon attacks. SRD: applies only when wielding in one hand with no other weapons — engine cannot check weapon-hold state, applies unconditionally to all melee attacks. Fixed: was a stat-modifier (damage.bonus.melee) that was never evaluated."
     }
   },
   {
@@ -117,12 +121,23 @@
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
         {
-          "kind": "stat-modifier",
-          "target": "attack.bonus.ranged",
-          "mode": "ADD",
-          "value": 2
+          "kind": "action-modifier",
+          "id": "archery-attack-bonus",
+          "name": "Archery",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "ranged" },
+              { "attack.classification": "weapon" }
+            ]
+          },
+          "effects": [
+            { "target": "attack.roll", "mode": "ADD", "value": 2 }
+          ]
         }
-      ]
+      ],
+      "note": "+2 bonus to attack rolls with ranged weapon attacks. Fixed: was a stat-modifier (attack.bonus.ranged) that was never evaluated."
     }
   },
   {
