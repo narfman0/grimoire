@@ -162,16 +162,16 @@
             <button
               class="text-xs hover:text-slate-200"
               on:click={() => (homebrewOpen = !homebrewOpen)}
-              on:blur={() => setTimeout(() => (homebrewOpen = false), 120)}
+              on:blur={() => setTimeout(() => (homebrewOpen = false), 200)}
               aria-haspopup="true"
               aria-expanded={homebrewOpen}
             >Homebrew ▾</button>
             {#if homebrewOpen}
               <div class="absolute right-0 z-30 mt-1 w-44 rounded border border-slate-700 bg-slate-900 py-1 text-xs shadow-lg">
-                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/content/browse">Browse content</a>
-                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew">My library</a>
-                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew/subscriptions">My subscriptions</a>
-                <a class="block border-t border-slate-800 px-3 py-1 text-amber-300 hover:bg-slate-800" href="/admin/reports">Admin · reports</a>
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/content/browse" on:mousedown|preventDefault={() => { homebrewOpen = false; goto('/content/browse'); }}>Browse content</a>
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew" on:mousedown|preventDefault={() => { homebrewOpen = false; goto('/me/homebrew'); }}>My library</a>
+                <a class="block px-3 py-1 hover:bg-slate-800 hover:text-slate-100" href="/me/homebrew/subscriptions" on:mousedown|preventDefault={() => { homebrewOpen = false; goto('/me/homebrew/subscriptions'); }}>My subscriptions</a>
+                <a class="block border-t border-slate-800 px-3 py-1 text-amber-300 hover:bg-slate-800" href="/admin/reports" on:mousedown|preventDefault={() => { homebrewOpen = false; goto('/admin/reports'); }}>Admin · reports</a>
               </div>
             {/if}
           </div>
