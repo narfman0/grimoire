@@ -1242,6 +1242,134 @@
   },
   {
     "kind": "feat",
+    "slug": "fighting-style-blind-fighting",
+    "version": 1,
+    "name": "Blind Fighting",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "sense.blindsight", "mode": "OVERRIDE", "value": 10 }
+      ],
+      "note": "SRD 5.2 Fighting Style: Blind Fighting. You gain Blindsight to a range of 10 feet."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-dueling",
+    "version": 1,
+    "name": "Dueling",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "dueling-damage-bonus",
+          "name": "Dueling Damage",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "attack.range": "melee" },
+              { "weapon.held": "one-hand" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+          ],
+          "note": "+2 damage when wielding a melee weapon in one hand. The 'no other weapons held' constraint is not engine-enforced."
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Dueling. +2 damage when wielding a Melee weapon in one hand and no other weapons."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-interception",
+    "version": 1,
+    "name": "Interception",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.fighting-style-interception", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "SRD 5.2 Fighting Style: Interception. Reaction to reduce damage to an ally within 5 ft by 1d10 + Proficiency Bonus. Reaction trigger and damage reduction are encounter-layer mechanics not supported by the engine — surfaced as a trait flag."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-protection",
+    "version": 1,
+    "name": "Protection",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.fighting-style-protection", "mode": "OVERRIDE", "value": true }
+      ],
+      "note": "SRD 5.2 Fighting Style: Protection. Reaction to impose disadvantage on an attack against an ally within 5 ft (requires shield). Reaction and disadvantage imposition are encounter-layer mechanics not supported by the engine — surfaced as a trait flag."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-thrown-weapon-fighting",
+    "version": 1,
+    "name": "Thrown Weapon Fighting",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "modifiers": [
+        {
+          "kind": "action-modifier",
+          "id": "thrown-weapon-damage-bonus",
+          "name": "Thrown Weapon Fighting Damage",
+          "defaultEnabled": true,
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              { "weapon.property": "thrown" }
+            ]
+          },
+          "effects": [
+            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+          ]
+        }
+      ],
+      "note": "SRD 5.2 Fighting Style: Thrown Weapon Fighting. +2 damage with thrown weapons. The 'draw as part of attack' benefit is encounter-layer behavior."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-blessed-warrior",
+    "version": 1,
+    "name": "Blessed Warrior",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "choices": {
+        "spell": { "allowedSpells": ["sacred-flame","toll-the-dead","guidance","light"], "pick": 2 }
+      },
+      "note": "SRD 5.2 Fighting Style: Blessed Warrior (Paladin). Learn two Cleric cantrips. CHA is your spellcasting ability for them. SRD cleric cantrips: sacred-flame, toll-the-dead, guidance, light."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "fighting-style-druidic-warrior",
+    "version": 1,
+    "name": "Druidic Warrior",
+    "data": {
+      "category": "fighting-style",
+      "prerequisite": { "feature": "fighting-style" },
+      "choices": {
+        "spell": { "allowedSpells": ["guidance","shillelagh"], "pick": 2 }
+      },
+      "note": "SRD 5.2 Fighting Style: Druidic Warrior (Ranger). Learn two Druid cantrips. WIS is your spellcasting ability for them. SRD druid cantrips: guidance, shillelagh."
+    }
+  },
+  {
+    "kind": "feat",
     "slug": "boon-of-combat-prowess",
     "version": 1,
     "name": "Boon of Combat Prowess",

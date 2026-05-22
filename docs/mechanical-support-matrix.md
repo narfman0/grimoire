@@ -63,7 +63,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | druid | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | druid | Feature: wild-resurgence (L5) | ⚠️ Partial | Leg B (1/long-rest Wild Shape → level-1 slot) surfaced; leg A (per-turn, spell-slot-funded Wild Shape refund) not expressible in activity DSL | 2026-05-21 |
 | class | fighter | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/CON saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
-| class | fighter | Feature: fighting-style-fighter (L1) | ⚠️ Partial | Choice slot present; individual styles implemented — some use unsupported targets (GWF: damage.reroll-1s-and-2s, TWF: off-hand split, Protection/Interception: trigger DSL) | 2026-05-21 |
+| class | fighter | Feature: fighting-style-fighter (L1) | ⚠️ Partial | Added blind-fighting (blindsight 10), dueling (+2 dmg), thrown-weapon (+2 dmg); interception/protection are encounter-layer triggers (trait flags); GWF reroll target unsupported | 2026-05-22 |
 | class | fighter | Feature: second-wind (L2) | ✅ Full | Heal activity with per-level uses table and 1d10+fighterLevel damage part | 2026-05-21 |
 | class | fighter | Feature: weapon-mastery-fighter (L1) | ⚠️ Partial | Pick-3 choice flag; per-level scaling and mastery property effects unsupported | 2026-05-21 |
 | class | fighter | Feature: action-surge (L2) | ✅ Full | Utility activity with per-level uses table (1/short-rest, 2 at L17) | 2026-05-21 |
@@ -90,7 +90,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | paladin | Feature: spellcasting-paladin (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | paladin | Feature: lay-on-hands (L1) | ✅ Full | Bonus-action heal activity with 5×paladinLevel pool per-level table | 2026-05-21 |
 | class | paladin | Feature: weapon-mastery-paladin (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
-| class | paladin | Feature: fighting-style-paladin (L2) | ⚠️ Partial | Choice slot; Blessed Warrior cantrip grant deferred; other styles share fighter implementations with same limitations | 2026-05-21 |
+| class | paladin | Feature: fighting-style-paladin (L2) | ⚠️ Partial | Blessed Warrior feat added: choices.spell {pick:2, cleric cantrips}; interception/protection remain encounter-layer trait flags; GWF reroll unsupported | 2026-05-22 |
 | class | paladin | Feature: divine-smite (L2) | ⚠️ Partial | Action-modifier toggle; slot consumption not auto-deducted; divineSmiteSlotDice magic identifier not yet resolved by evaluator; Undead/Fiend bonus not auto-applied | 2026-05-21 |
 | class | paladin | Feature: channel-oath (L2) | ✅ Full | Utility activity with per-level uses table (2 at L2, 3 at L9) / short-rest | 2026-05-21 |
 | class | paladin | Feature: paladin-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -102,7 +102,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | ranger | Feature: favored-enemy (L1) | ⚠️ Partial | Resource pool for slotless Hunter's Mark casts surfaced; auto-prepared spell and slotless-cast plumbing not wired | 2026-05-21 |
 | class | ranger | Feature: weapon-mastery-ranger (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
 | class | ranger | Feature: deft-explorer (L2) | ✅ Full | choices.expertise (proficient) emits expertise modifier; choices.language emits language proficiency; terrain-bypass trait tag (spatial — 🚫 out of scope) | 2026-05-21 |
-| class | ranger | Feature: fighting-style-ranger (L2) | ⚠️ Partial | Choice slot; Druidic Warrior cantrip grant deferred; other styles share fighter implementations | 2026-05-21 |
+| class | ranger | Feature: fighting-style-ranger (L2) | ⚠️ Partial | Druidic Warrior feat added: choices.spell {pick:2, druid cantrips (guidance/shillelagh)}; thrown-weapon +2 damage added; blind-fighting blindsight added | 2026-05-22 |
 | class | ranger | Feature: ranger-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | ranger | Feature: roving (L3) | ✅ Full | walk+10 ADD; climb/swim UPGRADE walkSpeed (engine now discovers new speed keys + computes walk first so ctx.walkSpeed is correct) | 2026-05-21 |
 | class | ranger | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
