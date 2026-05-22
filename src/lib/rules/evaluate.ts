@@ -60,9 +60,18 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
     return value;
   }
   if (value && typeof value === 'object' && 'perClass' in value && 'table' in value) {
-    const o = value as { perClass: string; table: number[] };
+    const o = value as { perClass: string; table: Array<number | string> };
     const lvl = ctx.classLevels[o.perClass] ?? 0;
     if (lvl < 1) return 0;
+    return o.table[Math.min(lvl, o.table.length) - 1] ?? 0;
+  }
+  // perTotalLevel: { perTotalLevel: true, table: [...] } — indexes by total
+  // character level (not a single class level). Same semantics as perClass
+  // but uses ctx.totalLevel. Values can be numbers or dice strings.
+  if (value && typeof value === 'object' && 'perTotalLevel' in value && 'table' in value) {
+    const o = value as { perTotalLevel: unknown; table: Array<number | string> };
+    const lvl = ctx.totalLevel;
+    if (lvl < 1) return o.table[0] ?? 0;
     return o.table[Math.min(lvl, o.table.length) - 1] ?? 0;
   }
   // perConditionStack: { perConditionStack: "exhaustion", perLevel: -2 }

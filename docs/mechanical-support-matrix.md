@@ -6,8 +6,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 160 |
-| ⚠️ Partial | 79 |
+| ✅ Full | 166 |
+| ⚠️ Partial | 74 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -167,7 +167,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | life-domain | Feature: blessed-healer (L6) | 🚫 Out of Scope | self.heal-on-heal-other is not a supported evaluator target — tagged action-modifier only | 2026-05-21 |
 | subclass | circle-of-the-land | Parent Class (druid) / Feature List | ✅ Full | parentClass=druid, features=[circle-of-the-land-spells, lands-aid, natural-recovery, natures-ward, natures-sanctuary] | 2026-05-21 |
 | subclass | circle-of-the-land | Feature: circle-of-the-land-spells (L3) | ⚠️ Partial | Land-choice slot + trait flag; auto-prep injection not wired | 2026-05-21 |
-| subclass | circle-of-the-land | Feature: lands-aid (L3) | ⚠️ Partial | Save activity with 2d6 necrotic + 2d6 healing at base; damage/heal scaling (L10/L14/L17) not modelled | 2026-05-21 |
+| subclass | circle-of-the-land | Feature: lands-aid (L3) | ✅ Full | Save activity; damage+healing use perClass druid table (2d6→3d6→4d6→5d6 at L3/L10/L14/L17) | 2026-05-21 |
 | subclass | circle-of-the-land | Feature: natural-recovery (L6) | ⚠️ Partial | 1/long-rest utility on short-rest trigger; slot-recovery accounting left to player | 2026-05-21 |
 | subclass | champion | Parent Class (fighter) / Feature List | ✅ Full | parentClass=fighter, features=[improved-critical, remarkable-athlete, additional-fighting-style, superior-critical] | 2026-05-21 |
 | subclass | champion | Feature: improved-critical (L3) | ✅ Full | attack.crit-threshold DOWNGRADE 19 | 2026-05-21 |
@@ -182,7 +182,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | oath-of-devotion | Feature: aura-of-devotion (L6) | ⚠️ Partial | immunity.charmed OVERRIDE true for self; aura.charmed-immunity.radius=10 tagged; ally proximity logic not in engine | 2026-05-21 |
 | subclass | hunter | Parent Class (ranger) / Feature List | ✅ Full | parentClass=ranger, features=[hunters-lore, hunters-prey, defensive-tactics, hunter-multiattack, superior-hunters-defense] | 2026-05-21 |
 | subclass | hunter | Feature: hunters-lore (L3) | ✅ Full | Bonus-action utility at 120 ft; DM reveals immunity/resistance/vulnerability | 2026-05-21 |
-| subclass | hunter | Feature: hunters-prey (L3) | ⚠️ Partial | Pick-1 choice; Colossus Slayer action-modifier + Horde Breaker/Giant Killer triggers implemented; only chosen option should be active (not engine-enforced) | 2026-05-21 |
+| subclass | hunter | Feature: hunters-prey (L3) | ✅ Full | Split into parent (choices.feature) + 3 sub-features: colossus-slayer (action-modifier 1d8), horde-breaker (trigger free attack), giant-killer (trigger reaction attack); only chosen sub-feature loads | 2026-05-21 |
 | subclass | thief | Parent Class (rogue) / Feature List | ✅ Full | parentClass=rogue, features=[fast-hands, second-story-work, supreme-sneak, use-magic-device, thiefs-reflexes] | 2026-05-21 |
 | subclass | thief | Feature: fast-hands (L3) | ✅ Full | trait.fast-hands flag extending Cunning Action bonus action to Utilize/Sleight-of-Hand/Thieves' Tools | 2026-05-21 |
 | subclass | thief | Feature: second-story-work (L3) | ✅ Full | speed.climb UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue; jump-distance DEX bonus is out of scope | 2026-05-21 |
@@ -246,12 +246,12 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | species | dwarf | Feature: stonecunning | ✅ Full | Bonus-action Tremorsense 60 ft (10 min, PB/long-rest); trait flag | 2026-05-21 |
 | species | dragonborn | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, Common+Draconic, no darkvision; features=[draconic-ancestry, breath-weapon, damage-resistance-draconic, draconic-flight] | 2026-05-21 |
 | species | dragonborn | Feature: draconic-ancestry | ✅ Full | Pick-1 dragon-type choice; trait.draconic-ancestry-chosen flag | 2026-05-21 |
-| species | dragonborn | Feature: breath-weapon | ⚠️ Partial | DC now calc:custom base=8 bonus=[conMod,proficiencyBonus] (engine updated to support this); damage still hardcoded 1d10 — level-scaling (1d10→2d10→3d10→4d10) requires evaluated dice strings in save activities (Group B) | 2026-05-21 |
+| species | dragonborn | Feature: breath-weapon | ✅ Full | DC calc:custom (8+conMod+PB); damage uses perTotalLevel table (1d10 L1-4, 2d10 L5-10, 3d10 L11-16, 4d10 L17-20); uses=proficiencyBonus/LR | 2026-05-21 |
 | species | dragonborn | Feature: damage-resistance-draconic | ⚠️ Partial | trait.draconic-damage-resistance flag; dynamic resistance type (from ancestry choice) not applied — engine limitation | 2026-05-21 |
 | species | dragonborn | Feature: draconic-flight (L5) | ⚠️ Partial | 1/long-rest bonus-action utility activity granting fly at walk speed; walkSpeed identifier not supported — fly value is "walk" (symbolic, engine must resolve) | 2026-05-21 |
 | species | elf | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, darkvision 60, Common+Elvish; fey-ancestry + trance modifiers on species row; features=[fey-ancestry, keen-senses, trance, elven-lineage] | 2026-05-21 |
 | species | elf | Feature: fey-ancestry | ✅ Full | save.advantage.charmed OVERRIDE true | 2026-05-21 |
-| species | elf | Feature: keen-senses | ⚠️ Partial | trait.keen-senses-skill-choice flag; chosen proficiency applied from character document; proficiency.skill not auto-wired | 2026-05-21 |
+| species | elf | Feature: keen-senses | ✅ Full | choices.skillProficiency {allowedSkills:[insight,perception,survival]} emits proficiency.skill.<slug> from species.choices | 2026-05-21 |
 | species | elf | Feature: trance | ⚠️ Partial | trait.trance flag; rest-time halving and bonus proficiency on trance require engine support | 2026-05-21 |
 | species | elf | Feature: elven-lineage | ⚠️ Partial | trait.elven-lineage-chosen flag; lineage-specific speed/spells/cantrips deferred until choice system lands | 2026-05-21 |
 | species | gnome | Size / Speed / Feature List | ✅ Full | Small, 30 ft walk, darkvision 60, Common+Gnomish; INT/WIS/CHA save advantage vs magic on species row; features=[gnomish-cunning, gnomish-lineage] | 2026-05-21 |

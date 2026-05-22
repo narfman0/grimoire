@@ -350,7 +350,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "circle-of-the-land",
       "minLevel": 3,
-      "note": "As a Magic action, expend a use of Wild Shape to target a point within 60 ft. Each creature you choose in a 10-ft radius sphere centered on that point must make a Constitution save (Spell DC) — taking 2d6 necrotic damage on a failure or half on a success. Each creature of your choice in that area also regains 2d6 HP. Damage and healing scale at L10 (3d6), L14 (4d6), and L17 (5d6). v0 models the base L3 version as a save activity; damage/heal selection and scaling are left to the engine.",
+      "note": "Magic action, expend Wild Shape use. CON save (Spell DC). Failure: 2d6 necrotic (half on success). Also heal selected creatures 2d6. Scales by druid level: L10→3d6, L14→4d6, L17→5d6. Dice expressed via perClass druid table.",
       "activities": [
         {
           "id": "lands-aid",
@@ -361,8 +361,8 @@
           "save": { "ability": "con", "dc": { "calc": "spell" } },
           "damage": {
             "parts": [
-              { "dice": "2d6", "type": "necrotic" },
-              { "dice": "2d6", "type": "healing" }
+              { "dice": { "perClass": "druid", "table": ["2d6","2d6","2d6","2d6","2d6","2d6","2d6","2d6","2d6","3d6","3d6","3d6","3d6","4d6","4d6","4d6","5d6","5d6","5d6","5d6"] }, "type": "necrotic" },
+              { "dice": { "perClass": "druid", "table": ["2d6","2d6","2d6","2d6","2d6","2d6","2d6","2d6","2d6","3d6","3d6","3d6","3d6","4d6","4d6","4d6","5d6","5d6","5d6","5d6"] }, "type": "healing" }
             ]
           }
         }
@@ -722,12 +722,24 @@
       "ownerKind": "subclass",
       "ownerSlug": "hunter",
       "minLevel": 3,
-      "note": "Choose one of the following at L3 (pick lives on character.classes[].choices.huntersPrey):\n• Colossus Slayer: Once per turn when you hit a creature with a weapon and the target is below its HP maximum, deal an extra 1d8 damage of the weapon's type.\n• Horde Breaker: Once per turn when you make a weapon attack, you can make another weapon attack against a different creature within 5 ft of the original target and within your weapon's range.\n• Giant Killer: When a Large or larger creature within 5 ft of you hits or misses you with an attack, you can use your reaction to make one melee weapon attack against that creature.\nv0 implements all three; Colossus Slayer auto-applies via modifier, Horde Breaker and Giant Killer surface as triggers. Only the chosen option should be active on a character.",
-      "choice": {
-        "kind": "hunters-prey",
-        "pick": 1,
-        "from": ["colossus-slayer", "horde-breaker", "giant-killer"]
-      },
+      "note": "Choose one option (Colossus Slayer, Horde Breaker, or Giant Killer). Engine loads the chosen sub-feature via choices.feature; player stores pick in featureChoices[hunters-prey].",
+      "choices": {
+        "feature": {
+          "allowedFeatures": ["hunters-prey-colossus-slayer", "hunters-prey-horde-breaker", "hunters-prey-giant-killer"]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "hunters-prey-colossus-slayer",
+    "version": 1,
+    "name": "Hunter's Prey: Colossus Slayer",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "hunters-prey",
+      "minLevel": 3,
+      "note": "Once per turn when you hit a creature with a weapon and the target is below its HP maximum, deal an extra 1d8 damage of the weapon's type.",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -746,18 +758,26 @@
           ],
           "limit": { "per": "turn", "uses": 1 }
         }
-      ],
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "hunters-prey-horde-breaker",
+    "version": 1,
+    "name": "Hunter's Prey: Horde Breaker",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "hunters-prey",
+      "minLevel": 3,
+      "note": "Once per turn when you make a weapon attack, make another weapon attack against a different creature within 5 ft of the original target and within your weapon's range.",
       "triggers": [
         {
           "kind": "trigger",
           "id": "horde-breaker",
           "name": "Horde Breaker",
-          "on": ["self.attack.hit"],
-          "scope": {
-            "predicates": [
-              { "weapon.classification": "weapon" }
-            ]
-          },
+          "on": ["attack.hit"],
+          "scope": { "predicates": [{ "weapon.classification": "weapon" }] },
           "grants": {
             "activityType": "attack",
             "cost": "free",
@@ -765,23 +785,36 @@
             "targetConstraint": "different-creature-within-5ft-of-original-target-and-within-weapon-range"
           },
           "limit": { "per": "turn", "uses": 1 }
-        },
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "hunters-prey-giant-killer",
+    "version": 1,
+    "name": "Hunter's Prey: Giant Killer",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "hunters-prey",
+      "minLevel": 3,
+      "note": "When a Large or larger creature within 5 ft hits or misses you with an attack, use your reaction to make one melee weapon attack against that creature.",
+      "triggers": [
         {
           "kind": "trigger",
           "id": "giant-killer",
           "name": "Giant Killer",
-          "on": ["enemy.attack.declare"],
+          "on": ["attack.targets-self.declare"],
           "scope": {
             "predicates": [
-              { "target.size": ["large", "huge", "gargantuan"] },
-              { "distance.from-self.ft": { "lte": 5 } }
+              { "attacker.size": ["large", "huge", "gargantuan"] },
+              { "attacker.distance.from-self.ft": { "lte": 5 } }
             ]
           },
           "grants": {
             "activityType": "attack",
             "cost": "reaction",
-            "usingWeapon": "any-melee",
-            "limit": { "per": "turn", "uses": 1 }
+            "usingWeapon": "any-melee"
           }
         }
       ]

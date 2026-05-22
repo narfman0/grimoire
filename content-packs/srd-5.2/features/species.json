@@ -170,10 +170,12 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dwarf",
-      "note": "SRD 5.2: You gain proficiency with one of the following tools of your choice: Jeweler's Tools, Mason's Tools, Smith's Tools, or Tinker's Tools. The choice is made at character creation.",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "tag.dwarven-tool-choice", "mode": "OVERRIDE", "value": true }
-      ]
+      "note": "Gain proficiency with Jeweler's Tools, Mason's Tools, Smith's Tools, or Tinker's Tools (choice at creation). Engine emits proficiency.tool.<slug> from choices.toolProficiency pick.",
+      "choices": {
+        "toolProficiency": {
+          "allowedTools": ["jewelers-tools", "masons-tools", "smiths-tools", "tinkers-tools"]
+        }
+      }
     }
   },
   {
@@ -198,7 +200,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dragonborn",
-      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + proficiency bonus. Damage 1d10 at L1, 2d10 L5, 3d10 L11, 4d10 L17 (dice field is a flat string; level-scaling requires engine support for evaluated dice expressions — tracked as Group B engine work). Damage type follows trait.draconic-ancestry. Usable PB times per long rest.",
+      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + PB. Damage scales by total level: 1d10 (L1-4), 2d10 (L5-10), 3d10 (L11-16), 4d10 (L17-20) via perTotalLevel table. Damage type follows trait.draconic-ancestry. Usable PB times per long rest.",
       "activities": [
         {
           "id": "breath-weapon",
@@ -207,7 +209,12 @@
           "cost": "action",
           "range": { "value": 15, "units": "ft" },
           "save": { "ability": "dex", "dc": { "calc": "custom", "base": 8, "bonus": ["conMod", "proficiencyBonus"] } },
-          "damage": { "parts": [{ "dice": "1d10", "type": "varies" }] },
+          "damage": {
+            "parts": [{
+              "dice": { "perTotalLevel": true, "table": ["1d10","1d10","1d10","1d10","2d10","2d10","2d10","2d10","2d10","2d10","3d10","3d10","3d10","3d10","3d10","3d10","4d10","4d10","4d10","4d10"] },
+              "type": "varies"
+            }]
+          },
           "uses": { "max": "proficiencyBonus", "per": "long-rest" }
         }
       ]
@@ -272,10 +279,12 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "elf",
-      "note": "SRD 5.2: You gain proficiency in the Insight, Perception, or Survival skill (player's choice at character creation). Modeled as a choice slot; the chosen proficiency is applied at character creation.",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "tag.keen-senses-skill-choice", "mode": "OVERRIDE", "value": true }
-      ]
+      "note": "Gain proficiency in Insight, Perception, or Survival. Engine emits proficiency.skill.<slug> from choices.skillProficiency pick stored in species.choices.",
+      "choices": {
+        "skillProficiency": {
+          "allowedSkills": ["insight", "perception", "survival"]
+        }
+      }
     }
   },
   {
