@@ -437,4 +437,27 @@ export interface Derived {
    *  creatures. Consumed by the encounter layer to derive ally-side
    *  modifiers. */
   outboundEffects: OutboundEffect[];
+  /** Overlay HP pools — independent HP buckets that absorb damage before
+   *  the character's main HP and that can persist across encounters.
+   *  Emitted from `overlay-hp-pool` modifier rows on features like
+   *  Arcane Ward. Pool current values are tracked by the encounter
+   *  runtime; derive() only declares the pool's existence, max, and
+   *  refresh policy. */
+  overlayHpPools: OverlayHpPool[];
+}
+
+export interface OverlayHpPool {
+  /** Stable id derived from the source row + modifier index. */
+  id: string;
+  /** Content row that declared the pool. */
+  sourceContent: { kind: string; slug: string };
+  /** Display name. */
+  name: string;
+  /** Maximum HP of this pool, evaluated against character context at
+   *  derive() time. */
+  max: number;
+  /** When the pool refreshes to max. `'manual'` means it never auto-
+   *  refreshes — the consumer (typically the feature itself) controls
+   *  restoration (Arcane Ward refreshes on cast, not on rest). */
+  refreshOn: 'short-rest' | 'long-rest' | 'manual';
 }

@@ -53,6 +53,39 @@ describe('applyDamageDelta', () => {
       tempHp: 0
     });
   });
+
+  // Locks Phase 2a: overlay HP pools (Arcane Ward / Bladesong THP shape)
+  // absorb after tempHp but before currentHp. Aggregate per-pool tracking
+  // is the runtime's concern; this layer only reads/writes the sum.
+  it('absorbs into overlayHp after tempHp, before currentHp', () => {
+    expect(applyDamageDelta({ currentHp: 20, tempHp: 0, overlayHp: 6 }, 4)).toEqual({
+      currentHp: 20,
+      tempHp: 0,
+      overlayHp: 2
+    });
+  });
+
+  it('overlay absorbs partial, remainder hits current', () => {
+    expect(applyDamageDelta({ currentHp: 20, tempHp: 0, overlayHp: 3 }, 7)).toEqual({
+      currentHp: 16,
+      tempHp: 0,
+      overlayHp: 0
+    });
+  });
+
+  it('temp absorbs before overlay (full damage stack: temp → overlay → current)', () => {
+    expect(applyDamageDelta({ currentHp: 20, tempHp: 2, overlayHp: 3 }, 8)).toEqual({
+      currentHp: 17,
+      tempHp: 0,
+      overlayHp: 0
+    });
+  });
+
+  it('omits overlayHp from result when not set on input (backwards compat)', () => {
+    const next = applyDamageDelta({ currentHp: 10, tempHp: 0 }, 4);
+    expect(next).toEqual({ currentHp: 6, tempHp: 0 });
+    expect('overlayHp' in next).toBe(false);
+  });
 });
 
 describe('applyHealDelta', () => {

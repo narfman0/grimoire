@@ -24,6 +24,7 @@ import type {
   ContentRow,
   Derived,
   OutboundEffect,
+  OverlayHpPool,
   Resource,
   SaveCell,
   SkillCell,
@@ -41,7 +42,7 @@ interface ActiveContent {
 
 interface ActiveModifier {
   id: string; // for action modifiers; auto-generated for stat modifiers
-  kind: 'stat-modifier' | 'action-modifier' | 'trigger';
+  kind: 'stat-modifier' | 'action-modifier' | 'trigger' | 'overlay-hp-pool';
   source: ActiveContent;
   raw: Record<string, unknown>;
 }
@@ -385,6 +386,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           source: a,
           raw: m
         });
+      } else if (kind === 'overlay-hp-pool') {
+        allMods.push({
+          id: (m.id as string) ?? `${a.row.kind}/${a.row.slug}/overlay/${i}`,
+          kind: 'overlay-hp-pool',
+          source: a,
+          raw: m
+        });
       }
     }
     const triggers = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
@@ -584,6 +592,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         allMods.push({
           id: (m.id as string) ?? `${row.kind}/${row.slug}/amod/${i}`,
           kind: 'action-modifier',
+          source: entry,
+          raw: m
+        });
+      } else if (kind === 'overlay-hp-pool') {
+        allMods.push({
+          id: (m.id as string) ?? `${row.kind}/${row.slug}/overlay/${i}`,
+          kind: 'overlay-hp-pool',
           source: entry,
           raw: m
         });
@@ -1310,6 +1325,42 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Overlay HP pools — independent HP buckets that absorb damage before
+  // the character's main HP. Emitted from `overlay-hp-pool` modifier rows
+  // on features like Arcane Ward. derive() declares the pool's existence,
+  // max, and refresh policy; the encounter runtime tracks per-pool current
+  // values and threads the aggregate into hp.applyDamageDelta.
+  const overlayHpPools: OverlayHpPool[] = [];
+  const seenPoolIds = new Set<string>();
+  for (const m of allMods) {
+    const kind = (m.raw.kind as string | undefined) ?? '';
+    if (kind !== 'overlay-hp-pool') continue;
+    const maxValue = evaluateValue(m.raw.max, ctx);
+    if (typeof maxValue !== 'number') {
+      validations.push({
+        severity: 'warning',
+        code: 'overlay-hp-pool-non-numeric-max',
+        message: `Overlay HP pool '${m.id}' max did not evaluate to a number.`
+      });
+      continue;
+    }
+    const refresh = m.raw.refreshOn as OverlayHpPool['refreshOn'] | undefined;
+    const refreshOn: OverlayHpPool['refreshOn'] =
+      refresh === 'short-rest' || refresh === 'long-rest' || refresh === 'manual'
+        ? refresh
+        : 'long-rest';
+    const id = (m.raw.id as string | undefined) ?? m.id;
+    if (seenPoolIds.has(id)) continue;
+    seenPoolIds.add(id);
+    overlayHpPools.push({
+      id,
+      sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
+      name: (m.raw.name as string | undefined) ?? m.source.row.name,
+      max: Math.max(0, Math.floor(maxValue)),
+      refreshOn
+    });
+  }
+
   return {
     stats,
     actions,
@@ -1318,7 +1369,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     validations,
     toggles,
     alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort(),
-    outboundEffects
+    outboundEffects,
+    overlayHpPools
   };
 }
 
