@@ -309,9 +309,56 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "elf",
-      "note": "Choice of Drow / High Elf / Wood Elf folded into trait.elven-lineage flag for v0. Drow grants superior darkvision (120 ft), Dancing Lights cantrip, and Faerie Fire/Darkness at L3/L5. High Elf grants Prestidigitation and a 1st-level wizard spell at L1, plus Detect Magic/Misty Step. Wood Elf grants +5 walking speed, Druidcraft, and Longstrider/Pass Without Trace. Lineage-specific spell lists/speed deferred until the choice system lands.",
+      "note": "SRD 5.2: Choose Drow, High Elf, or Wood Elf lineage. Player pick stored in character.featureChoices.elven-lineage.feature.feature; the chosen sub-feature row is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "elven-lineage-drow",
+            "elven-lineage-high-elf",
+            "elven-lineage-wood-elf"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "elven-lineage-drow",
+    "version": 1,
+    "name": "Elven Lineage: Drow",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "elven-lineage",
+      "note": "SRD 5.2 Drow lineage: Superior Darkvision (120 ft), Dancing Lights cantrip (not in SRD pack), Faerie Fire at L3 (1/long-rest), Darkness at L5 (1/long-rest, not in SRD pack). Provides 120-ft darkvision override and Faerie Fire via spellListAdditions.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.elven-lineage-chosen", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "OVERRIDE", "value": 120 }
+      ],
+      "spellListAdditions": ["faerie-fire"]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "elven-lineage-high-elf",
+    "version": 1,
+    "name": "Elven Lineage: High Elf",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "elven-lineage",
+      "note": "SRD 5.2 High Elf lineage: Prestidigitation cantrip, Detect Magic at L3 (1/long-rest), Misty Step at L5 (1/long-rest). All three spells are in the SRD pack.",
+      "spellListAdditions": ["prestidigitation", "detect-magic", "misty-step"]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "elven-lineage-wood-elf",
+    "version": 1,
+    "name": "Elven Lineage: Wood Elf",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "elven-lineage",
+      "note": "SRD 5.2 Wood Elf lineage: Walking speed +5 ft, Druidcraft cantrip (not in SRD pack), Longstrider at L3 and Pass Without Trace at L5 (neither in SRD pack). Only the speed bonus is applied.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 5 }
       ]
     }
   },
@@ -339,9 +386,43 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "gnome",
-      "note": "Choice of Forest Gnome (Minor Illusion cantrip, Speak with Small Beasts) or Rock Gnome (Mending + Prestidigitation, Tinker — craft Tiny Clockwork Devices). Folded into trait.gnomish-lineage flag for v0.",
+      "note": "SRD 5.2: Choose Forest Gnome or Rock Gnome lineage. Player pick stored in character.featureChoices.gnomish-lineage.feature.feature; the chosen sub-feature row is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "gnomish-lineage-forest",
+            "gnomish-lineage-rock"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "gnomish-lineage-forest",
+    "version": 1,
+    "name": "Gnomish Lineage: Forest Gnome",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "gnomish-lineage",
+      "note": "SRD 5.2 Forest Gnome: Minor Illusion cantrip (not in SRD pack) and Speak with Small Beasts (not evaluatable). Surfaced as a trait flag.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.gnomish-lineage-chosen", "mode": "OVERRIDE", "value": true }
+        { "kind": "stat-modifier", "target": "trait.gnomish-lineage-forest", "mode": "OVERRIDE", "value": true }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "gnomish-lineage-rock",
+    "version": 1,
+    "name": "Gnomish Lineage: Rock Gnome",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "gnomish-lineage",
+      "note": "SRD 5.2 Rock Gnome: Mending cantrip (not in SRD pack), Prestidigitation cantrip, and Tinker ability (craft Tiny Clockwork Devices — not evaluatable). Prestidigitation added to spell list.",
+      "spellListAdditions": ["prestidigitation"],
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "trait.gnomish-lineage-rock-tinker", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
@@ -593,28 +674,60 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "tiefling",
-      "note": "Choice of Abyssal (poison resistance + Poison Spray / Ray of Sickness / Hold Person), Chthonic (necrotic resistance + Chill Touch / False Life / Ray of Enfeeblement), or Infernal (fire resistance + Fire Bolt / Hellish Rebuke / Darkness) folded into trait.fiendish-legacy flag for v0. Resistance and spell lists are per-choice; specific resistance/spells deferred until choice system lands.",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.fiendish-legacy-chosen", "mode": "OVERRIDE", "value": true }
-      ],
-      "activities": [
-        {
-          "id": "fiendish-legacy-spell-l3",
-          "type": "cast",
-          "name": "Fiendish Legacy (Level 1 Spell)",
-          "cost": "action",
-          "minLevel": 3,
-          "uses": { "max": 1, "per": "long-rest" }
-        },
-        {
-          "id": "fiendish-legacy-spell-l5",
-          "type": "cast",
-          "name": "Fiendish Legacy (Level 2 Spell)",
-          "cost": "action",
-          "minLevel": 5,
-          "uses": { "max": 1, "per": "long-rest" }
+      "note": "SRD 5.2: Choose Abyssal, Chthonic, or Infernal legacy. Player pick stored in character.featureChoices.fiendish-legacy.feature.feature; the chosen sub-feature row is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "fiendish-legacy-abyssal",
+            "fiendish-legacy-chthonic",
+            "fiendish-legacy-infernal"
+          ]
         }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fiendish-legacy-abyssal",
+    "version": 1,
+    "name": "Fiendish Legacy: Abyssal",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fiendish-legacy",
+      "note": "SRD 5.2 Abyssal legacy: Poison resistance; Poison Spray cantrip (not in SRD pack); Ray of Sickness at L3 (not in SRD pack); Hold Person at L5 (1/long-rest). Hold Person added via spellListAdditions.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true }
+      ],
+      "spellListAdditions": ["hold-person"]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fiendish-legacy-chthonic",
+    "version": 1,
+    "name": "Fiendish Legacy: Chthonic",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fiendish-legacy",
+      "note": "SRD 5.2 Chthonic legacy: Necrotic resistance; Chill Touch cantrip (not in SRD pack); False Life at L3 (not in SRD pack); Ray of Enfeeblement at L5 (not in SRD pack). Only resistance is applied.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "resistance.necrotic", "mode": "OVERRIDE", "value": true }
       ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "fiendish-legacy-infernal",
+    "version": 1,
+    "name": "Fiendish Legacy: Infernal",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "fiendish-legacy",
+      "note": "SRD 5.2 Infernal legacy: Fire resistance; Fire Bolt cantrip; Hellish Rebuke at L3 (not in SRD pack); Darkness at L5 (not in SRD pack). Fire Bolt added via spellListAdditions.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+      ],
+      "spellListAdditions": ["fire-bolt"]
     }
   },
   {
@@ -625,7 +738,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "tiefling",
-      "note": "SRD 5.2: You know the Thaumaturgy cantrip. When you cast it with this trait, the spellcasting ability is determined by your Fiendish Legacy choice (Abyssal: Wis; Chthonic: Int; Infernal: Cha). Cantrip-granting deferred until spell system lands.",
+      "note": "SRD 5.2: You know the Thaumaturgy cantrip (not in SRD pack). Spellcasting ability is determined by Fiendish Legacy choice (Abyssal: Wis; Chthonic: Int; Infernal: Cha). Surfaced as a trait flag; Thaumaturgy not available in SRD pack.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.otherworldly-presence", "mode": "OVERRIDE", "value": true }
       ]

@@ -6,8 +6,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 166 |
-| ⚠️ Partial | 74 |
+| ✅ Full | 168 |
+| ⚠️ Partial | 72 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -47,8 +47,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | bard | Feature: font-of-inspiration (L5) | ⚠️ Partial | Activity surfaced as short-rest resource; UI should hide L1 long-rest version when L5 is active (not auto-wired) | 2026-05-21 |
 | class | cleric | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, WIS/CHA saves, light/medium armor + shield, simple weapons, pick 2 from list | 2026-05-21 |
 | class | cleric | Feature: spellcasting-cleric (L1) | ✅ Full | spellcasting.ability OVERRIDE wis | 2026-05-21 |
-| class | cleric | Feature: divine-order (L1) | ⚠️ Partial | Choice slot present; Warden armor/weapon proficiency modifiers wired; Magician cantrip + skill bonus deferred (trait flag) | 2026-05-21 |
-| class | cleric | Feature: channel-divinity (L2) | ⚠️ Partial | Activity surfaced with static max=2; scaling (2→3→4) not auto-computed by engine | 2026-05-21 |
+| class | cleric | Feature: divine-order (L1) | ⚠️ Partial | Sub-feature split: Protector grants heavy armor + martial weapons ✅; Thaumaturge grants cantrip pick + skill proficiency choice ✅; WisMod bonus to chosen skill cannot be gated on pick — engine limitation | 2026-05-22 |
+| class | cleric | Feature: channel-divinity (L2) | ✅ Full | Uses scale via perClass cleric table: 2 at L1-5, 3 at L6-17, 4 at L18-20 | 2026-05-22 |
 | class | cleric | Feature: turn-undead (L2) | ✅ Full | Save activity (WIS vs spell DC) at 30 ft | 2026-05-21 |
 | class | cleric | Feature: cleric-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | cleric | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
@@ -56,7 +56,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | druid | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, INT/WIS saves, light armor + shield, simple weapons, herbalism kit, pick 2 from list; metal-armor restriction correctly removed per 2024 | 2026-05-21 |
 | class | druid | Feature: druidic (L1) | ✅ Full | proficiency.language.druidic OVERRIDE true | 2026-05-21 |
 | class | druid | Feature: spellcasting-druid (L1) | ✅ Full | spellcasting.ability OVERRIDE wis | 2026-05-21 |
-| class | druid | Feature: primal-order (L1) | ⚠️ Partial | Warden armor/weapon proficiency modifiers gated on choice; Magician cantrip + WIS-mod-to-skills deferred (trait tag) | 2026-05-21 |
+| class | druid | Feature: primal-order (L1) | ✅ Full | Sub-feature split: Warden grants medium armor + martial weapons; Magician grants druid cantrip pick (guidance/shillelagh) + WisMod ADD to skill.arcana and skill.nature | 2026-05-22 |
 | class | druid | Feature: wild-companion (L2) | ⚠️ Partial | Resource + utility activity; Find Familiar summoning effect not simulated | 2026-05-21 |
 | class | druid | Feature: wild-shape (L2) | 🚫 Out of Scope | Full statblock replacement out of scope for v0; resource + utility activity only | 2026-05-21 |
 | class | druid | Feature: druid-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -253,10 +253,10 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | species | elf | Feature: fey-ancestry | ✅ Full | save.advantage.charmed OVERRIDE true | 2026-05-21 |
 | species | elf | Feature: keen-senses | ✅ Full | choices.skillProficiency {allowedSkills:[insight,perception,survival]} emits proficiency.skill.<slug> from species.choices | 2026-05-21 |
 | species | elf | Feature: trance | ⚠️ Partial | trait.trance flag; rest-time halving and bonus proficiency on trance require engine support | 2026-05-21 |
-| species | elf | Feature: elven-lineage | ⚠️ Partial | trait.elven-lineage-chosen flag; lineage-specific speed/spells/cantrips deferred until choice system lands | 2026-05-21 |
+| species | elf | Feature: elven-lineage | ⚠️ Partial | Sub-feature split: Drow gets darkvision-120 + faerie-fire; High Elf gets prestidigitation+detect-magic+misty-step (all ✅); Wood Elf gets +5 speed; dancing-lights/darkness/druidcraft/longstrider/pass-without-trace not in SRD pack | 2026-05-22 |
 | species | gnome | Size / Speed / Feature List | ✅ Full | Small, 30 ft walk, darkvision 60, Common+Gnomish; INT/WIS/CHA save advantage vs magic on species row; features=[gnomish-cunning, gnomish-lineage] | 2026-05-21 |
 | species | gnome | Feature: gnomish-cunning | ✅ Full | save.advantage.int/wis/cha OVERRIDE "magic" (vs spells and magical effects) | 2026-05-21 |
-| species | gnome | Feature: gnomish-lineage | ⚠️ Partial | trait.gnomish-lineage-chosen flag; Forest/Rock lineage cantrips and tool proficiencies deferred | 2026-05-21 |
+| species | gnome | Feature: gnomish-lineage | ⚠️ Partial | Sub-feature split: Forest=trait flag (minor-illusion not in SRD pack, speak-with-beasts not evaluatable); Rock=prestidigitation via spellListAdditions + tinker trait flag | 2026-05-22 |
 | species | goliath | Size / Speed / Feature List | ✅ Full | Medium, 35 ft walk, Common+Giant, powerful-build + large-form traits on species row; features=[giant-ancestry, large-form, powerful-build-goliath] | 2026-05-21 |
 | species | goliath | Feature: giant-ancestry | ✅ Full | Feature-pick choice (choices.feature); 6 sub-features authored: Cloud (30ft teleport utility), Fire (1d10 fire damage activity), Frost (damage.reduce trigger 1d12+strMod), Hill (knock-prone trigger, descriptive), Stone (damage.reduce trigger 1d12+conMod), Storm (push trigger, descriptive). Trigger uses scales with PB via evaluateValue. Hill/Storm forced-save mechanics marked Out of Scope. | 2026-05-21 |
 | species | goliath | Feature: large-form (L5) | ✅ Full | 1/long-rest bonus-action activity; grants STR-check advantage + walk+10; duration 10 min | 2026-05-21 |
@@ -267,8 +267,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | species | halfling | Feature: luck | ✅ Full | Trigger on d20.roll-natural-one: reroll and must use new roll; unlimited uses | 2026-05-21 |
 | species | halfling | Feature: naturally-stealthy | ✅ Full | Correctly absent — this was a 2014 feature removed in SRD 5.2; halfling features[] does not include this slug | 2026-05-21 |
 | species | tiefling | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, darkvision 60, Common+Infernal; fiendish-legacy trait on species row; features=[fiendish-legacy, otherworldly-presence] | 2026-05-21 |
-| species | tiefling | Feature: fiendish-legacy | ⚠️ Partial | Pick-1 legacy choice (Abyssal/Chthonic/Infernal) + L3/L5 spell activities; specific resistance and full spell list per legacy deferred | 2026-05-21 |
-| species | tiefling | Feature: otherworldly-presence | ⚠️ Partial | trait.otherworldly-presence flag; Thaumaturgy cantrip grant and per-legacy casting ability deferred | 2026-05-21 |
+| species | tiefling | Feature: fiendish-legacy | ⚠️ Partial | Sub-feature split: Abyssal=resistance.poison+hold-person; Chthonic=resistance.necrotic; Infernal=resistance.fire+fire-bolt cantrip; per-legacy L3 spells (Ray of Sickness, False Life, Hellish Rebuke) not in SRD pack | 2026-05-22 |
+| species | tiefling | Feature: otherworldly-presence | ⚠️ Partial | trait.otherworldly-presence flag; Thaumaturgy cantrip not in SRD pack | 2026-05-22 |
 
 ---
 

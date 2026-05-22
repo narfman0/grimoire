@@ -27,23 +27,45 @@
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 1,
-      "note": "Player chooses Protector or Thaumaturge at L1. Protector grants heavy armor + martial weapon proficiency; Thaumaturge grants an extra cantrip + proficiency in one INT-based skill (Arcana/History/Nature/Religion). v0 stores the pick as a flag; the proficiency/cantrip grants aren't yet wired in.",
-      "choice": {
-        "kind": "divine-order",
-        "pick": 1,
-        "from": [
-          "protector",
-          "thaumaturge"
-        ]
-      },
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.divine-order",
-          "mode": "OVERRIDE",
-          "value": "unset"
+      "note": "SRD 5.2: Choose Protector or Thaumaturge at L1. Player pick stored in character.featureChoices.divine-order.feature.feature; the chosen sub-feature row is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "divine-order-protector",
+            "divine-order-thaumaturge"
+          ]
         }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "divine-order-protector",
+    "version": 1,
+    "name": "Divine Order: Protector",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "divine-order",
+      "note": "SRD 5.2 Protector: Proficiency with Heavy Armor and Martial weapons.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.armor.heavy", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.weapon.martial", "mode": "OVERRIDE", "value": true }
       ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "divine-order-thaumaturge",
+    "version": 1,
+    "name": "Divine Order: Thaumaturge",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "divine-order",
+      "note": "SRD 5.2 Thaumaturge: Extra cleric cantrip (pick from SRD cantrips) + proficiency in one of Arcana/History/Nature/Religion. WisMod bonus to the chosen skill cannot be gated on the skill pick — engine limitation; omitted.",
+      "choices": {
+        "spell": { "allowedSpells": ["sacred-flame","toll-the-dead","guidance","light"] },
+        "skillProficiencies": { "allowedSkills": ["arcana","history","nature","religion"], "pick": 1 }
+      }
     }
   },
   {
@@ -55,7 +77,7 @@
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 2,
-      "note": "Uses per short rest scale with cleric level: 2 at L2, 3 at L6, 4 at L18. v0 uses a static 2; engine doesn't yet support a perClass+table for activity uses (only triggers in derive.ts plumbing).",
+      "note": "Uses per short rest scale with cleric level: 2 at L2, 3 at L6, 4 at L18. Uses perClass cleric table for automatic scaling.",
       "activities": [
         {
           "id": "channel-divinity",
@@ -63,7 +85,7 @@
           "name": "Channel Divinity",
           "cost": "action",
           "uses": {
-            "max": 2,
+            "max": { "perClass": "cleric", "table": [2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4] },
             "per": "short-rest"
           }
         }

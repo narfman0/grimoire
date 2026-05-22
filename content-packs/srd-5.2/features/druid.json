@@ -47,40 +47,47 @@
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 1,
-      "note": "Player chooses Magician or Warden at L1. Magician: learn one additional Druid cantrip and add your Wisdom modifier to Arcana and Nature skill checks (not yet evaluator-wired; trait flag only). Warden: proficiency with Martial weapons and training in Medium armor. v0 expresses the Warden armor/weapon grants as proficiency modifiers gated on the choice; Magician's cantrip and skill bonus are left as a trait flag pending evaluator support for choice-gated skill bonuses.",
-      "choice": {
-        "kind": "primal-order",
-        "pick": 1,
-        "from": [
-          "magician",
-          "warden"
-        ]
+      "note": "SRD 5.2: Choose Magician or Warden at L1. Player pick stored in character.featureChoices.primal-order.feature.feature; the chosen sub-feature row is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "primal-order-magician",
+            "primal-order-warden"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "primal-order-magician",
+    "version": 1,
+    "name": "Primal Order: Magician",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "primal-order",
+      "note": "SRD 5.2 Magician: Extra druid cantrip (pick from SRD druid cantrips) + add Wisdom modifier to all Arcana and Nature checks. Wis bonus to both skills is wired directly.",
+      "choices": {
+        "spell": { "allowedSpells": ["guidance","shillelagh"] }
       },
       "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.primal-order",
-          "mode": "OVERRIDE",
-          "value": "unset"
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "proficiency.armor.medium",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "choice": "primal-order.warden"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "proficiency.weapon.martial",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "choice": "primal-order.warden"
-          }
-        }
+        { "kind": "stat-modifier", "target": "skill.arcana", "mode": "ADD", "value": "wisMod" },
+        { "kind": "stat-modifier", "target": "skill.nature", "mode": "ADD", "value": "wisMod" }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "primal-order-warden",
+    "version": 1,
+    "name": "Primal Order: Warden",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "primal-order",
+      "note": "SRD 5.2 Warden: Proficiency with Martial weapons and training in Medium armor.",
+      "modifiers": [
+        { "kind": "stat-modifier", "target": "proficiency.armor.medium", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "proficiency.weapon.martial", "mode": "OVERRIDE", "value": true }
       ]
     }
   },
