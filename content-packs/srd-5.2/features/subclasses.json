@@ -119,11 +119,11 @@
       "ownerKind": "subclass",
       "ownerSlug": "college-of-lore",
       "minLevel": 3,
-      "note": "Gain proficiency in three skills of your choice when you adopt this subclass at level 3. v0 surfaces the choice; the skill picks live on character.classes[].choices.loreSkills and the engine should add them as proficiency.skill.<slug> stat-modifiers (not yet wired).",
-      "choice": {
-        "kind": "skill",
-        "pick": 3,
-        "from": "any"
+      "note": "Gain proficiency in any 3 skills of your choice. Engine emits proficiency.skill.<slug> modifiers from choices.skillProficiencies array picks.",
+      "choices": {
+        "skillProficiencies": {
+          "pick": 3
+        }
       }
     }
   },
@@ -162,11 +162,9 @@
       "ownerKind": "subclass",
       "ownerSlug": "college-of-lore",
       "minLevel": 6,
-      "note": "Learn two spells of your choice from any class's spell list. Each spell must be of a level you can cast (or a cantrip) and counts as a Bard spell for you. v0 surfaces the choice; the picks live on character.classes[].choices.magicalSecrets and the engine should add the chosen spells to bard.spells.known (not yet wired).",
-      "choice": {
-        "kind": "spell",
-        "pick": 2,
-        "from": "any-class-list"
+      "note": "Learn two spells from any class's spell list (must be castable level or cantrip). Engine injects chosen spells as deferred active-content refs via choices.spell. Player stores picks in featureChoices[slug].spell.spells.",
+      "choices": {
+        "spell": {}
       }
     }
   },
@@ -205,7 +203,8 @@
       "ownerKind": "subclass",
       "ownerSlug": "life-domain",
       "minLevel": 3,
-      "note": "You always have the following always-prepared Domain spells (do not count against your prepared limit): L1 Bless, Cure Wounds; L3 Lesser Restoration, Spiritual Weapon; L5 Mass Healing Word, Revivify; L7 Aura of Life, Death Ward; L9 Mass Cure Wounds, Raise Dead. v0 surfaces this as a note; auto-prep injection into character.spells.prepared isn't wired yet.",
+      "note": "Always-prepared Domain spells. SRD pack coverage: Bless, Cure Wounds, Spiritual Weapon, Mass Healing Word injected via spellListAdditions. Missing from SRD pack: Lesser Restoration, Revivify, Aura of Life, Death Ward, Mass Cure Wounds, Raise Dead.",
+      "spellListAdditions": ["bless", "cure-wounds", "spiritual-weapon", "mass-healing-word"],
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.domain-spells.life", "mode": "OVERRIDE", "value": true }
       ]
@@ -1093,7 +1092,8 @@
       "ownerKind": "subclass",
       "ownerSlug": "fiend-patron",
       "minLevel": 3,
-      "note": "You always have the following always-prepared Warlock spells: L3 Burning Hands, Command; L5 Blindness/Deafness, Scorching Ray; L7 Fireball, Stinking Cloud; L9 Fire Shield, Wall of Fire. They don't count against your prepared limit. v0 surfaces this as a flag; auto-prep injection isn't wired.",
+      "note": "Always-prepared Patron spells. SRD pack coverage: Burning Hands, Scorching Ray, Fireball, Wall of Fire injected via spellListAdditions. Missing from SRD pack: Command, Blindness/Deafness, Stinking Cloud, Fire Shield.",
+      "spellListAdditions": ["burning-hands", "scorching-ray", "fireball", "wall-of-fire"],
       "modifiers": [
         { "kind": "stat-modifier", "target": "trait.patron-spells.fiend", "mode": "OVERRIDE", "value": true }
       ]
@@ -1119,11 +1119,11 @@
             "activityType": "utility",
             "cost": "free",
             "effect": "gain-temp-hp",
-            "amount": "warlockLevelPlusChaMod"
+            "amount": { "sum": ["warlockLevel", "chaMod"] }
           }
         }
       ],
-      "note": "When you reduce a creature to 0 HP, or when a creature within 30 ft of you (other than you) is reduced to 0 HP by anyone, you gain Temporary HP equal to your CHA modifier + your Warlock level (minimum 1 temporary HP)."
+      "note": "When you reduce a creature to 0 HP, or a creature within 30 ft of you is reduced to 0 HP, you gain Temporary HP equal to your Warlock level + CHA modifier (minimum 1). Amount expressed as { sum: [warlockLevel, chaMod] } using the evaluateValue sum shape."
     }
   },
   {

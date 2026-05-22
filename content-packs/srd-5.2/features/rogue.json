@@ -8,11 +8,12 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
-      "note": "Choose 2 of your skill proficiencies; your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies. A second pick of 2 skills is added at Rogue 6 (see expertise-rogue-l6). v0 derive.ts hard-codes expertise=false in the skills loop; the choice is surfaced for the editor but the doubled-PB bonus isn't yet emitted.",
-      "choice": {
-        "kind": "expertise",
-        "pick": 2,
-        "from": "proficient-skills"
+      "note": "Choose 2 proficient skills to gain Expertise (doubled proficiency bonus). Engine emits two expertise.skill.<slug> modifiers. Rogue 6 grants a second pick of 2 more skills (expertise-rogue-l6).",
+      "choices": {
+        "expertises": {
+          "allowedSkills": "proficient",
+          "pick": 2
+        }
       }
     }
   },
@@ -320,11 +321,12 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 6,
-      "note": "Choose 2 more skill proficiencies to gain Expertise in (proficiency bonus doubled). This is the second Expertise pick granted at Rogue 6. v0 surfaces the choice; the doubled-PB application requires engine support.",
-      "choice": {
-        "kind": "expertise",
-        "pick": 2,
-        "from": "proficient-skills"
+      "note": "Choose 2 more proficient skills to gain Expertise (doubled proficiency bonus). Second Expertise grant at Rogue 6.",
+      "choices": {
+        "expertises": {
+          "allowedSkills": "proficient",
+          "pick": 2
+        }
       }
     }
   },

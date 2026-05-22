@@ -6,8 +6,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 151 |
-| ⚠️ Partial | 87 |
+| ✅ Full | 160 |
+| ⚠️ Partial | 79 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -40,7 +40,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | bard | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, DEX/CHA saves, light armor, simple weapons, 3 musical instruments, pick 3 from all skills | 2026-05-21 |
 | class | bard | Feature: bardic-inspiration (L1) | ✅ Full | Resource activity correct (PB/long-rest); die-size surfaced via damageRolls type=inspiration with perClass bard table (d6→d8→d10→d12 by level) | 2026-05-21 |
 | class | bard | Feature: spellcasting-bard (L1) | ✅ Full | spellcasting.ability OVERRIDE cha | 2026-05-21 |
-| class | bard | Feature: expertise-bard-2 (L2) | ⚠️ Partial | Choice slot surfaced; derive.ts hard-codes expertise=false — doubled-PB not yet applied | 2026-05-21 |
+| class | bard | Feature: expertise-bard-2 (L2) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} emits two expertise.skill.<slug> modifiers | 2026-05-21 |
 | class | bard | Feature: jack-of-all-trades (L2) | 🚫 Out of Scope | Half-proficiency on non-proficient checks not a supported stat-modifier target; trait tag only | 2026-05-21 |
 | class | bard | Feature: bard-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | bard | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
@@ -87,7 +87,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | monk | Feature: extra-attack (L5) | ✅ Full | Shared feature | 2026-05-21 |
 | class | monk | Feature: stunning-strike (L5) | ⚠️ Partial | Action-modifier toggle with on-hit.target.save effect; focus-point deduction and once-per-turn cap not enforced | 2026-05-21 |
 | class | paladin | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, WIS/CHA saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
-| class | paladin | Feature: spellcasting-paladin (L1) | ⚠️ Partial | spellcasting.ability OVERRIDE cha; half-caster slot table not yet implemented (engine uses full-caster progression) | 2026-05-21 |
+| class | paladin | Feature: spellcasting-paladin (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | paladin | Feature: lay-on-hands (L1) | ✅ Full | Bonus-action heal activity with 5×paladinLevel pool per-level table | 2026-05-21 |
 | class | paladin | Feature: weapon-mastery-paladin (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
 | class | paladin | Feature: fighting-style-paladin (L2) | ⚠️ Partial | Choice slot; Blessed Warrior cantrip grant deferred; other styles share fighter implementations with same limitations | 2026-05-21 |
@@ -98,17 +98,18 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | paladin | Feature: extra-attack (L5) | ✅ Full | Shared feature | 2026-05-21 |
 | class | paladin | Feature: faithful-steed (L5) | ✅ Full | 1/long-rest cast activity for Find Steed | 2026-05-21 |
 | class | ranger | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/DEX saves, light/medium armor + shield, simple/martial weapons, pick 3 from list | 2026-05-21 |
-| class | ranger | Feature: spellcasting-ranger (L1) | ⚠️ Partial | spellcasting.ability OVERRIDE wis; half-caster slot table not yet implemented | 2026-05-21 |
+| class | ranger | Feature: spellcasting-ranger (L1) | ✅ Full | spellcasting.ability OVERRIDE wis; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | ranger | Feature: favored-enemy (L1) | ⚠️ Partial | Resource pool for slotless Hunter's Mark casts surfaced; auto-prepared spell and slotless-cast plumbing not wired | 2026-05-21 |
 | class | ranger | Feature: weapon-mastery-ranger (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
-| class | ranger | Feature: deft-explorer (L2) | ⚠️ Partial | Expertise choice + difficult-terrain-bypass trait tag; doubled-PB and terrain bypass not evaluated | 2026-05-21 |
+| class | ranger | Feature: deft-explorer (L2) | ✅ Full | choices.expertise (proficient) emits expertise modifier; choices.language emits language proficiency; terrain-bypass trait tag (spatial — 🚫 out of scope) | 2026-05-21 |
 | class | ranger | Feature: fighting-style-ranger (L2) | ⚠️ Partial | Choice slot; Druidic Warrior cantrip grant deferred; other styles share fighter implementations | 2026-05-21 |
 | class | ranger | Feature: ranger-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
-| class | ranger | Feature: roving (L3) | ⚠️ Partial | Walk +10 and climb/swim UPGRADE to 40 ft; walkSpeed magic identifier unsupported so climb/swim hard-coded to 40 rather than matching post-bonus walk speed | 2026-05-21 |
+| class | ranger | Feature: roving (L3) | ✅ Full | walk+10 ADD; climb/swim UPGRADE walkSpeed (engine now discovers new speed keys + computes walk first so ctx.walkSpeed is correct) | 2026-05-21 |
 | class | ranger | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | ranger | Feature: extra-attack-ranger (L5) | ✅ Full | attacks-per-action UPGRADE 2, ranger-specific feature entry | 2026-05-21 |
+| class | ranger | Feature: expertise-ranger (L9) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} emits two expertise.skill.<slug> modifiers | 2026-05-21 |
 | class | rogue | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, DEX/INT saves, light armor, simple + martial-finesse-or-light, thieves' tools, pick 4 from list | 2026-05-21 |
-| class | rogue | Feature: expertise-rogue (L1) | ⚠️ Partial | Pick-2 expertise choice surfaced; derive.ts hard-codes expertise=false — doubled-PB not applied | 2026-05-21 |
+| class | rogue | Feature: expertise-rogue (L1) + expertise-rogue-l6 (L6) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} on each feature row; engine emits expertise.skill.<slug> modifiers | 2026-05-21 |
 | class | rogue | Feature: sneak-attack (L1) | ⚠️ Partial | Action-modifier with per-level dice table correct; once-per-turn cap and advantage/ally-adjacency gating not enforced by engine | 2026-05-21 |
 | class | rogue | Feature: thieves-cant (L1) | ✅ Full | proficiency.language.thieves-cant OVERRIDE true | 2026-05-21 |
 | class | rogue | Feature: weapon-mastery-rogue (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
@@ -138,7 +139,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | wizard | Feature: spellcasting-wizard (L1) | ✅ Full | spellcasting.ability OVERRIDE int; spellbook=true | 2026-05-21 |
 | class | wizard | Feature: ritual-adept (L1) | ✅ Full | spellcasting.ritual-without-prep OVERRIDE true | 2026-05-21 |
 | class | wizard | Feature: arcane-recovery (L1) | ⚠️ Partial | 1/long-rest utility activity on short-rest trigger; slot-level budget (half wizard level rounded up) not enforced | 2026-05-21 |
-| class | wizard | Feature: scholar (L2) | ⚠️ Partial | Feature entry exists with expertise choice slot; doubled-PB not applied by derive.ts | 2026-05-21 |
+| class | wizard | Feature: scholar (L2) | ✅ Full | choices.expertise {allowedSkills:[arcana,history,investigation,medicine,nature,religion]} emits expertise.skill.<slug> modifier | 2026-05-21 |
 | class | wizard | Feature: arcane-tradition (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | wizard | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | wizard | Feature: memorize-spell (L5) | ✅ Full | trait.memorize-spell flag; UI handles the spell-swap on long rest | 2026-05-21 |
@@ -155,11 +156,11 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | path-of-the-berserker | Feature: frenzy (L3) | ⚠️ Partial | action-modifier tag surfaced; discrete bonus-action Frenzied Strike not synthesized; push/prone rider out of scope | 2026-05-21 |
 | subclass | path-of-the-berserker | Feature: mindless-rage (L3) | ✅ Full | immunity.charmed and immunity.frightened OVERRIDE true gated on rage condition | 2026-05-21 |
 | subclass | college-of-lore | Parent Class (bard) / Feature List | ✅ Full | parentClass=bard, features=[bonus-proficiencies-lore, cutting-words, magical-secrets-lore, peerless-skill] | 2026-05-21 |
-| subclass | college-of-lore | Feature: bonus-proficiencies-lore (L3) | ⚠️ Partial | Pick-3 skill choice slot surfaced; chosen skills not yet auto-applied as proficiency.skill modifiers | 2026-05-21 |
+| subclass | college-of-lore | Feature: bonus-proficiencies-lore (L3) | ✅ Full | choices.skillProficiencies {pick:3} emits proficiency.skill.<slug> modifiers for each of the 3 picked skills | 2026-05-21 |
 | subclass | college-of-lore | Feature: cutting-words (L3) | ⚠️ Partial | Trigger on enemy attack/check/damage within 60 ft; reaction activity surfaced; Bardic Inspiration die spend not auto-deducted | 2026-05-21 |
-| subclass | college-of-lore | Feature: magical-secrets-lore (L6) | ⚠️ Partial | Pick-2 any-class-list spell choice; chosen spells not yet injected into bard.spells.known | 2026-05-21 |
+| subclass | college-of-lore | Feature: magical-secrets-lore (L6) | ✅ Full | choices.spell {} injects player-picked spells as deferred active-content refs (actions synthesized); picks stored in featureChoices | 2026-05-21 |
 | subclass | life-domain | Parent Class (cleric) / Feature List | ✅ Full | parentClass=cleric, features=[life-domain-spells, life-domain-heavy-armor, disciple-of-life, preserve-life, blessed-healer, supreme-healing] | 2026-05-21 |
-| subclass | life-domain | Feature: life-domain-spells (L3) | ⚠️ Partial | trait.domain-spells.life flag; auto-prep injection into character.spells.prepared not wired | 2026-05-21 |
+| subclass | life-domain | Feature: life-domain-spells (L3) | ⚠️ Partial | spellListAdditions injects Bless, Cure Wounds, Spiritual Weapon, Mass Healing Word; 6 others (Lesser Restoration, Revivify, Aura of Life, Death Ward, Mass Cure Wounds, Raise Dead) not in SRD pack | 2026-05-21 |
 | subclass | life-domain | Feature: life-domain-heavy-armor (L3) | ✅ Full | proficiency.armor.heavy OVERRIDE true | 2026-05-21 |
 | subclass | life-domain | Feature: disciple-of-life (L3) | ⚠️ Partial | action-modifier on heal activities; heal.bonus ADD spellLevelPlus2 tagged — spellLevelPlus2 magic identifier not evaluated | 2026-05-21 |
 | subclass | life-domain | Feature: preserve-life (L3) | 🚫 Out of Scope | Pool = 5×clericLevel; fiveTimesClericLevel is not a supported magic identifier — trait tag + annotated heal activity | 2026-05-21 |
@@ -190,8 +191,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | draconic-sorcery | Feature: dragon-ancestry (L3) | ✅ Full | Pick-1 dragon-type choice + proficiency.language.draconic OVERRIDE true | 2026-05-21 |
 | subclass | draconic-sorcery | Feature: elemental-affinity (L6) | ⚠️ Partial | Action-modifier for chaMod bonus (now resolves); trait tag for resistance; dynamic ancestry-type predicate (damage.type.matches-dragon-ancestry) not evaluable by engine | 2026-05-21 |
 | subclass | fiend-patron | Parent Class (warlock) / Feature List | ✅ Full | parentClass=warlock, features=[fiend-spells, dark-ones-blessing, dark-ones-own-luck, fiendish-resilience, hurl-through-hell] | 2026-05-21 |
-| subclass | fiend-patron | Feature: fiend-spells (L3) | ⚠️ Partial | trait.patron-spells.fiend flag; auto-prep injection not wired | 2026-05-21 |
-| subclass | fiend-patron | Feature: dark-ones-blessing (L3) | ⚠️ Partial | Trigger on enemy-reduce-to-zero within 30 ft; temp HP grant amount "warlockLevelPlusChaMod" not a resolved magic identifier | 2026-05-21 |
+| subclass | fiend-patron | Feature: fiend-spells (L3) | ⚠️ Partial | spellListAdditions injects Burning Hands, Scorching Ray, Fireball, Wall of Fire; 4 others (Command, Blindness/Deafness, Stinking Cloud, Fire Shield) not in SRD pack | 2026-05-21 |
+| subclass | fiend-patron | Feature: dark-ones-blessing (L3) | ✅ Full | Trigger amount now { sum: ["warlockLevel", "chaMod"] } resolved by new evaluateValue sum shape | 2026-05-21 |
 | subclass | fiend-patron | Feature: dark-ones-own-luck (L6) | ✅ Full | Trigger on own ability check/save; free activity adds 1d10 to roll; 1/short-rest limit | 2026-05-21 |
 | subclass | evocation | Parent Class (wizard) / Feature List | ✅ Full | parentClass=wizard, features=[evocation-savant, sculpt-spells, potent-cantrip, empowered-evocation, overchannel] | 2026-05-21 |
 | subclass | evocation | Feature: evocation-savant (L3) | ⚠️ Partial | Pick-2 wizard-evocation spell choice surfaced; per-level free-copy not auto-tracked | 2026-05-21 |

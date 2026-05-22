@@ -69,11 +69,12 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 2,
-      "note": "Gain Expertise in one skill in which you have proficiency, learn one additional language of your choice, and ignore difficult terrain that's the result of nonmagical plants and undergrowth. v0 lacks first-class expertise and difficult-terrain bypass targets; surfaces the picks as choices and a trait flag.",
-      "choice": {
-        "kind": "expertise",
-        "pick": 1,
-        "from": "proficient-skills"
+      "note": "Gain Expertise in one proficient skill, learn one additional language, and ignore nonmagical plant difficult terrain. Expertise emitted via choices.expertise; language via choices.language; difficult terrain modeled as a trait flag.",
+      "choices": {
+        "expertise": {
+          "allowedSkills": "proficient"
+        },
+        "language": {}
       },
       "modifiers": [
         {
@@ -146,7 +147,7 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 3,
-      "note": "Walking speed +10, plus climb and swim speeds equal to your walking speed (while not wearing heavy armor). v0 emits the +10 walk + flat climb/swim speed modifiers; the post-bonus equality (climb=walk including +10) is approximated by also UPGRADEing climb/swim to 40 (assuming 30-ft base walk). If a species has a different base walk, the engineer-extension is to compute climb/swim from the post-modifier walk speed.",
+      "note": "Walking speed +10; climb and swim equal walking speed (including the +10) while not wearing heavy armor.",
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -159,14 +160,14 @@
           "kind": "stat-modifier",
           "target": "speed.climb",
           "mode": "UPGRADE",
-          "value": 40,
+          "value": "walkSpeed",
           "appliesWhen": { "requires": "no-heavy-armor" }
         },
         {
           "kind": "stat-modifier",
           "target": "speed.swim",
           "mode": "UPGRADE",
-          "value": 40,
+          "value": "walkSpeed",
           "appliesWhen": { "requires": "no-heavy-armor" }
         }
       ]
@@ -233,11 +234,12 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 9,
-      "note": "Choose two of your skill proficiencies. Your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies. v0 surfaces the choices; derive.ts doesn't yet apply doubled-PB to skill checks.",
-      "choice": {
-        "kind": "expertise",
-        "pick": 2,
-        "from": "proficient-skills"
+      "note": "Choose 2 proficient skills to gain Expertise (doubled proficiency bonus). Engine emits two expertise.skill.<slug> modifiers from choices.expertises array picks.",
+      "choices": {
+        "expertises": {
+          "allowedSkills": "proficient",
+          "pick": 2
+        }
       }
     }
   },

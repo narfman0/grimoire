@@ -474,14 +474,48 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           deferredRefs.push({ kind: 'feature', slug: featurePick });
         }
       }
-    }
-    if (a.row.kind === 'feat') {
-      const featRef = character.feats.find((f) => f.slug === a.row.slug);
-      const decl = (a.data.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
-      const picks = (featRef?.choices ?? {}) as Record<string, Record<string, unknown> | undefined>;
-      // Spell + feature picks add new content refs to the active list (not
-      // modifiers). Queued here, resolved alongside the feature-ref walk
-      // below so their modifiers/activities/triggers feed back into derive.
+      // Multi-pick expertise: choices.expertises = { allowedSkills: [...] | "proficient" }
+      // picks.expertises = [{ skill: "arcana" }, { skill: "perception" }]
+      // "allowedSkills": "proficient" means the player must already be proficient.
+      // The engine emits expertise modifiers; UI enforces the proficient constraint.
+      const expertisesDecl = decl.expertises as
+        | { allowedSkills?: string[] | 'proficient' }
+        | undefined;
+      const expertisesPicks = picks.expertises as Array<{ skill?: string }> | undefined;
+      if (expertisesDecl && Array.isArray(expertisesPicks)) {
+        for (let i = 0; i < expertisesPicks.length; i++) {
+          const pick = expertisesPicks[i]?.skill;
+          if (!pick) continue;
+          allMods.push({
+            id: `${a.row.kind}/${a.row.slug}/expertise-${i}`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: { kind: 'stat-modifier', target: `expertise.skill.${pick}`, mode: 'OVERRIDE', value: true }
+          });
+        }
+      }
+      // Multi-pick skill proficiency: choices.skillProficiencies = { allowedSkills?: [...] }
+      // picks.skillProficiencies = [{ skill: "arcana" }, { skill: "history" }, ...]
+      // Emits proficiency.skill.<slug> OVERRIDE true for each picked skill.
+      const skillProfsDecl = decl.skillProficiencies as { allowedSkills?: string[] } | undefined;
+      const skillProfsPicks = picks.skillProficiencies as Array<{ skill?: string }> | undefined;
+      if (skillProfsDecl && Array.isArray(skillProfsPicks)) {
+        for (let i = 0; i < skillProfsPicks.length; i++) {
+          const pick = skillProfsPicks[i]?.skill;
+          if (!pick) continue;
+          if (skillProfsDecl.allowedSkills && !skillProfsDecl.allowedSkills.includes(pick)) continue;
+          allMods.push({
+            id: `${a.row.kind}/${a.row.slug}/skill-prof-${i}`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: { kind: 'stat-modifier', target: `proficiency.skill.${pick}`, mode: 'OVERRIDE', value: true }
+          });
+        }
+      }
+      // Spell-pick: choices.spell = { allowedSpells?: [...] }
+      // picks.spell = { spells: ["fireball", "hold-monster"] }
+      // Adds chosen spells as deferred active-content refs so their actions
+      // are synthesized (Magical Secrets, Magical Initiate, etc.).
       const spellDecl = decl.spell as { allowedSpells?: string[] } | undefined;
       const spellPick = picks.spell as { spells?: string[] } | undefined;
       if (spellDecl && Array.isArray(spellPick?.spells)) {
@@ -490,14 +524,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           deferredRefs.push({ kind: 'spell', slug });
         }
       }
-      const featureDecl = decl.feature as { allowedFeatures?: string[] } | undefined;
-      const featurePick = (picks.feature as { feature?: string } | undefined)?.feature;
-      if (featureDecl && featurePick) {
-        if (!featureDecl.allowedFeatures || featureDecl.allowedFeatures.includes(featurePick)) {
-          deferredRefs.push({ kind: 'feature', slug: featurePick });
-        }
-      }
-
+    }
+    if (a.row.kind === 'feat') {
+      const featRef = character.feats.find((f) => f.slug === a.row.slug);
       // Feats with `asiBudget` (e.g. Ability Score Improvement) use an asis
       // array on their choices — same shape as background.choices.asis —
       // rather than the single-pick choices.asi approach. This lets the player
@@ -1351,8 +1380,24 @@ function computeSpeeds(
     if (!ss) continue;
     for (const [k, v] of Object.entries(ss)) speeds[k] = v;
   }
-  // Apply modifiers per speed key
+  // Discover additional speed keys declared in speed.* modifiers (e.g. roving
+  // adds speed.climb / speed.swim for species that have no native climb speed).
+  for (const m of mods) {
+    if (m.kind !== 'stat-modifier') continue;
+    const t = m.raw.target as string | undefined;
+    if (!t?.startsWith('speed.')) continue;
+    const key = t.slice('speed.'.length);
+    if (key === 'all' || key in speeds) continue;
+    speeds[key] = 0;
+  }
+  // Apply walk first so ctx.walkSpeed is correct before non-walk modifiers
+  // that reference walkSpeed (e.g. "climb = walk speed") are evaluated.
+  const walkResult = applyTarget(mods, character, 'speed.walk', speeds.walk, ctx);
+  if (typeof walkResult === 'number') speeds.walk = walkResult;
+  ctx.walkSpeed = speeds.walk;
+  // Apply modifiers for all remaining speed keys
   for (const key of Object.keys(speeds)) {
+    if (key === 'walk') continue;
     const v = applyTarget(mods, character, `speed.${key}`, speeds[key], ctx);
     if (typeof v === 'number') speeds[key] = v;
   }

@@ -77,6 +77,17 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
     const stacks = ctx.conditionStacks[o.perConditionStack] ?? 0;
     return stacks === 0 ? 0 : stacks * o.perLevel;
   }
+  // sum: { sum: [val1, val2, ...] } — adds resolved numeric values together.
+  // Useful for compound amounts like warlockLevel + chaMod.
+  if (value && typeof value === 'object' && 'sum' in value) {
+    const parts = (value as { sum: unknown }).sum;
+    if (Array.isArray(parts)) {
+      return parts.reduce<number>((acc, part) => {
+        const v = evaluateValue(part, ctx);
+        return typeof v === 'number' ? acc + v : acc;
+      }, 0);
+    }
+  }
   return value;
 }
 

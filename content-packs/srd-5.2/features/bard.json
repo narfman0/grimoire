@@ -66,11 +66,12 @@
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 2,
-      "note": "Player picks 2 skills they're proficient in to gain expertise. The v0 engine doesn't yet have a per-skill expertise toggle; expertise is hard-wired to false in derive.ts. Tracked here for surfacing in the editor.",
-      "choice": {
-        "kind": "expertise",
-        "pick": 2,
-        "from": "proficient-skills"
+      "note": "Player picks 2 proficient skills to gain Expertise (doubled proficiency bonus). Engine emits two expertise.skill.<slug> modifiers from choices.expertises array picks.",
+      "choices": {
+        "expertises": {
+          "allowedSkills": "proficient",
+          "pick": 2
+        }
       }
     }
   },
