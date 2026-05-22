@@ -143,6 +143,15 @@ export const CharacterDocument = z
     /** Stacking level for conditions that accumulate (e.g. exhaustion 1–10). */
     conditionStacks: z.record(z.string(), z.number().int().positive()).optional(),
     modifierToggles: z.record(z.string(), z.boolean()),
+    /** Player picks for subclass-feature menus (Acolyte of Nature, Aspect
+     *  of the Wilds, Battle Master maneuvers, Primal Order, etc.). Keyed
+     *  by the feature row's slug. Engine reads via resolveChoicePicks in
+     *  derive.ts; without this entry the picks were silently stripped on
+     *  every PATCH. */
+    featureChoices: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+    /** Player picks declared on the subclass row itself (rare — most
+     *  subclass picks live on the per-level feature row instead). */
+    subclassChoices: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
     resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional(),
     /** Per-turn action-economy slots — auto-reset on turn-rise + rest. */
     actionUsedThisRound: z.boolean().optional(),

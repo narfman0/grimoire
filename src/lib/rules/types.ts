@@ -444,6 +444,31 @@ export interface Derived {
    *  runtime; derive() only declares the pool's existence, max, and
    *  refresh policy. */
   overlayHpPools: OverlayHpPool[];
+  /** Per-feature menu picks that the player either has recorded or still
+   *  needs to record. Emitted from any active feature / subclass row
+   *  carrying a `data.choices` declaration. The UI walks this to render
+   *  picker affordances (skill prof, expertise, language, sub-feature, …)
+   *  and writes selections back into `character.featureChoices[slug]`
+   *  (or `character.subclassChoices[slug]` for subclass-row picks). */
+  pendingFeatureChoices: PendingFeatureChoice[];
+}
+
+export interface PendingFeatureChoice {
+  featureSlug: string;
+  featureName: string;
+  /** Source row kind. v0: 'feature' | 'subclass' (the only two kinds
+   *  whose picks the engine reads from a per-slug map). */
+  kind: string;
+  /** Declared choice slots from the row's data.choices. Slot name (e.g.
+   *  'skillProficiency', 'expertise', 'language', 'feature', 'spell')
+   *  maps to the slot's declaration object (allowedSkills, allowedSpells,
+   *  allowedAbilities, etc.). */
+  declarations: Record<string, Record<string, unknown>>;
+  /** Picks the player has recorded so far for this row, keyed by slot
+   *  name. Missing keys → that slot is unresolved. */
+  picks: Record<string, unknown>;
+  /** True when at least one declared slot has no pick recorded. */
+  unresolved: boolean;
 }
 
 export interface OverlayHpPool {

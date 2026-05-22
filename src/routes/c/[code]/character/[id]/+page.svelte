@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import Sheet from '$lib/components/Sheet.svelte';
   import HoverPopup from '$lib/components/HoverPopup.svelte';
+  import FeatureChoicesPanel from '$lib/components/FeatureChoicesPanel.svelte';
   import InventoryPicker from '$lib/components/InventoryPicker.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import SpellManagerModal from '$lib/components/SpellManagerModal.svelte';
@@ -771,6 +772,24 @@
       editAsiSelections = [existing[0]?.ability ?? ''];
     }
     editingAsiKey = key;
+  }
+
+  // Phase 4: Persist a feature-pick selection emitted by FeatureChoicesPanel.
+  // Subclass-row picks land on character.subclassChoices; everything else
+  // lands on character.featureChoices.
+  async function onFeaturePick(
+    e: CustomEvent<{ featureSlug: string; kind: string; picks: Record<string, unknown> }>
+  ) {
+    const { featureSlug, kind, picks } = e.detail;
+    await patchDocument((d) => {
+      if (kind === 'subclass') {
+        if (!d.subclassChoices) d.subclassChoices = {};
+        d.subclassChoices[featureSlug] = picks;
+      } else {
+        if (!d.featureChoices) d.featureChoices = {};
+        d.featureChoices[featureSlug] = picks;
+      }
+    });
   }
 
   async function saveAsiChoices(f: { slug: string; authorUserId?: string | null }, asiBudget: number) {
@@ -2439,6 +2458,28 @@
       </div>
     {/if}
   </section>
+
+  <!-- Feature Choices -->
+  {#if derived && derived.pendingFeatureChoices && derived.pendingFeatureChoices.length > 0}
+    {@const unresolvedCount = derived.pendingFeatureChoices.filter((p) => p.unresolved).length}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <div class="mb-3 flex items-baseline justify-between">
+        <h2 class="text-sm font-semibold text-slate-200">
+          Feature Choices
+          {#if unresolvedCount > 0}
+            <span class="ml-1 rounded border border-amber-800/60 bg-amber-950/40 px-1 text-[9px] uppercase tracking-wide text-amber-300">
+              {unresolvedCount} unresolved
+            </span>
+          {/if}
+        </h2>
+      </div>
+      <FeatureChoicesPanel
+        pendingChoices={derived.pendingFeatureChoices}
+        {busy}
+        on:pick={onFeaturePick}
+      />
+    </section>
+  {/if}
 
   <!-- Inventory -->
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">

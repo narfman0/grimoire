@@ -25,6 +25,7 @@ import type {
   Derived,
   OutboundEffect,
   OverlayHpPool,
+  PendingFeatureChoice,
   Resource,
   SaveCell,
   SkillCell,
@@ -1325,6 +1326,39 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Pending feature choices — declarative manifest of `data.choices`
+  // entries on active feature / subclass rows + whatever picks the
+  // player has recorded so far. The UI walks this to render per-feature
+  // pickers (skillProficiency, expertise, language, sub-feature, etc.)
+  // and writes selections back into character.featureChoices[slug].
+  const pendingFeatureChoices: PendingFeatureChoice[] = [];
+  const seenChoiceKeys = new Set<string>();
+  for (const a of active) {
+    if (a.row.kind !== 'feature' && a.row.kind !== 'subclass') continue;
+    const decl = a.data.choices as Record<string, Record<string, unknown> | undefined> | undefined;
+    if (!decl) continue;
+    const slotKeys = Object.keys(decl).filter((k) => decl[k] != null);
+    if (slotKeys.length === 0) continue;
+    const dedupeKey = `${a.row.kind}/${a.row.slug}`;
+    if (seenChoiceKeys.has(dedupeKey)) continue;
+    seenChoiceKeys.add(dedupeKey);
+    const picksRaw =
+      a.row.kind === 'feature'
+        ? character.featureChoices?.[a.row.slug]
+        : character.subclassChoices?.[a.row.slug];
+    const picks = (picksRaw ?? {}) as Record<string, unknown>;
+    const declarations: Record<string, Record<string, unknown>> = {};
+    for (const k of slotKeys) declarations[k] = decl[k] as Record<string, unknown>;
+    pendingFeatureChoices.push({
+      featureSlug: a.row.slug,
+      featureName: a.row.name,
+      kind: a.row.kind,
+      declarations,
+      picks,
+      unresolved: slotKeys.some((k) => picks[k] == null)
+    });
+  }
+
   // Overlay HP pools — independent HP buckets that absorb damage before
   // the character's main HP. Emitted from `overlay-hp-pool` modifier rows
   // on features like Arcane Ward. derive() declares the pool's existence,
@@ -1370,7 +1404,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     toggles,
     alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort(),
     outboundEffects,
-    overlayHpPools
+    overlayHpPools,
+    pendingFeatureChoices
   };
 }
 
