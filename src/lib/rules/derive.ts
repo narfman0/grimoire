@@ -928,6 +928,34 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     });
   }
 
+  // After triggers are collected, synthesize gated weapon-attack actions
+  // for triggers whose grant requests one. The synthesized action is a
+  // copy of the primary weapon attack with cost flipped (bonus / reaction)
+  // and gatedOnTrigger pointing at the trigger id. The encounter runtime
+  // gates execution; derive only surfaces the option.
+  const primaryWeaponAttack = actions.find(
+    (a) => a.type === 'attack' && a.cost === 'action' && a.sourceContent.kind === 'item'
+  );
+  if (primaryWeaponAttack) {
+    for (const t of triggers) {
+      const grants = t.grants as { type?: string } | undefined;
+      if (!grants?.type) continue;
+      let cost: Action['cost'] | undefined;
+      if (grants.type === 'bonus-action-weapon-attack') cost = 'bonus';
+      else if (grants.type === 'reaction-weapon-attack') cost = 'reaction';
+      if (!cost) continue;
+      actions.push({
+        ...primaryWeaponAttack,
+        id: `${t.sourceContent.kind}/${t.sourceContent.slug}/${t.id}/gated-attack`,
+        sourceContent: t.sourceContent,
+        name: t.name,
+        cost,
+        gatedOnTrigger: t.id,
+        appliedModifiers: []
+      });
+    }
+  }
+
   // -------------------------------------------------------------------------
   // PHASE 6 — validate (soft)
   // -------------------------------------------------------------------------

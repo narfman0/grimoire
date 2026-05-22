@@ -264,6 +264,13 @@ export interface Action {
   /** Ranged attacks made with this action don't suffer disadvantage when an
    *  enemy is within 5 ft (Crossbow Expert). */
   attackNoDisadvantageWithin5ft?: boolean;
+  /** Trigger id this action is gated on. When set, the action is only
+   *  available *after* the named trigger has fired this turn/round (e.g.
+   *  War Magic grants a bonus-action weapon attack after casting a
+   *  cantrip — the BA attack is gated on the spell-cast trigger). The UI
+   *  shows the action with a "available after X" hint; the encounter
+   *  runtime gates execution. */
+  gatedOnTrigger?: string;
   appliedModifiers: AppliedModifier[];
 }
 

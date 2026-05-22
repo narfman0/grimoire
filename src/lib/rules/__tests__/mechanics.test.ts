@@ -260,6 +260,57 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.9: synthesize gated weapon-attack actions from trigger grants ---------
+// War Magic / War Priest / Battle Magic / Eldritch Strike all want "after
+// spell cast, grant a BA weapon attack". The trigger declares
+// grants.type === "bonus-action-weapon-attack"; derive synthesizes a copy
+// of the primary weapon attack with cost flipped and gatedOnTrigger set so
+// the UI shows it as conditionally available.
+
+describe('C.9 — gated BA / reaction weapon attack from trigger grants', () => {
+	const FIGHTER_WITH_WAR_MAGIC: CharacterDocument = {
+		id: 'test-c9',
+		name: 'War Mage',
+		classes: [{ slug: 'fighter', level: 5, hpRolledPerLevel: [10, 6, 6, 6, 6] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'war-magic' }],
+		abilityScores: { str: 16, dex: 12, con: 14, int: 14, wis: 10, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [
+			{ contentKind: 'item', contentSlug: 'longsword', version: 1, equipped: true, attuned: false }
+		],
+		spells: { known: [], prepared: [] },
+		currentHp: 40,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('synthesizes a BA weapon attack action mirroring the primary attack', () => {
+		const d = derive(FIGHTER_WITH_WAR_MAGIC, lookup());
+		const gated = d.actions.find((a) => a.gatedOnTrigger === 'war-magic-ba-attack');
+		expect(gated).toBeDefined();
+		expect(gated!.cost).toBe('bonus');
+		expect(gated!.type).toBe('attack');
+		// Attack bonus mirrors the primary longsword attack.
+		const primary = d.actions.find((a) => a.sourceContent.slug === 'longsword' && a.cost === 'action');
+		expect(gated!.attackBonus).toBe(primary!.attackBonus);
+	});
+
+	it('points sourceContent at the trigger source (the feat), not the weapon', () => {
+		const d = derive(FIGHTER_WITH_WAR_MAGIC, lookup());
+		const gated = d.actions.find((a) => a.gatedOnTrigger === 'war-magic-ba-attack');
+		expect(gated!.sourceContent).toEqual({ kind: 'feat', slug: 'war-magic' });
+	});
+
+	it('does not synthesize any gated action when there is no primary weapon attack', () => {
+		const noWeapon: CharacterDocument = { ...FIGHTER_WITH_WAR_MAGIC, inventory: [] };
+		const d = derive(noWeapon, lookup());
+		expect(d.actions.find((a) => a.gatedOnTrigger === 'war-magic-ba-attack')).toBeUndefined();
+	});
+});
+
 // --- C.8: damage-taken / attack-targets-self trigger events -----------------
 // Derive doesn't fire events — the encounter runtime does. This commit
 // captures the engine *contract*: the set of known event names + grant

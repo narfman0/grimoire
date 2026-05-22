@@ -1,0 +1,19 @@
+{
+  "kind": "feat",
+  "slug": "war-magic",
+  "version": 1,
+  "name": "War Magic (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "war-magic-ba-attack",
+        "name": "War Magic",
+        "on": ["spell.cast"],
+        "grants": { "type": "bonus-action-weapon-attack" }
+      }
+    ]
+  }
+}
