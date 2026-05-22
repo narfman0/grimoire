@@ -1,0 +1,50 @@
+{
+  "kind": "feat",
+  "slug": "c3-action-effects",
+  "version": 1,
+  "name": "C.3 Action-Effect Suite (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [
+      {
+        "kind": "action-modifier",
+        "id": "c3-extra-damage-rider",
+        "name": "Necrotic Rider",
+        "appliesTo": {
+          "activityType": "attack",
+          "predicates": [{ "attack.range": "melee" }, { "damage.type": "slashing" }]
+        },
+        "effects": [{ "target": "damage.dice", "value": "1d6", "damageType": "necrotic" }],
+        "limit": { "per": "turn", "uses": 1 }
+      },
+      {
+        "kind": "action-modifier",
+        "id": "c3-gwf",
+        "name": "Great Weapon Fighting",
+        "appliesTo": { "activityType": "attack" },
+        "effects": [{ "target": "damage.die.min", "value": 3 }]
+      },
+      {
+        "kind": "action-modifier",
+        "id": "c3-savage",
+        "name": "Savage Attacker",
+        "appliesTo": { "activityType": "attack" },
+        "effects": [{ "target": "damage.reroll-and-keep-higher", "value": true }]
+      },
+      {
+        "kind": "action-modifier",
+        "id": "c3-crossbow-expert",
+        "name": "Crossbow Expert",
+        "appliesTo": { "activityType": "attack", "predicates": [{ "attack.range": "ranged" }] },
+        "effects": [{ "target": "attack.no-disadvantage.within-5ft", "value": true }]
+      },
+      {
+        "kind": "action-modifier",
+        "id": "c3-ignore-resist",
+        "name": "Phantasmal Force",
+        "appliesTo": { "activityType": "attack" },
+        "effects": [{ "target": "damage.ignore-resistance", "value": true }]
+      }
+    ]
+  }
+}

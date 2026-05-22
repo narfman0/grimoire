@@ -871,7 +871,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // -------------------------------------------------------------------------
 
   for (const action of actions) {
-    const actionCtx = buildActionContext(action);
+    const sourceRow = content(action.sourceContent);
+    const actionCtx = buildActionContext(action, sourceRow?.data);
     for (const m of allMods) {
       if (m.kind !== 'action-modifier') continue;
       const enabled =
@@ -888,10 +889,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       for (const eff of effects) {
         applyActionEffect(action, eff, ctx);
       }
+      const limit = m.raw.limit as { per: string; uses: number } | undefined;
       action.appliedModifiers.push({
         modifierId: m.id,
         sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
-        name: (m.raw.name as string | undefined) ?? m.id
+        name: (m.raw.name as string | undefined) ?? m.id,
+        ...(limit ? { limit } : {})
       });
     }
   }
@@ -1620,17 +1623,39 @@ function synthesizeWeaponActivity(
   };
 }
 
-function buildActionContext(action: Action): PredicateContext {
+function buildActionContext(
+  action: Action,
+  sourceData: Record<string, unknown> | undefined
+): PredicateContext {
+  const damageTypes = (action.damageRolls ?? []).map((d) => d.type);
+  const isSpell = action.sourceContent.kind === 'spell';
   return {
     activityType: action.type,
     attack: {
       range: action.attackRange,
-      ability: action.attackAbility
+      ability: action.attackAbility,
+      classification: isSpell ? 'spell' : 'weapon'
+    },
+    damage: {
+      type: damageTypes[0],
+      types: damageTypes
     },
     weapon: {
       property: action.weaponProperties ?? [],
-      proficient: action.attackBonus != null // crude v0 proxy
-    }
+      proficient: action.attackBonus != null, // crude v0 proxy
+      kind: (sourceData?.weaponType as string | undefined) ?? undefined,
+      slug: isSpell ? undefined : action.sourceContent.slug
+    },
+    spell: isSpell
+      ? {
+          slug: action.sourceContent.slug,
+          school: sourceData?.school as string | undefined,
+          // `class` is the caster-class slug; spread to all entries on
+          // sourceData.classes when present.
+          class: sourceData?.classes as string[] | undefined,
+          level: sourceData?.level as number | undefined
+        }
+      : { slug: undefined }
   };
 }
 
@@ -1659,6 +1684,41 @@ function applyActionEffect(
     case 'attack.advantage':
       // Surface as a tag on the action; v0 doesn't formally model advantage.
       // (Tag persists via appliedModifiers entry the caller adds.)
+      break;
+    case 'damage.dice':
+      // Append an extra damage roll. `value` is the dice formula string
+      // (e.g. "1d6"); `eff.damageType` carries the damage type (default
+      // = first existing roll's type, or "untyped").
+      if (typeof rawValue === 'string' && rawValue.length > 0) {
+        const dtype =
+          (eff.damageType as string | undefined) ??
+          action.damageRolls?.[0]?.type ??
+          'untyped';
+        if (!action.damageRolls) action.damageRolls = [];
+        action.damageRolls.push({ formula: rawValue, type: dtype });
+      }
+      break;
+    case 'damage.die.min': {
+      // Great Weapon Fighting reroll-1s-and-2s is modeled as a floor on
+      // every die. value=3 means re-roll anything below 3. The natural mode
+      // for a floor is UPGRADE (take the higher of current and value); we
+      // default to UPGRADE here so a row can omit `mode` and still get the
+      // expected semantics — ADD across stacked floors would compound
+      // incorrectly.
+      if (typeof rawValue === 'number') {
+        const floorMode = eff.mode ? mode : 'UPGRADE';
+        action.damageDieMin = applyNumericMode(action.damageDieMin ?? 1, floorMode, rawValue);
+      }
+      break;
+    }
+    case 'damage.ignore-resistance':
+      if (rawValue === true) action.damageIgnoreResistance = true;
+      break;
+    case 'damage.reroll-and-keep-higher':
+      if (rawValue === true) action.damageRerollAndKeepHigher = true;
+      break;
+    case 'attack.no-disadvantage.within-5ft':
+      if (rawValue === true) action.attackNoDisadvantageWithin5ft = true;
       break;
     default:
       // Other targets are no-op in v0.

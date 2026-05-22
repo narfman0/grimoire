@@ -217,6 +217,10 @@ export interface AppliedModifier {
   modifierId: string;
   sourceContent: { kind: string; slug: string };
   name: string;
+  /** Surface the limit declared on an action-modifier so the UI can show
+   *  "1/turn", "1/short-rest", etc. The encounter runtime consumes the same
+   *  shape from the resources model to actually enforce uses. */
+  limit?: { per: string; uses: number };
 }
 
 export interface Action {
@@ -248,6 +252,18 @@ export interface Action {
   critThreshold?: number;
   /** Number of extra weapon dice rolled on a crit (Savage Attacks etc.). */
   critExtraDie?: number;
+  /** Minimum value on every damage die rolled (Great Weapon Fighting reroll
+   *  1s and 2s — modeled here as a floor of 3). */
+  damageDieMin?: number;
+  /** Damage from this attack ignores the target's resistance (Magic Weapon
+   *  master / certain feature riders). */
+  damageIgnoreResistance?: boolean;
+  /** Reroll all damage dice once and keep the higher result (Savage Attacker
+   *  feat). */
+  damageRerollAndKeepHigher?: boolean;
+  /** Ranged attacks made with this action don't suffer disadvantage when an
+   *  enemy is within 5 ft (Crossbow Expert). */
+  attackNoDisadvantageWithin5ft?: boolean;
   appliedModifiers: AppliedModifier[];
 }
 

@@ -260,6 +260,83 @@ describe('C.10 — subclass-driven spellcasting', () => {
 	});
 });
 
+// --- C.3: action-modifier effect targets + predicates + limit ----------------
+// Locks the four missing damage effect targets (damage.dice, damage.die.min,
+// damage.ignore-resistance, damage.reroll-and-keep-higher), the
+// attack.no-disadvantage.within-5ft target, the damage-type predicate path,
+// and the surfaced action-modifier limit on AppliedModifier.
+
+describe('C.3 — action-modifier effect targets + predicates + limit', () => {
+	const CHAR_WITH_C3: CharacterDocument = {
+		id: 'test-c3',
+		name: 'Action Effect Stack',
+		classes: [{ slug: 'fighter', level: 5, hpRolledPerLevel: [10, 6, 6, 6, 6] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'c3-action-effects' }],
+		abilityScores: { str: 16, dex: 14, con: 14, int: 10, wis: 10, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [
+			{ contentKind: 'item', contentSlug: 'longsword', version: 1, equipped: true, attuned: false },
+			{ contentKind: 'item', contentSlug: 'longbow', version: 1, equipped: true, attuned: false }
+		],
+		spells: { known: [], prepared: [] },
+		currentHp: 40,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('damage.die.min lands on the action (Great Weapon Fighting floor)', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const sword = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		expect(sword!.damageDieMin).toBe(3);
+	});
+
+	it('damage.reroll-and-keep-higher lands as a boolean flag', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const sword = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		expect(sword!.damageRerollAndKeepHigher).toBe(true);
+	});
+
+	it('damage.ignore-resistance lands as a boolean flag', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const sword = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		expect(sword!.damageIgnoreResistance).toBe(true);
+	});
+
+	it('attack.no-disadvantage.within-5ft is gated by attack.range predicate', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const bow = d.actions.find((a) => a.sourceContent.slug === 'longbow');
+		expect(bow!.attackNoDisadvantageWithin5ft).toBe(true);
+		const sword = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		// Melee attack doesn't get the ranged-only Crossbow Expert effect.
+		expect(sword!.attackNoDisadvantageWithin5ft).toBeUndefined();
+	});
+
+	it('damage.dice appends an extra damage roll when the damage-type predicate matches', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const sword = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		// Longsword default damage is slashing; rider gates on slashing → matches.
+		const necroticRoll = sword!.damageRolls?.find((r) => r.type === 'necrotic');
+		expect(necroticRoll?.formula).toBe('1d6');
+	});
+
+	it('does not apply the slashing-gated rider to a piercing attack (longbow)', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const bow = d.actions.find((a) => a.sourceContent.slug === 'longbow');
+		const necroticRoll = bow!.damageRolls?.find((r) => r.type === 'necrotic');
+		expect(necroticRoll).toBeUndefined();
+	});
+
+	it('surfaces the action-modifier limit on the AppliedModifier entry', () => {
+		const d = derive(CHAR_WITH_C3, lookup());
+		const sword = d.actions.find((a) => a.sourceContent.slug === 'longsword');
+		const rider = sword!.appliedModifiers.find((m) => m.modifierId === 'c3-extra-damage-rider');
+		expect(rider?.limit).toEqual({ per: 'turn', uses: 1 });
+	});
+});
+
 // --- C.2: save / initiative / crit advantage targets ------------------------
 // Locks the contract that the new advantage targets surface on the derived
 // stat block (and on attack Actions for the crit fields). Each before-C.2 was
