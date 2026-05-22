@@ -97,6 +97,20 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
       }, 0);
     }
   }
+  // perAbilityMod: { perAbilityMod: "wis", dieSize: 8 } → "{wisMod}d8" string.
+  // Used by sear-undead: roll a number of d8s equal to your Wisdom modifier.
+  if (value && typeof value === 'object' && 'perAbilityMod' in value && 'dieSize' in value) {
+    const o = value as { perAbilityMod: string; dieSize: number };
+    const ab = ABILITY_MOD_TOKENS[`${o.perAbilityMod}Mod`];
+    const count = ab !== undefined ? Math.max(1, ctx.abilityMods[ab] ?? 1) : 1;
+    return `${count}d${o.dieSize}`;
+  }
+  // perClassLevel: { perClassLevel: "cleric", multiplier: 5 } → numeric.
+  // Used for features whose pool = N × class level (e.g., preserve-life).
+  if (value && typeof value === 'object' && 'perClassLevel' in value && 'multiplier' in value) {
+    const o = value as { perClassLevel: string; multiplier: number };
+    return (ctx.classLevels[o.perClassLevel] ?? 0) * o.multiplier;
+  }
   return value;
 }
 

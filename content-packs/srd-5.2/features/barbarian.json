@@ -305,7 +305,7 @@
       "modifiers": [
         {
           "kind": "stat-modifier",
-          "target": "trait.feral-instinct-initiative-advantage",
+          "target": "initiative.advantage",
           "mode": "OVERRIDE",
           "value": true
         },

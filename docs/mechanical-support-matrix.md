@@ -1,15 +1,15 @@
 # SRD 5.2 Mechanical Support Matrix
 
-Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch 6)
+Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch 7)
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 190 |
-| ⚠️ Partial | 68 |
+| ✅ Full | 194 |
+| ⚠️ Partial | 69 |
 | ❌ Missing | 0 |
-| 🚫 Out of Scope | 16 |
+| 🚫 Out of Scope | 11 |
 
 **Status legend:**
 - ✅ Full — correct as-is
@@ -34,14 +34,14 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | barbarian | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature in features/shared.json; class references the slug | 2026-05-21 |
 | class | barbarian | Feature: extra-attack (L5) | ✅ Full | Shared feature, attacks-per-action UPGRADE 2 | 2026-05-21 |
 | class | barbarian | Feature: fast-movement (L5) | ⚠️ Partial | speed.walk ADD 10; SRD: only without heavy armor — engine cannot detect armor state, applies unconditionally (barbarians can wear heavy armor) | 2026-05-22 |
-| class | barbarian | Feature: feral-instinct (L7) | 🚫 Out of Scope | initiative.advantage not a supported evaluator target; both effects surfaced as trait tags | 2026-05-21 |
+| class | barbarian | Feature: feral-instinct (L7) | ⚠️ Partial | initiative.advantage OVERRIDE true now evaluates; act-when-surprised on surprise round is still OOS (trait tag) | 2026-05-22 |
 | class | barbarian | Feature: brutal-strike (L9) | 🚫 Out of Scope | Forced movement, speed reduction, and per-hit extra-die rider are all out of scope; trait tag + annotated activity only | 2026-05-21 |
 | class | barbarian | Feature: relentless-rage (L11) | ⚠️ Partial | Trigger on damage.reduce-to-zero (self) fires a free CON save; escalating DC (10/15/20…) not auto-tracked (manual note in feature) | 2026-05-22 |
 | class | bard | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, DEX/CHA saves, light armor, simple weapons, 3 musical instruments, pick 3 from all skills | 2026-05-21 |
 | class | bard | Feature: bardic-inspiration (L1) | ✅ Full | Resource activity correct (PB/long-rest); die-size surfaced via damageRolls type=inspiration with perClass bard table (d6→d8→d10→d12 by level) | 2026-05-21 |
 | class | bard | Feature: spellcasting-bard (L1) | ✅ Full | spellcasting.ability OVERRIDE cha | 2026-05-21 |
 | class | bard | Feature: expertise-bard-2 (L2) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} emits two expertise.skill.<slug> modifiers | 2026-05-21 |
-| class | bard | Feature: jack-of-all-trades (L2) | 🚫 Out of Scope | Half-proficiency on non-proficient checks not a supported stat-modifier target; trait tag only | 2026-05-21 |
+| class | bard | Feature: jack-of-all-trades (L2) | ✅ Full | `skill.half-proficiency-bonus OVERRIDE true` — derive adds floor(PB/2) to all non-proficient skill checks | 2026-05-22 |
 | class | bard | Feature: bard-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | bard | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | bard | Feature: font-of-inspiration (L5) | ⚠️ Partial | Activity surfaced as short-rest resource; UI should hide L1 long-rest version when L5 is active (not auto-wired) | 2026-05-21 |
@@ -52,7 +52,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | cleric | Feature: turn-undead (L2) | ✅ Full | Save activity (WIS vs spell DC) at 30 ft | 2026-05-21 |
 | class | cleric | Feature: cleric-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | cleric | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
-| class | cleric | Feature: sear-undead (L5) | 🚫 Out of Scope | Dynamic dice count = WIS modifier; engine damage schema accepts only static dice strings — trait tag + annotated damage activity | 2026-05-21 |
+| class | cleric | Feature: sear-undead (L5) | ✅ Full | `{ perAbilityMod: "wis", dieSize: 8 }` evaluator shape; damage activity shows computed dice string (e.g. "4d8 radiant") | 2026-05-22 |
 | class | druid | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, INT/WIS saves, light armor + shield, simple weapons, herbalism kit, pick 2 from list; metal-armor restriction correctly removed per 2024 | 2026-05-21 |
 | class | druid | Feature: druidic (L1) | ✅ Full | proficiency.language.druidic OVERRIDE true | 2026-05-21 |
 | class | druid | Feature: spellcasting-druid (L1) | ✅ Full | spellcasting.ability OVERRIDE wis | 2026-05-21 |
@@ -178,7 +178,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | subclass | life-domain | Feature: life-domain-spells (L3) | ⚠️ Partial | spellListAdditions injects Bless, Cure Wounds, Spiritual Weapon, Mass Healing Word; 6 others (Lesser Restoration, Revivify, Aura of Life, Death Ward, Mass Cure Wounds, Raise Dead) not in SRD pack | 2026-05-21 |
 | subclass | life-domain | Feature: life-domain-heavy-armor (L3) | ✅ Full | proficiency.armor.heavy OVERRIDE true | 2026-05-21 |
 | subclass | life-domain | Feature: disciple-of-life (L3) | ⚠️ Partial | action-modifier on heal activities; heal.bonus ADD spellLevelPlus2 tagged — spellLevelPlus2 magic identifier not evaluated | 2026-05-21 |
-| subclass | life-domain | Feature: preserve-life (L3) | 🚫 Out of Scope | Pool = 5×clericLevel; fiveTimesClericLevel is not a supported magic identifier — trait tag + annotated heal activity | 2026-05-21 |
+| subclass | life-domain | Feature: preserve-life (L3) | ✅ Full | `{ perClassLevel: "cleric", multiplier: 5 }` evaluator shape; heal activity surfaces pool total as damageRolls formula | 2026-05-22 |
 | subclass | life-domain | Feature: blessed-healer (L6) | 🚫 Out of Scope | self.heal-on-heal-other is not a supported evaluator target — tagged action-modifier only | 2026-05-21 |
 | subclass | circle-of-the-land | Parent Class (druid) / Feature List | ✅ Full | parentClass=druid, features=[circle-of-the-land-spells, lands-aid, natural-recovery, natures-ward, natures-sanctuary] | 2026-05-21 |
 | subclass | circle-of-the-land | Feature: circle-of-the-land-spells (L3) | ⚠️ Partial | Land-choice slot + trait flag; auto-prep injection not wired | 2026-05-21 |
@@ -227,7 +227,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | feat | alert | Full Feat Implementation | ✅ Full | initiative ADD proficiencyBonus + initiative-swap utility activity | 2026-05-21 |
 | feat | lucky | Full Feat Implementation | ✅ Full | Two PB/long-rest activities (Advantage and Disadvantage variants); shared pool split modelled as separate resources | 2026-05-21 |
 | feat | magic-initiate-wizard | Full Feat Implementation | ✅ Full | 1/long-rest level-1 spell cast activity; two cantrips noted; -cleric and -druid variants also present in feats.json | 2026-05-21 |
-| feat | savage-attacker | Full Feat Implementation | 🚫 Out of Scope | damage.reroll-and-keep-higher not a supported evaluator target — tagged action-modifier only | 2026-05-21 |
+| feat | savage-attacker | Full Feat Implementation | ✅ Full | damage.reroll-and-keep-higher OVERRIDE true evaluates correctly (engine support was added; matrix was stale); gated to proficient weapon attacks | 2026-05-22 |
 | feat | skilled | Full Feat Implementation | ✅ Full | Pick-3 skill/tool choice; proficiencies applied from character document | 2026-05-21 |
 | feat | tough | Full Feat Implementation | ✅ Full | hp.max ADD { sum: [totalLevel, totalLevel] } = +2/level using sum evaluator | 2026-05-22 |
 | feat | great-weapon-master | Full Feat Implementation | ✅ Full | Heavy-weapon-mastery action-modifier (PB damage bonus) + Hew trigger (bonus-action attack on crit/kill) + STR+1 | 2026-05-21 |

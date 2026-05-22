@@ -761,6 +761,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       skillExpertise.add(target.slice('expertise.skill.'.length));
     }
   }
+  // Jack of All Trades: add floor(PB/2) to non-proficient skill checks.
+  const halfProfBonus = allMods.some(
+    (m) => m.kind === 'stat-modifier' && m.raw.target === 'skill.half-proficiency-bonus' && m.raw.value === true
+  ) ? Math.floor(proficiencyBonus / 2) : 0;
   const skills: Record<string, SkillCell> = {};
   for (const skill of SKILLS) {
     const ability = SKILL_ABILITY[skill];
@@ -768,7 +772,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     const expertise = skillExpertise.has(skill);
     const base =
       abilities[ability].mod +
-      (proficient ? proficiencyBonus : 0) +
+      (proficient ? proficiencyBonus : halfProfBonus) +
       (expertise && proficient ? proficiencyBonus : 0);
     const bonus = applyTarget(allMods, character, `skill.${skill}`, base, ctx) as number;
     skills[skill] = { bonus, ability, proficient, expertise };

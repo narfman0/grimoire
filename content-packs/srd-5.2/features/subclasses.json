@@ -255,7 +255,6 @@
       "ownerKind": "subclass",
       "ownerSlug": "life-domain",
       "minLevel": 3,
-      "note": "Use one Channel Divinity charge as an action to create a pool of healing equal to 5 × your cleric level. Distribute the pool among creatures within 30 ft you can see (including yourself); each creature can only be brought up to half its HP max with this pool. The pool total is 5×clericLevel — 'fiveTimesClericLevel' is not in the supported magic identifier list, so v0 tags this as a trait and notes the formula for the DM/player to apply. Consumes a Channel Divinity use from the cleric class row.",
       "activities": [
         {
           "id": "preserve-life",
@@ -263,11 +262,13 @@
           "name": "Preserve Life (Channel Divinity)",
           "cost": "action",
           "range": { "value": 30, "units": "ft" },
-          "note": "Healing pool = 5 × cleric level. Distribute among visible creatures within 30 ft; each creature may only recover up to half its HP maximum from this pool."
+          "note": "Healing pool = 5 × cleric level. Distribute among visible creatures within 30 ft; each creature may only recover up to half its HP maximum from this pool.",
+          "damage": {
+            "parts": [
+              { "dice": { "perClassLevel": "cleric", "multiplier": 5 }, "type": "healing" }
+            ]
+          }
         }
-      ],
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "tag.preserve-life-pool", "mode": "OVERRIDE", "value": true }
       ]
     }
   },

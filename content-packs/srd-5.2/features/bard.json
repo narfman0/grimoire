@@ -84,11 +84,10 @@
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 2,
-      "note": "Adds half proficiency (rounded down) to ability checks for which the bard isn't already proficient. The v0 stat-modifier targets don't yet include a halfProf flag; modelled as a trait for the editor to display until the engine grows the target.",
       "modifiers": [
         {
           "kind": "stat-modifier",
-          "target": "trait.jack-of-all-trades",
+          "target": "skill.half-proficiency-bonus",
           "mode": "OVERRIDE",
           "value": true
         }

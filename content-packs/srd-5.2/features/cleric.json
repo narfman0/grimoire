@@ -148,22 +148,17 @@
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 5,
-      "note": "SRD 5.2: Whenever you use Turn Undead, roll a number of d8s equal to your Wisdom modifier; each undead that fails its save takes Radiant damage equal to the total. The die count is wismod (dynamic), not a fixed 2d8. The engine's damage parts schema only accepts a static dice string; surfaced as a trait tag so the UI can prompt the player to roll the correct number of d8s manually.",
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.sear-undead",
-          "mode": "OVERRIDE",
-          "value": true
-        }
-      ],
       "activities": [
         {
           "id": "sear-undead",
           "type": "damage",
           "name": "Sear Undead",
           "cost": "free",
-          "note": "On Turn Undead, roll (Wisdom modifier) d8s. Each undead failing the Turn Undead save takes that much Radiant damage. Track Wisdom modifier to determine the number of dice."
+          "damage": {
+            "parts": [
+              { "dice": { "perAbilityMod": "wis", "dieSize": 8 }, "type": "radiant" }
+            ]
+          }
         }
       ]
     }
