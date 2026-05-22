@@ -8,7 +8,7 @@
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 1,
-      "note": "Use DEX (instead of STR) for attack and damage rolls of your Unarmed Strikes and Monk Weapons. Martial Arts die: 1d6 (L1), 1d8 (L5), 1d10 (L11), 1d12 (L17). When you take the Attack action on your turn, you can make one Unarmed Strike as a Bonus Action. Monk Weapons = Simple Melee weapons + Shortsword + any other weapon you choose with the Monk property. v0 surfaces the action-modifier override and bonus-action activity; the die scaling table isn't simulated beyond 1d6.",
+      "note": "Use DEX (instead of STR) for attack and damage rolls of your Unarmed Strikes and Monk Weapons. Martial Arts die: 1d6 (L1), 1d8 (L5), 1d10 (L11), 1d12 (L17). When you take the Attack action on your turn, you can make one Unarmed Strike as a Bonus Action. Monk Weapons = Simple Melee weapons + Shortsword + any other weapon you choose with the Monk property.",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -51,12 +51,15 @@
             "range": "melee",
             "damage": [
               {
-                "dice": "1d6",
+                "dice": {
+                  "perClass": "monk",
+                  "table": ["1d6","1d6","1d6","1d6","1d8","1d8","1d8","1d8","1d8","1d8","1d10","1d10","1d10","1d10","1d10","1d10","1d12","1d12","1d12","1d12"]
+                },
                 "type": "bludgeoning"
               }
             ]
           },
-          "note": "Immediately after the Attack action with an Unarmed Strike or Monk Weapon, make one Unarmed Strike as a Bonus Action. Damage die uses the Martial Arts die (1d6 at L1, scaling later)."
+          "note": "Immediately after the Attack action with an Unarmed Strike or Monk Weapon, make one Unarmed Strike as a Bonus Action. Die scales: 1d6 (L1-4), 1d8 (L5-10), 1d10 (L11-16), 1d12 (L17-20)."
         }
       ]
     }
@@ -196,12 +199,15 @@
             "range": "melee",
             "damage": [
               {
-                "dice": "1d6",
+                "dice": {
+                  "perClass": "monk",
+                  "table": ["1d6","1d6","1d6","1d6","1d8","1d8","1d8","1d8","1d8","1d8","1d10","1d10","1d10","1d10","1d10","1d10","1d12","1d12","1d12","1d12"]
+                },
                 "type": "bludgeoning"
               }
             ]
           },
-          "note": "Immediately after the Attack action, spend 1 Focus Point to make two Unarmed Strikes as a Bonus Action (this activity models one of the two strikes; engine doesn't multi-target a single activity). Number of strikes increases to 3 at L10. v0 doesn't deduct the focus point automatically."
+          "note": "Immediately after the Attack action, spend 1 Focus Point to make two Unarmed Strikes as a Bonus Action (this activity models one of the two strikes; engine doesn't multi-target a single activity). Number of strikes increases to 3 at L10. Damage die scales with monk level: 1d6 (L1-4), 1d8 (L5-10), 1d10 (L11-16), 1d12 (L17-20)."
         }
       ]
     }

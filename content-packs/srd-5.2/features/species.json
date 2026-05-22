@@ -198,7 +198,7 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "dragonborn",
-      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + proficiency bonus. Damage 1d10 at L1, 2d10 L5, 3d10 L11, 4d10 L17 (modeled here as a flat 1d10; UI/sheet can scale by totalLevel later). Damage type follows trait.draconic-ancestry. Usable PB times per long rest.",
+      "note": "SRD 5.2: 15-ft cone or 30-ft line (per ancestry). DC = 8 + Con mod + proficiency bonus. Damage 1d10 at L1, 2d10 L5, 3d10 L11, 4d10 L17 (dice field is a flat string; level-scaling requires engine support for evaluated dice expressions — tracked as Group B engine work). Damage type follows trait.draconic-ancestry. Usable PB times per long rest.",
       "activities": [
         {
           "id": "breath-weapon",
@@ -206,7 +206,7 @@
           "name": "Breath Weapon",
           "cost": "action",
           "range": { "value": 15, "units": "ft" },
-          "save": { "ability": "dex", "dc": { "calc": "fixed", "value": 8 } },
+          "save": { "ability": "dex", "dc": { "calc": "custom", "base": 8, "bonus": ["conMod", "proficiencyBonus"] } },
           "damage": { "parts": [{ "dice": "1d10", "type": "varies" }] },
           "uses": { "max": "proficiencyBonus", "per": "long-rest" }
         }
@@ -344,14 +344,141 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "goliath",
-      "note": "SRD 5.2: choose Cloud/Fire/Frost/Hill/Stone/Storm. Each grants a small bonus action usable PB/long rest (Cloud: short teleport; Fire: 1d10 fire damage on hit; Frost: reduce damage; Hill: knock prone; Stone: reaction to redirect attack; Storm: 30-ft repulse). Folded into trait.giant-ancestry flag and a generic per-PB activity for v0.",
+      "note": "SRD 5.2: choose one Giant Ancestry (Cloud, Fire, Frost, Hill, Stone, Storm). Player pick stored in character.featureChoices.giant-ancestry.feature.feature; the chosen sub-feature row is loaded by the engine.",
+      "choices": {
+        "feature": {
+          "allowedFeatures": [
+            "giant-ancestry-cloud",
+            "giant-ancestry-fire",
+            "giant-ancestry-frost",
+            "giant-ancestry-hill",
+            "giant-ancestry-stone",
+            "giant-ancestry-storm"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry-cloud",
+    "version": 1,
+    "name": "Giant Ancestry: Cloud's Jaunt",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "giant-ancestry",
+      "note": "SRD 5.2 Cloud Giant ancestry: Bonus action, teleport up to 30 ft to an unoccupied space you can see. PB uses per long rest. Engine cannot simulate teleportation; activity is surfaced as a utility.",
       "activities": [
         {
-          "id": "giant-ancestry",
+          "id": "giant-ancestry-cloud",
           "type": "utility",
-          "name": "Giant Ancestry",
+          "name": "Cloud's Jaunt (Teleport 30 ft)",
           "cost": "bonus",
+          "range": { "value": 30, "units": "ft" },
           "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry-fire",
+    "version": 1,
+    "name": "Giant Ancestry: Fire's Burn",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "giant-ancestry",
+      "note": "SRD 5.2 Fire Giant ancestry: When you hit a creature with an attack, deal 1d10 fire damage. PB uses per long rest. Modeled as a free-cost activity the player declares before rolling; the encounter runtime applies the extra fire damage.",
+      "activities": [
+        {
+          "id": "giant-ancestry-fire",
+          "type": "damage",
+          "name": "Fire's Burn (1d10 Fire)",
+          "cost": "free",
+          "damage": {
+            "parts": [{ "dice": "1d10", "type": "fire" }]
+          },
+          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry-frost",
+    "version": 1,
+    "name": "Giant Ancestry: Frost's Chill",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "giant-ancestry",
+      "note": "SRD 5.2 Frost Giant ancestry: Reaction when another creature you can see hits you with an attack; reduce the damage by 1d12 + STR modifier. PB uses per long rest.",
+      "triggers": [
+        {
+          "id": "giant-ancestry-frost",
+          "name": "Frost's Chill (Reduce Damage)",
+          "on": ["attack.targets-self.hit"],
+          "grants": { "type": "damage.reduce", "amount": "1d12+strMod" },
+          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry-hill",
+    "version": 1,
+    "name": "Giant Ancestry: Hill's Tumble",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "giant-ancestry",
+      "note": "SRD 5.2 Hill Giant ancestry: When you hit a creature with an attack, force a Strength saving throw (DC = 8 + STR mod + PB) or be knocked Prone. PB uses per long rest. Engine cannot simulate forced saves on hit or knock-prone; surfaced as informational trigger.",
+      "triggers": [
+        {
+          "id": "giant-ancestry-hill",
+          "name": "Hill's Tumble (Knock Prone on Hit)",
+          "on": ["attack.hit"],
+          "grants": { "type": "knock-prone", "dc": { "calc": "custom", "base": 8, "bonus": ["strMod", "proficiencyBonus"] } },
+          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry-stone",
+    "version": 1,
+    "name": "Giant Ancestry: Stone's Endurance",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "giant-ancestry",
+      "note": "SRD 5.2 Stone Giant ancestry: Reaction when you take damage; reduce that damage by 1d12 + CON modifier. PB uses per long rest.",
+      "triggers": [
+        {
+          "id": "giant-ancestry-stone",
+          "name": "Stone's Endurance (Reduce Damage)",
+          "on": ["damage.taken"],
+          "grants": { "type": "damage.reduce", "amount": "1d12+conMod" },
+          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "giant-ancestry-storm",
+    "version": 1,
+    "name": "Giant Ancestry: Storm's Thunder",
+    "data": {
+      "ownerKind": "feature",
+      "ownerSlug": "giant-ancestry",
+      "note": "SRD 5.2 Storm Giant ancestry: When you hit a creature with an attack, force a Constitution saving throw (DC = 8 + STR mod + PB) or be pushed 10 ft away and unable to take reactions until the start of its next turn. PB uses per long rest. Engine cannot simulate forced saves on hit or push/stun; surfaced as informational trigger.",
+      "triggers": [
+        {
+          "id": "giant-ancestry-storm",
+          "name": "Storm's Thunder (Push & Stun on Hit)",
+          "on": ["attack.hit"],
+          "grants": { "type": "push-and-lose-reactions", "distance": 10, "dc": { "calc": "custom", "base": 8, "bonus": ["strMod", "proficiencyBonus"] } },
+          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
         }
       ]
     }

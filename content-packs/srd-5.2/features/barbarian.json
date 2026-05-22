@@ -246,18 +246,28 @@
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 3,
-      "note": "At L3 (and again at L10), choose one skill from the Barbarian skill list (Animal Handling, Athletics, Intimidation, Nature, Perception, Survival) to gain proficiency in. Because the character already has 2 skills from L1, this effectively expands the skill list. The second grant at L10 is not yet modelled as a separate entry; a single choice is surfaced here. The engine stores chosen skills on character.classes[].choices.primalKnowledge.",
-      "choice": {
-        "kind": "skill-proficiency",
-        "pick": 1,
-        "from": [
-          "animal-handling",
-          "athletics",
-          "intimidation",
-          "nature",
-          "perception",
-          "survival"
-        ]
+      "note": "At L3, choose one skill from the Barbarian list to gain proficiency in. Pick stored in character.featureChoices.primal-knowledge.skillProficiency.skill.",
+      "choices": {
+        "skillProficiency": {
+          "allowedSkills": ["animal-handling", "athletics", "intimidation", "nature", "perception", "survival"]
+        }
+      }
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "primal-knowledge-l10",
+    "version": 1,
+    "name": "Primal Knowledge (L10)",
+    "data": {
+      "ownerKind": "class",
+      "ownerSlug": "barbarian",
+      "minLevel": 10,
+      "note": "At L10, gain proficiency in a second skill from the Barbarian list. Pick stored in character.featureChoices.primal-knowledge-l10.skillProficiency.skill.",
+      "choices": {
+        "skillProficiency": {
+          "allowedSkills": ["animal-handling", "athletics", "intimidation", "nature", "perception", "survival"]
+        }
       }
     }
   },

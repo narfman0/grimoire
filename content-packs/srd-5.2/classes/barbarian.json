@@ -28,6 +28,7 @@
       { "level": 5, "slug": "fast-movement" },
       { "level": 7, "slug": "feral-instinct" },
       { "level": 9, "slug": "brutal-strike" },
+      { "level": 10, "slug": "primal-knowledge-l10" },
       { "level": 11, "slug": "relentless-rage" }
     ]
   }

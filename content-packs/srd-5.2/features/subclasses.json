@@ -453,7 +453,7 @@
         { "kind": "stat-modifier", "target": "speed.climb", "mode": "UPGRADE", "value": "walkSpeed" },
         { "kind": "stat-modifier", "target": "speed.swim", "mode": "UPGRADE", "value": "walkSpeed" }
       ],
-      "note": "When you roll Initiative, add your Strength modifier to the roll. You also have a Climb Speed and Swim Speed equal to your Speed. When you make a running long jump, you can add your STR modifier to the distance covered. 'walkSpeed' is not a supported magic identifier — the climb/swim UPGRADE values are tagged here for documentation; the engine should dynamically match these to the character's walking speed. Jump math isn't modelled in v0."
+      "note": "When you roll Initiative, add your Strength modifier to the roll. You also have a Climb Speed and Swim Speed equal to your Speed (dynamically equals walkSpeed via evaluateValue). When you make a running long jump, add your STR modifier to the distance — jump math is not modelled in v0."
     }
   },
   {
@@ -917,12 +917,11 @@
           "kind": "stat-modifier",
           "target": "speed.climb",
           "mode": "UPGRADE",
-          "value": "walkSpeed",
-          "note": "'walkSpeed' is not a supported magic identifier — the engine should dynamically match this to the character's walking speed. v0 falls back to tagging the trait; the DM/player should set climb speed = Speed manually."
+          "value": "walkSpeed"
         },
         { "kind": "stat-modifier", "target": "tag.second-story-work", "mode": "OVERRIDE", "value": true }
       ],
-      "note": "You gain a Climb Speed equal to your Speed. When you make a running jump, your jump distance increases by a number of feet equal to your Dexterity modifier. Climb Speed matching walking speed is a DSL limitation — surfaced as a trait tag. Jump math isn't modelled in v0."
+      "note": "You gain a Climb Speed equal to your Speed (dynamically equals walkSpeed via evaluateValue). When you make a running jump, your jump distance increases by your DEX modifier — jump math is not modelled in v0."
     }
   },
   {
@@ -1053,9 +1052,9 @@
       "ownerKind": "subclass",
       "ownerSlug": "draconic-sorcery",
       "minLevel": 14,
-      "note": "You sprout draconic wings from your back and gain a Fly Speed equal to your Speed, provided you aren't wearing heavy armor. 'walkSpeed' is not a supported magic identifier — v0 adds a flat 30-ft fly speed (common base) and tags the trait. The engine should dynamically match the fly speed to the character's walking speed.",
+      "note": "You sprout draconic wings and gain a Fly Speed equal to your Speed (not while wearing heavy armor). Fly speed dynamically equals walkSpeed via UPGRADE mode.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "speed.fly", "mode": "UPGRADE", "value": 30 },
+        { "kind": "stat-modifier", "target": "speed.fly", "mode": "UPGRADE", "value": "walkSpeed" },
         { "kind": "stat-modifier", "target": "tag.dragon-wings", "mode": "OVERRIDE", "value": true }
       ]
     }

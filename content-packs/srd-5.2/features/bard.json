@@ -8,7 +8,7 @@
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 1,
-      "note": "Inspiration die scales d6 (L1), d8 (L5), d10 (L10), d12 (L15). v0 surfaces the resource only; the die-size table isn't simulated.",
+      "note": "Inspiration die scales d6 (L1-4), d8 (L5-9), d10 (L10-14), d12 (L15-20). Die size is surfaced via damageRolls with type 'inspiration'.",
       "activities": [
         {
           "id": "bardic-inspiration",
@@ -18,6 +18,17 @@
           "range": {
             "value": 60,
             "units": "ft"
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": {
+                  "perClass": "bard",
+                  "table": ["1d6","1d6","1d6","1d6","1d8","1d8","1d8","1d8","1d8","1d10","1d10","1d10","1d10","1d10","1d12","1d12","1d12","1d12","1d12","1d12"]
+                },
+                "type": "inspiration"
+              }
+            ]
           },
           "uses": {
             "max": "proficiencyBonus",

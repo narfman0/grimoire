@@ -465,6 +465,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           }
         });
       }
+      // Feature-pick: any content kind with choices.feature defers loading of
+      // the chosen sub-feature (e.g. Giant Ancestry picking an ancestry type).
+      const featureDecl = decl.feature as { allowedFeatures?: string[] } | undefined;
+      const featurePick = (picks.feature as { feature?: string } | undefined)?.feature;
+      if (featureDecl && featurePick) {
+        if (!featureDecl.allowedFeatures || featureDecl.allowedFeatures.includes(featurePick)) {
+          deferredRefs.push({ kind: 'feature', slug: featurePick });
+        }
+      }
     }
     if (a.row.kind === 'feat') {
       const featRef = character.feats.find((f) => f.slug === a.row.slug);
@@ -913,7 +922,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       if (synth) activities = [synth];
     }
     for (const act of activities) {
-      const action = realizeActivity(act, a, character, stats, content);
+      const action = realizeActivity(act, a, character, stats, content, ctx);
       if (!action) continue;
       // Crit fields only land on weapon attacks. Spell attacks crit on 20
       // and don't roll extra weapon dice.
@@ -1101,14 +1110,17 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     // Endurance "1/long rest", Chronal Shift "2/long rest", etc.
     const triggerList = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
     for (const t of triggerList) {
-      const limit = t.limit as { per?: string; uses?: number } | undefined;
-      if (!limit?.per || !limit.uses) continue;
+      const limit = t.limit as { per?: string; uses?: number | string | object } | undefined;
+      if (!limit?.per || limit.uses == null) continue;
+      const maxRaw = evaluateValue(limit.uses, ctx);
+      const max = typeof maxRaw === 'number' ? maxRaw : 0;
+      if (max <= 0) continue;
       const id = `trigger/${a.row.slug}/${(t.id as string) ?? 'unnamed'}`;
       resources.push({
         id,
         name: (t.name as string | undefined) ?? (t.id as string) ?? id,
-        max: limit.uses,
-        used: Math.min(limit.uses, spent[id] ?? 0),
+        max,
+        used: Math.min(max, spent[id] ?? 0),
         per: limit.per,
         sourceContent: { kind: a.row.kind, slug: a.row.slug }
       });
@@ -1201,6 +1213,18 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
 function classLevelFor(character: CharacterDocument, slug: string): number {
   return character.classes.find((c) => c.slug === slug)?.level ?? 0;
+}
+
+/** Resolve a string DC-bonus token against the current stat block.
+ *  Supports ability-mod tokens (strMod…chaMod) and proficiencyBonus. */
+function resolveStatToken(token: string, stats: StatBlock): number {
+  if (token === 'proficiencyBonus') return stats.proficiencyBonus;
+  const AB_MOD: Record<string, 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'> = {
+    strMod: 'str', dexMod: 'dex', conMod: 'con', intMod: 'int', wisMod: 'wis', chaMod: 'cha'
+  };
+  const ab = AB_MOD[token];
+  if (ab) return stats.abilities[ab].mod;
+  return 0;
 }
 
 /** Lower-case, hyphenate, strip non-[a-z0-9-] — matches the slug convention
@@ -1568,7 +1592,8 @@ function realizeActivity(
   source: ActiveContent,
   character: CharacterDocument,
   stats: StatBlock,
-  content: ContentLookup
+  content: ContentLookup,
+  ctx: EvalContext
 ): Action | null {
   const type = act.type as string | undefined;
   const id = (act.id as string | undefined) ?? `${source.row.kind}/${source.row.slug}/act`;
@@ -1596,7 +1621,7 @@ function realizeActivity(
           ability?: string;
           classification?: 'weapon' | 'spell';
           range?: 'melee' | 'ranged';
-          damage?: Array<{ dice: string; type: string }>;
+          damage?: Array<{ dice: unknown; type: string }>;
         }
       | undefined;
     if (attack) {
@@ -1608,36 +1633,54 @@ function realizeActivity(
       action.attackRange = attack.range;
       action.weaponProperties = (source.data.properties as string[] | undefined) ?? [];
       if (attack.damage) {
-        action.damageRolls = attack.damage.map((d) => ({
-          formula: addAbilityToFormula(d.dice, mod),
-          type: d.type
-        }));
+        action.damageRolls = attack.damage.map((d) => {
+          const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+          return { formula: addAbilityToFormula(formula, mod), type: d.type };
+        });
       } else {
         // 5etools shape: damage lives at act.damage.parts as a sibling of
         // act.attack, not inline. Pull from there too. Ability mod typically
         // isn't added to cantrip damage, so we copy `dice` straight through;
         // weapon-style spells with the mod still go through the inline path.
-        const parts = (act.damage as { parts?: Array<{ dice: string; type: string }> } | undefined)?.parts;
+        const parts = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
         if (parts) {
-          action.damageRolls = parts.map((d) => ({ formula: d.dice, type: d.type }));
+          action.damageRolls = parts.map((d) => {
+            const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+            return { formula, type: d.type };
+          });
         }
       }
     }
   } else if (type === 'save') {
-    const save = act.save as { ability: string; dc?: { calc?: string; value?: number } } | undefined;
+    const save = act.save as { ability: string; dc?: { calc?: string; value?: number; base?: number; bonus?: string[] } } | undefined;
     if (save) {
-      const value =
-        save.dc?.calc === 'spell' ? (stats.spellSaveDC ?? 8) : (save.dc?.value ?? 8);
+      let value: number;
+      if (save.dc?.calc === 'spell') {
+        value = stats.spellSaveDC ?? 8;
+      } else if (save.dc?.calc === 'custom') {
+        value = save.dc.base ?? 8;
+        for (const token of save.dc.bonus ?? []) {
+          value += resolveStatToken(token, stats);
+        }
+      } else {
+        value = save.dc?.value ?? 8;
+      }
       action.saveDC = { ability: save.ability, value };
-      const damage = (act.damage as { parts?: Array<{ dice: string; type: string }> } | undefined)?.parts;
+      const damage = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
       if (damage) {
-        action.damageRolls = damage.map((d) => ({ formula: d.dice, type: d.type }));
+        action.damageRolls = damage.map((d) => {
+          const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+          return { formula, type: d.type };
+        });
       }
     }
   } else if (type === 'damage') {
-    const damage = (act.damage as { parts?: Array<{ dice: string; type: string }> } | undefined)?.parts;
+    const damage = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
     if (damage) {
-      action.damageRolls = damage.map((d) => ({ formula: d.dice, type: d.type }));
+      action.damageRolls = damage.map((d) => {
+        const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+        return { formula, type: d.type };
+      });
     }
   } else if (type === 'cast-spell') {
     // Items (and someday monster innate spellcasting) reference a spell by
@@ -1657,7 +1700,8 @@ function realizeActivity(
             { ref: { kind: spellRow.kind, slug: spellRow.slug }, row: spellRow, data: spellRow.data },
             character,
             stats,
-            content
+            content,
+            ctx
           );
           if (inlined) {
             action.attackBonus = inlined.attackBonus;
@@ -1671,6 +1715,20 @@ function realizeActivity(
           action.range = spellRow.data.range as { value: number; units: string };
         }
       }
+    }
+  }
+
+  // Any activity type may carry `act.damage.parts` for an associated die
+  // that gets surfaced in the action panel (e.g. Bardic Inspiration's
+  // d6–d12 die, healing dice on utility activities). Set damageRolls only
+  // if not already populated by the type-specific block above.
+  if (!action.damageRolls) {
+    const parts = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
+    if (parts && parts.length > 0) {
+      action.damageRolls = parts.map((d) => {
+        const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+        return { formula, type: d.type };
+      });
     }
   }
 

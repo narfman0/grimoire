@@ -70,10 +70,10 @@
             {
               "target": "damage.bonus",
               "mode": "ADD",
-              "value": "abilityModifier.cha"
+              "value": "chaMod"
             }
           ],
-          "note": "When you cast Eldritch Blast, add your Charisma modifier to the damage roll of each of its beams. v0 evaluator does not implement 'abilityModifier.cha' as a magic identifier (only 'proficiencyBonus' / 'totalLevel' / 'rageDamage' resolve in evaluate.ts); surfaces as a tagged modifier and the damage bonus will not auto-apply until evaluate.ts learns ability-mod identifiers."
+          "note": "When you cast Eldritch Blast, add your Charisma modifier to the damage roll of each of its beams."
         }
       ]
     }

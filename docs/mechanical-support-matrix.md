@@ -6,10 +6,10 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 142 |
-| ⚠️ Partial | 94 |
+| ✅ Full | 151 |
+| ⚠️ Partial | 87 |
 | ❌ Missing | 0 |
-| 🚫 Out of Scope | 14 |
+| 🚫 Out of Scope | 12 |
 
 **Status legend:**
 - ✅ Full — correct as-is
@@ -30,7 +30,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | barbarian | Feature: danger-sense (L2) | ⚠️ Partial | save.advantage.dex OVERRIDE vs-seen-effects — evaluator reads the target but condition qualifier not enforced | 2026-05-21 |
 | class | barbarian | Feature: reckless-attack (L2) | ✅ Full | action-modifier toggle granting attack.advantage + attacker.grants-advantage-against | 2026-05-21 |
 | class | barbarian | Feature: primal-path (L3) | ✅ Full | Feature entry exists with subclass choice slot | 2026-05-21 |
-| class | barbarian | Feature: primal-knowledge (L3) | ⚠️ Partial | Feature entry exists with skill-proficiency choice; L10 second grant not modelled as separate entry | 2026-05-21 |
+| class | barbarian | Feature: primal-knowledge (L3+L10) | ✅ Full | Two feature rows (primal-knowledge + primal-knowledge-l10); both use data.choices.skillProficiency so engine synthesizes proficiency.skill.{chosen}; L10 entry added to class features list | 2026-05-21 |
 | class | barbarian | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature in features/shared.json; class references the slug | 2026-05-21 |
 | class | barbarian | Feature: extra-attack (L5) | ✅ Full | Shared feature, attacks-per-action UPGRADE 2 | 2026-05-21 |
 | class | barbarian | Feature: fast-movement (L5) | ✅ Full | speed.walk ADD 10 with no-heavy-armor condition | 2026-05-21 |
@@ -38,7 +38,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | barbarian | Feature: brutal-strike (L9) | 🚫 Out of Scope | Forced movement, speed reduction, and per-hit extra-die rider are all out of scope; trait tag + annotated activity only | 2026-05-21 |
 | class | barbarian | Feature: relentless-rage (L11) | ⚠️ Partial | Trigger on self.reduced-to-0hp fires a free CON save; escalating DC not auto-tracked (manual note in feature) | 2026-05-21 |
 | class | bard | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, DEX/CHA saves, light armor, simple weapons, 3 musical instruments, pick 3 from all skills | 2026-05-21 |
-| class | bard | Feature: bardic-inspiration (L1) | ⚠️ Partial | Resource activity correct; die-size scaling table (d6→d8→d10→d12) not simulated | 2026-05-21 |
+| class | bard | Feature: bardic-inspiration (L1) | ✅ Full | Resource activity correct (PB/long-rest); die-size surfaced via damageRolls type=inspiration with perClass bard table (d6→d8→d10→d12 by level) | 2026-05-21 |
 | class | bard | Feature: spellcasting-bard (L1) | ✅ Full | spellcasting.ability OVERRIDE cha | 2026-05-21 |
 | class | bard | Feature: expertise-bard-2 (L2) | ⚠️ Partial | Choice slot surfaced; derive.ts hard-codes expertise=false — doubled-PB not yet applied | 2026-05-21 |
 | class | bard | Feature: jack-of-all-trades (L2) | 🚫 Out of Scope | Half-proficiency on non-proficient checks not a supported stat-modifier target; trait tag only | 2026-05-21 |
@@ -74,7 +74,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | fighter | Feature: extra-attack-2 (L11) | ✅ Full | attacks-per-action UPGRADE 3 | 2026-05-21 |
 | class | fighter | Feature: extra-attack-3 (L20) | ✅ Full | attacks-per-action UPGRADE 4 | 2026-05-21 |
 | class | monk | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, STR/DEX saves, no armor, simple + martial-light-finesse weapons, one artisan or musical tool, pick 2 from list | 2026-05-21 |
-| class | monk | Feature: martial-arts (L1) | ⚠️ Partial | DEX action-modifier + bonus unarmed strike activity; die-size scaling table (1d6→1d8→1d10→1d12) not simulated beyond 1d6 | 2026-05-21 |
+| class | monk | Feature: martial-arts (L1) | ✅ Full | DEX action-modifier + bonus unarmed strike; die field uses perClass monk table (1d6→1d8→1d10→1d12), evaluated by new engine support for object-shaped dice in attack activities; Flurry of Blows updated too | 2026-05-21 |
 | class | monk | Feature: unarmored-defense-monk (L1) | ✅ Full | ac.formula OVERRIDE 10+DEX+WIS requires no-armor-no-shield | 2026-05-21 |
 | class | monk | Feature: monks-focus (L1) | ⚠️ Partial | Focus points pool with per-level table surfaced; auto-deduction on spend not wired | 2026-05-21 |
 | class | monk | Feature: step-of-the-wind (L2) | ⚠️ Partial | Bonus-action utility activity; focus-point deduction not automatic | 2026-05-21 |
@@ -128,8 +128,8 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | class | sorcerer | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | sorcerer | Feature: sorcerous-restoration (L5) | ⚠️ Partial | 1/long-rest utility activity on short-rest trigger; half-sorcerer-level cap and pool interaction not plumbed | 2026-05-21 |
 | class | warlock | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, WIS/CHA saves, light armor, simple weapons, pick 2 from list | 2026-05-21 |
-| class | warlock | Feature: pact-magic (L1) | ⚠️ Partial | spellcasting.ability OVERRIDE cha; pact slot table (short-rest refresh, separate slot progression) not yet emitted — derive.ts only handles full-caster | 2026-05-21 |
-| class | warlock | Feature: eldritch-invocations (L1) | ⚠️ Partial | Choice slot + 4 SRD invocations implemented; per-level pick count scaling declared; agonizing-blast CHA-mod identifier not resolved by evaluator | 2026-05-21 |
+| class | warlock | Feature: pact-magic (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; pact slot table now handled by pactCasterSlots() in derive.ts (upstream); class uses progression:'pact' | 2026-05-21 |
+| class | warlock | Feature: eldritch-invocations (L1) | ✅ Full | Choice slot + 4 SRD invocations; agonizing-blast now uses chaMod (resolves correctly); per-level pick count scaling declared | 2026-05-21 |
 | class | warlock | Feature: pact-boon (L1) | ⚠️ Partial | Choice slot present (Blade/Chain/Tome/Talisman); mechanical effects of each boon deferred to future batch | 2026-05-21 |
 | class | warlock | Feature: magical-cunning (L2) | ⚠️ Partial | 1/long-rest ritual activity surfaced; slot-refresh effect descriptive only (pact slots not yet emitted) | 2026-05-21 |
 | class | warlock | Feature: warlock-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -170,13 +170,13 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | circle-of-the-land | Feature: natural-recovery (L6) | ⚠️ Partial | 1/long-rest utility on short-rest trigger; slot-recovery accounting left to player | 2026-05-21 |
 | subclass | champion | Parent Class (fighter) / Feature List | ✅ Full | parentClass=fighter, features=[improved-critical, remarkable-athlete, additional-fighting-style, superior-critical] | 2026-05-21 |
 | subclass | champion | Feature: improved-critical (L3) | ✅ Full | attack.crit-threshold DOWNGRADE 19 | 2026-05-21 |
-| subclass | champion | Feature: remarkable-athlete (L3) | 🚫 Out of Scope | initiative ADD strMod wired; climb/swim UPGRADE value="walkSpeed" — walkSpeed is not a supported magic identifier; hard-coded climb/swim unsupported | 2026-05-21 |
+| subclass | champion | Feature: remarkable-athlete (L3) | ✅ Full | initiative ADD strMod; climb/swim UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue (engine updated); running jump STR-mod bonus is out of scope | 2026-05-21 |
 | subclass | way-of-the-open-hand | Parent Class (monk) / Feature List | ✅ Full | parentClass=monk, features=[open-hand-technique, wholeness-of-body, tranquility, quivering-palm] | 2026-05-21 |
 | subclass | way-of-the-open-hand | Feature: open-hand-technique (L3) | ⚠️ Partial | action-modifier tag on Flurry of Blows attacks; three effect options and their saves/conditions left to play | 2026-05-21 |
 | subclass | way-of-the-open-hand | Feature: wholeness-of-body (L6) | ⚠️ Partial | Bonus-action heal activity 2d8+wisMod; uses.max=focusPoints is a DSL approximation — actual cost is 3 focus points | 2026-05-21 |
 | subclass | oath-of-devotion | Parent Class (paladin) / Feature List | ✅ Full | parentClass=paladin, features=[devotion-spells, channel-divinity-sacred-weapon, channel-divinity-holy-rebuke, aura-of-devotion] | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: devotion-spells (L3) | ⚠️ Partial | trait.oath-spells.devotion flag; auto-prep injection not wired | 2026-05-21 |
-| subclass | oath-of-devotion | Feature: channel-divinity-sacred-weapon (L3) | ⚠️ Partial | Bonus-action utility activity + action-modifier adding chaMod to attack.bonus.melee; chaMod magic identifier not resolved by evaluator | 2026-05-21 |
+| subclass | oath-of-devotion | Feature: channel-divinity-sacred-weapon (L3) | ✅ Full | Bonus-action utility activity + action-modifier adding chaMod to attack.bonus.melee; chaMod now resolves via evaluateValue (engine updated) | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: channel-divinity-holy-rebuke (L3) | ✅ Full | Reaction save activity (CON vs spell DC, 2d8+paladinLevel radiant) | 2026-05-21 |
 | subclass | oath-of-devotion | Feature: aura-of-devotion (L6) | ⚠️ Partial | immunity.charmed OVERRIDE true for self; aura.charmed-immunity.radius=10 tagged; ally proximity logic not in engine | 2026-05-21 |
 | subclass | hunter | Parent Class (ranger) / Feature List | ✅ Full | parentClass=ranger, features=[hunters-lore, hunters-prey, defensive-tactics, hunter-multiattack, superior-hunters-defense] | 2026-05-21 |
@@ -184,11 +184,11 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | subclass | hunter | Feature: hunters-prey (L3) | ⚠️ Partial | Pick-1 choice; Colossus Slayer action-modifier + Horde Breaker/Giant Killer triggers implemented; only chosen option should be active (not engine-enforced) | 2026-05-21 |
 | subclass | thief | Parent Class (rogue) / Feature List | ✅ Full | parentClass=rogue, features=[fast-hands, second-story-work, supreme-sneak, use-magic-device, thiefs-reflexes] | 2026-05-21 |
 | subclass | thief | Feature: fast-hands (L3) | ✅ Full | trait.fast-hands flag extending Cunning Action bonus action to Utilize/Sleight-of-Hand/Thieves' Tools | 2026-05-21 |
-| subclass | thief | Feature: second-story-work (L3) | 🚫 Out of Scope | speed.climb UPGRADE value="walkSpeed" — walkSpeed not a supported magic identifier; trait tag only | 2026-05-21 |
+| subclass | thief | Feature: second-story-work (L3) | ✅ Full | speed.climb UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue; jump-distance DEX bonus is out of scope | 2026-05-21 |
 | subclass | draconic-sorcery | Parent Class (sorcerer) / Feature List | ✅ Full | parentClass=sorcerer, features=[draconic-resilience, dragon-ancestry, elemental-affinity, dragon-wings, draconic-presence] | 2026-05-21 |
 | subclass | draconic-sorcery | Feature: draconic-resilience (L3) | ✅ Full | hp.max ADD sorcererLevel + ac.formula OVERRIDE 13+DEX requires no-armor | 2026-05-21 |
 | subclass | draconic-sorcery | Feature: dragon-ancestry (L3) | ✅ Full | Pick-1 dragon-type choice + proficiency.language.draconic OVERRIDE true | 2026-05-21 |
-| subclass | draconic-sorcery | Feature: elemental-affinity (L6) | ⚠️ Partial | Action-modifier for CHA bonus + trait tag for resistance; dynamic ancestry-type predicate not evaluable; chaMod identifier not resolved | 2026-05-21 |
+| subclass | draconic-sorcery | Feature: elemental-affinity (L6) | ⚠️ Partial | Action-modifier for chaMod bonus (now resolves); trait tag for resistance; dynamic ancestry-type predicate (damage.type.matches-dragon-ancestry) not evaluable by engine | 2026-05-21 |
 | subclass | fiend-patron | Parent Class (warlock) / Feature List | ✅ Full | parentClass=warlock, features=[fiend-spells, dark-ones-blessing, dark-ones-own-luck, fiendish-resilience, hurl-through-hell] | 2026-05-21 |
 | subclass | fiend-patron | Feature: fiend-spells (L3) | ⚠️ Partial | trait.patron-spells.fiend flag; auto-prep injection not wired | 2026-05-21 |
 | subclass | fiend-patron | Feature: dark-ones-blessing (L3) | ⚠️ Partial | Trigger on enemy-reduce-to-zero within 30 ft; temp HP grant amount "warlockLevelPlusChaMod" not a resolved magic identifier | 2026-05-21 |
@@ -245,7 +245,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | species | dwarf | Feature: stonecunning | ✅ Full | Bonus-action Tremorsense 60 ft (10 min, PB/long-rest); trait flag | 2026-05-21 |
 | species | dragonborn | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, Common+Draconic, no darkvision; features=[draconic-ancestry, breath-weapon, damage-resistance-draconic, draconic-flight] | 2026-05-21 |
 | species | dragonborn | Feature: draconic-ancestry | ✅ Full | Pick-1 dragon-type choice; trait.draconic-ancestry-chosen flag | 2026-05-21 |
-| species | dragonborn | Feature: breath-weapon | ⚠️ Partial | Save activity (DEX save, 1d10 damage); damage scales 1d10→2d10→3d10→4d10 by level but hard-coded to 1d10; DC hard-coded to 8 instead of 8+CON+PB | 2026-05-21 |
+| species | dragonborn | Feature: breath-weapon | ⚠️ Partial | DC now calc:custom base=8 bonus=[conMod,proficiencyBonus] (engine updated to support this); damage still hardcoded 1d10 — level-scaling (1d10→2d10→3d10→4d10) requires evaluated dice strings in save activities (Group B) | 2026-05-21 |
 | species | dragonborn | Feature: damage-resistance-draconic | ⚠️ Partial | trait.draconic-damage-resistance flag; dynamic resistance type (from ancestry choice) not applied — engine limitation | 2026-05-21 |
 | species | dragonborn | Feature: draconic-flight (L5) | ⚠️ Partial | 1/long-rest bonus-action utility activity granting fly at walk speed; walkSpeed identifier not supported — fly value is "walk" (symbolic, engine must resolve) | 2026-05-21 |
 | species | elf | Size / Speed / Feature List | ✅ Full | Medium, 30 ft walk, darkvision 60, Common+Elvish; fey-ancestry + trance modifiers on species row; features=[fey-ancestry, keen-senses, trance, elven-lineage] | 2026-05-21 |
@@ -257,7 +257,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21
 | species | gnome | Feature: gnomish-cunning | ✅ Full | save.advantage.int/wis/cha OVERRIDE "magic" (vs spells and magical effects) | 2026-05-21 |
 | species | gnome | Feature: gnomish-lineage | ⚠️ Partial | trait.gnomish-lineage-chosen flag; Forest/Rock lineage cantrips and tool proficiencies deferred | 2026-05-21 |
 | species | goliath | Size / Speed / Feature List | ✅ Full | Medium, 35 ft walk, Common+Giant, powerful-build + large-form traits on species row; features=[giant-ancestry, large-form, powerful-build-goliath] | 2026-05-21 |
-| species | goliath | Feature: giant-ancestry | ⚠️ Partial | Single generic PB/long-rest bonus-action activity; 6 ancestry-specific effects (Cloud/Fire/Frost/Hill/Stone/Storm) collapsed into one — per-ancestry mechanics not modelled | 2026-05-21 |
+| species | goliath | Feature: giant-ancestry | ✅ Full | Feature-pick choice (choices.feature); 6 sub-features authored: Cloud (30ft teleport utility), Fire (1d10 fire damage activity), Frost (damage.reduce trigger 1d12+strMod), Hill (knock-prone trigger, descriptive), Stone (damage.reduce trigger 1d12+conMod), Storm (push trigger, descriptive). Trigger uses scales with PB via evaluateValue. Hill/Storm forced-save mechanics marked Out of Scope. | 2026-05-21 |
 | species | goliath | Feature: large-form (L5) | ✅ Full | 1/long-rest bonus-action activity; grants STR-check advantage + walk+10; duration 10 min | 2026-05-21 |
 | species | goliath | Feature: powerful-build-goliath | ✅ Full | trait.powerful-build OVERRIDE true | 2026-05-21 |
 | species | halfling | Size / Speed / Feature List | ✅ Full | Small, 30 ft walk, Common; frightened save advantage on species row; features=[brave, halfling-nimbleness, luck] | 2026-05-21 |

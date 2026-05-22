@@ -320,10 +320,16 @@ export const KNOWN_TRIGGER_EVENTS = [
   'turn.start',
   'turn.end',
   'round.start',
+  // Rest lifecycle
+  'rest.short-rest.end',
+  'rest.long-rest.end',
   // Ally / enemy lifecycle
   'creature.attack.hit',
   'creature.takes-fall-damage',
-  'creature.turn-start'
+  'creature.turn-start',
+  'creature.reduce-to-zero',
+  'enemy.reduce-to-zero',
+  'enemy.dies-within-range'
 ] as const;
 export type TriggerEvent = (typeof KNOWN_TRIGGER_EVENTS)[number];
 
