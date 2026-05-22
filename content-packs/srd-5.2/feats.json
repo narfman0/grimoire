@@ -786,10 +786,7 @@
           "kind": "stat-modifier",
           "target": "ac",
           "mode": "ADD",
-          "value": 1,
-          "appliesWhen": {
-            "requires": "wielding:two-melee-weapons"
-          }
+          "value": 1
         }
       ],
       "triggers": [
@@ -809,7 +806,7 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Dual Wielder. Enhanced Dual Wielding: can use two-weapon fighting with weapons that are one-handed (don't need to be Light). +1 AC while wielding a separate melee weapon in each hand. Quick Draw: can draw/stow two weapons when you'd normally draw/stow only one. v0 evaluator does not model the 'one-handed but not Light' allowance \u2014 surfaces as a note."
+      "note": "2024 SRD 5.2 Dual Wielder. +1 AC while wielding a separate melee weapon in each hand \u2014 engine cannot detect weapon-hold state, so +1 AC applies unconditionally. Enhanced Dual Wielding: one-handed (non-Light) weapon allowance not enforced (engine limitation). Quick Draw: draw/stow two weapons when you'd normally draw/stow one."
     }
   },
   {
@@ -1070,12 +1067,9 @@
       "modifiers": [
         {
           "kind": "stat-modifier",
-          "target": "attack.advantage",
+          "target": "trait.grappler-advantage-vs-grappled",
           "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "target.condition:grappled-by-self"
-          }
+          "value": true
         }
       ],
       "triggers": [
@@ -1100,7 +1094,7 @@
           }
         }
       ],
-      "note": "SRD 5.2 Grappler. Ability Score Increase: +1 STR or DEX (max 20). Punch and Grab: once per turn, hitting a creature with an Unarmed Strike as part of the Attack action lets you use both the Damage and Grapple option simultaneously. Attack Advantage: you have Advantage on attack rolls against a creature Grappled by you. Fast Wrestler: no extra movement cost to move a creature Grappled by you if it is your size or smaller. v0 evaluator does not evaluate the conditional attack advantage or the free-movement grapple rule from predicates at runtime; Fast Wrestler surfaces as a note."
+      "note": "SRD 5.2 Grappler. +1 STR or DEX. Punch and Grab: on hit with Unarmed Strike as part of Attack action, free Grapple option simultaneously. Attack Advantage: Advantage on attacks against a creature Grappled by you (trait.grappler-advantage-vs-grappled — engine cannot check target's grapple state, surfaced as trait tag for UI tracking). Fast Wrestler: no extra movement to move a Grappled creature of your size or smaller (Out of Scope — encounter-layer movement rule)."
     }
   },
   {
@@ -1587,111 +1581,9 @@
       "modifiers": [
         {
           "kind": "stat-modifier",
-          "target": "resistance.bludgeoning",
+          "target": "trait.shadowy-form-resistance-in-dim-light",
           "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.piercing",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.slashing",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.acid",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.cold",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.fire",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.force",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.lightning",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.necrotic",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.poison",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.radiant",
-          "mode": "OVERRIDE",
-          "value": false,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "resistance.thunder",
-          "mode": "OVERRIDE",
-          "value": true,
-          "appliesWhen": {
-            "requires": "environment:dim-light-or-darkness"
-          }
+          "value": true
         }
       ],
       "activities": [
@@ -1703,7 +1595,7 @@
           "note": "While within Dim Light or Darkness, give yourself the Invisible condition as a Bonus Action. The condition ends immediately after you take an Action, Bonus Action, or Reaction."
         }
       ],
-      "note": "SRD 5.2 Epic Boon of the Night Spirit. Ability Score Increase: +1 to one ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, use a Bonus Action to become Invisible (ends on any action/bonus action/reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant. v0 evaluator cannot conditionally apply all damage resistances based on lighting; all resistance modifiers above are conditional on environment:dim-light-or-darkness and surface as tagged modifiers in bright light."
+      "note": "SRD 5.2 Epic Boon of the Night Spirit. +1 to any ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, bonus action to become Invisible (ends on Action/Bonus Action/Reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant — engine cannot gate resistances on lighting state; surfaced as trait.shadowy-form-resistance-in-dim-light for GM/UI tracking. Radiant non-resistance is also conditional (Out of Scope)."
     }
   },
   {

@@ -7,7 +7,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | Status | Count |
 |--------|-------|
 | ✅ Full | 174 |
-| ⚠️ Partial | 67 |
+| ⚠️ Partial | 69 |
 | ❌ Missing | 0 |
 | 🚫 Out of Scope | 12 |
 
@@ -224,11 +224,13 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22
 | feat | tavern-brawler | Full Feat Implementation | ⚠️ Partial | Unarmed 1d4 override + improvised-weapon proficiency + Push trigger; free damage-die reroll not modelled | 2026-05-21 |
 | feat | ability-score-improvement | Full Feat Implementation | ✅ Full | Budget-2 ASI with ability choices; engine synthesizes ADD modifiers from character.feats[].choices.asis | 2026-05-21 |
 | feat | charger | Full Feat Implementation | ⚠️ Partial | Trigger on Dash action with 10-ft straight move; bonus-action attack or shove surfaced; choice between +1d8 damage and push left to player | 2026-05-21 |
-| feat | dual-wielder | Full Feat Implementation | ⚠️ Partial | +1 AC while dual-wielding and Quick Draw trigger surfaced; one-handed (non-Light) allowance not enforced by evaluator | 2026-05-21 |
+| feat | grappler | Full Feat Implementation | ⚠️ Partial | +1 STR/DEX; Punch-and-Grab trigger ✅; Attack Advantage (trait tag, engine cannot check target's grapple state); Fast Wrestler movement rule Out of Scope | 2026-05-22 |
+| feat | dual-wielder | Full Feat Implementation | ⚠️ Partial | +1 AC unconditional (engine cannot check weapon-hold state — was silently-ignored appliesWhen.requires, now correctly documented); Quick Draw trigger ✅; one-handed non-Light allowance engine limitation | 2026-05-22 |
 | feat | elemental-adept | Full Feat Implementation | 🚫 Out of Scope | damage.ignore-resistance and damage.die.min not supported by evaluator — tagged action-modifier only | 2026-05-21 |
 | feat | mobile | Full Feat Implementation | ⚠️ Partial | speed.walk ADD 10 correct; movement.dash-difficult-terrain-no-extra-cost not a supported evaluator target — tagged; Mobile Evade trigger surfaced | 2026-05-21 |
 | feat | defensive-duelist | Full Feat Implementation | ✅ Full | Parry trigger (reaction: add PB to AC on melee hit while wielding finesse) + DEX+1 | 2026-05-21 |
 | feat | fighting-style-unarmed-fighting | Full Feat Implementation | ⚠️ Partial | damage.dice OVERRIDE 1d6 for unarmed attacks; 1d8 with two free hands not enforceable; grapple-rider 1d4/turn Out of Scope | 2026-05-22 |
+| feat | boon-of-the-night-spirit | Full Feat Implementation | ⚠️ Partial | +1 ability score; Merge with Shadows activity ✅; Shadowy Form (resistances conditional on dim-light/darkness) — trait tag only; engine cannot gate resistances on lighting state (previously a bug: 11 resistances applied unconditionally) | 2026-05-22 |
 
 ---
 
