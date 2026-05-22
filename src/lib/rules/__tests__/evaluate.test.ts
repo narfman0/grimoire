@@ -104,6 +104,78 @@ describe('evaluateValue', () => {
   });
 });
 
+// Locks the small arithmetic grammar Phase 1a added on top of token
+// resolution. Without these, formulas like "1 + warlockLevel" or
+// "floor(barbarianLevel/2)" silently fell through as raw strings and
+// applyNumericMode treated them as zero — corrupting Lay on Hands,
+// Healing Light, Divine Fury rider, Bardic Inspiration scaling, etc.
+describe('evaluateValue: arithmetic expressions', () => {
+  it('adds a literal to a class-level token', () => {
+    // warlockLevel = 0 (not in classLevels) → 1 + 0 = 1
+    expect(evaluateValue('1 + warlockLevel', ctx)).toBe(1);
+    expect(evaluateValue('1 + barbarianLevel', ctx)).toBe(4);
+  });
+
+  it('multiplies a class-level token by a literal (Lay on Hands shape)', () => {
+    expect(evaluateValue('barbarianLevel * 5', ctx)).toBe(15);
+    expect(evaluateValue('paladinLevel * 5', ctx)).toBe(0);
+  });
+
+  it('floors integer division (half-level rider shape)', () => {
+    expect(evaluateValue('floor(barbarianLevel/2)', ctx)).toBe(1);
+    // total-level half
+    expect(evaluateValue('floor(totalLevel/2)', ctx)).toBe(2);
+  });
+
+  it('takes the max of a literal and an ability mod', () => {
+    expect(evaluateValue('max(1, intMod)', ctx)).toBe(4);
+    // wisMod is -1 → max(1, -1) = 1
+    expect(evaluateValue('max(1, wisMod)', ctx)).toBe(1);
+  });
+
+  it('honors precedence: * before +', () => {
+    expect(evaluateValue('1 + 2 * 3', ctx)).toBe(7);
+  });
+
+  it('honors parens', () => {
+    expect(evaluateValue('(1 + 2) * 3', ctx)).toBe(9);
+  });
+
+  it('handles unary minus', () => {
+    expect(evaluateValue('-intMod', ctx)).toBe(-4);
+    expect(evaluateValue('1 + -2', ctx)).toBe(-1);
+  });
+
+  it('handles min and ceil', () => {
+    expect(evaluateValue('min(barbarianLevel, fighterLevel)', ctx)).toBe(2);
+    expect(evaluateValue('ceil(intMod/3)', ctx)).toBe(2);
+  });
+
+  it('combines tokens compositionally (sum-of-classes minus literal)', () => {
+    // barbarianLevel + fighterLevel - 1 = 3 + 2 - 1 = 4
+    expect(evaluateValue('barbarianLevel + fighterLevel - 1', ctx)).toBe(4);
+  });
+
+  it('falls back to passthrough on malformed expressions', () => {
+    // unbalanced paren
+    expect(evaluateValue('floor(intMod', ctx)).toBe('floor(intMod');
+    // unknown function — call site fails → null → passthrough
+    expect(evaluateValue('bogus(1)', ctx)).toBe('bogus(1)');
+    // bare unknown identifier inside arithmetic
+    expect(evaluateValue('1 + mysteryToken', ctx)).toBe('1 + mysteryToken');
+  });
+
+  it('does not parse strings that look like simple words (no operators)', () => {
+    // Already covered by passthrough test above but lock the boundary:
+    // arithmetic only triggers when an operator/paren char is present.
+    expect(evaluateValue('hello', ctx)).toBe('hello');
+  });
+
+  it('treats divide-by-zero as a parse failure (passthrough)', () => {
+    expect(evaluateValue('1 / 0', ctx)).toBe('1 / 0');
+  });
+});
+
 describe('proficiencyBonusFor', () => {
   // Locks the 5e proficiency bonus table. Every save / skill / spell DC
   // ultimately reads from this; a regression here is invisible until a

@@ -21,6 +21,7 @@ export interface EvalContext {
 }
 
 const CLASS_LEVEL_TOKEN_RE = /^([a-z][a-z0-9]*)Level$/;
+const ARITHMETIC_CHAR_RE = /[+\-*/(),]/;
 const ABILITY_MOD_TOKENS: Record<string, AbilityKey> = {
   strMod: 'str',
   dexMod: 'dex',
@@ -57,6 +58,10 @@ export function evaluateValue(value: unknown, ctx: EvalContext): unknown {
     if (ab !== undefined) return ctx.abilityMods[ab];
     const cls = CLASS_LEVEL_TOKEN_RE.exec(value);
     if (cls) return ctx.classLevels[cls[1]] ?? 0;
+    if (ARITHMETIC_CHAR_RE.test(value)) {
+      const parsed = evaluateArithmetic(value, ctx);
+      if (parsed !== null) return parsed;
+    }
     return value;
   }
   if (value && typeof value === 'object' && 'perClass' in value && 'table' in value) {
@@ -129,4 +134,159 @@ export function abilityModifier(score: number): number {
 /** 2024 Barbarian rage damage = proficiency bonus. */
 export function rageDamageFor(_char: CharacterDocument, proficiencyBonus: number): number {
   return proficiencyBonus;
+}
+
+// Tiny arithmetic grammar for modifier values like "1 + warlockLevel",
+// "floor(barbarianLevel/2)", "paladinLevel * 5", "max(1, intMod)".
+// Returns null on any parse/eval failure so the caller falls back to the
+// raw string (preserving the pre-arithmetic passthrough behavior).
+export function evaluateArithmetic(input: string, ctx: EvalContext): number | null {
+  const tokens = tokenizeArithmetic(input);
+  if (tokens === null) return null;
+  const parser = { tokens, pos: 0 };
+  const result = parseExpr(parser, ctx);
+  if (result === null) return null;
+  if (parser.pos !== tokens.length) return null;
+  return result;
+}
+
+type ArithParser = { tokens: string[]; pos: number };
+
+function tokenizeArithmetic(s: string): string[] | null {
+  const out: string[] = [];
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === ' ' || c === '\t') {
+      i++;
+      continue;
+    }
+    if (c >= '0' && c <= '9') {
+      let j = i;
+      while (j < s.length && s[j] >= '0' && s[j] <= '9') j++;
+      out.push(s.slice(i, j));
+      i = j;
+      continue;
+    }
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_') {
+      let j = i;
+      while (
+        j < s.length &&
+        ((s[j] >= 'a' && s[j] <= 'z') ||
+          (s[j] >= 'A' && s[j] <= 'Z') ||
+          (s[j] >= '0' && s[j] <= '9') ||
+          s[j] === '_')
+      ) {
+        j++;
+      }
+      out.push(s.slice(i, j));
+      i = j;
+      continue;
+    }
+    if ('+-*/(),'.includes(c)) {
+      out.push(c);
+      i++;
+      continue;
+    }
+    return null;
+  }
+  return out;
+}
+
+function peek(p: ArithParser): string | undefined {
+  return p.tokens[p.pos];
+}
+
+function parseExpr(p: ArithParser, ctx: EvalContext): number | null {
+  let left = parseTerm(p, ctx);
+  if (left === null) return null;
+  while (peek(p) === '+' || peek(p) === '-') {
+    const op = p.tokens[p.pos++];
+    const right = parseTerm(p, ctx);
+    if (right === null) return null;
+    left = op === '+' ? left + right : left - right;
+  }
+  return left;
+}
+
+function parseTerm(p: ArithParser, ctx: EvalContext): number | null {
+  let left = parseFactor(p, ctx);
+  if (left === null) return null;
+  while (peek(p) === '*' || peek(p) === '/') {
+    const op = p.tokens[p.pos++];
+    const right = parseFactor(p, ctx);
+    if (right === null) return null;
+    if (op === '/') {
+      if (right === 0) return null;
+      left = left / right;
+    } else {
+      left = left * right;
+    }
+  }
+  return left;
+}
+
+function parseFactor(p: ArithParser, ctx: EvalContext): number | null {
+  const t = peek(p);
+  if (t === undefined) return null;
+  if (t === '-') {
+    p.pos++;
+    const v = parseFactor(p, ctx);
+    return v === null ? null : -v;
+  }
+  if (t === '+') {
+    p.pos++;
+    return parseFactor(p, ctx);
+  }
+  if (t === '(') {
+    p.pos++;
+    const v = parseExpr(p, ctx);
+    if (v === null) return null;
+    if (peek(p) !== ')') return null;
+    p.pos++;
+    return v;
+  }
+  if (/^[0-9]+$/.test(t)) {
+    p.pos++;
+    return Number(t);
+  }
+  if (/^[a-zA-Z_]/.test(t)) {
+    p.pos++;
+    if (peek(p) === '(') {
+      p.pos++;
+      const args: number[] = [];
+      if (peek(p) !== ')') {
+        const first = parseExpr(p, ctx);
+        if (first === null) return null;
+        args.push(first);
+        while (peek(p) === ',') {
+          p.pos++;
+          const next = parseExpr(p, ctx);
+          if (next === null) return null;
+          args.push(next);
+        }
+      }
+      if (peek(p) !== ')') return null;
+      p.pos++;
+      return callArithFn(t, args);
+    }
+    const resolved = evaluateValue(t, ctx);
+    return typeof resolved === 'number' ? resolved : null;
+  }
+  return null;
+}
+
+function callArithFn(name: string, args: number[]): number | null {
+  switch (name) {
+    case 'floor':
+      return args.length === 1 ? Math.floor(args[0]) : null;
+    case 'ceil':
+      return args.length === 1 ? Math.ceil(args[0]) : null;
+    case 'min':
+      return args.length >= 1 ? Math.min(...args) : null;
+    case 'max':
+      return args.length >= 1 ? Math.max(...args) : null;
+    default:
+      return null;
+  }
 }
