@@ -607,8 +607,7 @@
                   { "weapon.property": "finesse" },
                   { "attack.range": "ranged" }
                 ]
-              },
-              { "condition": "target.surprised" }
+              }
             ]
           },
           "effects": [

@@ -312,13 +312,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   for (const { ref: r } of featureRefs) {
     const row = content(r);
     if (!row) continue;
-    // Feature applicability: minLevel against owning class/species level.
+    // Feature applicability: minLevel against owning class/subclass/species level.
     const data = row.data;
     const ownerKind = data.ownerKind as string | undefined;
     const ownerSlug = data.ownerSlug as string | undefined;
     const minLevel = (data.minLevel as number | undefined) ?? 1;
     if (ownerKind === 'class' && ownerSlug) {
       if (classLevelFor(character, ownerSlug) < minLevel) continue;
+    } else if (ownerKind === 'subclass' && ownerSlug) {
+      const parentClass = character.classes.find((c) => c.subclass === ownerSlug);
+      if (parentClass && parentClass.level < minLevel) continue;
     }
     active.push({ ref: r, row, data });
   }
@@ -2031,6 +2034,25 @@ function applyActionEffect(
     case 'attack.no-disadvantage.long-range':
       if (rawValue === true) action.attackNoDisadvantageLongRange = true;
       break;
+    case 'attack.ability': {
+      // Allows using a different ability for attack + damage (e.g. Martial Arts
+      // DEX override). Adjusts attackBonus by the mod difference and patches
+      // the damage formula in place. Only meaningful with OVERRIDE mode.
+      if (typeof rawValue !== 'string' || !action.attackAbility || action.attackBonus == null) break;
+      const newAbility = rawValue as AbilityKey;
+      if (newAbility === action.attackAbility) break;
+      const oldMod = ctx.abilityMods[action.attackAbility] ?? 0;
+      const newMod = ctx.abilityMods[newAbility] ?? 0;
+      const diff = newMod - oldMod;
+      action.attackBonus += diff;
+      action.attackAbility = newAbility;
+      if (diff !== 0 && action.damageRolls && action.damageRolls.length > 0) {
+        action.damageRolls = action.damageRolls.map((d, i) =>
+          i === 0 ? { ...d, formula: bumpFormula(d.formula, diff, 'ADD') } : d
+        );
+      }
+      break;
+    }
     default:
       // Other targets are no-op in v0.
       break;

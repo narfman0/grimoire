@@ -310,8 +310,7 @@
           "id": "supreme-healing-rider",
           "name": "Supreme Healing",
           "appliesTo": {
-            "activityType": "heal",
-            "predicates": [{ "activity.is-spell": true }]
+            "activityType": "heal"
           },
           "effects": [
             { "target": "tag.supreme-healing", "mode": "OVERRIDE", "value": true }
@@ -432,7 +431,7 @@
       "ownerSlug": "champion",
       "minLevel": 3,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "attack.crit-threshold", "mode": "DOWNGRADE", "value": 19 }
+        { "kind": "stat-modifier", "target": "crit.threshold", "mode": "DOWNGRADE", "value": 19 }
       ],
       "note": "Your weapon attacks score a critical hit on a roll of 19 or 20 on the d20. In 2024 this applies to weapon attacks (spell attacks do not benefit)."
     }
@@ -492,7 +491,7 @@
       "ownerSlug": "champion",
       "minLevel": 15,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "attack.crit-threshold", "mode": "DOWNGRADE", "value": 18 }
+        { "kind": "stat-modifier", "target": "crit.threshold", "mode": "DOWNGRADE", "value": 18 }
       ],
       "note": "Your weapon attacks now score a critical hit on a roll of 18–20. This supersedes Improved Critical (19-20) gained at L3."
     }
@@ -514,7 +513,7 @@
           "name": "Open Hand Technique",
           "appliesTo": {
             "activityType": "attack",
-            "predicates": [{ "attack.tag": "flurry-of-blows" }]
+            "predicates": [{ "weapon.slug": "flurry-of-blows" }]
           },
           "effects": [
             { "target": "tag.open-hand-rider-available", "mode": "OVERRIDE", "value": true }

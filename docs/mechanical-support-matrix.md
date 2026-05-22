@@ -1,15 +1,15 @@
 # SRD 5.2 Mechanical Support Matrix
 
-Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch 4)
+Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch 6)
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ Full | 189 |
-| ⚠️ Partial | 67 |
+| ✅ Full | 190 |
+| ⚠️ Partial | 68 |
 | ❌ Missing | 0 |
-| 🚫 Out of Scope | 17 |
+| 🚫 Out of Scope | 16 |
 
 **Status legend:**
 - ✅ Full — correct as-is
@@ -74,7 +74,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | fighter | Feature: extra-attack-2 (L11) | ✅ Full | attacks-per-action UPGRADE 3 | 2026-05-21 |
 | class | fighter | Feature: extra-attack-3 (L20) | ✅ Full | attacks-per-action UPGRADE 4 | 2026-05-21 |
 | class | monk | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, STR/DEX saves, no armor, simple + martial-light-finesse weapons, one artisan or musical tool, pick 2 from list | 2026-05-21 |
-| class | monk | Feature: martial-arts (L1) | ✅ Full | DEX action-modifier + bonus unarmed strike; die field uses perClass monk table (1d6→1d8→1d10→1d12), evaluated by new engine support for object-shaped dice in attack activities; Flurry of Blows updated too | 2026-05-21 |
+| class | monk | Feature: martial-arts (L1) | ✅ Full | DEX action-modifier + bonus unarmed strike; predicate fixed to `or:[{weapon.kind:simple-melee},{weapon.slug:shortsword}]`; engine gained `attack.ability OVERRIDE` support (adjusts both attackBonus and damage formula); die scales via perClass monk table | 2026-05-22 |
 | class | monk | Feature: unarmored-defense-monk (L1) | ✅ Full | ac.formula OVERRIDE 10+DEX+WIS requires no-armor-no-shield | 2026-05-21 |
 | class | monk | Feature: monks-focus (L1) | ⚠️ Partial | Focus points pool with per-level table surfaced; auto-deduction on spend not wired | 2026-05-21 |
 | class | monk | Feature: step-of-the-wind (L2) | ⚠️ Partial | Bonus-action utility activity; focus-point deduction not automatic | 2026-05-21 |
@@ -85,13 +85,13 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | monk | Feature: deflect-attacks (L3) | ✅ Full | Trigger on self.hit-by-attack, reaction activity reducing damage 1d10+DEX+monk-level; note documents focus-point redirect option | 2026-05-21 |
 | class | monk | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
 | class | monk | Feature: extra-attack (L5) | ✅ Full | Shared feature | 2026-05-21 |
-| class | monk | Feature: stunning-strike (L5) | ⚠️ Partial | Action-modifier toggle with on-hit.target.save effect; focus-point deduction and once-per-turn cap not enforced | 2026-05-21 |
+| class | monk | Feature: stunning-strike (L5) | ⚠️ Partial | Predicate fixed to `or:[{weapon.kind:simple-melee},{weapon.slug:shortsword}]`; on-hit.target.save effect is OOS (evaluator no-op); focus-point deduction and once-per-turn cap not enforced | 2026-05-22 |
 | class | paladin | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, WIS/CHA saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
 | class | paladin | Feature: spellcasting-paladin (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | paladin | Feature: lay-on-hands (L1) | ✅ Full | Bonus-action heal activity with 5×paladinLevel pool per-level table | 2026-05-21 |
 | class | paladin | Feature: weapon-mastery-paladin (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
 | class | paladin | Feature: fighting-style-paladin (L2) | ✅ Full | 7 styles: blessed-warrior (choices.spell), blind-fighting, defense, dueling (unconditional), GWF (damage.die.min 3, fixed from dead reroll tag), interception/protection triggers; dueling one-handed gate engine limitation | 2026-05-22 |
-| class | paladin | Feature: divine-smite (L2) | ⚠️ Partial | Action-modifier toggle; slot consumption not auto-deducted; divineSmiteSlotDice magic identifier not yet resolved by evaluator; Undead/Fiend bonus not auto-applied | 2026-05-21 |
+| class | paladin | Feature: divine-smite (L2) | ⚠️ Partial | Toggle adds 2d8 radiant via damage.dice (fixed: removed dead attack.result:hit predicate and unresolvable divineSmiteSlotDice); higher-slot +1d8/slot and Undead/Fiend +1d8 player-managed; slot not auto-consumed | 2026-05-22 |
 | class | paladin | Feature: channel-oath (L2) | ✅ Full | Utility activity with per-level uses table (2 at L2, 3 at L9) / short-rest | 2026-05-21 |
 | class | paladin | Feature: paladin-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | paladin | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
@@ -113,7 +113,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | ranger | Feature: ranger-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | ranger | Feature: roving (L3) | ✅ Full | walk+10 ADD; climb/swim UPGRADE walkSpeed (engine now discovers new speed keys + computes walk first so ctx.walkSpeed is correct) | 2026-05-21 |
 | class | ranger | Feature: ability-score-improvement (L4) | ✅ Full | Shared feature | 2026-05-21 |
-| class | ranger | Feature: extra-attack-ranger (L5) | ✅ Full | attacks-per-action UPGRADE 2, ranger-specific feature entry | 2026-05-21 |
+| class | ranger | Feature: extra-attack-ranger (L5) | ✅ Full | Fixed: now uses extraAttacks:1 data field (dead attacks-per-action modifier removed); ranger extra attack now evaluates correctly | 2026-05-22 |
 | class | ranger | Feature: expertise-ranger (L9) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} emits two expertise.skill.<slug> modifiers | 2026-05-21 |
 | class | ranger | Feature: tireless (L6) | ✅ Full | PB-uses/long-rest heal activity (1d8+WIS temp HP); exhaustion-reduction on short rest is trait flag (engine limitation) | 2026-05-22 |
 | class | ranger | Feature: nature-s-veil (L10) | ✅ Full | PB-uses/long-rest bonus-action utility grants Invisible until start of next turn | 2026-05-22 |
@@ -144,7 +144,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | sorcerer | Feature: sorcerous-restoration (L5) | ⚠️ Partial | 1/long-rest utility activity on short-rest trigger; half-sorcerer-level cap and pool interaction not plumbed | 2026-05-21 |
 | class | warlock | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d8 HD, WIS/CHA saves, light armor, simple weapons, pick 2 from list | 2026-05-21 |
 | class | warlock | Feature: pact-magic (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; pact slot table now handled by pactCasterSlots() in derive.ts (upstream); class uses progression:'pact' | 2026-05-21 |
-| class | warlock | Feature: eldritch-invocations (L1) | ✅ Full | Choice slot + 4 SRD invocations; agonizing-blast now uses chaMod (resolves correctly); per-level pick count scaling declared | 2026-05-21 |
+| class | warlock | Feature: eldritch-invocations (L1) | ✅ Full | Choice slot + 4 SRD invocations; agonizing-blast predicate fixed `spell.slug:eldritch-blast` (was dead `sourceContent.slug`), chaMod damage bonus now evaluates correctly | 2026-05-22 |
 | class | warlock | Feature: pact-boon (L1) | ⚠️ Partial | Sub-feature split: Blade/Chain/Talisman trait flags + activities; Tome grants choices.spell {pick:3, all SRD cantrips}; weapon creation and familiar summoning are encounter-layer | 2026-05-22 |
 | class | warlock | Feature: magical-cunning (L2) | ⚠️ Partial | 1/long-rest ritual activity surfaced; slot-refresh effect descriptive only (pact slots not yet emitted) | 2026-05-21 |
 | class | warlock | Feature: warlock-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -185,8 +185,9 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | subclass | circle-of-the-land | Feature: lands-aid (L3) | ✅ Full | Save activity; damage+healing use perClass druid table (2d6→3d6→4d6→5d6 at L3/L10/L14/L17) | 2026-05-21 |
 | subclass | circle-of-the-land | Feature: natural-recovery (L6) | ⚠️ Partial | 1/long-rest utility on short-rest trigger; slot-recovery accounting left to player | 2026-05-21 |
 | subclass | champion | Parent Class (fighter) / Feature List | ✅ Full | parentClass=fighter, features=[improved-critical, remarkable-athlete, additional-fighting-style, superior-critical] | 2026-05-21 |
-| subclass | champion | Feature: improved-critical (L3) | ✅ Full | attack.crit-threshold DOWNGRADE 19 | 2026-05-21 |
+| subclass | champion | Feature: improved-critical (L3) | ✅ Full | Fixed critical bug: target was dead `attack.crit-threshold` → now `crit.threshold` DOWNGRADE 19 evaluates correctly; subclass minLevel gating also fixed in engine | 2026-05-22 |
 | subclass | champion | Feature: remarkable-athlete (L3) | ✅ Full | initiative ADD strMod; climb/swim UPGRADE walkSpeed — walkSpeed now resolves via evaluateValue (engine updated); running jump STR-mod bonus is out of scope | 2026-05-21 |
+| subclass | champion | Feature: superior-critical (L15) | ✅ Full | Fixed: `attack.crit-threshold` → `crit.threshold` DOWNGRADE 18; subclass minLevel gating now enforces L15 requirement | 2026-05-22 |
 | subclass | way-of-the-open-hand | Parent Class (monk) / Feature List | ✅ Full | parentClass=monk, features=[open-hand-technique, wholeness-of-body, tranquility, quivering-palm] | 2026-05-21 |
 | subclass | way-of-the-open-hand | Feature: open-hand-technique (L3) | ⚠️ Partial | action-modifier tag on Flurry of Blows attacks; three effect options and their saves/conditions left to play | 2026-05-21 |
 | subclass | way-of-the-open-hand | Feature: wholeness-of-body (L6) | ⚠️ Partial | Bonus-action heal activity 2d8+wisMod correct; removed broken focusPoints uses.max; cost of 3 focus points is player-managed | 2026-05-22 |
@@ -233,7 +234,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | feat | sharpshooter | Full Feat Implementation | ✅ Full | DEX+1; attack.ignores-cover OVERRIDE true; attack.no-disadvantage.long-range OVERRIDE true — all three targets now handled by applyActionEffect | 2026-05-22 |
 | feat | polearm-master | Full Feat Implementation | ✅ Full | Pole Strike bonus-action attack (1d4) + Reactive Strike reaction trigger; no-limit Hew note correct per 2024 | 2026-05-21 |
 | feat | sentinel | Full Feat Implementation | ⚠️ Partial | Guardian trigger (reaction OA on Disengage/ally-hit) correct; Halt effect (on-hit.target.speed=0) not a supported evaluator target — tagged modifier | 2026-05-21 |
-| feat | war-caster | Full Feat Implementation | 🚫 Out of Scope | save.advantage.concentration and spellcasting.somatic-with-occupied-hands not supported by evaluator; Reactive Spell trigger surfaced; tagged modifiers only | 2026-05-21 |
+| feat | war-caster | Full Feat Implementation | ⚠️ Partial | Fixed: save.advantage.concentration→save.advantage.con (CON save advantage now evaluates); spellcasting.somatic-with-occupied-hands→trait.war-caster flag; Reactive Spell trigger correct | 2026-05-22 |
 | feat | resilient | Full Feat Implementation | ✅ Full | +1 to chosen ability + save proficiency in chosen ability; emitted per character choice | 2026-05-21 |
 | feat | crafter | Full Feat Implementation | 🚫 Out of Scope | shopping.nonmagical-discount not a supported evaluator target; three tool choices surfaced; tagged modifier only | 2026-05-21 |
 | feat | healer | Full Feat Implementation | ⚠️ Partial | Stabilize + Mend activities surfaced; per-creature short-rest gating on Mend not trackable by engine | 2026-05-21 |

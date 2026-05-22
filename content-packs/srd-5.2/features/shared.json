@@ -7,10 +7,7 @@
     "data": {
       "ownerKind": "shared",
       "extraAttacks": 1,
-      "note": "Granted by Barbarian/Fighter/Monk/Paladin/Ranger at L5 (Fighter additionally at L11/L20). Each class row references this slug in its features[]; the engine gates by the referencing class's level, not by ownerSlug, so one row covers them all.",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 2 }
-      ]
+      "note": "Granted by Barbarian/Fighter/Monk/Paladin/Ranger at L5 (Fighter additionally at L11/L20). Each class row references this slug in its features[]; the engine gates by the referencing class's level, not by ownerSlug, so one row covers them all."
     }
   },
   {
@@ -23,10 +20,7 @@
       "ownerSlug": "fighter",
       "minLevel": 11,
       "extraAttacks": 1,
-      "note": "Fighter L11: grants a third attack per action (stacks with the L5 extra-attack grant).",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 3 }
-      ]
+      "note": "Fighter L11: grants a third attack per action (stacks with the L5 extra-attack grant)."
     }
   },
   {
@@ -39,10 +33,7 @@
       "ownerSlug": "fighter",
       "minLevel": 20,
       "extraAttacks": 1,
-      "note": "Fighter L20: grants a fourth attack per action (stacks with L5 and L11 grants).",
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "attacks-per-action", "mode": "UPGRADE", "value": 4 }
-      ]
+      "note": "Fighter L20: grants a fourth attack per action (stacks with L5 and L11 grants)."
     }
   },
   {

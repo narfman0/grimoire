@@ -423,7 +423,7 @@
             "activityType": "attack",
             "predicates": [
               {
-                "attack.kind": "opportunity"
+                "attack.range": "melee"
               }
             ]
           },
@@ -481,13 +481,13 @@
       "modifiers": [
         {
           "kind": "stat-modifier",
-          "target": "save.advantage.concentration",
+          "target": "save.advantage.con",
           "mode": "OVERRIDE",
           "value": true
         },
         {
           "kind": "stat-modifier",
-          "target": "spellcasting.somatic-with-occupied-hands",
+          "target": "trait.war-caster.somatic-with-occupied-hands",
           "mode": "OVERRIDE",
           "value": true
         }

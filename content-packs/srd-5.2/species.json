@@ -72,7 +72,7 @@
       "note": "Elven Lineage (Drow/High/Wood) folded into informational trait.elven-lineage flag and a single elven-lineage feature for v0; lineage-specific spell/speed bumps not modeled here.",
       "modifiers": [
         { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
-        { "kind": "stat-modifier", "target": "save.advantage.charmed", "mode": "OVERRIDE", "value": true },
+        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.charmed", "mode": "OVERRIDE", "value": true },
         { "kind": "stat-modifier", "target": "trait.fey-ancestry", "mode": "OVERRIDE", "value": true },
         { "kind": "stat-modifier", "target": "trait.trance", "mode": "OVERRIDE", "value": true }
       ],

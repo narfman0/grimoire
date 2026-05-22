@@ -62,7 +62,7 @@
             "activityType": "attack",
             "predicates": [
               {
-                "sourceContent.slug": "eldritch-blast"
+                "spell.slug": "eldritch-blast"
               }
             ]
           },
@@ -72,8 +72,7 @@
               "mode": "ADD",
               "value": "chaMod"
             }
-          ],
-          "note": "When you cast Eldritch Blast, add your Charisma modifier to the damage roll of each of its beams."
+          ]
         }
       ]
     }

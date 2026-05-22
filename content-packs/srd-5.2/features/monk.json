@@ -18,9 +18,9 @@
             "activityType": "attack",
             "predicates": [
               {
-                "weapon.category": [
-                  "monk",
-                  "unarmed"
+                "or": [
+                  { "weapon.kind": "simple-melee" },
+                  { "weapon.slug": "shortsword" }
                 ]
               }
             ]
@@ -28,11 +28,6 @@
           "effects": [
             {
               "target": "attack.ability",
-              "mode": "OVERRIDE",
-              "value": "dex"
-            },
-            {
-              "target": "damage.ability",
               "mode": "OVERRIDE",
               "value": "dex"
             }
@@ -335,9 +330,9 @@
                 "attack.range": "melee"
               },
               {
-                "weapon.category": [
-                  "monk",
-                  "unarmed"
+                "or": [
+                  { "weapon.kind": "simple-melee" },
+                  { "weapon.slug": "shortsword" }
                 ]
               }
             ]

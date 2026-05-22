@@ -158,27 +158,20 @@
               },
               {
                 "attack.classification": "weapon"
-              },
-              {
-                "attack.result": "hit"
               }
             ]
           },
           "effects": [
             {
-              "target": "damage.bonus",
+              "target": "damage.dice",
               "mode": "ADD",
-              "value": "divineSmiteSlotDice"
-            },
-            {
-              "target": "damage.type-on-bonus",
-              "mode": "OVERRIDE",
-              "value": "radiant"
+              "value": "2d8",
+              "damageType": "radiant"
             }
           ]
         }
       ],
-      "note": "When you hit a creature with a Melee weapon or Unarmed Strike, expend a spell slot to deal extra Radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8 from a 4th-level slot). Extra 1d8 if the target is an Undead or a Fiend. Once per turn. v0 doesn't consume the spell slot automatically and uses a placeholder magic identifier `divineSmiteSlotDice` for the bonus die total; surfaces as a toggle the player flips per-attack. The Undead/Fiend bonus is noted but not auto-applied."
+      "note": "When you hit a creature with a Melee weapon or Unarmed Strike, expend a spell slot to deal extra Radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8 from a 4th-level slot). Extra 1d8 if target is Undead or Fiend. v0: toggle adds base 2d8 radiant; higher-slot and Undead/Fiend bonuses are player-managed. Slot not consumed automatically."
     }
   },
   {

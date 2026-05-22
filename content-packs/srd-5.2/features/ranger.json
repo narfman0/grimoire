@@ -182,14 +182,7 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 5,
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "attacks-per-action",
-          "mode": "UPGRADE",
-          "value": 2
-        }
-      ]
+      "extraAttacks": 1
     }
   },
   {

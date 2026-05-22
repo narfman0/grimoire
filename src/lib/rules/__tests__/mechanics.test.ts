@@ -695,7 +695,9 @@ describe('C.2 — save/initiative/crit advantage targets', () => {
 		expect(d.stats.initiativeAdvantage).toBe(false);
 		expect(d.stats.savesAdvantageVs).toEqual([]);
 		const longswordAttack = d.actions.find((a) => a.sourceContent.slug === 'longsword');
-		expect(longswordAttack?.critThreshold).toBeUndefined();
+		// Champion L3+ correctly sets critThreshold=19 (fixed: was dead target attack.crit-threshold)
+		expect(longswordAttack?.critThreshold).toBe(19);
+		// critExtraDie comes from the feat only — should be absent without it
 		expect(longswordAttack?.critExtraDie).toBeUndefined();
 	});
 });
