@@ -772,3 +772,110 @@ describe('scalingByCastSlot — slot-aware modifier scaling', () => {
     expect(attack.attackBonus).toBe(4); // slot defaults to 2 → +1
   });
 });
+
+// Locks the recipient-side receivedBuffs contract. When a character
+// has a receivedBuffs entry for a spell, derive() force-loads the
+// spell row into active (its raw modifiers[] flow through allMods)
+// and injects the spell's activation condition (gating the
+// modifiers' appliesWhen.condition checks). The spell does NOT show
+// up in availableActivations — the Activations panel skips it.
+describe('receivedBuffs — recipient-side target-bounded buffs', () => {
+  const SHIELD_OF_FAITH_SPELL: ContentRow = {
+    kind: 'spell',
+    slug: 'shield-of-faith',
+    version: 1,
+    source: 'test',
+    name: 'Shield of Faith',
+    data: {
+      level: 1,
+      modifiers: [
+        {
+          kind: 'stat-modifier',
+          target: 'ac',
+          mode: 'ADD',
+          value: 2,
+          appliesWhen: { condition: 'shield-of-faith-active' }
+        }
+      ],
+      activations: [
+        {
+          id: 'shield-of-faith-active',
+          name: 'Shield of Faith',
+          cost: 'bonus',
+          duration: { value: 10, units: 'minute' },
+          concentration: true,
+          condition: 'shield-of-faith-active'
+        }
+      ]
+    }
+  };
+  function lookup(): ContentLookup {
+    const map = new Map<string, ContentRow>([
+      ['class/test-class', SYNTH_CLASS],
+      ['subclass/test-subclass', SYNTH_SUBCLASS],
+      ['species/test-species', SYNTH_SPECIES],
+      ['spell/shield-of-faith', SHIELD_OF_FAITH_SPELL]
+    ]);
+    return (ref) => map.get(`${ref.kind}/${ref.slug}`);
+  }
+
+  it('applies the buff modifier when a receivedBuffs entry is present', () => {
+    const base = derive(baseCharacter(), lookup());
+    const withBuff = derive(
+      {
+        ...baseCharacter(),
+        receivedBuffs: [{ id: 'sof-1', spellSlug: 'shield-of-faith' }]
+      },
+      lookup()
+    );
+    expect(withBuff.stats.ac).toBe(base.stats.ac + 2);
+  });
+
+  it('does NOT apply the buff modifier without a receivedBuffs entry', () => {
+    // Sanity: the SHIELD_OF_FAITH_SPELL row is in the lookup but not
+    // in the character's known/prepared/inventory — modifiers shouldn't
+    // fire without the receivedBuffs entry.
+    const d = derive(baseCharacter(), lookup());
+    expect(d.stats.ac).toBe(10 + d.stats.abilities.dex.mod);
+  });
+
+  it('does NOT surface the buff spell in availableActivations', () => {
+    const d = derive(
+      {
+        ...baseCharacter(),
+        receivedBuffs: [{ id: 'sof-1', spellSlug: 'shield-of-faith' }]
+      },
+      lookup()
+    );
+    const sof = d.availableActivations.find((a) => a.id === 'shield-of-faith-active');
+    expect(sof).toBeUndefined();
+  });
+
+  it('silently skips a receivedBuff whose spell row is not in the lookup', () => {
+    const d = derive(
+      {
+        ...baseCharacter(),
+        receivedBuffs: [{ id: 'missing-1', spellSlug: 'nonexistent-spell' }]
+      },
+      lookup()
+    );
+    // No crash; AC unchanged.
+    expect(d.stats.ac).toBe(10 + d.stats.abilities.dex.mod);
+  });
+
+  it('does not double-apply when the spell is already known/prepared', () => {
+    // If a wizard self-casts AND has a receivedBuff for the same spell,
+    // the spell row is only loaded once into active — its raw modifiers
+    // appear in allMods once. (Engine de-dupes via the
+    // active.some(...) guard.)
+    const char: CharacterDocument = {
+      ...baseCharacter(),
+      spells: { known: [{ kind: 'spell', slug: 'shield-of-faith' }], prepared: ['shield-of-faith'] },
+      receivedBuffs: [{ id: 'sof-1', spellSlug: 'shield-of-faith' }]
+    };
+    const d = derive(char, lookup());
+    // The buff applies (+2 AC), not doubled (+4).
+    const base = derive(baseCharacter(), lookup());
+    expect(d.stats.ac).toBe(base.stats.ac + 2);
+  });
+});

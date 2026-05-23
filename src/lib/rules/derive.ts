@@ -330,6 +330,29 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     active.push({ ref: r, row, data });
   }
 
+  // Receiver-side buffs: when an ally casts a buff spell on this
+  // character (Shield of Faith, Bless, Longstrider, etc.), the
+  // recipient adds an entry to character.receivedBuffs. derive()
+  // force-loads the spell row into `active` here so its raw
+  // modifiers[] flow through allMods like any other active content;
+  // the activation block below injects the spell's activation
+  // condition into resolvedConditions so the appliesWhen.condition
+  // gates fire. The Activations panel skips these spells (they're
+  // rendered in the separate Received-Buffs panel).
+  const receivedBuffSpellSlugs = new Set<string>();
+  for (const rb of character.receivedBuffs ?? []) {
+    if (!rb || typeof rb.spellSlug !== 'string') continue;
+    receivedBuffSpellSlugs.add(rb.spellSlug);
+    const spellRow = content({ kind: 'spell', slug: rb.spellSlug });
+    if (!spellRow) continue;
+    if (active.some((a) => a.row.kind === 'spell' && a.row.slug === rb.spellSlug)) continue;
+    active.push({
+      ref: { kind: 'spell', slug: rb.spellSlug },
+      row: spellRow,
+      data: spellRow.data
+    });
+  }
+
   // C.4 — collect spell-list additions and free-cast budget from active
   // content. spellListAdditions push spells into deferredRefs so they're
   // active for action realization; alwaysPreparedFromContent surfaces them
@@ -803,6 +826,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const availableActivations: AvailableActivation[] = [];
   const charActivations = character.activations ?? {};
   for (const a of active) {
+    // Skip spells that are present only because of a receivedBuff —
+    // those render in the Received-Buffs panel, not the Activations
+    // panel, and their condition injection happens in the parallel
+    // block below.
+    if (a.row.kind === 'spell' && receivedBuffSpellSlugs.has(a.row.slug)) continue;
     const decls = a.data.activations as ActivationDeclaration[] | undefined;
     if (!Array.isArray(decls)) continue;
     for (const decl of decls) {
@@ -977,6 +1005,26 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             });
           }
         }
+      }
+    }
+  }
+
+  // Receiver-side buffs (Phase A): inject activation conditions for each
+  // entry in character.receivedBuffs. The spell's raw modifiers[] are
+  // already in allMods (the spell row was force-loaded into active
+  // above); their appliesWhen.condition gates fire when the condition
+  // is in resolvedConditions. variant + slot picks from the
+  // receivedBuff are not yet synthesized through the activation variant
+  // pipeline (deferred — most receivable buffs are plain-modifier
+  // spells like Shield of Faith / Longstrider that don't need it).
+  for (const rb of character.receivedBuffs ?? []) {
+    if (!rb || typeof rb.spellSlug !== 'string') continue;
+    const spellRow = content({ kind: 'spell', slug: rb.spellSlug });
+    if (!spellRow) continue;
+    const decls = (spellRow.data.activations as ActivationDeclaration[] | undefined) ?? [];
+    for (const decl of decls) {
+      if (decl && typeof decl.condition === 'string') {
+        resolvedConditions.add(decl.condition);
       }
     }
   }

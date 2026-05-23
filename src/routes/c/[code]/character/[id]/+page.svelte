@@ -9,6 +9,7 @@
   import SpellManagerModal from '$lib/components/SpellManagerModal.svelte';
   import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
   import ActivationsPanel from '$lib/components/ActivationsPanel.svelte';
+  import ReceivedBuffsPanel from '$lib/components/ReceivedBuffsPanel.svelte';
   import {
     derive,
     refreshActivations,
@@ -678,6 +679,38 @@
       const result = toggleActivation(d, available, id, on, opts);
       d.activations = result.character.activations ?? {};
       d.concentrating = result.character.concentrating ?? null;
+    });
+  }
+
+  async function handleAddReceivedBuff(
+    e: CustomEvent<{ spellSlug: string; slot?: number }>
+  ) {
+    const { spellSlug, slot } = e.detail;
+    await patchDocument((d) => {
+      if (!d.receivedBuffs) d.receivedBuffs = [];
+      d.receivedBuffs.push({
+        id: `${spellSlug}-${Date.now()}`,
+        spellSlug,
+        ...(slot !== undefined ? { slot } : {})
+      });
+    });
+  }
+
+  async function handleRemoveReceivedBuff(e: CustomEvent<{ id: string }>) {
+    const { id } = e.detail;
+    await patchDocument((d) => {
+      d.receivedBuffs = (d.receivedBuffs ?? []).filter((b) => b.id !== id);
+    });
+  }
+
+  async function handleUpdateReceivedBuff(
+    e: CustomEvent<{ id: string; patch: Partial<{ slot: number; variant: string; sourceLabel: string }> }>
+  ) {
+    const { id, patch } = e.detail;
+    await patchDocument((d) => {
+      const buff = (d.receivedBuffs ?? []).find((b) => b.id === id);
+      if (!buff) return;
+      Object.assign(buff, patch);
     });
   }
 
@@ -1824,6 +1857,15 @@
       on:toggle={handleActivationToggle}
     />
   {/if}
+
+  <ReceivedBuffsPanel
+    buffs={document.receivedBuffs ?? []}
+    spellOptions={data.spellOptions}
+    {busy}
+    on:add={handleAddReceivedBuff}
+    on:remove={handleRemoveReceivedBuff}
+    on:update={handleUpdateReceivedBuff}
+  />
 
   <!-- Conditions + toggles -->
   <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">

@@ -106,9 +106,39 @@ export interface CharacterDocument {
    *  resolved condition set (which gates appliesWhen.condition modifiers
    *  on stat/action/outbound shapes). */
   activations?: Record<string, ActivationState>;
+  /** Buffs received from an ally's spell cast (Shield of Faith, Bless,
+   *  Haste, Heroism, etc.). Recipient-side model: the buff record lives
+   *  on the target's own sheet — the player or DM adds an entry when an
+   *  ally casts on them. derive() processes each entry by force-loading
+   *  the spell row's modifiers and injecting its activation condition,
+   *  so the buff's mechanical effect (e.g. +2 AC) flows through the
+   *  same pipeline as self-cast activations. No cross-character RPC,
+   *  no concentration cascade — the recipient removes the entry when
+   *  the buff ends. */
+  receivedBuffs?: ReceivedBuff[];
   /** Action ids (derived.actions[].id) the player has pinned. The planner
    *  surfaces these at the top of the picker. */
   favoriteActionIds?: string[];
+}
+
+export interface ReceivedBuff {
+  /** Stable id for the entry, unique on this character. Distinct from
+   *  the spell slug so the same spell can appear twice (e.g. multiple
+   *  +1 enhancement spells from different casters, though that's
+   *  usually nonsense). */
+  id: string;
+  /** Slug of the spell row to apply. */
+  spellSlug: string;
+  /** Cast slot, when the spell carries scalingByCastSlot in its
+   *  activation template. Defaults to the spell's level if unset. */
+  slot?: number;
+  /** Variant pick when the spell's activation declares static
+   *  variants[] (skipped for variantsFromWeapons — the recipient
+   *  doesn't pick the touched weapon). */
+  variant?: string;
+  /** Optional free-text source attribution: "from Cleric Vortha",
+   *  "from the Sanctuary cleric's wand", etc. Display-only. */
+  sourceLabel?: string;
 }
 
 export interface ActivationState {

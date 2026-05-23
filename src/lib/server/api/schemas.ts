@@ -166,6 +166,17 @@ export const CharacterDocument = z
         })
       )
       .optional(),
+    receivedBuffs: z
+      .array(
+        z.object({
+          id: z.string(),
+          spellSlug: z.string(),
+          slot: z.number().int().min(1).max(9).optional(),
+          variant: z.string().optional(),
+          sourceLabel: z.string().optional()
+        })
+      )
+      .optional(),
     resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional(),
     /** Per-turn action-economy slots — auto-reset on turn-rise + rest. */
     actionUsedThisRound: z.boolean().optional(),
