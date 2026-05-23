@@ -94,11 +94,36 @@ function scopeMatches(
         if (!event.alliedParticipantIds?.includes(participantId)) return false;
       } else if (k === 'enemy' && v === true) {
         if (!event.enemyParticipantIds?.includes(participantId)) return false;
+      } else if (k.includes('.')) {
+        // Dotted-path predicate against the event payload. Used by
+        // retaliatory triggers like Armor of Agathys to scope by
+        // `attack.range`, `damage.type`, etc.
+        const actual = getPath(event.payload, k);
+        if (!payloadValueMatches(actual, v)) return false;
       }
-      // Unknown predicate keys are conservatively ignored — the trigger
-      // still matches by event name. Encounter author can refine scope
-      // semantics in later passes (range, damage-type, etc.).
+      // Other unknown predicate keys are conservatively ignored — the
+      // trigger still matches by event name.
     }
   }
   return true;
+}
+
+function getPath(ctx: Record<string, unknown> | undefined, path: string): unknown {
+  if (!ctx) return undefined;
+  return path.split('.').reduce<unknown>((acc, k) => {
+    if (acc != null && typeof acc === 'object' && k in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[k];
+    }
+    return undefined;
+  }, ctx);
+}
+
+function payloadValueMatches(actual: unknown, expected: unknown): boolean {
+  if (Array.isArray(expected)) {
+    return expected.some((v) => payloadValueMatches(actual, v));
+  }
+  if (Array.isArray(actual)) {
+    return actual.includes(expected);
+  }
+  return actual === expected;
 }

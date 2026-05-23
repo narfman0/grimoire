@@ -188,6 +188,81 @@ describe('matchTriggers — edge cases', () => {
     expect(matchTriggers([malformed], { name: 'turn.start' })).toEqual([]);
   });
 
+  it('matches a dotted-path payload predicate (Armor of Agathys: attack.range melee)', () => {
+    const aoa: ParticipantTriggers = {
+      participantId: 'warlock-pid',
+      declarations: [
+        {
+          id: 'aoa-cold-retaliate',
+          sourceContent: { kind: 'spell', slug: 'armor-of-agathys' },
+          name: 'Armor of Agathys (cold retaliate)',
+          on: ['attack.targets-self.hit'],
+          scope: { predicates: [{ self: true }, { 'attack.range': 'melee' }] },
+          grants: { type: 'damage.reflect', amount: 5, damageType: 'cold' } as unknown
+        }
+      ]
+    };
+    const melee = matchTriggers([aoa], {
+      name: 'attack.targets-self.hit',
+      selfParticipantId: 'warlock-pid',
+      payload: { attack: { range: 'melee' }, amount: 8 }
+    });
+    expect(melee).toHaveLength(1);
+    const ranged = matchTriggers([aoa], {
+      name: 'attack.targets-self.hit',
+      selfParticipantId: 'warlock-pid',
+      payload: { attack: { range: 'ranged' }, amount: 8 }
+    });
+    expect(ranged).toEqual([]);
+  });
+
+  it('matches a payload predicate when the array on context contains the expected scalar', () => {
+    const trig: ParticipantTriggers = {
+      participantId: 'pid-1',
+      declarations: [
+        {
+          id: 'fire-only',
+          sourceContent: { kind: 'feature', slug: 'fire-only' },
+          name: 'Fire Only',
+          on: ['damage.taken'],
+          scope: { predicates: [{ self: true }, { 'damage.types': 'fire' }] }
+        }
+      ]
+    };
+    const opps = matchTriggers([trig], {
+      name: 'damage.taken',
+      selfParticipantId: 'pid-1',
+      payload: { damage: { types: ['fire', 'bludgeoning'] } }
+    });
+    expect(opps).toHaveLength(1);
+  });
+
+  it('matches a payload predicate when expected is an array of allowed values', () => {
+    const trig: ParticipantTriggers = {
+      participantId: 'pid-1',
+      declarations: [
+        {
+          id: 'pbst',
+          sourceContent: { kind: 'feature', slug: 'pbst' },
+          name: 'PBS',
+          on: ['damage.taken'],
+          scope: {
+            predicates: [
+              { self: true },
+              { 'damage.type': ['bludgeoning', 'piercing', 'slashing'] }
+            ]
+          }
+        }
+      ]
+    };
+    const opps = matchTriggers([trig], {
+      name: 'damage.taken',
+      selfParticipantId: 'pid-1',
+      payload: { damage: { type: 'piercing' } }
+    });
+    expect(opps).toHaveLength(1);
+  });
+
   it('returns opportunities for every matching declaration on a participant', () => {
     const stacker: ParticipantTriggers = {
       participantId: 'pid-1',
