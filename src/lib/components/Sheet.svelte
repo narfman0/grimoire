@@ -35,6 +35,15 @@
       attackRange?: string;
       damageRolls?: Array<{ formula: string; type: string }>;
       saveDC?: { ability: string; value: number };
+      upcastScaling?: {
+        baseSlotLevel: number;
+        extraDamagePerSlot?: string;
+        extraFlatDamagePerSlot?: number;
+        extraTargetsPerSlot?: number;
+        extraHealPerSlot?: string;
+        extraTempHpPerSlot?: number;
+      };
+      grants?: { tempHp?: number };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
     }>;
     triggers: Array<{
@@ -161,6 +170,32 @@
               <span class="ml-1 font-mono uppercase">{action.saveDC.ability}</span>
               <span class="ml-1 font-mono">DC {action.saveDC.value}</span>
             </div>
+          {/if}
+          {#if action.grants?.tempHp != null}
+            <div class="mt-1 text-sm">
+              <span class="text-slate-400">grants:</span>
+              <span class="ml-1 font-mono">{action.grants.tempHp} temp HP</span>
+              {#if action.upcastScaling?.extraTempHpPerSlot}
+                <span class="ml-1 text-xs text-slate-500">
+                  (+{action.upcastScaling.extraTempHpPerSlot} per slot above {action.upcastScaling.baseSlotLevel})
+                </span>
+              {/if}
+            </div>
+          {/if}
+          {#if action.upcastScaling}
+            {@const u = action.upcastScaling}
+            {@const parts = [
+              u.extraDamagePerSlot && `+${u.extraDamagePerSlot} damage`,
+              u.extraFlatDamagePerSlot && `+${u.extraFlatDamagePerSlot} damage`,
+              u.extraTargetsPerSlot && `+${u.extraTargetsPerSlot} target${u.extraTargetsPerSlot === 1 ? '' : 's'}`,
+              u.extraHealPerSlot && `+${u.extraHealPerSlot} heal`
+            ].filter(Boolean)}
+            {#if parts.length > 0}
+              <div class="mt-1 text-xs text-slate-400">
+                <span class="font-medium text-amber-300/90">upcast:</span>
+                <span class="ml-1">{parts.join(' · ')} per slot above {u.baseSlotLevel}</span>
+              </div>
+            {/if}
           {/if}
           {#if action.appliedModifiers.length > 0}
             <div class="mt-2 flex flex-wrap gap-1 text-xs">
