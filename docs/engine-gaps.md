@@ -216,7 +216,35 @@ totems, Divine Fury) — all auto-surface through rage's activation.
 **Remaining activation work is engine-side, not content-side** —
 see the new gap entries below.
 
-### Target-bounded buff primitive — DESIGNED (last activation-cluster gap)
+### Target-bounded buff primitive — SHIPPED (recipient-side model)
+
+`character.receivedBuffs: ReceivedBuff[]` (commit 8ebb85a) lets a
+recipient record an ally-cast buff with shape
+`{id, spellSlug, slot?, variant?, sourceLabel?}`. derive() force-loads
+the spell row into the active set and injects the spell's activation
+condition into resolvedConditions — the spell's existing
+`appliesWhen.condition` modifier gates fire automatically. New
+`ReceivedBuffsPanel.svelte` on the sheet renders next to the
+Activations panel with a spell picker + source-label input + slot
+picker + remove buttons. Sheet-local: no cross-character RPC, no
+concentration cascade, no caster-sheet involvement.
+
+**Still deferred — caster-push automation:** A future enhancement
+where the caster's activation toggle automatically emits a
+BuffApplication into shared campaign state and the recipient's sheet
+reflects it. Requires campaign-scoped buff log + acceptance UI +
+auto-expire + concentration-end cascade. Out of scope until the
+recipient-side shape proves out; user direction was "model 100%
+character-sheet-side first, then update encounter/campaign state."
+
+**Still deferred — receivedBuffs variant/scaling synthesis:** v1
+only handles condition injection from receivedBuffs. If a recipient
+needs a variant/slot pick (e.g. receiving Magic Weapon — picks the
+recipient's own touched weapon), the synthesis path from activations
+would need to be shared. Trivial extension when the use case arises.
+
+(Below: the original deferral notes are retained for grep-archaeology
+on what specifically was deferred and why.)
 
 The activation primitive applies a self-buff to whoever activates the
 spell on their own sheet. There's no engine-side way to model "Cleric
