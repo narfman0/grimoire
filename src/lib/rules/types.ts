@@ -531,6 +531,16 @@ export interface Derived {
    *  resolved conditions (gating appliesWhen.condition modifiers) and
    *  to synthesize the picked variant's modifiers when applicable. */
   availableActivations: AvailableActivation[];
+  /** Denormalized equipped-inventory summary, shared by the AC formula
+   *  and the activation auto-cancel walk. armorType is null when the
+   *  character has no armor body slot equipped (i.e. unarmored). shield
+   *  reflects whether any equipped item is `armorType: 'shield'`. */
+  equipped: EquippedInventory;
+}
+
+export interface EquippedInventory {
+  armorType: 'light' | 'medium' | 'heavy' | null;
+  shield: boolean;
 }
 
 export interface ActivationDuration {
@@ -585,15 +595,31 @@ export interface ActivationDeclaration {
    *  appliesWhen.condition modifiers gated on this slug fire on the
    *  next derive() pass. */
   condition: string;
-  /** Conditions whose presence auto-cancels this activation. Used for
-   *  e.g. Bladesong (cancels on incapacitated, wearing medium/heavy
-   *  armor). The encounter runtime / sheet calls a helper to honor. */
-  autoCancelOn?: string[];
+  /** Conditions and inventory states whose presence auto-cancels this
+   *  activation. String entries match the character's conditions[] list
+   *  (e.g. "incapacitated"). Object entries match equipped inventory:
+   *  `{wearing: 'armor.medium'|'armor.heavy'|'armor.light'|'shield'}`
+   *  fires when the character currently has that armor type / a shield
+   *  equipped. The activations module's auto-cancel walk evaluates both
+   *  kinds against character + EquippedInventory state. */
+  autoCancelOn?: AutoCancelEntry[];
   /** Variant menu — when set, the player picks one variant when
    *  activating; the picked variant's modifiers are synthesized while
    *  the activation is active (replaces the now-deprecated
    *  modifierFromChoice usage for activation-tied picks). */
   variants?: ActivationVariant[];
+}
+
+/** A condition slug, or an inventory-state predicate, that can appear
+ *  in an activation's autoCancelOn list. */
+export type AutoCancelEntry = string | InventoryPredicate;
+
+/** Inventory-state predicate for activation auto-cancel. `armor.light`
+ *  / `armor.medium` / `armor.heavy` match the equipped armor's
+ *  `armorType` (the unarmored case is when no armor is equipped, and
+ *  matches none of these). `shield` matches any equipped shield. */
+export interface InventoryPredicate {
+  wearing: 'armor.light' | 'armor.medium' | 'armor.heavy' | 'shield';
 }
 
 /** Per-character snapshot of an authored activation declaration plus the
@@ -615,7 +641,7 @@ export interface AvailableActivation {
   concentration?: boolean;
   group?: string;
   condition: string;
-  autoCancelOn?: string[];
+  autoCancelOn?: AutoCancelEntry[];
   variants?: Array<{ id: string; label: string }>;
   /** Currently-picked variant id, when the activation has variants. */
   activeVariant?: string;

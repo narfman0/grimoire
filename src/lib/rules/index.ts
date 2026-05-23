@@ -3,7 +3,7 @@ export { applyUpcast, upcastStepsAt } from './upcast';
 export {
   toggleActivation,
   refreshActivations,
-  applyAutoCancelOnConditionChange,
+  applyAutoCancelOnStateChange,
   type ToggleActivationOpts,
   type ToggleActivationResult,
   type ToggleOutcome

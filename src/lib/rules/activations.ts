@@ -7,7 +7,13 @@
 // The API layer (Phase C) wraps these for HTTP endpoints; the sheet
 // (Phase D) calls them through the existing patchDocument flow.
 
-import type { ActivationState, AvailableActivation, CharacterDocument } from './types';
+import type {
+  ActivationState,
+  AvailableActivation,
+  AutoCancelEntry,
+  CharacterDocument,
+  EquippedInventory
+} from './types';
 
 export interface ToggleActivationOpts {
   /** Variant pick when activating a variants[] activation. Ignored on
@@ -213,12 +219,21 @@ export function refreshActivations(
 }
 
 /** Walk available activations and toggle off any whose `autoCancelOn`
- *  overlaps the character's current conditions[]. Pure. Called when
- *  conditions[] changes (e.g. the character becomes incapacitated →
- *  Bladesong drops). */
-export function applyAutoCancelOnConditionChange(
+ *  list matches the character's current conditions[] OR equipped state.
+ *  Pure. Called from the sheet whenever conditions[] or equipped
+ *  inventory changes (e.g. character becomes incapacitated → Bladesong
+ *  drops; character equips a shield → Bladesong drops). String entries
+ *  are condition slugs; `{wearing: 'armor.medium'}`-style entries are
+ *  inventory predicates evaluated against the supplied equipped state.
+ *
+ *  `equipped` is required — pass `derived.equipped` from the most
+ *  recent derive() pass. Callers that don't track inventory state
+ *  (legacy tests, encounter helpers) can pass
+ *  `{armorType: null, shield: false}` to disable inventory matching. */
+export function applyAutoCancelOnStateChange(
   character: CharacterDocument,
-  available: AvailableActivation[]
+  available: AvailableActivation[],
+  equipped: EquippedInventory
 ): CharacterDocument {
   const activations = character.activations ?? {};
   const conditions = new Set(character.conditions ?? []);
@@ -227,10 +242,31 @@ export function applyAutoCancelOnConditionChange(
     if (!a.autoCancelOn || a.autoCancelOn.length === 0) continue;
     const state = activations[a.id];
     if (!state?.active) continue;
-    const triggered = a.autoCancelOn.some((c) => conditions.has(c));
+    const triggered = a.autoCancelOn.some((entry) => matchAutoCancel(entry, conditions, equipped));
     if (!triggered) continue;
     const { character: updated } = toggleActivation(result, available, a.id, false);
     result = updated;
   }
   return result;
+}
+
+function matchAutoCancel(
+  entry: AutoCancelEntry,
+  conditions: Set<string>,
+  equipped: EquippedInventory
+): boolean {
+  if (typeof entry === 'string') return conditions.has(entry);
+  if (entry && typeof entry === 'object' && 'wearing' in entry) {
+    switch (entry.wearing) {
+      case 'shield':
+        return equipped.shield;
+      case 'armor.light':
+        return equipped.armorType === 'light';
+      case 'armor.medium':
+        return equipped.armorType === 'medium';
+      case 'armor.heavy':
+        return equipped.armorType === 'heavy';
+    }
+  }
+  return false;
 }

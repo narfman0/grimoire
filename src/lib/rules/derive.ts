@@ -1586,6 +1586,26 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     });
   }
 
+  // Denormalize equipped armor + shield state once, shared between the AC
+  // formula (above) and the activation auto-cancel walk. Mirrors the
+  // armor lookup in computeAC: any active item with category=armor whose
+  // armorType is 'shield' counts toward the shield flag; the first
+  // non-shield armor body slot supplies armorType (light by default when
+  // armorType is unset).
+  let equippedArmorType: 'light' | 'medium' | 'heavy' | null = null;
+  let equippedShield = false;
+  for (const a of active) {
+    if (a.row.kind !== 'item') continue;
+    if (a.data.category !== 'armor') continue;
+    const at = a.data.armorType as string | undefined;
+    if (at === 'shield') {
+      equippedShield = true;
+    } else if (equippedArmorType === null) {
+      equippedArmorType =
+        at === 'medium' || at === 'heavy' ? at : 'light';
+    }
+  }
+
   return {
     stats,
     actions,
@@ -1597,7 +1617,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     outboundEffects,
     overlayHpPools,
     pendingFeatureChoices,
-    availableActivations
+    availableActivations,
+    equipped: { armorType: equippedArmorType, shield: equippedShield }
   };
 }
 

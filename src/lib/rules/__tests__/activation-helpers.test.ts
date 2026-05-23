@@ -1,16 +1,18 @@
 // Phase B: toggleActivation / refreshActivations /
-// applyAutoCancelOnConditionChange helpers. Pure functions — no I/O,
+// applyAutoCancelOnStateChange helpers. Pure functions — no I/O,
 // no mutation. Verifies activation/deactivation, group mutual
 // exclusion, concentration interruption, uses-tracking, refresh
-// semantics, auto-cancel.
+// semantics, auto-cancel (condition + inventory predicate).
 
 import { describe, it, expect } from 'vitest';
 import {
   toggleActivation,
   refreshActivations,
-  applyAutoCancelOnConditionChange
+  applyAutoCancelOnStateChange
 } from '../activations';
-import type { AvailableActivation, CharacterDocument } from '../types';
+import type { AvailableActivation, CharacterDocument, EquippedInventory } from '../types';
+
+const NO_GEAR: EquippedInventory = { armorType: null, shield: false };
 
 function baseChar(overrides: Partial<CharacterDocument> = {}): CharacterDocument {
   return {
@@ -365,13 +367,13 @@ describe('refreshActivations — per-rest', () => {
   });
 });
 
-describe('applyAutoCancelOnConditionChange', () => {
+describe('applyAutoCancelOnStateChange — condition predicates', () => {
   it('cancels an activation whose autoCancelOn condition is now present', () => {
     const char = baseChar({
       activations: { bladesong: { active: true, usesRemaining: 2 } },
       conditions: ['incapacitated']
     });
-    const r = applyAutoCancelOnConditionChange(char, [BLADESONG]);
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG], NO_GEAR);
     expect(r.activations!.bladesong.active).toBe(false);
     expect(r.activations!.bladesong.usesRemaining).toBe(2); // no refund
   });
@@ -381,7 +383,7 @@ describe('applyAutoCancelOnConditionChange', () => {
       activations: { bladesong: { active: true, usesRemaining: 2 } },
       conditions: ['prone'] // not in autoCancelOn list
     });
-    const r = applyAutoCancelOnConditionChange(char, [BLADESONG]);
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG], NO_GEAR);
     expect(r.activations!.bladesong.active).toBe(true);
   });
 
@@ -390,7 +392,62 @@ describe('applyAutoCancelOnConditionChange', () => {
       activations: { bladesong: { active: false, usesRemaining: 2 } },
       conditions: ['incapacitated']
     });
-    const r = applyAutoCancelOnConditionChange(char, [BLADESONG]);
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG], NO_GEAR);
     expect(r.activations!.bladesong.active).toBe(false);
+  });
+});
+
+describe('applyAutoCancelOnStateChange — inventory predicates', () => {
+  // Bladesong with full RAW autoCancelOn: incapacitated + medium/heavy armor + shield.
+  const BLADESONG_FULL: AvailableActivation = {
+    ...BLADESONG,
+    autoCancelOn: [
+      'incapacitated',
+      { wearing: 'armor.medium' },
+      { wearing: 'armor.heavy' },
+      { wearing: 'shield' }
+    ]
+  };
+
+  it('cancels Bladesong when the character is wearing medium armor', () => {
+    const char = baseChar({ activations: { bladesong: { active: true, usesRemaining: 2 } } });
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG_FULL], {
+      armorType: 'medium',
+      shield: false
+    });
+    expect(r.activations!.bladesong.active).toBe(false);
+  });
+
+  it('cancels Bladesong when the character is wearing heavy armor', () => {
+    const char = baseChar({ activations: { bladesong: { active: true, usesRemaining: 2 } } });
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG_FULL], {
+      armorType: 'heavy',
+      shield: false
+    });
+    expect(r.activations!.bladesong.active).toBe(false);
+  });
+
+  it('cancels Bladesong when the character equips a shield', () => {
+    const char = baseChar({ activations: { bladesong: { active: true, usesRemaining: 2 } } });
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG_FULL], {
+      armorType: 'light',
+      shield: true
+    });
+    expect(r.activations!.bladesong.active).toBe(false);
+  });
+
+  it('leaves Bladesong active when only wearing light armor with no shield', () => {
+    const char = baseChar({ activations: { bladesong: { active: true, usesRemaining: 2 } } });
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG_FULL], {
+      armorType: 'light',
+      shield: false
+    });
+    expect(r.activations!.bladesong.active).toBe(true);
+  });
+
+  it('leaves Bladesong active when unarmored with no shield', () => {
+    const char = baseChar({ activations: { bladesong: { active: true, usesRemaining: 2 } } });
+    const r = applyAutoCancelOnStateChange(char, [BLADESONG_FULL], NO_GEAR);
+    expect(r.activations!.bladesong.active).toBe(true);
   });
 });

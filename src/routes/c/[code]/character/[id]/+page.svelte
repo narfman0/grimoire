@@ -12,7 +12,7 @@
   import {
     derive,
     refreshActivations,
-    applyAutoCancelOnConditionChange,
+    applyAutoCancelOnStateChange,
     toggleActivation
   } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
@@ -629,6 +629,7 @@
 
   async function toggleCondition(name: string, on: boolean) {
     const available = derived?.availableActivations ?? [];
+    const equipped = derived?.equipped ?? { armorType: null, shield: false };
     await patchDocument((d) => {
       const has = d.conditions.includes(name);
       if (on && !has) {
@@ -640,7 +641,7 @@
         }
         // Auto-cancel activations whose autoCancelOn list includes the
         // newly-added condition (Bladesong drops on incapacitated, etc.).
-        const cancelled = applyAutoCancelOnConditionChange(d, available);
+        const cancelled = applyAutoCancelOnStateChange(d, available, equipped);
         d.activations = cancelled.activations ?? d.activations;
         d.concentrating = cancelled.concentrating ?? null;
       } else if (!on && has) {
@@ -1045,10 +1046,45 @@
   }
 
   async function setInventoryFlag(index: number, key: 'equipped' | 'attuned', on: boolean) {
+    const available = derived?.availableActivations ?? [];
     await patchDocument((d) => {
       if (!d.inventory[index]) return;
       d.inventory[index][key] = on;
+      // When equipped state changes, re-derive the equipped summary
+      // inline so the auto-cancel walk sees the new state. Done with a
+      // lightweight scan rather than a full derive() — same logic the
+      // engine uses, applied to the patched draft.
+      if (key === 'equipped') {
+        const eq = recomputeEquippedFromInventory(d, contentLookup);
+        const cancelled = applyAutoCancelOnStateChange(d, available, eq);
+        d.activations = cancelled.activations ?? d.activations;
+        d.concentrating = cancelled.concentrating ?? null;
+      }
     });
+  }
+
+  // Mirrors the equipped-summary computation in derive.ts: walk the
+  // character's equipped inventory, resolve item slugs against the
+  // content lookup, classify as armor body slot / shield. Kept inline
+  // to avoid a full derive() round-trip from the equip handler.
+  function recomputeEquippedFromInventory(
+    d: NonNullable<typeof document>,
+    lookup: typeof contentLookup
+  ): { armorType: 'light' | 'medium' | 'heavy' | null; shield: boolean } {
+    let armorType: 'light' | 'medium' | 'heavy' | null = null;
+    let shield = false;
+    for (const slot of d.inventory) {
+      if (!slot.equipped) continue;
+      const row = lookup({ kind: slot.contentKind, slug: slot.contentSlug });
+      const data = row?.data as { category?: string; armorType?: string } | undefined;
+      if (data?.category !== 'armor') continue;
+      if (data.armorType === 'shield') shield = true;
+      else if (armorType === null) {
+        armorType =
+          data.armorType === 'medium' || data.armorType === 'heavy' ? data.armorType : 'light';
+      }
+    }
+    return { armorType, shield };
   }
 
   async function removeInventoryItem(index: number) {
