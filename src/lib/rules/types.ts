@@ -316,10 +316,13 @@ export interface Action {
 }
 
 export interface ActionGrants {
-  /** Temp HP granted to the caster on resolution. Numeric (resolved at
-   *  derive time against the caster's context). Casting at a higher slot
-   *  scales via UpcastScaling.extraTempHpPerSlot. */
-  tempHp?: number;
+  /** Temp HP granted to the caster on resolution. Numeric values are
+   *  resolved against the caster's context at derive() time; dice
+   *  formulas (e.g. '1d4+4' for False Life) pass through as strings for
+   *  the runtime / player to roll. Casting at a higher slot scales via
+   *  UpcastScaling.extraTempHpPerSlot (numeric additions stack on top
+   *  of the formula as a separate display: '1d4+4 (+5 per slot above 1)'). */
+  tempHp?: number | string;
 }
 
 export interface UpcastScaling {

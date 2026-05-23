@@ -1995,15 +1995,16 @@ function realizeActivity(
   }
 
   // Caster-side grants on activity resolution (temp HP, etc.). Spell
-  // rows like Armor of Agathys carry `grants.tempHp: 5`. derive() evaluates
-  // the value against the caster's context (so '5 + warlockLevel' or
-  // similar formulas resolve) and exposes a numeric grant on the Action.
+  // rows like Armor of Agathys carry `grants.tempHp: 5`; False Life
+  // carries '1d4+4' (dice formula passes through as string for the
+  // runtime to roll).
   if (act.grants && typeof act.grants === 'object') {
     const g = act.grants as Record<string, unknown>;
     const grants: Record<string, unknown> = {};
     if ('tempHp' in g) {
       const resolved = evaluateValue(g.tempHp, ctx);
       if (typeof resolved === 'number') grants.tempHp = resolved;
+      else if (typeof resolved === 'string' && resolved.length > 0) grants.tempHp = resolved;
     }
     if (Object.keys(grants).length > 0) {
       action.grants = grants as Action['grants'];

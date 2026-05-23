@@ -43,7 +43,7 @@
         extraHealPerSlot?: string;
         extraTempHpPerSlot?: number;
       };
-      grants?: { tempHp?: number };
+      grants?: { tempHp?: number | string };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
     }>;
     triggers: Array<{

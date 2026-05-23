@@ -68,8 +68,16 @@ export function applyUpcast(action: Action, slotLevel: number): Action {
     }
   }
   if (typeof scaling.extraTempHpPerSlot === 'number' && next.grants) {
-    const baseTemp = next.grants.tempHp ?? 0;
-    next.grants = { ...next.grants, tempHp: baseTemp + scaling.extraTempHpPerSlot * steps };
+    const baseTemp = next.grants.tempHp;
+    const add = scaling.extraTempHpPerSlot * steps;
+    if (typeof baseTemp === 'number') {
+      next.grants = { ...next.grants, tempHp: baseTemp + add };
+    } else if (typeof baseTemp === 'string') {
+      // Dice formula base (False Life: '1d4+4'). Bump the trailing flat
+      // modifier and preserve the dice term — same shape as bumpFlatBonus
+      // on damage formulas.
+      next.grants = { ...next.grants, tempHp: bumpFlatBonus(baseTemp, add) };
+    }
   }
   return next;
 }

@@ -201,6 +201,17 @@ describe('applyUpcast — extraTempHpPerSlot (Armor of Agathys shape)', () => {
     const cast = applyUpcast(noGrants, 3);
     expect(cast.grants).toBeUndefined();
   });
+
+  it('bumps the trailing flat modifier of a dice-formula tempHp (False Life shape)', () => {
+    const falseLife = baseAction({
+      type: 'utility',
+      grants: { tempHp: '1d4+4' },
+      upcastScaling: { baseSlotLevel: 1, extraTempHpPerSlot: 5 }
+    });
+    const cast = applyUpcast(falseLife, 3);
+    // 2 steps above base × +5 = +10 to the flat; '1d4+4' → '1d4+14'
+    expect(cast.grants?.tempHp).toBe('1d4+14');
+  });
 });
 
 describe('upcastStepsAt', () => {
