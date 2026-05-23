@@ -87,6 +87,39 @@
     drafts = { ...drafts, [slug]: draft };
   }
 
+  // Generic multi-pick toggle (languages, toolProficiencies, ...). Per-slot
+  // payload shape is `[{ <pickField>: '<value>' }, ...]`. The engine accepts
+  // any number of picks; this UI honors the prose-declared `picks: N` cap.
+  function multiPickValuesFor(slug: string, slot: string, pickField: string): string[] {
+    const arr = drafts[slug]?.[slot] as Array<Record<string, unknown>> | undefined;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((entry) => entry?.[pickField] as string | undefined)
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+  }
+
+  function toggleMultiPick(
+    slug: string,
+    slot: string,
+    pickField: string,
+    value: string,
+    checked: boolean,
+    max?: number
+  ) {
+    const current = multiPickValuesFor(slug, slot, pickField);
+    let nextValues: string[];
+    if (checked) {
+      if (current.includes(value)) return;
+      if (max != null && current.length >= max) return;
+      nextValues = [...current, value];
+    } else {
+      nextValues = current.filter((v) => v !== value);
+    }
+    const draft = { ...(drafts[slug] ?? {}) };
+    draft[slot] = nextValues.map((v) => ({ [pickField]: v }));
+    drafts = { ...drafts, [slug]: draft };
+  }
+
   function save(pending: PendingFeatureChoice) {
     dispatch('pick', {
       featureSlug: pending.featureSlug,
@@ -138,6 +171,17 @@
     return (decl?.allowedSpells as string[] | undefined) ?? [];
   }
   function spellMaxOf(decl: Record<string, unknown> | undefined): number | undefined {
+    return decl?.picks as number | undefined;
+  }
+  function multiPickAllowedOf(
+    decl: Record<string, unknown> | undefined,
+    listKey: string,
+    fallback: string[]
+  ): string[] {
+    const v = decl?.[listKey] as string[] | undefined;
+    return v ?? fallback;
+  }
+  function multiPickMaxOf(decl: Record<string, unknown> | undefined): number | undefined {
     return decl?.picks as number | undefined;
   }
 </script>
@@ -336,6 +380,105 @@
                 Feature doesn't list allowed spells — pack file needs `allowedSpells: [...]`.
               </p>
             {/if}
+          </div>
+        {/if}
+
+        {#if p.declarations.languages}
+          {@const langAllowed = multiPickAllowedOf(p.declarations.languages, 'allowedLanguages', [])}
+          {@const langMax = multiPickMaxOf(p.declarations.languages)}
+          {@const langPicked = multiPickValuesFor(p.featureSlug, 'languages', 'language')}
+          <div class="mt-2 border-t border-slate-800 pt-2">
+            <span class="text-[10px] uppercase tracking-wide text-slate-500">
+              Languages{#if langMax} — pick {langMax}{/if}
+            </span>
+            {#if langAllowed.length > 0}
+              <ul class="mt-1 grid grid-cols-2 gap-1">
+                {#each langAllowed as lang}
+                  {@const checked = langPicked.includes(lang)}
+                  {@const atCap = langMax != null && langPicked.length >= langMax && !checked}
+                  <li>
+                    <label class="flex items-center gap-1 text-xs">
+                      <input
+                        type="checkbox"
+                        {checked}
+                        disabled={busy || atCap}
+                        on:change={(e) =>
+                          toggleMultiPick(p.featureSlug, 'languages', 'language', lang, checkboxChecked(e), langMax)}
+                      />
+                      <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>{lang}</span>
+                    </label>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="mt-1 text-[10px] text-amber-300">
+                Open language pick — record manually via featureChoices JSON for now.
+              </p>
+            {/if}
+          </div>
+        {/if}
+
+        {#if p.declarations.toolProficiencies}
+          {@const toolAllowed = multiPickAllowedOf(p.declarations.toolProficiencies, 'allowedTools', [])}
+          {@const toolMax = multiPickMaxOf(p.declarations.toolProficiencies)}
+          {@const toolPicked = multiPickValuesFor(p.featureSlug, 'toolProficiencies', 'tool')}
+          <div class="mt-2 border-t border-slate-800 pt-2">
+            <span class="text-[10px] uppercase tracking-wide text-slate-500">
+              Tools{#if toolMax} — pick {toolMax}{/if}
+            </span>
+            {#if toolAllowed.length > 0}
+              <ul class="mt-1 grid grid-cols-2 gap-1">
+                {#each toolAllowed as t}
+                  {@const checked = toolPicked.includes(t)}
+                  {@const atCap = toolMax != null && toolPicked.length >= toolMax && !checked}
+                  <li>
+                    <label class="flex items-center gap-1 text-xs">
+                      <input
+                        type="checkbox"
+                        {checked}
+                        disabled={busy || atCap}
+                        on:change={(e) =>
+                          toggleMultiPick(p.featureSlug, 'toolProficiencies', 'tool', t, checkboxChecked(e), toolMax)}
+                      />
+                      <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>{t}</span>
+                    </label>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="mt-1 text-[10px] text-amber-300">
+                Open tool pick — record manually via featureChoices JSON for now.
+              </p>
+            {/if}
+          </div>
+        {/if}
+
+        {#if p.declarations.skillProficiencies}
+          {@const skillAllowed = multiPickAllowedOf(p.declarations.skillProficiencies, 'allowedSkills', SKILLS)}
+          {@const skillMax = multiPickMaxOf(p.declarations.skillProficiencies)}
+          {@const skillPicked = multiPickValuesFor(p.featureSlug, 'skillProficiencies', 'skill')}
+          <div class="mt-2 border-t border-slate-800 pt-2">
+            <span class="text-[10px] uppercase tracking-wide text-slate-500">
+              Skills{#if skillMax} — pick {skillMax}{/if}
+            </span>
+            <ul class="mt-1 grid grid-cols-2 gap-1">
+              {#each skillAllowed as s}
+                {@const checked = skillPicked.includes(s)}
+                {@const atCap = skillMax != null && skillPicked.length >= skillMax && !checked}
+                <li>
+                  <label class="flex items-center gap-1 text-xs capitalize">
+                    <input
+                      type="checkbox"
+                      {checked}
+                      disabled={busy || atCap}
+                      on:change={(e) =>
+                        toggleMultiPick(p.featureSlug, 'skillProficiencies', 'skill', s, checkboxChecked(e), skillMax)}
+                    />
+                    <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>{s}</span>
+                  </label>
+                </li>
+              {/each}
+            </ul>
           </div>
         {/if}
 

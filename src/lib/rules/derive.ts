@@ -536,6 +536,43 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           deferredRefs.push({ kind: 'spell', slug });
         }
       }
+      // Multi-pick language: choices.languages = { allowedLanguages?: [...], picks?: N }
+      // picks.languages = [{ language: "draconic" }, { language: "dwarvish" }]
+      // Emits proficiency.language.<slug> OVERRIDE true for each picked language.
+      // `picks` is the prose-declared count; engine treats it as a hint and
+      // applies every pick in the array (the UI is responsible for the cap).
+      const languagesDecl = decl.languages as { allowedLanguages?: string[]; picks?: number } | undefined;
+      const languagesPicks = picks.languages as Array<{ language?: string }> | undefined;
+      if (languagesDecl && Array.isArray(languagesPicks)) {
+        for (let i = 0; i < languagesPicks.length; i++) {
+          const pick = languagesPicks[i]?.language;
+          if (!pick) continue;
+          if (languagesDecl.allowedLanguages && !languagesDecl.allowedLanguages.includes(pick)) continue;
+          allMods.push({
+            id: `${a.row.kind}/${a.row.slug}/language-${i}`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: { kind: 'stat-modifier', target: `proficiency.language.${pick}`, mode: 'OVERRIDE', value: true }
+          });
+        }
+      }
+      // Multi-pick tool proficiency: choices.toolProficiencies = { allowedTools?: [...], picks?: N }
+      // picks.toolProficiencies = [{ tool: "smiths-tools" }, { tool: "carpenters-tools" }]
+      const toolProfsDecl = decl.toolProficiencies as { allowedTools?: string[]; picks?: number } | undefined;
+      const toolProfsPicks = picks.toolProficiencies as Array<{ tool?: string }> | undefined;
+      if (toolProfsDecl && Array.isArray(toolProfsPicks)) {
+        for (let i = 0; i < toolProfsPicks.length; i++) {
+          const pick = toolProfsPicks[i]?.tool;
+          if (!pick) continue;
+          if (toolProfsDecl.allowedTools && !toolProfsDecl.allowedTools.includes(pick)) continue;
+          allMods.push({
+            id: `${a.row.kind}/${a.row.slug}/tool-prof-${i}`,
+            kind: 'stat-modifier',
+            source: a,
+            raw: { kind: 'stat-modifier', target: `proficiency.tool.${pick}`, mode: 'OVERRIDE', value: true }
+          });
+        }
+      }
     }
     if (a.row.kind === 'feat') {
       const featRef = character.feats.find((f) => f.slug === a.row.slug);
