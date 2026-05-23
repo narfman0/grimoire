@@ -1,6 +1,8 @@
 // TypeScript types for the rules engine. See docs/rules-engine.md for the
 // contract narrative; this file is just the types those words describe.
 
+import type { DamageSourcePredicate } from './damage-source';
+
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
 export const ABILITIES: readonly AbilityKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
@@ -264,6 +266,37 @@ export interface StatBlock {
   resistanceQualifiers: Record<string, string>;
   immunityQualifiers: Record<string, string>;
   vulnerabilityQualifiers: Record<string, string>;
+  /** Structured source-predicates for resistance/immunity/vulnerability
+   *  entries, keyed by damage type. Populated whenever a modifier
+   *  carries a `sourcePredicate` field OR a legacy `qualifier` string
+   *  that has a source-side interpretation (`'spell'`, `'magical'`,
+   *  `'creatureType:<slug>'`). The encounter runtime evaluates these
+   *  via `matchesDamageSource(predicate, event)` at damage-application
+   *  time to decide whether the resistance actually applies to the
+   *  incoming damage event. Unqualified entries (and qualifiers like
+   *  `'nonmagical'` that only narrow the damage *kind*, not its source)
+   *  do not appear here. */
+  resistanceSourcePredicates: Record<string, DamageSourcePredicate>;
+  immunitySourcePredicates: Record<string, DamageSourcePredicate>;
+  vulnerabilitySourcePredicates: Record<string, DamageSourcePredicate>;
+  /** Source-narrowed save-advantage entries. Captures the Gnome's Magic
+   *  Resistance ("advantage on saves against magic") and Circle of the
+   *  Land's "advantage on charmed/frightened saves against fey or
+   *  elementals" patterns — flavors of save-advantage that the
+   *  source-agnostic `save.advantage.X` / `savesAdvantageVs` lists
+   *  can't express. Each entry has either an `ability` (a specific
+   *  ability or `'all'`) or a `vsCondition` (the condition the save
+   *  is against), plus a `sourcePredicate` to narrow by source. The
+   *  encounter runtime evaluates entries when adjudicating saves;
+   *  matching entries grant advantage on the roll.
+   *
+   *  An entry with no `sourcePredicate` is currently disallowed at
+   *  derive() — unconditional save advantage flows through the
+   *  existing `save.advantage.*` channels. The runtime treats an
+   *  absent predicate as "matches everything" via
+   *  `matchesDamageSource(undefined, …) === true`, so authoring an
+   *  entry without a predicate is harmless but redundant. */
+  savesAdvantageSourceQualified: SaveAdvantageSourceQualified[];
   senses: Record<string, number>; // darkvision, tremorsense, …
   /** Languages known. Populated from proficienciesChosen.languages plus any
    *  `proficiency.language.<slug>` modifier (class/species/feature/feat). */
@@ -292,6 +325,27 @@ export interface StatBlock {
   /** Any attack that hits this creature within 5 ft is a Critical Hit
    *  (Paralyzed, Petrified, Unconscious). Read by the encounter layer. */
   attackedWithin5ftAutoCrit: boolean;
+}
+
+/** A single source-qualified save-advantage entry. Either an `ability`
+ *  (a specific ability key, or 'all' for every save) is set OR
+ *  `vsCondition` (the condition-against-which the save is made), but
+ *  not both — and at least one must be set. `sourcePredicate` narrows
+ *  by the source of the save (spell, magical, creature-type). */
+export interface SaveAdvantageSourceQualified {
+  /** Which save(s) the advantage applies to. 'all' means every
+   *  ability save; an AbilityKey ('wis', 'con', …) means just that
+   *  one. Mutually exclusive with `vsCondition`. */
+  ability?: AbilityKey | 'all';
+  /** Condition the save is against (e.g. 'charmed', 'frightened').
+   *  The runtime matches against the save's `vsCondition` tag.
+   *  Mutually exclusive with `ability`. */
+  vsCondition?: string;
+  /** Source narrowing — when set, the runtime only grants advantage
+   *  if `matchesDamageSource(sourcePredicate, saveEvent)` is true. */
+  sourcePredicate?: DamageSourcePredicate;
+  /** Originating content row for UI attribution / debugging. */
+  sourceContent?: { kind: string; slug: string };
 }
 
 export interface AppliedModifier {

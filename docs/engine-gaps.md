@@ -390,6 +390,79 @@ slot. Those are activity-level (cast event), not modifier-level
 (persistent buff), so they don't fit the activation primitive's
 scaling shape — they need a separate `scaling` field on activities.
 
+### Damage-source predicates — PARTIAL (engine shipped; encounter wiring pending)
+
+Resistance / immunity / vulnerability / save-advantage modifiers can now
+carry a structured `sourcePredicate` field that narrows applicability by
+the *source* of incoming damage or the save being made. Resolves the
+gap that the legacy source-agnostic `qualifier: 'spell'` string couldn't
+express richly enough — `phb-2014/features/spell-resistance.json` and
+`phb-2024/features/spell-resistance.json` ("advantage on saves against
+spells; resistance to damage from spells") plus Circle of the Land's
+"charmed/frightened immunity vs fey or elementals" were T1-STUB
+because of this.
+
+**Shape** (authored on a stat-modifier row):
+
+```ts
+{ kind: 'stat-modifier', target: 'resistance.fire', mode: 'OVERRIDE', value: true,
+  sourcePredicate: { kind: 'spell' } }                          // damage from spells only
+{ kind: 'stat-modifier', target: 'save.advantage.all', mode: 'OVERRIDE', value: true,
+  sourcePredicate: { kind: 'magical' } }                        // Gnome's Magic Resistance
+{ kind: 'stat-modifier', target: 'save.advantage.vs-condition.charmed', mode: 'OVERRIDE', value: true,
+  sourcePredicate: { kind: 'creatureType', value: 'fey' } }      // Circle of the Land
+```
+
+`sourcePredicate.kind` is one of: `'spell'`, `'magical'` (broader —
+matches spells AND magic-weapon attacks), `'creatureType'` (with a
+`value: <slug>` companion). Unknown kinds fail closed.
+
+**Engine** (this PR, commit TBD on the merge-in branch):
+
+- `src/lib/rules/damage-source.ts` — new module. Exports the
+  `DamageSourcePredicate` union, the `DamageSourceContext` event shape
+  the encounter runtime feeds in, and `matchesDamageSource(predicate,
+  event)` as the pure matcher. Also ships `predicateFromQualifierString`
+  / `predicateToQualifierString` for round-tripping the legacy form.
+- `derive()` populates three new maps on `Derived.stats`:
+  `resistanceSourcePredicates` / `immunitySourcePredicates` /
+  `vulnerabilitySourcePredicates`, each keyed by damage type. The
+  legacy `qualifier: 'spell'` / `qualifier: 'magical'` /
+  `qualifier: 'creatureType:<slug>'` strings are *lifted* into the
+  structured map automatically so existing pack rows pick up the
+  new behavior with no edits.
+- New `Derived.stats.savesAdvantageSourceQualified: SaveAdvantageSourceQualified[]`.
+  Each entry is either `{ability, sourcePredicate}` (with `ability =
+  'all' | AbilityKey`) or `{vsCondition, sourcePredicate}`. The
+  unconditional `save.advantage.*` channels intercept only modifiers
+  with NO `sourcePredicate`; modifiers that author one land here
+  instead so the runtime can decide per-save.
+- `'nonmagical'` qualifier stays out of the predicate map — it
+  narrows damage *kind* (mundane vs. magical weapons), not source.
+
+**Encounter-runtime gap (still PARTIAL):** `src/lib/server/encounter/`
+does not yet consult `resistanceSourcePredicates` /
+`immunitySourcePredicates` / `vulnerabilitySourcePredicates` /
+`savesAdvantageSourceQualified` at damage-application or save-roll
+time. The damage handler must:
+
+1. Build a `DamageSourceContext` from the in-flight action (action.kind,
+   attacker statblock's creature type, spell/weapon classification).
+2. For each damage type the target carries a structured predicate on,
+   call `matchesDamageSource(predicate, ctx)` and only apply the
+   resistance / immunity / vulnerability when it returns true. When
+   it returns false, fall through to the unconditional set membership
+   in `resistances` / `immunities` / `vulnerabilities` — that set is
+   still authoritative for unqualified entries.
+3. For saves, after the base advantage check (per-ability +
+   `savesAdvantageVs`), iterate `savesAdvantageSourceQualified` and
+   grant advantage on a match.
+
+**Pack reach (follow-on):** ~6 known T1-STUB rows tagged
+`needs-source-predicate` in the grimoire-packs audit. The pack
+authoring round is intentionally deferred — this PR ships only the
+engine + content shape so the cross-repo merge stays small.
+
 ## Related
 
 - [`grimoire-packs/docs/audit/deferred.md`](../../grimoire-packs/docs/audit/deferred.md)
