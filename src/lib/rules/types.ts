@@ -655,6 +655,25 @@ export interface ActivationDeclaration {
    *  rather than all weapons. Mutually exclusive with `variants[]` —
    *  authoring both is a content bug. */
   variantsFromWeapons?: { modifiers: Array<Record<string, unknown>> };
+  /** Per-rest variant pick. When set, the player picks one of the
+   *  declared `variants[]` at the end of the named rest and that pick
+   *  remains in effect until the next matching rest, at which point it
+   *  clears (the player picks again). The activation has no toggle
+   *  button — `active` is derived from "variant recorded" instead, and
+   *  the picked variant's modifiers + condition slug flow through the
+   *  same synthesis path as any other activation variant. Powers
+   *  Fiendish Resilience ("choose one damage type when you finish a
+   *  short or long rest; resistance to that type until you choose a
+   *  different one"), Inquisitive's Insightful Fighting target lock,
+   *  and similar "pick-at-rest" features. Long rest covers short-rest
+   *  picks (rest semantics mirror refreshActivations). Authors should
+   *  not also declare `uses`, `concentration`, `group`, or `cost` on a
+   *  rest-pick activation — those modes assume player-driven on/off
+   *  toggling that doesn't exist here. */
+  restPickRequired?: 'short-rest' | 'long-rest';
+  /** Optional display label for the rest-pick dropdown ("Damage type",
+   *  "Target creature"). Defaults to the activation name in the UI. */
+  restPickLabel?: string;
 }
 
 /** A condition slug, or an inventory-state predicate, that can appear
@@ -702,7 +721,16 @@ export interface AvailableActivation {
    *  slotScaling.baseSlotLevel when unset; only meaningful when
    *  slotScaling is set on the manifest. */
   activeSlot?: number;
-  /** Whether the activation is currently on. */
+  /** Rest-pick semantics, mirrored from the declaration. When set, the
+   *  panel renders a variant dropdown with an empty "pick at rest"
+   *  option instead of an Activate/Deactivate button; the activation is
+   *  considered active whenever a variant is recorded. `refreshActivations`
+   *  clears the variant on the matching rest. */
+  restPickRequired?: 'short-rest' | 'long-rest';
+  /** Display label for the rest-pick dropdown (e.g. "Damage type"). */
+  restPickLabel?: string;
+  /** Whether the activation is currently on. For rest-pick activations,
+   *  derived from "variant recorded" rather than a stored boolean. */
   active: boolean;
 }
 

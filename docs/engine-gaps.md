@@ -390,6 +390,65 @@ slot. Those are activity-level (cast event), not modifier-level
 (persistent buff), so they don't fit the activation primitive's
 scaling shape — they need a separate `scaling` field on activities.
 
+### Per-rest variant picks (Fiendish Resilience-shape) — SHIPPED
+
+Features that say "choose one option when you finish a short/long
+rest; that option applies until you choose a different one" used to
+either over-encode (granting all options) or stay as T1-STUB rows.
+`ActivationDeclaration.restPickRequired: 'short-rest' | 'long-rest'`
+(this commit) closes the gap by reusing the existing activation
+synthesis pipeline with one shape tweak: when `restPickRequired` is
+set, derive() treats `state.variant != null` as the "active" signal
+(no separate on/off toggle); the picked variant's modifiers + the
+declaration's `condition` slug flow through unchanged. The sheet's
+`ActivationsPanel` renders a dropdown with an empty
+"— pick at &lt;rest-kind&gt; —" option instead of an Activate button,
+backed by a new `pickRestVariant(char, available, id, variant|null)`
+helper. `refreshActivations(char, available, restKind)` wipes the
+variant on a matching rest (long rest covers short-rest picks via
+the same set as the uses-refresh path), which flips the derived
+`active` back off until the player records a new pick.
+
+**Authoring shape:**
+```jsonc
+{
+  "activations": [
+    {
+      "id": "fiendish-resilience",
+      "name": "Fiendish Resilience",
+      "condition": "fiendish-resilience-active",
+      "restPickRequired": "short-rest",
+      "restPickLabel": "Damage type",
+      "variants": [
+        { "id": "fire",      "label": "Fire",
+          "modifiers": [{ "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }] },
+        { "id": "cold",      "label": "Cold",
+          "modifiers": [{ "kind": "stat-modifier", "target": "resistance.cold", "mode": "OVERRIDE", "value": true }] }
+      ]
+    }
+  ]
+}
+```
+
+`uses` / `cost` / `concentration` / `group` should not be authored
+together with `restPickRequired` — those modes assume player-driven
+on/off toggling that doesn't exist on a rest-pick row. The schema
+doesn't reject the combination (the engine just ignores the toggle
+semantics for rest-pick rows) but pack authors should keep the row
+clean.
+
+**Sample blocked rows (now unblocked):** Fiendish Resilience
+(phb-2014 the-fiend, phb-2024 fiend-patron, Tiefling Tiefling-feat
+shape), Inquisitive's Insightful Fighting target lock, Echo Knight
+Manifest Echo's position pick (per-turn variant; close cousin).
+~5-10 long-tail rows across pack content.
+
+**Follow-on (pack work — out of scope for this engine round):**
+Migrate `fiendish-resilience` rows in phb-2014/features/the-fiend.json
+and phb-2024/features/fiend-patron.json to the new shape; same for
+the Tiefling racial feat. Engine-side this round shipped the
+primitive + helpers + sheet panel + tests only.
+
 ## Related
 
 - [`grimoire-packs/docs/audit/deferred.md`](../../grimoire-packs/docs/audit/deferred.md)

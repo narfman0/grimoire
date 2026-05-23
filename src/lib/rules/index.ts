@@ -4,6 +4,7 @@ export {
   toggleActivation,
   refreshActivations,
   applyAutoCancelOnStateChange,
+  pickRestVariant,
   type ToggleActivationOpts,
   type ToggleActivationResult,
   type ToggleOutcome

@@ -13,6 +13,7 @@
   import {
     derive,
     refreshActivations,
+    pickRestVariant,
     applyAutoCancelOnStateChange,
     toggleActivation
   } from '$lib/rules';
@@ -679,6 +680,18 @@
       const result = toggleActivation(d, available, id, on, opts);
       d.activations = result.character.activations ?? {};
       d.concentrating = result.character.concentrating ?? null;
+    });
+  }
+
+  async function handleActivationRestPick(
+    e: CustomEvent<{ id: string; variant: string | null }>
+  ) {
+    if (!derived) return;
+    const available = derived.availableActivations;
+    const { id, variant } = e.detail;
+    await patchDocument((d) => {
+      const updated = pickRestVariant(d, available, id, variant);
+      d.activations = updated.activations ?? {};
     });
   }
 
@@ -1855,6 +1868,7 @@
       {busy}
       concentratingLabel={document.concentrating?.label ?? null}
       on:toggle={handleActivationToggle}
+      on:restPick={handleActivationRestPick}
     />
   {/if}
 

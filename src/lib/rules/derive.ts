@@ -880,7 +880,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     for (const decl of decls) {
       if (!decl || typeof decl.id !== 'string' || typeof decl.condition !== 'string') continue;
       const state = charActivations[decl.id];
-      const isActive = state?.active === true;
+      // Rest-pick activations: the activation is "active" whenever a
+      // variant is recorded on state. The recorded pick survives until
+      // the next matching rest (refreshActivations clears the variant
+      // field, which flips the activation back off). No on/off toggle —
+      // the panel renders a dropdown with an empty "pick at rest" option.
+      const restPickRequired = decl.restPickRequired;
+      const isActive =
+        restPickRequired !== undefined
+          ? typeof state?.variant === 'string' && state.variant.length > 0
+          : state?.active === true;
 
       let usesMax: number | null = null;
       if (decl.uses && decl.uses.max !== undefined) {
@@ -963,6 +972,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           ? { slotScaling: { baseSlotLevel }, ...(activeSlot !== undefined ? { activeSlot } : {}) }
           : {}),
         ...(state?.variant ? { activeVariant: state.variant } : {}),
+        ...(restPickRequired ? { restPickRequired } : {}),
+        ...(decl.restPickLabel ? { restPickLabel: decl.restPickLabel } : {}),
         active: isActive
       });
 
