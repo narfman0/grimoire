@@ -130,16 +130,38 @@ modifierFromChoice: {
 ```
 On the character side: `featureChoices[slug].modifierFromChoice.option = 'owl'`. derive() synthesizes the option's modifiers. ~25 rows across SRD + packs unblock.
 
-### Multi-pick choice counts on skill / language slots — DEFERRED
+### Multi-pick choice counts on skill / language slots — SHIPPED
 
-`spell` slots already carry `picks: N`; `skillProficiency`, `language`,
-and `toolProficiency` do not. So "pick 3 skills" (College of Lore),
-"pick 2 languages" (Mastermind), "pick 2 skills" (Kenku Recall) can't
-be expressed today — the row either over-grants all options or stays
-T1-STUB.
+Engine emits three plural-shape slots — `skillProficiencies`,
+`languages`, `toolProficiencies` — each accepting an optional
+`allowed*` allow-list plus a `picks: N` cap. derive() synthesizes one
+`proficiency.{skill,language,tool}.X OVERRIDE true` modifier per
+recorded pick; picks outside the allow-list silently drop. The
+`expertises` plural shape already existed; `spell` slots already
+carried `picks: N`.
 
-**Where to start:** Add `picks: N` to the three single-pick slot specs
-and have the UI render N copies of the picker. ~15 rows unblock.
+The picker UI (`FeatureChoicesPanel.svelte`) renders a checkbox grid
+per plural slot, enforces the `picks` cap client-side, and disables
+unchecked options once the cap is hit. The grid is additive on top of
+the legacy single-pick `language` / `toolProficiency` dropdowns.
+
+`Derived.pendingFeatureChoices[i].unresolved` honours the `picks` cap:
+a plural slot stays unresolved while the recorded array is shorter
+than N, flips to resolved once length hits N. Open plural slots (no
+`picks` cap) follow the legacy "array exists at all = resolved"
+back-compat rule.
+
+**Engine commits:** `e07a225` (multi-pick languages + tools + UI
+checkbox grids), `2d3bd0e` (partial-pick `unresolved` flag + new
+plural-slot test coverage).
+
+**Pack commits:** `a23efd7` linguist (phb-2014), `8ac57a7` crafter
+(phb-2024), `dd18c9f` changeling + orc (erlw), `db141dc` dwarf-kaladesh
+(psk), `205aad1` dhampir + hexblood + reborn (vrgr), `67147b5`
+royal-envoy over-grant fix (scag). Earlier pack migrations under
+`400fad5` (skilled + musician), pre-existing migrations on Mastermind,
+College of Lore, Kenku, Lizardfolk, Changeling (mpmm), Knowledge
+Domain. Total ~15 rows migrated.
 
 ### Spell upcast scaling — DEFERRED
 
