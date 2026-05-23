@@ -573,6 +573,56 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           });
         }
       }
+      // Union-shape pick: choices.modifierFromChoice = {
+      //   label?: 'Aspect of the Wilds',
+      //   options: [
+      //     { id: 'owl',     label: 'Owl',     modifiers: [...] },
+      //     { id: 'panther', label: 'Panther', modifiers: [...] },
+      //     ...
+      //   ]
+      // }
+      // picks.modifierFromChoice = { option: 'owl' }
+      // The picked option's `modifiers[]` are synthesized as if they had
+      // been declared on this row directly. Unblocks "pick one of these
+      // distinct modifier sets" patterns (Aspect of the Wilds, Kobold
+      // Legacy, Transmuter's Stone, Shifter shifting variants).
+      const mfcDecl = decl.modifierFromChoice as
+        | { options?: Array<{ id?: string; modifiers?: Array<Record<string, unknown>> }> }
+        | undefined;
+      const mfcPick = (picks.modifierFromChoice as { option?: string } | undefined)?.option;
+      if (mfcDecl && mfcPick && Array.isArray(mfcDecl.options)) {
+        const chosen = mfcDecl.options.find((o) => o?.id === mfcPick);
+        if (chosen && Array.isArray(chosen.modifiers)) {
+          for (let i = 0; i < chosen.modifiers.length; i++) {
+            const m = chosen.modifiers[i];
+            const kind = (m.kind as string | undefined) ?? 'stat-modifier';
+            if (kind === 'stat-modifier') {
+              allMods.push({
+                id: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/${i}`,
+                kind: 'stat-modifier',
+                source: a,
+                raw: m
+              });
+            } else if (kind === 'action-modifier') {
+              allMods.push({
+                id: (m.id as string | undefined) ?? `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/amod/${i}`,
+                kind: 'action-modifier',
+                source: a,
+                raw: m
+              });
+            } else if (kind === 'overlay-hp-pool') {
+              allMods.push({
+                id: (m.id as string | undefined) ?? `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/overlay/${i}`,
+                kind: 'overlay-hp-pool',
+                source: a,
+                raw: m
+              });
+            }
+            // trigger / outbound shapes inside an option aren't synthesized
+            // in v0 — only modifier-kind effects. Add if/when needed.
+          }
+        }
+      }
     }
     if (a.row.kind === 'feat') {
       const featRef = character.feats.find((f) => f.slug === a.row.slug);

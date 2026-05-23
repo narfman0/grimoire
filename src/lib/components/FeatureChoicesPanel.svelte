@@ -46,6 +46,7 @@
     if (slot === 'language') return (v.language as string) ?? '';
     if (slot === 'toolProficiency') return (v.tool as string) ?? '';
     if (slot === 'feature') return (v.feature as string) ?? '';
+    if (slot === 'modifierFromChoice') return (v.option as string) ?? '';
     return '';
   }
 
@@ -62,7 +63,8 @@
       expertise: (v) => ({ skill: v }),
       language: (v) => ({ language: v }),
       toolProficiency: (v) => ({ tool: v }),
-      feature: (v) => ({ feature: v })
+      feature: (v) => ({ feature: v }),
+      modifierFromChoice: (v) => ({ option: v })
     };
     const wrap = wrappers[slot];
     if (!wrap) return;
@@ -183,6 +185,18 @@
   }
   function multiPickMaxOf(decl: Record<string, unknown> | undefined): number | undefined {
     return decl?.picks as number | undefined;
+  }
+  function mfcLabelOf(decl: Record<string, unknown> | undefined): string {
+    return (decl?.label as string | undefined) ?? 'Pick one';
+  }
+  function mfcOptionsOf(
+    decl: Record<string, unknown> | undefined
+  ): Array<{ id: string; label: string }> {
+    const opts = decl?.options as Array<{ id?: string; label?: string }> | undefined;
+    if (!Array.isArray(opts)) return [];
+    return opts
+      .filter((o): o is { id: string; label?: string } => typeof o?.id === 'string')
+      .map((o) => ({ id: o.id, label: o.label ?? o.id }));
   }
 </script>
 
@@ -344,6 +358,25 @@
                 <option value="">—</option>
                 {#each allowedFeaturesOf(p.declarations.feature) as fslug}
                   <option value={fslug}>{fslug}</option>
+                {/each}
+              </select>
+            </label>
+          {/if}
+
+          {#if p.declarations.modifierFromChoice}
+            <label class="text-xs">
+              <span class="block text-slate-400">
+                {mfcLabelOf(p.declarations.modifierFromChoice)}
+              </span>
+              <select
+                class="rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                disabled={busy}
+                value={selectedFor(p.featureSlug, 'modifierFromChoice')}
+                on:change={(e) => setScalar(p.featureSlug, 'modifierFromChoice', selectValue(e))}
+              >
+                <option value="">—</option>
+                {#each mfcOptionsOf(p.declarations.modifierFromChoice) as opt}
+                  <option value={opt.id}>{opt.label}</option>
                 {/each}
               </select>
             </label>
