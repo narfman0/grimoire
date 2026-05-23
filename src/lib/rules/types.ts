@@ -119,6 +119,13 @@ export interface ActivationState {
   /** For activations with variants[], the picked variant id. The picked
    *  variant's modifiers are synthesized when active=true. */
   variant?: string;
+  /** For activations cast at a spell slot, the picked slot level. The
+   *  engine resolves `scalingByCastSlot` value shapes against this slot
+   *  at variant-modifier synthesis time so Magic Weapon's +1/+2/+3 by
+   *  cast slot, Elemental Weapon's 1d4/2d4/3d4 by cast slot, etc., flow
+   *  through correctly. When omitted, scaling values default to their
+   *  baseSlotLevel row in the table. */
+  slot?: number;
   /** Round number when this activation was last toggled on. Set by the
    *  encounter runtime when an in-encounter activation fires; the sheet
    *  ignores it. */
@@ -655,6 +662,16 @@ export interface AvailableActivation {
   variants?: Array<{ id: string; label: string }>;
   /** Currently-picked variant id, when the activation has variants. */
   activeVariant?: string;
+  /** Set when the activation's modifier templates reference one or
+   *  more `scalingByCastSlot` value shapes. The panel renders a slot
+   *  picker; synthesis substitutes the picked slot into the scaling
+   *  table. `baseSlotLevel` is the spell's base slot — the picker's
+   *  minimum. */
+  slotScaling?: { baseSlotLevel: number };
+  /** Currently-picked cast slot for this activation. Defaults to
+   *  slotScaling.baseSlotLevel when unset; only meaningful when
+   *  slotScaling is set on the manifest. */
+  activeSlot?: number;
   /** Whether the activation is currently on. */
   active: boolean;
 }

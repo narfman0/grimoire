@@ -842,6 +842,32 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         }
       }
 
+      // Detect slot-aware scaling in the activation's modifier
+      // templates. Walked across both the static variants[] and the
+      // variantsFromWeapons template (whichever is authored). If any
+      // `scalingByCastSlot` shape is found, the manifest carries
+      // slotScaling so the panel renders a slot picker. The lowest
+      // baseSlotLevel across all references determines the picker's
+      // minimum (typically the spell's base level).
+      let baseSlotLevel: number | null = null;
+      if (variantsFromWeapons) {
+        baseSlotLevel = findBaseSlotLevel(variantsFromWeapons.modifiers);
+      }
+      if (Array.isArray(decl.variants)) {
+        for (const v of decl.variants) {
+          if (!Array.isArray(v?.modifiers)) continue;
+          const got = findBaseSlotLevel(v.modifiers);
+          if (got !== null && (baseSlotLevel === null || got < baseSlotLevel))
+            baseSlotLevel = got;
+        }
+      }
+      const activeSlot =
+        state?.slot !== undefined
+          ? state.slot
+          : baseSlotLevel !== null
+            ? baseSlotLevel
+            : undefined;
+
       availableActivations.push({
         id: decl.id,
         name: decl.name ?? decl.id,
@@ -861,6 +887,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           : dynamicVariants
             ? { variants: dynamicVariants }
             : {}),
+        ...(baseSlotLevel !== null
+          ? { slotScaling: { baseSlotLevel }, ...(activeSlot !== undefined ? { activeSlot } : {}) }
+          : {}),
         ...(state?.variant ? { activeVariant: state.variant } : {}),
         active: isActive
       });
@@ -871,12 +900,17 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
       // Variant modifier synthesis — only when active AND a variant is
       // picked. Routes stat-modifier / action-modifier / overlay-hp-pool
-      // kinds through the standard allMods pipeline.
+      // kinds through the standard allMods pipeline. Also resolves any
+      // scalingByCastSlot value shapes against the picked slot when the
+      // declaration is slot-aware.
       if (isActive && state?.variant && Array.isArray(decl.variants)) {
         const chosen = decl.variants.find((v) => v?.id === state.variant);
         if (chosen && Array.isArray(chosen.modifiers)) {
           for (let i = 0; i < chosen.modifiers.length; i++) {
-            const m = chosen.modifiers[i] as Record<string, unknown>;
+            const tmpl = chosen.modifiers[i] as Record<string, unknown>;
+            const m = (
+              activeSlot !== undefined ? substituteScalingByCastSlot(tmpl, activeSlot) : tmpl
+            ) as Record<string, unknown>;
             const kind = (m.kind as string | undefined) ?? 'stat-modifier';
             const baseId = `${a.row.kind}/${a.row.slug}/activation/${decl.id}/${state.variant}/${i}`;
             if (kind === 'stat-modifier') {
@@ -902,10 +936,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
       // Per-weapon variant synthesis: substitute the picked weapon slug
       // into the modifier template's `"__weapon__"` placeholders, then
-      // push the synthesized modifiers through the same allMods pipeline.
-      // Gate on the variant actually existing in the current dynamic
-      // list — if the player picked a weapon that's since been
-      // unequipped, no bonus is synthesized (correct behavior).
+      // resolve any scalingByCastSlot shapes against the picked slot,
+      // then push through the same allMods pipeline. Gate on the variant
+      // actually existing in the current dynamic list — if the player
+      // picked a weapon that's since been unequipped, no bonus is
+      // synthesized (correct behavior).
       if (
         isActive &&
         state?.variant &&
@@ -915,7 +950,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       ) {
         for (let i = 0; i < variantsFromWeapons.modifiers.length; i++) {
           const tmpl = variantsFromWeapons.modifiers[i];
-          const m = substituteWeaponPlaceholder(tmpl, state.variant) as Record<string, unknown>;
+          let m: Record<string, unknown> = substituteWeaponPlaceholder(
+            tmpl,
+            state.variant
+          ) as Record<string, unknown>;
+          if (activeSlot !== undefined) {
+            m = substituteScalingByCastSlot(m, activeSlot) as Record<string, unknown>;
+          }
           const kind = (m.kind as string | undefined) ?? 'stat-modifier';
           const baseId = `${a.row.kind}/${a.row.slug}/activation/${decl.id}/${state.variant}/${i}`;
           if (kind === 'stat-modifier') {
@@ -1712,6 +1753,74 @@ function substituteWeaponPlaceholder(value: unknown, weaponSlug: string): unknow
     return out;
   }
   return value;
+}
+
+// Resolve `scalingByCastSlot` value shapes against the picked cast slot.
+// `{scalingByCastSlot: {baseSlotLevel, table}}` becomes
+// `table[slot - baseSlotLevel]` (clamped to table length so picking a
+// slot past the last entry returns the table's final value — typical
+// "+3 at L6+" semantics where the table is short). Deep-walks the
+// template so the shape can appear at any depth (typically as an
+// action-modifier `effects[].value`). Non-scaling values pass through.
+function substituteScalingByCastSlot(value: unknown, slot: number): unknown {
+  if (
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'scalingByCastSlot' in value
+  ) {
+    const o = (value as { scalingByCastSlot: unknown }).scalingByCastSlot;
+    if (o && typeof o === 'object' && 'baseSlotLevel' in o && 'table' in o) {
+      const cfg = o as { baseSlotLevel: number; table: Array<number | string> };
+      const idx = Math.max(0, Math.min(cfg.table.length - 1, slot - cfg.baseSlotLevel));
+      return cfg.table[idx];
+    }
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((v) => substituteScalingByCastSlot(v, slot));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = substituteScalingByCastSlot(v, slot);
+    }
+    return out;
+  }
+  return value;
+}
+
+// Walk a value tree and report the smallest baseSlotLevel referenced
+// by any `scalingByCastSlot` value shape. Returns null if no scaling
+// is present (the activation isn't slot-aware and the panel shouldn't
+// render a slot picker for it).
+function findBaseSlotLevel(value: unknown): number | null {
+  if (
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'scalingByCastSlot' in value
+  ) {
+    const o = (value as { scalingByCastSlot: unknown }).scalingByCastSlot;
+    if (o && typeof o === 'object' && 'baseSlotLevel' in o) {
+      return (o as { baseSlotLevel: number }).baseSlotLevel;
+    }
+  }
+  if (Array.isArray(value)) {
+    let lowest: number | null = null;
+    for (const v of value) {
+      const got = findBaseSlotLevel(v);
+      if (got !== null && (lowest === null || got < lowest)) lowest = got;
+    }
+    return lowest;
+  }
+  if (value && typeof value === 'object') {
+    let lowest: number | null = null;
+    for (const v of Object.values(value as Record<string, unknown>)) {
+      const got = findBaseSlotLevel(v);
+      if (got !== null && (lowest === null || got < lowest)) lowest = got;
+    }
+    return lowest;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

@@ -19,6 +19,9 @@ export interface ToggleActivationOpts {
   /** Variant pick when activating a variants[] activation. Ignored on
    *  deactivation. */
   variant?: string;
+  /** Cast-slot pick when activating a slot-aware activation (slotScaling
+   *  present on the manifest). Ignored on deactivation. */
+  slot?: number;
   /** Current encounter round, when toggled inside an encounter. Stored
    *  on activatedAtRound so a future "auto-expire after N rounds" pass
    *  has the start point; v0 ignores it for duration math. */
@@ -142,6 +145,11 @@ export function toggleActivation(
       newState.variant = opts.variant;
     } else if (current?.variant !== undefined) {
       newState.variant = current.variant;
+    }
+    if (opts.slot !== undefined) {
+      newState.slot = opts.slot;
+    } else if (current?.slot !== undefined) {
+      newState.slot = current.slot;
     }
     if (opts.currentRound !== undefined) {
       newState.activatedAtRound = opts.currentRound;

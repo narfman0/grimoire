@@ -666,13 +666,16 @@
   }
 
   async function handleActivationToggle(
-    e: CustomEvent<{ id: string; on: boolean; variant?: string }>
+    e: CustomEvent<{ id: string; on: boolean; variant?: string; slot?: number }>
   ) {
     if (!derived) return;
     const available = derived.availableActivations;
-    const { id, on, variant } = e.detail;
+    const { id, on, variant, slot } = e.detail;
+    const opts: { variant?: string; slot?: number } = {};
+    if (variant !== undefined) opts.variant = variant;
+    if (slot !== undefined) opts.slot = slot;
     await patchDocument((d) => {
-      const result = toggleActivation(d, available, id, on, variant ? { variant } : {});
+      const result = toggleActivation(d, available, id, on, opts);
       d.activations = result.character.activations ?? {};
       d.concentrating = result.character.concentrating ?? null;
     });

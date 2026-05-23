@@ -7,28 +7,39 @@
   export let concentratingLabel: string | null = null;
 
   const dispatch = createEventDispatcher<{
-    toggle: { id: string; on: boolean; variant?: string };
+    toggle: { id: string; on: boolean; variant?: string; slot?: number };
   }>();
 
   // Per-row variant pick. Seeded from a row's activeVariant when present
   // so toggling off then back on remembers the prior choice. The form
   // surface stays controlled (bind:value) even when the row is inactive.
   let variantPick: Record<string, string> = {};
+  // Per-row slot pick for spells with scalingByCastSlot. Defaults to the
+  // declaration's baseSlotLevel; player can bump up to higher slots.
+  let slotPick: Record<string, number> = {};
 
   $: for (const a of activations) {
     if (variantPick[a.id] === undefined) {
       if (a.activeVariant) variantPick[a.id] = a.activeVariant;
       else if (a.variants && a.variants.length > 0) variantPick[a.id] = a.variants[0].id;
     }
+    if (slotPick[a.id] === undefined && a.slotScaling) {
+      slotPick[a.id] = a.activeSlot ?? a.slotScaling.baseSlotLevel;
+    }
   }
 
   function handleToggle(a: AvailableActivation, on: boolean) {
+    const detail: { id: string; on: boolean; variant?: string; slot?: number } = {
+      id: a.id,
+      on
+    };
     if (on && a.variants && a.variants.length > 0) {
-      const pick = variantPick[a.id] ?? a.variants[0].id;
-      dispatch('toggle', { id: a.id, on: true, variant: pick });
-    } else {
-      dispatch('toggle', { id: a.id, on });
+      detail.variant = variantPick[a.id] ?? a.variants[0].id;
     }
+    if (on && a.slotScaling) {
+      detail.slot = slotPick[a.id] ?? a.slotScaling.baseSlotLevel;
+    }
+    dispatch('toggle', detail);
   }
 
   function disabledReason(a: AvailableActivation): string | null {
@@ -94,6 +105,20 @@
                     <option value={v.id}>{v.label}</option>
                   {/each}
                 </select>
+              {/if}
+              {#if a.slotScaling}
+                <label class="inline-flex items-center gap-1 text-[10px] text-slate-400">
+                  slot
+                  <input
+                    type="number"
+                    min={a.slotScaling.baseSlotLevel}
+                    max="9"
+                    bind:value={slotPick[a.id]}
+                    class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-xs disabled:opacity-50"
+                    disabled={busy || a.active}
+                    aria-label="{a.name} cast slot"
+                  />
+                </label>
               {/if}
               <button
                 class="rounded border px-2 py-0.5 text-xs disabled:opacity-40 {a.active

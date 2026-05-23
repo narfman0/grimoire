@@ -161,6 +161,7 @@ export const CharacterDocument = z
           active: z.boolean(),
           usesRemaining: z.number().int().nonnegative().optional(),
           variant: z.string().optional(),
+          slot: z.number().int().min(1).max(9).optional(),
           activatedAtRound: z.number().int().nonnegative().optional()
         })
       )

@@ -620,3 +620,155 @@ describe('variantsFromWeapons (per-weapon dynamic variants)', () => {
     expect(lsModIds).not.toContain('magic-weapon-attack-bonus');
   });
 });
+
+// Locks the scalingByCastSlot contract: a modifier template value of
+// shape {scalingByCastSlot: {baseSlotLevel, table}} is resolved at
+// synthesis time against the picked cast slot. Powers Magic Weapon
+// +1 (slot 2) / +2 (slot 3-5) / +3 (slot 6+), Elemental Weapon
+// 1d4 (slot 3) / 2d4 (slot 5-6) / 3d4 (slot 7+), etc.
+describe('scalingByCastSlot — slot-aware modifier scaling', () => {
+  // Spell-shaped feature: variantsFromWeapons with scaling on attack.value.
+  const MAGIC_WEAPON_SCALING: ContentRow = {
+    kind: 'feature',
+    slug: 'magic-weapon-scaling-shape',
+    version: 1,
+    source: 'test',
+    name: 'Magic Weapon Scaling Shape',
+    data: {
+      ownerKind: 'subclass',
+      ownerSlug: 'test-subclass',
+      minLevel: 1,
+      activations: [
+        {
+          id: 'magic-weapon-scaling-active',
+          name: 'Magic Weapon',
+          cost: 'bonus',
+          duration: { value: 1, units: 'hour' },
+          condition: 'magic-weapon-scaling-active',
+          variantsFromWeapons: {
+            modifiers: [
+              {
+                kind: 'action-modifier',
+                id: 'magic-weapon-scaling-attack',
+                appliesTo: {
+                  activityType: 'attack',
+                  predicates: [{ 'weapon.slug': '__weapon__' }]
+                },
+                effects: [
+                  {
+                    target: 'attack.roll',
+                    mode: 'ADD',
+                    value: { scalingByCastSlot: { baseSlotLevel: 2, table: [1, 2, 2, 2, 3, 3, 3, 3] } }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  };
+  const TEST_CLASS_FOR_SCALING: ContentRow = {
+    ...SYNTH_CLASS,
+    data: { ...SYNTH_CLASS.data, features: ['magic-weapon-scaling-shape'] }
+  };
+  const LONGSWORD: ContentRow = {
+    kind: 'item',
+    slug: 'longsword',
+    version: 1,
+    source: 'test',
+    name: 'Longsword',
+    data: {
+      category: 'weapon',
+      weaponType: 'martial',
+      activities: [
+        {
+          id: 'longsword-attack',
+          type: 'attack',
+          name: 'Longsword',
+          cost: 'action',
+          attack: {
+            ability: 'str',
+            classification: 'weapon',
+            range: 'melee',
+            damage: [{ dice: '1d8', type: 'slashing' }]
+          }
+        }
+      ]
+    }
+  };
+  function lookup(): ContentLookup {
+    const map = new Map<string, ContentRow>([
+      ['class/test-class', TEST_CLASS_FOR_SCALING],
+      ['subclass/test-subclass', SYNTH_SUBCLASS],
+      ['species/test-species', SYNTH_SPECIES],
+      ['feature/magic-weapon-scaling-shape', MAGIC_WEAPON_SCALING],
+      ['item/longsword', LONGSWORD]
+    ]);
+    return (ref) => map.get(`${ref.kind}/${ref.slug}`);
+  }
+  function character(
+    activations?: Record<string, { active: boolean; variant?: string; slot?: number }>
+  ): CharacterDocument {
+    return {
+      ...baseCharacter(activations),
+      inventory: [
+        { contentKind: 'item', contentSlug: 'longsword', equipped: true, attuned: false }
+      ]
+    };
+  }
+
+  it('manifest exposes slotScaling.baseSlotLevel when scaling is present in the template', () => {
+    const d = derive(character(), lookup());
+    const mw = d.availableActivations.find((a) => a.id === 'magic-weapon-scaling-active')!;
+    expect(mw.slotScaling).toEqual({ baseSlotLevel: 2 });
+    // activeSlot defaults to baseSlotLevel when state.slot isn't set.
+    expect(mw.activeSlot).toBe(2);
+  });
+
+  it('synthesizes +1 attack when activated at base slot (2)', () => {
+    const d = derive(
+      character({ 'magic-weapon-scaling-active': { active: true, variant: 'longsword', slot: 2 } }),
+      lookup()
+    );
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'longsword' && a.type === 'attack')!;
+    // Base STR mod 0 + L5 proficiency 3 → 3. With +1 from scaling → 4.
+    expect(attack.attackBonus).toBe(4);
+  });
+
+  it('synthesizes +2 attack when activated at slot 3', () => {
+    const d = derive(
+      character({ 'magic-weapon-scaling-active': { active: true, variant: 'longsword', slot: 3 } }),
+      lookup()
+    );
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'longsword' && a.type === 'attack')!;
+    expect(attack.attackBonus).toBe(5);
+  });
+
+  it('synthesizes +3 attack when activated at slot 6', () => {
+    const d = derive(
+      character({ 'magic-weapon-scaling-active': { active: true, variant: 'longsword', slot: 6 } }),
+      lookup()
+    );
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'longsword' && a.type === 'attack')!;
+    expect(attack.attackBonus).toBe(6);
+  });
+
+  it('clamps to the last table entry when slot exceeds table length', () => {
+    const d = derive(
+      character({ 'magic-weapon-scaling-active': { active: true, variant: 'longsword', slot: 9 } }),
+      lookup()
+    );
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'longsword' && a.type === 'attack')!;
+    expect(attack.attackBonus).toBe(6); // table caps at 3; +3 over base 3
+  });
+
+  it('defaults to baseSlotLevel when state.slot is not set', () => {
+    const d = derive(
+      character({ 'magic-weapon-scaling-active': { active: true, variant: 'longsword' } }),
+      lookup()
+    );
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'longsword' && a.type === 'attack')!;
+    expect(attack.attackBonus).toBe(4); // slot defaults to 2 → +1
+  });
+});
