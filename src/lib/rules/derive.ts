@@ -152,6 +152,50 @@ function isChoiceAllowed(
  *  the row declares `data.choices`. Returns the (decl, picks) pair the
  *  caller drives FEAT_MODIFIER_CHOICE_SPECS against. Returns undefined
  *  when the row has no choices declaration. */
+/**
+ * Whether a single declared choice slot still needs more player input.
+ *
+ * Scalar slots (`skillProficiency`, `language`, `feature`, `asi`,
+ * `savingThrow`, `expertise`, `toolProficiency`, `modifierFromChoice`)
+ * are unresolved iff the player has recorded nothing.
+ *
+ * Plural / multi-pick slots (`skillProficiencies`, `languages`,
+ * `toolProficiencies`, `expertises`, `spell`) honour the `picks: N` cap
+ * the declaration ships: the slot is unresolved when the recorded array
+ * has fewer than N entries. When `picks` is absent the slot is
+ * unresolved iff the array is missing entirely (back-compat — open
+ * plural picks are author intent, not a partial state).
+ */
+function isSlotUnresolved(
+  slotKey: string,
+  decl: Record<string, unknown> | undefined,
+  pick: unknown
+): boolean {
+  // The spell slot is plural but its payload shape is
+  // `{ spells: [...] }`, not a bare array.
+  if (slotKey === 'spell') {
+    const cap = (decl?.picks as number | undefined) ?? undefined;
+    const spells = (pick as { spells?: unknown[] } | undefined)?.spells;
+    if (cap == null) return spells == null;
+    return !Array.isArray(spells) || spells.length < cap;
+  }
+  const PLURAL_SLOTS = new Set([
+    'skillProficiencies',
+    'languages',
+    'toolProficiencies',
+    'expertises'
+  ]);
+  if (PLURAL_SLOTS.has(slotKey)) {
+    const cap = (decl?.picks as number | undefined) ?? undefined;
+    if (cap == null) return pick == null;
+    return !Array.isArray(pick) || pick.length < cap;
+  }
+  // Scalar slot — any non-null pick counts as resolved. (The picker UI
+  // is responsible for shape correctness; derive() just checks
+  // presence.)
+  return pick == null;
+}
+
 function resolveChoicePicks(
   a: ActiveContent,
   character: CharacterDocument
@@ -1697,7 +1741,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       kind: a.row.kind,
       declarations,
       picks,
-      unresolved: slotKeys.some((k) => picks[k] == null)
+      unresolved: slotKeys.some((k) => isSlotUnresolved(k, declarations[k], picks[k]))
     });
   }
 

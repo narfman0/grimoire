@@ -153,6 +153,208 @@ describe('Derived.pendingFeatureChoices', () => {
     }
   });
 
+  // ------------------------------------------------------------------
+  // Multi-pick `picks: N` semantics: a plural slot is unresolved while
+  // the recorded array is shorter than the declared cap, resolved once
+  // the array's length hits N. Without `picks` the slot is unresolved
+  // only when no array exists at all (back-compat).
+  // ------------------------------------------------------------------
+  it('plural slot with picks=1 is resolved as soon as one entry is recorded', () => {
+    const featRow: ContentRow = {
+      kind: 'feat',
+      slug: 'test-host-picks-1',
+      version: 1,
+      name: 'Host',
+      source: 'test',
+      data: { features: ['test-feature-picks-1'] }
+    };
+    const choiceFeature = fakeFeature('test-feature-picks-1', 'Test Picks 1', {
+      skillProficiencies: { allowedSkills: ['nature', 'arcana'], picks: 1 }
+    });
+    const character: CharacterDocument = {
+      ...withFeat('test-host-picks-1'),
+      featureChoices: {
+        'test-feature-picks-1': { skillProficiencies: [{ skill: 'nature' }] }
+      }
+    };
+    const d = derive(
+      character,
+      wrapLookup({
+        'feat/test-host-picks-1': featRow,
+        'feature/test-feature-picks-1': choiceFeature
+      })
+    );
+    const pending = d.pendingFeatureChoices.find((p) => p.featureSlug === 'test-feature-picks-1');
+    expect(pending!.unresolved).toBe(false);
+  });
+
+  it('plural slot with picks=N stays unresolved while the array is short', () => {
+    const featRow: ContentRow = {
+      kind: 'feat',
+      slug: 'test-host-partial-multi',
+      version: 1,
+      name: 'Host',
+      source: 'test',
+      data: { features: ['test-feature-partial-multi'] }
+    };
+    const choiceFeature = fakeFeature('test-feature-partial-multi', 'Partial Multi', {
+      skillProficiencies: { picks: 3 }
+    });
+    const character: CharacterDocument = {
+      ...withFeat('test-host-partial-multi'),
+      featureChoices: {
+        'test-feature-partial-multi': {
+          skillProficiencies: [{ skill: 'arcana' }, { skill: 'history' }] // 2 of 3
+        }
+      }
+    };
+    const d = derive(
+      character,
+      wrapLookup({
+        'feat/test-host-partial-multi': featRow,
+        'feature/test-feature-partial-multi': choiceFeature
+      })
+    );
+    const pending = d.pendingFeatureChoices.find(
+      (p) => p.featureSlug === 'test-feature-partial-multi'
+    );
+    expect(pending!.unresolved).toBe(true);
+  });
+
+  it('plural slot with picks=N is resolved once the array hits N', () => {
+    const featRow: ContentRow = {
+      kind: 'feat',
+      slug: 'test-host-full-multi',
+      version: 1,
+      name: 'Host',
+      source: 'test',
+      data: { features: ['test-feature-full-multi'] }
+    };
+    const choiceFeature = fakeFeature('test-feature-full-multi', 'Full Multi', {
+      languages: { picks: 2 }
+    });
+    const character: CharacterDocument = {
+      ...withFeat('test-host-full-multi'),
+      featureChoices: {
+        'test-feature-full-multi': {
+          languages: [{ language: 'draconic' }, { language: 'celestial' }]
+        }
+      }
+    };
+    const d = derive(
+      character,
+      wrapLookup({
+        'feat/test-host-full-multi': featRow,
+        'feature/test-feature-full-multi': choiceFeature
+      })
+    );
+    const pending = d.pendingFeatureChoices.find(
+      (p) => p.featureSlug === 'test-feature-full-multi'
+    );
+    expect(pending!.unresolved).toBe(false);
+  });
+
+  it('plural slot without picks is unresolved only when no array exists', () => {
+    // Open-ended multi-pick (no `picks` cap): the slot is the author's
+    // way of saying "the player records as many as they want". An empty
+    // recorded array is treated as "they've decided — resolved"; a
+    // missing array is the genuine unresolved state.
+    const featRow: ContentRow = {
+      kind: 'feat',
+      slug: 'test-host-open-multi',
+      version: 1,
+      name: 'Host',
+      source: 'test',
+      data: { features: ['test-feature-open-multi'] }
+    };
+    const choiceFeature = fakeFeature('test-feature-open-multi', 'Open Multi', {
+      toolProficiencies: { allowedTools: ['smiths-tools', 'carpenters-tools'] }
+    });
+
+    // Missing array → unresolved
+    const charMissing: CharacterDocument = withFeat('test-host-open-multi');
+    const dMissing = derive(
+      charMissing,
+      wrapLookup({
+        'feat/test-host-open-multi': featRow,
+        'feature/test-feature-open-multi': choiceFeature
+      })
+    );
+    const pendingMissing = dMissing.pendingFeatureChoices.find(
+      (p) => p.featureSlug === 'test-feature-open-multi'
+    );
+    expect(pendingMissing!.unresolved).toBe(true);
+
+    // Present array (even empty) → resolved
+    const charPresent: CharacterDocument = {
+      ...charMissing,
+      featureChoices: { 'test-feature-open-multi': { toolProficiencies: [] } }
+    };
+    const dPresent = derive(
+      charPresent,
+      wrapLookup({
+        'feat/test-host-open-multi': featRow,
+        'feature/test-feature-open-multi': choiceFeature
+      })
+    );
+    const pendingPresent = dPresent.pendingFeatureChoices.find(
+      (p) => p.featureSlug === 'test-feature-open-multi'
+    );
+    expect(pendingPresent!.unresolved).toBe(false);
+  });
+
+  it('spell slot honours picks: N as a partial-pick threshold', () => {
+    const featRow: ContentRow = {
+      kind: 'feat',
+      slug: 'test-host-spell-partial',
+      version: 1,
+      name: 'Host',
+      source: 'test',
+      data: { features: ['test-feature-spell-partial'] }
+    };
+    const choiceFeature = fakeFeature('test-feature-spell-partial', 'Spell Partial', {
+      spell: { allowedSpells: ['fireball', 'magic-missile', 'shield'], picks: 2 }
+    });
+
+    // Picked only one spell → unresolved
+    const charShort: CharacterDocument = {
+      ...withFeat('test-host-spell-partial'),
+      featureChoices: {
+        'test-feature-spell-partial': { spell: { spells: ['fireball'] } }
+      }
+    };
+    const dShort = derive(
+      charShort,
+      wrapLookup({
+        'feat/test-host-spell-partial': featRow,
+        'feature/test-feature-spell-partial': choiceFeature
+      })
+    );
+    expect(
+      dShort.pendingFeatureChoices.find((p) => p.featureSlug === 'test-feature-spell-partial')!
+        .unresolved
+    ).toBe(true);
+
+    // Picked both → resolved
+    const charFull: CharacterDocument = {
+      ...withFeat('test-host-spell-partial'),
+      featureChoices: {
+        'test-feature-spell-partial': { spell: { spells: ['fireball', 'shield'] } }
+      }
+    };
+    const dFull = derive(
+      charFull,
+      wrapLookup({
+        'feat/test-host-spell-partial': featRow,
+        'feature/test-feature-spell-partial': choiceFeature
+      })
+    );
+    expect(
+      dFull.pendingFeatureChoices.find((p) => p.featureSlug === 'test-feature-spell-partial')!
+        .unresolved
+    ).toBe(false);
+  });
+
   it('dedupes when the same feature is pulled in twice (e.g. via two ancestor refs)', () => {
     // Two different feats both reference the same downstream feature.
     const featA: ContentRow = {
