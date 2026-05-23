@@ -10,11 +10,7 @@ import {
   refreshActivations,
   applyAutoCancelOnConditionChange
 } from '../activations';
-import type {
-  ActivationDeclaration,
-  AvailableActivation,
-  CharacterDocument
-} from '../types';
+import type { AvailableActivation, CharacterDocument } from '../types';
 
 function baseChar(overrides: Partial<CharacterDocument> = {}): CharacterDocument {
   return {
@@ -36,35 +32,48 @@ function baseChar(overrides: Partial<CharacterDocument> = {}): CharacterDocument
   };
 }
 
-const BLADESONG: ActivationDeclaration = {
+function avail(o: Partial<AvailableActivation> & { id: string; name: string; condition: string }): AvailableActivation {
+  return {
+    sourceContent: { kind: 'feature', slug: o.id },
+    usesMax: null,
+    usesRemaining: null,
+    refreshOn: null,
+    active: false,
+    ...o
+  };
+}
+
+const BLADESONG = avail({
   id: 'bladesong',
   name: 'Bladesong',
   cost: 'bonus',
-  duration: { value: 1, units: 'minute' },
-  uses: { max: 'proficiencyBonus', per: 'long-rest' },
+  duration: '1 minute',
+  usesMax: 3,
+  usesRemaining: 3,
+  refreshOn: 'long-rest',
   condition: 'bladesong-active',
   autoCancelOn: ['incapacitated']
-};
+});
 
-const MAGIC_WEAPON: ActivationDeclaration = {
+const MAGIC_WEAPON = avail({
   id: 'magic-weapon-concentration',
   name: 'Magic Weapon',
   cost: 'bonus',
-  duration: { value: 1, units: 'hour' },
+  duration: '1 hour',
   concentration: true,
   condition: 'magic-weapon-active'
-};
+});
 
-const ELEMENTAL_WEAPON: ActivationDeclaration = {
+const ELEMENTAL_WEAPON = avail({
   id: 'elemental-weapon-concentration',
   name: 'Elemental Weapon',
   cost: 'action',
-  duration: { value: 1, units: 'hour' },
+  duration: '1 hour',
   concentration: true,
   condition: 'elemental-weapon-active'
-};
+});
 
-const OWL_VARIANT: ActivationDeclaration = {
+const OWL_VARIANT = avail({
   id: 'aspect-of-the-wilds',
   name: 'Aspect of the Wilds',
   duration: 'persistent',
@@ -74,25 +83,25 @@ const OWL_VARIANT: ActivationDeclaration = {
     { id: 'owl', label: 'Owl' },
     { id: 'panther', label: 'Panther' }
   ]
-};
+});
 
-const RAGE_OF_THE_WILDS_BEAR: ActivationDeclaration = {
+const RAGE_OF_THE_WILDS_BEAR = avail({
   id: 'rage-of-the-wilds-bear',
   name: 'Rage of the Wilds (Bear)',
   cost: 'bonus',
-  duration: { value: 10, units: 'minute' },
+  duration: '10 minutes',
   group: 'wild-heart-rage',
   condition: 'rage-of-the-wilds-bear-active'
-};
+});
 
-const RAGE_OF_THE_WILDS_EAGLE: ActivationDeclaration = {
+const RAGE_OF_THE_WILDS_EAGLE = avail({
   id: 'rage-of-the-wilds-eagle',
   name: 'Rage of the Wilds (Eagle)',
   cost: 'bonus',
-  duration: { value: 10, units: 'minute' },
+  duration: '10 minutes',
   group: 'wild-heart-rage',
   condition: 'rage-of-the-wilds-eagle-active'
-};
+});
 
 describe('toggleActivation — basic on/off', () => {
   it('returns unknown when the id is not in decls', () => {

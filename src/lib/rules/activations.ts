@@ -7,12 +7,7 @@
 // The API layer (Phase C) wraps these for HTTP endpoints; the sheet
 // (Phase D) calls them through the existing patchDocument flow.
 
-import type {
-  ActivationDeclaration,
-  ActivationState,
-  AvailableActivation,
-  CharacterDocument
-} from './types';
+import type { ActivationState, AvailableActivation, CharacterDocument } from './types';
 
 export interface ToggleActivationOpts {
   /** Variant pick when activating a variants[] activation. Ignored on
@@ -46,16 +41,21 @@ export interface ToggleActivationResult {
 
 /** Flip an activation on or off. Pure: returns a new CharacterDocument.
  *
+ *  Takes the runtime `AvailableActivation[]` from Derived (instead of the
+ *  source ActivationDeclaration[]) so callers can pass what the sheet
+ *  already has on hand.
+ *
  *  Activation:
- *  - Looks up the declaration in `decls` (by id). Returns `unknown` if
- *    not found.
+ *  - Looks up the activation in `available` (by id). Returns `unknown`
+ *    if not found.
  *  - Returns `no-op` when already in the requested state.
  *  - Returns `no-uses` when activating something with usesRemaining=0.
  *  - Cancels any active activation in the same `group`.
  *  - If concentration: cancels prior concentration (any activation
  *    flagged concentration that's currently active, plus the existing
  *    `character.concentrating` label).
- *  - Decrements usesRemaining by 1 when activating, if `uses` is declared.
+ *  - Decrements usesRemaining by 1 when activating, if uses are declared
+ *    (usesMax is not null).
  *  - Stores opts.variant on the state when set.
  *
  *  Deactivation:
@@ -66,13 +66,13 @@ export interface ToggleActivationResult {
  */
 export function toggleActivation(
   character: CharacterDocument,
-  decls: ActivationDeclaration[],
+  available: AvailableActivation[],
   id: string,
   on: boolean,
   opts: ToggleActivationOpts = {}
 ): ToggleActivationResult {
-  const decl = decls.find((d) => d.id === id);
-  if (!decl) {
+  const a = available.find((x) => x.id === id);
+  if (!a) {
     return { character, outcome: 'unknown', cancelledIds: [] };
   }
   const activations = character.activations ?? {};
@@ -94,10 +94,10 @@ export function toggleActivation(
 
     // Group mutual exclusion: cancel any other active activation in the
     // same group.
-    if (decl.group) {
-      for (const other of decls) {
+    if (a.group) {
+      for (const other of available) {
         if (other.id === id) continue;
-        if (other.group !== decl.group) continue;
+        if (other.group !== a.group) continue;
         const otherState = nextActivations[other.id];
         if (otherState?.active) {
           nextActivations[other.id] = { ...otherState, active: false };
@@ -109,8 +109,8 @@ export function toggleActivation(
     // Concentration: cancel prior concentration activations and clear the
     // existing concentrating label.
     let nextConcentrating = character.concentrating ?? null;
-    if (decl.concentration) {
-      for (const other of decls) {
+    if (a.concentration) {
+      for (const other of available) {
         if (other.id === id) continue;
         if (!other.concentration) continue;
         const otherState = nextActivations[other.id];
@@ -120,22 +120,21 @@ export function toggleActivation(
         }
       }
       nextConcentrating = {
-        label: decl.name,
+        label: a.name,
         ...(opts.currentRound !== undefined ? { sinceRound: opts.currentRound } : {})
       };
     }
 
     // Build new state for this activation.
-    const newState: ActivationState = {
-      active: true
-    };
+    const newState: ActivationState = { active: true };
     if (current?.usesRemaining !== undefined) {
       newState.usesRemaining = Math.max(0, current.usesRemaining - 1);
+    } else if (a.usesMax !== null) {
+      newState.usesRemaining = Math.max(0, a.usesMax - 1);
     }
     if (opts.variant !== undefined) {
       newState.variant = opts.variant;
     } else if (current?.variant !== undefined) {
-      // Persist the previous variant when reactivating without specifying.
       newState.variant = current.variant;
     }
     if (opts.currentRound !== undefined) {
@@ -164,7 +163,7 @@ export function toggleActivation(
 
   // Clear concentration if this activation was the concentration source.
   let nextConcentrating = character.concentrating ?? null;
-  if (decl.concentration && nextConcentrating?.label === decl.name) {
+  if (a.concentration && nextConcentrating?.label === a.name) {
     nextConcentrating = null;
   }
 
@@ -213,24 +212,24 @@ export function refreshActivations(
   return { ...character, activations: next };
 }
 
-/** Walk the character's active activations and toggle off any whose
- *  declaration's `autoCancelOn` overlaps the character's current
- *  conditions[]. Pure. Called when conditions[] changes (e.g. the
- *  character becomes incapacitated → Bladesong drops). */
+/** Walk available activations and toggle off any whose `autoCancelOn`
+ *  overlaps the character's current conditions[]. Pure. Called when
+ *  conditions[] changes (e.g. the character becomes incapacitated →
+ *  Bladesong drops). */
 export function applyAutoCancelOnConditionChange(
   character: CharacterDocument,
-  decls: ActivationDeclaration[]
+  available: AvailableActivation[]
 ): CharacterDocument {
   const activations = character.activations ?? {};
   const conditions = new Set(character.conditions ?? []);
   let result = character;
-  for (const decl of decls) {
-    if (!decl.autoCancelOn || decl.autoCancelOn.length === 0) continue;
-    const state = activations[decl.id];
+  for (const a of available) {
+    if (!a.autoCancelOn || a.autoCancelOn.length === 0) continue;
+    const state = activations[a.id];
     if (!state?.active) continue;
-    const triggered = decl.autoCancelOn.some((c) => conditions.has(c));
+    const triggered = a.autoCancelOn.some((c) => conditions.has(c));
     if (!triggered) continue;
-    const { character: updated } = toggleActivation(result, decls, decl.id, false);
+    const { character: updated } = toggleActivation(result, available, a.id, false);
     result = updated;
   }
   return result;
