@@ -64,48 +64,25 @@
           }
         }
       ],
-      "activities": [
+      "activations": [
         {
-          "id": "enter-rage",
-          "type": "utility",
-          "name": "Enter Rage",
+          "id": "rage",
+          "name": "Rage",
+          "description": "Bonus action. Lasts 1 minute. Ends early if you're unconscious; while raging you have advantage on Str checks/saves, resistance to bludgeoning/piercing/slashing, and bonus melee damage with Str-based attacks.",
           "cost": "bonus",
-          "duration": {
-            "value": 1,
-            "units": "minute",
-            "concentration": false
-          },
-          "appliesCondition": "rage",
+          "duration": { "value": 1, "units": "minute" },
           "uses": {
             "max": {
               "perClass": "barbarian",
-              "table": [
-                2,
-                2,
-                3,
-                3,
-                3,
-                4,
-                4,
-                4,
-                4,
-                4,
-                5,
-                5,
-                5,
-                5,
-                5,
-                6,
-                6,
-                6,
-                6,
-                99
-              ]
+              "table": [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 99]
             },
             "per": "long-rest"
-          }
+          },
+          "condition": "rage",
+          "autoCancelOn": ["unconscious"]
         }
-      ]
+      ],
+      "activities": []
     }
   },
   {

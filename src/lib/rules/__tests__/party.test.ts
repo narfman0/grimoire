@@ -109,17 +109,24 @@ describe('Half-Orc Zealot Barbarian L3', () => {
     expect(re!.limit).toEqual({ per: 'long-rest', uses: 1 });
   });
 
-  it('emits rages-per-day and Relentless Endurance as resources', () => {
+  it('exposes rage as an availableActivation and Relentless Endurance as a resource', () => {
     const lookup = zealot.makeLookup(PACKS);
     const d = derive(zealot.CHARACTER, lookup);
 
-    // Rage uses scale by barbarian level: L3 → 3 per long rest.
-    const rage = d.resources.find((r) => r.id.endsWith('/enter-rage'));
+    // Rage migrated from Resources to the activation primitive (commit b554e6f).
+    // Uses still scale by barbarian level via the perClass-table: L3 → 3 / long rest.
+    const rage = d.availableActivations.find((a) => a.id === 'rage');
     expect(rage).toBeDefined();
-    expect(rage!.max).toBe(3);
-    expect(rage!.per).toBe('long-rest');
+    expect(rage!.usesMax).toBe(3);
+    expect(rage!.refreshOn).toBe('long-rest');
+    expect(rage!.condition).toBe('rage');
+    expect(rage!.cost).toBe('bonus');
 
-    // Triggers with `limit` also surface as resources.
+    // Confirm rage is NO LONGER a resource — Resources panel doesn't double-count.
+    const rageResource = d.resources.find((r) => r.id.endsWith('/enter-rage'));
+    expect(rageResource).toBeUndefined();
+
+    // Triggers with `limit` still surface as resources.
     const re = d.resources.find((r) => r.id.includes('relentless-endurance'));
     expect(re).toBeDefined();
     expect(re!.max).toBe(1);
