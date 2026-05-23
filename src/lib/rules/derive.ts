@@ -8,6 +8,10 @@
 //
 // Pure function. No I/O, no clock, no random.
 
+import {
+  predicateFromQualifierString,
+  type DamageSourcePredicate
+} from './damage-source';
 import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor, type EvalContext } from './evaluate';
 import { applyNumericMode, defaultPriority, type Mode } from './modes';
 import { predicateMatches, type PredicateContext } from './predicates';
@@ -29,6 +33,7 @@ import type {
   OverlayHpPool,
   PendingFeatureChoice,
   Resource,
+  SaveAdvantageSourceQualified,
   SaveCell,
   SkillCell,
   StatBlock,
@@ -41,6 +46,23 @@ interface ActiveContent {
   ref: ContentRef;
   row: ContentRow;
   data: Record<string, unknown>;
+}
+
+/** Validate an authored `sourcePredicate` field on a stat-modifier row
+ *  and lift it into the structured DamageSourcePredicate shape.
+ *  Returns undefined for malformed or absent input — callers fall back
+ *  to the source-agnostic qualifier-string path. */
+function coerceSourcePredicate(raw: unknown): DamageSourcePredicate | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.kind !== 'string') return undefined;
+  if (r.kind === 'spell') return { kind: 'spell' };
+  if (r.kind === 'magical') return { kind: 'magical' };
+  if (r.kind === 'creatureType') {
+    if (typeof r.value !== 'string' || !r.value) return undefined;
+    return { kind: 'creatureType', value: r.value };
+  }
+  return undefined;
 }
 
 interface ActiveModifier {
@@ -1137,23 +1159,66 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   //   save.advantage.all          — every save has advantage
   //   save.advantage.vs-condition.<slug>  — every save vs <slug> has advantage
   //   save.disadvantage.vs-condition.<slug>
+  //
+  // A modifier carrying a `sourcePredicate` field on a
+  // `save.advantage.<ab|all>` or `save.advantage.vs-condition.<slug>`
+  // target is NOT folded into the source-agnostic sets above; instead
+  // it lands on `savesAdvantageSourceQualified[]` so the encounter
+  // runtime can evaluate the predicate against the actual save event.
+  // This powers the Gnome's Magic Resistance ("advantage on saves
+  // against magic") and Circle of the Land elemental/fey patterns.
   const saveAdvantage = new Set<AbilityKey>();
   const saveDisadvantage = new Set<AbilityKey>();
   const savesAdvantageVs = new Set<string>();
   const savesDisadvantageVs = new Set<string>();
+  const savesAdvantageSourceQualified: SaveAdvantageSourceQualified[] = [];
   for (const m of allMods) {
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target;
     if (typeof target !== 'string' || m.raw.value !== true) continue;
-    if (target === 'save.advantage.all') for (const ab of ABILITIES) saveAdvantage.add(ab);
-    else if (target === 'save.disadvantage.all') for (const ab of ABILITIES) saveDisadvantage.add(ab);
-    else if (target.startsWith('save.advantage.vs-condition.'))
-      savesAdvantageVs.add(target.slice('save.advantage.vs-condition.'.length));
-    else if (target.startsWith('save.disadvantage.vs-condition.'))
+    const sourcePredicate = coerceSourcePredicate(m.raw.sourcePredicate);
+    const sourceContent = {
+      kind: m.source.row.kind,
+      slug: m.source.row.slug
+    };
+    if (target === 'save.advantage.all') {
+      if (sourcePredicate) {
+        savesAdvantageSourceQualified.push({
+          ability: 'all',
+          sourcePredicate,
+          sourceContent
+        });
+      } else {
+        for (const ab of ABILITIES) saveAdvantage.add(ab);
+      }
+    } else if (target === 'save.disadvantage.all') {
+      for (const ab of ABILITIES) saveDisadvantage.add(ab);
+    } else if (target.startsWith('save.advantage.vs-condition.')) {
+      const condition = target.slice('save.advantage.vs-condition.'.length);
+      if (sourcePredicate) {
+        savesAdvantageSourceQualified.push({
+          vsCondition: condition,
+          sourcePredicate,
+          sourceContent
+        });
+      } else {
+        savesAdvantageVs.add(condition);
+      }
+    } else if (target.startsWith('save.disadvantage.vs-condition.')) {
       savesDisadvantageVs.add(target.slice('save.disadvantage.vs-condition.'.length));
-    else if (target.startsWith('save.advantage.')) {
+    } else if (target.startsWith('save.advantage.')) {
       const ab = target.slice('save.advantage.'.length) as AbilityKey;
-      if ((ABILITIES as readonly string[]).includes(ab)) saveAdvantage.add(ab);
+      if ((ABILITIES as readonly string[]).includes(ab)) {
+        if (sourcePredicate) {
+          savesAdvantageSourceQualified.push({
+            ability: ab,
+            sourcePredicate,
+            sourceContent
+          });
+        } else {
+          saveAdvantage.add(ab);
+        }
+      }
     } else if (target.startsWith('save.disadvantage.')) {
       const ab = target.slice('save.disadvantage.'.length) as AbilityKey;
       if ((ABILITIES as readonly string[]).includes(ab)) saveDisadvantage.add(ab);
@@ -1283,6 +1348,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const resistanceQualifiers: Record<string, string> = {};
   const immunityQualifiers: Record<string, string> = {};
   const vulnerabilityQualifiers: Record<string, string> = {};
+  // Structured source-predicate companions to the qualifier-string maps.
+  // Populated whenever a modifier carries an explicit `sourcePredicate`
+  // OR a legacy `qualifier` string with a source-side interpretation
+  // ('spell', 'magical', 'creatureType:<slug>'). The 'nonmagical'
+  // qualifier is damage-side, not source-side, so it doesn't populate
+  // here. The encounter runtime reads these to filter resistances at
+  // damage-application time via matchesDamageSource.
+  const resistanceSourcePredicates: Record<string, DamageSourcePredicate> = {};
+  const immunitySourcePredicates: Record<string, DamageSourcePredicate> = {};
+  const vulnerabilitySourcePredicates: Record<string, DamageSourcePredicate> = {};
   const unconditional = {
     res: new Set<string>(),
     imm: new Set<string>(),
@@ -1291,16 +1366,31 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   function recordQualified(
     set: Set<string>,
     quals: Record<string, string>,
+    preds: Record<string, DamageSourcePredicate>,
     unc: Set<string>,
     type: string,
-    qualifier: string | undefined
+    qualifier: string | undefined,
+    sourcePredicate: DamageSourcePredicate | undefined
   ): void {
     set.add(type);
-    if (qualifier === undefined) {
+    if (qualifier === undefined && sourcePredicate === undefined) {
+      // Unconditional entry — wins over any prior qualified entry.
       unc.add(type);
       delete quals[type];
-    } else if (!unc.has(type) && quals[type] === undefined) {
-      quals[type] = qualifier;
+      delete preds[type];
+    } else if (!unc.has(type)) {
+      // Qualified entry — record the qualifier string AND the
+      // structured predicate (if either is available). First-write-
+      // wins per type, matching the existing semantics of `quals`.
+      if (quals[type] === undefined && qualifier !== undefined) {
+        quals[type] = qualifier;
+      }
+      if (preds[type] === undefined) {
+        const pred = sourcePredicate ?? (qualifier !== undefined
+          ? predicateFromQualifierString(qualifier)
+          : undefined);
+        if (pred) preds[type] = pred;
+      }
     }
   }
   for (const m of allMods) {
@@ -1318,29 +1408,36 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       continue;
     const qualifier =
       typeof m.raw.qualifier === 'string' ? (m.raw.qualifier as string) : undefined;
+    const sourcePredicate = coerceSourcePredicate(m.raw.sourcePredicate);
     if (target.startsWith('resistance.')) {
       recordQualified(
         resistances,
         resistanceQualifiers,
+        resistanceSourcePredicates,
         unconditional.res,
         target.slice('resistance.'.length),
-        qualifier
+        qualifier,
+        sourcePredicate
       );
     } else if (target.startsWith('immunity.')) {
       recordQualified(
         immunities,
         immunityQualifiers,
+        immunitySourcePredicates,
         unconditional.imm,
         target.slice('immunity.'.length),
-        qualifier
+        qualifier,
+        sourcePredicate
       );
     } else if (target.startsWith('vulnerability.')) {
       recordQualified(
         vulnerabilities,
         vulnerabilityQualifiers,
+        vulnerabilitySourcePredicates,
         unconditional.vul,
         target.slice('vulnerability.'.length),
-        qualifier
+        qualifier,
+        sourcePredicate
       );
     }
   }
@@ -1391,6 +1488,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     resistanceQualifiers,
     immunityQualifiers,
     vulnerabilityQualifiers,
+    resistanceSourcePredicates,
+    immunitySourcePredicates,
+    vulnerabilitySourcePredicates,
+    savesAdvantageSourceQualified,
     senses,
     languages: [...languages].sort(),
     tools: [...tools].sort(),
