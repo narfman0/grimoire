@@ -67,6 +67,10 @@ export function applyUpcast(action: Action, slotLevel: number): Action {
       ];
     }
   }
+  if (typeof scaling.extraTempHpPerSlot === 'number' && next.grants) {
+    const baseTemp = next.grants.tempHp ?? 0;
+    next.grants = { ...next.grants, tempHp: baseTemp + scaling.extraTempHpPerSlot * steps };
+  }
   return next;
 }
 

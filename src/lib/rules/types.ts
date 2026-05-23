@@ -305,7 +305,21 @@ export interface Action {
    *  scaled Action. Absent → no scaling (cantrips with character-level
    *  scaling use the activity's `perTotalLevel` table, not this field). */
   upcastScaling?: UpcastScaling;
+  /** Side effects on the caster that apply when this Action resolves —
+   *  granted resources / temp HP / conditions. Surfaced from a spell or
+   *  feature activity's `grants` field. Encounter runtime / planner
+   *  folds these into character state (e.g. tempHp into HpState.tempHp
+   *  via applyDamageDelta). Spells like Armor of Agathys (5 temp HP on
+   *  cast) drive this. */
+  grants?: ActionGrants;
   appliedModifiers: AppliedModifier[];
+}
+
+export interface ActionGrants {
+  /** Temp HP granted to the caster on resolution. Numeric (resolved at
+   *  derive time against the caster's context). Casting at a higher slot
+   *  scales via UpcastScaling.extraTempHpPerSlot. */
+  tempHp?: number;
 }
 
 export interface UpcastScaling {
@@ -328,6 +342,10 @@ export interface UpcastScaling {
   /** Per-slot-above-base extra heal die (Cure Wounds: '1d8'; Healing
    *  Word: '1d4'). Applied to the activity's heal-die formula. */
   extraHealPerSlot?: string;
+  /** Per-slot-above-base extra temp HP granted on cast (Armor of
+   *  Agathys: 5 per slot; False Life: 5 per slot). Stacks onto
+   *  Action.grants.tempHp. */
+  extraTempHpPerSlot?: number;
 }
 
 export type ActionCost =

@@ -171,6 +171,38 @@ describe('applyUpcast — edge cases', () => {
   });
 });
 
+describe('applyUpcast — extraTempHpPerSlot (Armor of Agathys shape)', () => {
+  const aoa = baseAction({
+    type: 'utility',
+    grants: { tempHp: 5 },
+    upcastScaling: { baseSlotLevel: 1, extraTempHpPerSlot: 5 }
+  });
+
+  it('grants base 5 temp HP at base slot', () => {
+    const cast = applyUpcast(aoa, 1);
+    expect(cast.grants?.tempHp).toBe(5);
+  });
+
+  it('grants 10 temp HP at L2 (+5 per slot above 1)', () => {
+    const cast = applyUpcast(aoa, 2);
+    expect(cast.grants?.tempHp).toBe(10);
+  });
+
+  it('grants 25 temp HP at L5', () => {
+    const cast = applyUpcast(aoa, 5);
+    expect(cast.grants?.tempHp).toBe(25);
+  });
+
+  it('is a no-op when the action has no grants block (defensive)', () => {
+    const noGrants = baseAction({
+      type: 'utility',
+      upcastScaling: { baseSlotLevel: 1, extraTempHpPerSlot: 5 }
+    });
+    const cast = applyUpcast(noGrants, 3);
+    expect(cast.grants).toBeUndefined();
+  });
+});
+
 describe('upcastStepsAt', () => {
   it('returns the slot-above-base count', () => {
     expect(upcastStepsAt({ baseSlotLevel: 3 }, 5)).toBe(2);

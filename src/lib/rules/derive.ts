@@ -1942,7 +1942,25 @@ function realizeActivity(
       if (typeof spec.extraTargetsPerSlot === 'number')
         scaling.extraTargetsPerSlot = spec.extraTargetsPerSlot;
       if (typeof spec.extraHealPerSlot === 'string') scaling.extraHealPerSlot = spec.extraHealPerSlot;
+      if (typeof spec.extraTempHpPerSlot === 'number')
+        scaling.extraTempHpPerSlot = spec.extraTempHpPerSlot;
       action.upcastScaling = scaling as Action['upcastScaling'];
+    }
+  }
+
+  // Caster-side grants on activity resolution (temp HP, etc.). Spell
+  // rows like Armor of Agathys carry `grants.tempHp: 5`. derive() evaluates
+  // the value against the caster's context (so '5 + warlockLevel' or
+  // similar formulas resolve) and exposes a numeric grant on the Action.
+  if (act.grants && typeof act.grants === 'object') {
+    const g = act.grants as Record<string, unknown>;
+    const grants: Record<string, unknown> = {};
+    if ('tempHp' in g) {
+      const resolved = evaluateValue(g.tempHp, ctx);
+      if (typeof resolved === 'number') grants.tempHp = resolved;
+    }
+    if (Object.keys(grants).length > 0) {
+      action.grants = grants as Action['grants'];
     }
   }
 
