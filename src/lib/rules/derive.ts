@@ -76,6 +76,12 @@ interface FeatModifierChoiceSpec {
   mode: 'ADD' | 'OVERRIDE';
   /** Constant or a function of the decl entry (asi uses decl.bonus ?? 1). */
   value: number | boolean | ((decl: Record<string, unknown>) => number | boolean);
+  /** Kind of state checked for the `elseAlready` conditional-routing path.
+   *  When the player's pick is already in this proficiency set, derive()
+   *  emits the alternate modifier instead of the default. Set per spec —
+   *  only proficiency-grant specs declare a state kind; asi / language /
+   *  tool / etc. skip this concept. */
+  elseAlreadyStateKind?: 'skill' | 'save' | 'language' | 'tool';
 }
 
 const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
@@ -96,7 +102,8 @@ const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
     allowedField: 'allowedSkills',
     targetPrefix: 'proficiency.skill',
     mode: 'OVERRIDE',
-    value: true
+    value: true,
+    elseAlreadyStateKind: 'skill'
   },
   {
     declKey: 'expertise',
@@ -115,7 +122,8 @@ const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
     allowedField: 'allowedAbilities',
     targetPrefix: 'proficiency.save',
     mode: 'OVERRIDE',
-    value: true
+    value: true,
+    elseAlreadyStateKind: 'save'
   },
   {
     declKey: 'language',
@@ -124,7 +132,8 @@ const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
     allowedField: 'allowedLanguages',
     targetPrefix: 'proficiency.language',
     mode: 'OVERRIDE',
-    value: true
+    value: true,
+    elseAlreadyStateKind: 'language'
   },
   {
     declKey: 'toolProficiency',
@@ -133,7 +142,8 @@ const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
     allowedField: 'allowedTools',
     targetPrefix: 'proficiency.tool',
     mode: 'OVERRIDE',
-    value: true
+    value: true,
+    elseAlreadyStateKind: 'tool'
   }
 ];
 
@@ -435,6 +445,58 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Baseline proficiency sets — used by the `elseAlready` conditional-routing
+  // branch in choice synthesis (below) to decide whether a player's pick
+  // already exists on the character, in which case the alternate modifier
+  // is emitted instead of the default.
+  //
+  // Ordering choice: only non-choice grants count toward "already
+  // proficient." Sources included:
+  //   1. character.proficienciesChosen.{skills,languages,tools}
+  //   2. class.saves arrays (canonical save-proficient list per class row)
+  //   3. data.modifiers entries on any active row whose target prefixes
+  //      `proficiency.skill.` / `proficiency.save.` / `proficiency.language.`
+  //      / `proficiency.tool.` (covers class/species/background/feature/feat
+  //      static grants)
+  //
+  // Intentionally NOT included: choice-driven grants from other features
+  // (i.e. another iron-mind-style feature whose pick happens to be the
+  // same skill). This is order-deterministic and matches RAW intent —
+  // the "already have proficiency" prerequisite is a base-character
+  // state, not a stacking interaction with another simultaneous pick.
+  const baselineSkillProfs = new Set<string>(character.proficienciesChosen.skills ?? []);
+  const baselineSaveProfs = new Set<string>();
+  const baselineLanguageProfs = new Set<string>(character.proficienciesChosen.languages ?? []);
+  const baselineToolProfs = new Set<string>(character.proficienciesChosen.tools ?? []);
+  for (const c of character.classes) {
+    const classRow = content({ kind: 'class', slug: c.slug });
+    if (!classRow) continue;
+    const saves = (classRow.data.saves as string[] | undefined) ?? [];
+    for (const s of saves) baselineSaveProfs.add(s);
+  }
+  for (const a of active) {
+    const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const m of mods) {
+      if (m.kind !== 'stat-modifier') continue;
+      if (m.value !== true) continue;
+      const t = m.target;
+      if (typeof t !== 'string') continue;
+      if (t.startsWith('proficiency.skill.')) baselineSkillProfs.add(t.slice('proficiency.skill.'.length));
+      else if (t.startsWith('proficiency.save.')) baselineSaveProfs.add(t.slice('proficiency.save.'.length));
+      else if (t.startsWith('proficiency.language.')) baselineLanguageProfs.add(t.slice('proficiency.language.'.length));
+      else if (t.startsWith('proficiency.tool.')) baselineToolProfs.add(t.slice('proficiency.tool.'.length));
+    }
+  }
+  function isAlreadyProficient(stateKind: string, pick: string): boolean {
+    switch (stateKind) {
+      case 'skill': return baselineSkillProfs.has(pick);
+      case 'save': return baselineSaveProfs.has(pick);
+      case 'language': return baselineLanguageProfs.has(pick);
+      case 'tool': return baselineToolProfs.has(pick);
+      default: return false;
+    }
+  }
+
   // Build raw modifier/activity/trigger lists from active content.
   const allMods: ActiveModifier[] = [];
   for (const a of active) {
@@ -533,15 +595,39 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           ? (declEntry[spec.allowedField] as string[] | 'proficient' | undefined)
           : undefined;
         if (!isChoiceAllowed(allowed, pick, spec.defaultAllowed, spec.allowProficient)) continue;
-        const value = typeof spec.value === 'function' ? spec.value(declEntry) : spec.value;
+        // Conditional routing — if the pick is already proficient on this
+        // character (baseline non-choice state) AND the decl ships an
+        // `elseAlready` override, emit the alternate modifier instead of
+        // the default. Powers "Gain proficiency in X; if you already have
+        // proficiency, gain Expertise instead" feature shapes
+        // (Iron Mind, Elegant Courtier, etc.).
+        let targetPrefix = spec.targetPrefix;
+        let mode: 'ADD' | 'OVERRIDE' = spec.mode;
+        let value: number | boolean = typeof spec.value === 'function' ? spec.value(declEntry) : spec.value;
+        let idSuffix = spec.idSuffix;
+        const elseAlready = declEntry.elseAlready as
+          | { targetPrefix?: string; mode?: 'ADD' | 'OVERRIDE'; value?: number | boolean }
+          | undefined;
+        if (
+          elseAlready &&
+          spec.elseAlreadyStateKind &&
+          isAlreadyProficient(spec.elseAlreadyStateKind, pick)
+        ) {
+          if (typeof elseAlready.targetPrefix === 'string') targetPrefix = elseAlready.targetPrefix;
+          if (elseAlready.mode === 'ADD' || elseAlready.mode === 'OVERRIDE') mode = elseAlready.mode;
+          if (typeof elseAlready.value === 'number' || typeof elseAlready.value === 'boolean') {
+            value = elseAlready.value;
+          }
+          idSuffix = `${spec.idSuffix}-else`;
+        }
         allMods.push({
-          id: `${a.row.kind}/${a.row.slug}/${spec.idSuffix}`,
+          id: `${a.row.kind}/${a.row.slug}/${idSuffix}`,
           kind: 'stat-modifier',
           source: a,
           raw: {
             kind: 'stat-modifier',
-            target: `${spec.targetPrefix}.${pick}`,
-            mode: spec.mode,
+            target: `${targetPrefix}.${pick}`,
+            mode,
             value
           }
         });
@@ -1103,7 +1189,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // (e) Saves — proficient = ability appears in any class's `saves`, OR a
   // content modifier targets `proficiency.save.<ability>` (feat/feature
   // grants like Resilient flow through here).
+  //
+  // Expertise (doubles the proficiency bonus on the save) is granted via
+  // `expertise.save.<ability>` modifiers. Currently emitted only by the
+  // `elseAlready` conditional-routing branch in choice synthesis, where
+  // a "gain save proficiency, else expertise" feature shape resolves to
+  // the expertise target when the character is already proficient.
+  // Expertise implies proficiency.
   const saveProficiencies = new Set<AbilityKey>();
+  const saveExpertise = new Set<AbilityKey>();
   for (const c of character.classes) {
     const classRow = content({ kind: 'class', slug: c.slug });
     if (!classRow) continue;
@@ -1116,10 +1210,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       if (
         m.kind === 'stat-modifier' &&
         typeof m.target === 'string' &&
-        m.target.startsWith('proficiency.save.') &&
         m.value === true
       ) {
-        saveProficiencies.add(m.target.slice('proficiency.save.'.length) as AbilityKey);
+        if (m.target.startsWith('proficiency.save.')) {
+          saveProficiencies.add(m.target.slice('proficiency.save.'.length) as AbilityKey);
+        } else if (m.target.startsWith('expertise.save.')) {
+          const ab = m.target.slice('expertise.save.'.length) as AbilityKey;
+          saveExpertise.add(ab);
+          saveProficiencies.add(ab);
+        }
       }
     }
   }
@@ -1129,6 +1228,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (typeof target !== 'string' || m.raw.value !== true) continue;
     if (target.startsWith('proficiency.save.')) {
       saveProficiencies.add(target.slice('proficiency.save.'.length) as AbilityKey);
+    } else if (target.startsWith('expertise.save.')) {
+      const ab = target.slice('expertise.save.'.length) as AbilityKey;
+      saveExpertise.add(ab);
+      saveProficiencies.add(ab);
     }
   }
   // Collect save advantage/disadvantage state. Targets:
@@ -1162,11 +1265,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const saves: Record<AbilityKey, SaveCell> = {} as Record<AbilityKey, SaveCell>;
   for (const ab of ABILITIES) {
     const proficient = saveProficiencies.has(ab);
-    const base = abilities[ab].mod + (proficient ? proficiencyBonus : 0);
+    const expertise = saveExpertise.has(ab);
+    const base =
+      abilities[ab].mod +
+      (proficient ? proficiencyBonus : 0) +
+      (expertise && proficient ? proficiencyBonus : 0);
     const bonus = applyTarget(allMods, character, `save.${ab}`, base, ctx) as number;
     saves[ab] = {
       bonus,
       proficient,
+      expertise,
       advantage: saveAdvantage.has(ab),
       disadvantage: saveDisadvantage.has(ab)
     };

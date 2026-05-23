@@ -212,6 +212,12 @@ export interface AbilityCell {
 export interface SaveCell {
   bonus: number;
   proficient: boolean;
+  /** Save expertise — doubles the proficiency bonus on this save. Granted
+   *  by `expertise.save.<ab>` modifier targets (currently only via the
+   *  `elseAlready` conditional-on-existing-proficiency choice path, used
+   *  by save-prof grants that route to expertise when the character is
+   *  already proficient). Always implies proficient = true. */
+  expertise: boolean;
   /** Unconditional advantage on this save (e.g. Resilient + Aura of Devotion).
    *  When true, every roll on this save is made with advantage regardless of
    *  what's being saved against. */
