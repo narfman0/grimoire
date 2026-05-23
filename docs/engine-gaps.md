@@ -216,7 +216,7 @@ totems, Divine Fury) — all auto-surface through rage's activation.
 **Remaining activation work is engine-side, not content-side** —
 see the new gap entries below.
 
-### Target-bounded buff primitive — DEFERRED (blocks ally-buff spells)
+### Target-bounded buff primitive — DESIGNED (last activation-cluster gap)
 
 The activation primitive applies a self-buff to whoever activates the
 spell on their own sheet. There's no engine-side way to model "Cleric
@@ -231,13 +231,39 @@ turn to one ally), Haste (+2 AC + double speed + extra action on
 one ally), Vow of Enmity (advantage vs one target). Estimated ~25
 rows across SRD + non-SRD spell sources.
 
-**Where to start:** Add a `buffApplications: BuffApplication[]` field
-on the character, where a buff application carries source spell slug,
-source character id (or null for self), expires-at, and the modifier
-rows to apply. The activation primitive would emit a buff application
-on activate; derive() reads it back. The sheet UI gets a new
-affordance ("accept buff from X"). Big design pass — touches
-sheet ↔ encounter data flow.
+**Design — recipient-side model (recommended):** Add a
+`receivedBuffs: ReceivedBuff[]` array on the character with shape
+`{ id, spellSlug, slot?, variant?, sourceLabel? }`. derive() processes
+each entry by force-loading the spell row into the active set and
+injecting the spell's activation condition into resolvedConditions —
+the spell's existing `modifiers[]` (already gated by
+`appliesWhen.condition`) fire automatically. The recipient's sheet
+gets a "Received buffs" section with a spell picker + per-entry slot
+pick (for scalingByCastSlot spells) + free-text source label
+("from Cleric Vortha"). The caster's sheet stays purely self-tracking
+— no cross-character RPC, no source-character-id lookup, no data
+synchronization. The DM or player adds the buff entry when the spell
+is cast, removes it when concentration ends. Simpler to implement and
+ship; cross-character automation can layer on top later.
+
+**Design — caster-side push model (deferred alternative):** Cross-character data flow where the caster's
+sheet emits a `BuffApplication { sourceCharacterId, targetCharacterId,
+spellSlug, slot?, expiresAt? }` into shared state; the target's
+sheet polls / subscribes and reflects the buff. Significantly more
+plumbing (campaign-scoped buff log, target acceptance affordance,
+auto-expire, concentration-end cascade). Better UX but a real design
+pass with several open questions; defer until the recipient-side
+shape proves out.
+
+**Where to start (recipient-side):** Add `receivedBuffs` to
+`CharacterDocument` + Zod schema. In `derive()`, after the activation
+processing block, walk `character.receivedBuffs`, look up the spell
+rows, push them into `active`, inject their activation conditions,
+synthesize variant modifiers (variants[] and scalingByCastSlot —
+variantsFromWeapons is harder because the recipient probably hasn't
+equipped the touched weapon). New `ReceivedBuffsPanel.svelte` with
+spell picker + slot picker. ~1 day end-to-end; the engine work mirrors
+the existing activation processing.
 
 ### Inventory-state conditions — SHIPPED (auto-cancel side)
 
@@ -262,45 +288,57 @@ still blocked. Same pattern as the per-weapon enchantment tracking
 gap below — both want a weapon-identity predicate on action-modifier
 predicates.
 
-### Per-weapon enchantment tracking — DEFERRED
+### Per-weapon enchantment tracking — SHIPPED
 
-Magic Weapon / Elemental Weapon / Holy Weapon RAW says the bonus
-applies to "the weapon you touched." The engine applies the
-action-modifier to ALL weapon attacks while the activation is on. For
-most party-level play this overshoots — a dual-wielding fighter
-casting Magic Weapon on their main-hand also gets the bonus on
-off-hand attacks.
+`ActivationDeclaration.variantsFromWeapons: { modifiers: [...] }`
+(commit 0d286bb) generates one variant per equipped weapon at
+derive() time. The player picks the touched weapon when activating;
+the engine substitutes the chosen weapon's slug for any `"__weapon__"`
+placeholder in the modifier template — typically the `weapon.slug`
+predicate on action-modifier `appliesTo` — so the bonus fires only
+for attacks made with that weapon. Mutually exclusive with the
+static `variants[]` field (authoring both is a content bug).
 
-**Sample blocked rows:** Magic Weapon (2014 + 2024), Elemental
-Weapon (2024), Holy Weapon, Brand of Pact's Boon (in some Warlock
-builds). Estimated 5-8 rows.
+**Migrated:** Magic Weapon (both editions, grimoire-packs commit
+595808b). Stale-pick semantics: if the picked weapon is unequipped
+later, no bonus is synthesized (correct).
 
-**Where to start:** A weapon-identity predicate on action-modifier
-`appliesTo.predicates` like `{ weapon.slug: { eq: 'longsword' } }`
-that the activation-time variant picks (already supported via
-ActivationVariant.modifiers). Player picks the touched weapon when
-activating; only that weapon's attacks benefit. Medium scope; touches
-the action-modifier predicate evaluator.
+**Still deferred — Elemental Weapon:** RAW the +1d4 element rider
+should also be per-weapon, but the element pick currently flows
+through `choices.modifierFromChoice` (character-level) which doesn't
+participate in activation synthesis. A clean fix needs either
+routing modifierFromChoice through activation synthesis OR a 2D
+variant primitive (weapon × element). Tracked in the
+[`elemental-weapon.json`](../grimoire-packs/phb-2024/spells/elemental-weapon.json) note.
 
-### Slot-aware action-modifier scaling — DEFERRED
+### Slot-aware action-modifier scaling — SHIPPED (activation side)
 
-Spells that upcast change their modifier values per cast slot — Magic
-Weapon bumps from +1 to +2 (slot 3-5) to +3 (slot 6+), Elemental
-Weapon bumps damage dice from 1d4 to 2d4 to 3d4. Today the
-action-modifier value is fixed at the base slot.
+The `scalingByCastSlot: { baseSlotLevel, table }` value shape (commit
+a9addf5) can appear anywhere in a modifier template (typically as an
+action-modifier `effects[].value`). At activation synthesis time the
+engine substitutes the picked cast slot into the table —
+`table[slot - baseSlotLevel]` — clamping past the last entry for
+typical "+3 at L6+" semantics. The ActivationsPanel renders a slot
+picker on any activation whose template references scaling; the slot
+is persisted on `character.activations[id].slot` (defaults to
+baseSlotLevel).
 
-**Sample blocked rows:** Magic Weapon (both editions), Elemental
-Weapon (2024), Holy Weapon, Divine Smite (slot scaling), Armor of
-Agathys retaliation amount. Estimated 8-12 rows. Closely related to
-the existing `Spell upcast scaling — DEFERRED` entry above; the
-activation primitive doesn't make this any harder, but it doesn't
-solve it either.
+**Migrated:** Magic Weapon (both editions, grimoire-packs commit
+a042591) — +1/+2/+3 by slot.
 
-**Where to start:** Activation declarations could grow a
-`variantsBySlot: Record<number, { modifiers: [...] }>` — the player
-picks a slot when activating (already implicit in the casting
-surface) and the engine synthesizes the slot's modifier set. Or fold
-into the broader spell upcast scaling work.
+**Still deferred — modifierFromChoice through activation synthesis:**
+Elemental Weapon's damage rider lives in `choices.modifierFromChoice`
+(character-pick), which doesn't flow through activation synthesis.
+Same root cause as the Elemental Weapon per-weapon gap above —
+a fix would route modifierFromChoice modifiers through the activation
+synthesis path so they pick up both scaling and weapon substitution.
+
+**Still deferred — instantaneous spells:** The broader `Spell upcast
+scaling — DEFERRED` entry above covers Magic Missile / Burning Hands /
+Fireball / etc. (~150 rows) where damage/heal/target-count scale per
+slot. Those are activity-level (cast event), not modifier-level
+(persistent buff), so they don't fit the activation primitive's
+scaling shape — they need a separate `scaling` field on activities.
 
 ## Related
 
