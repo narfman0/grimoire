@@ -217,6 +217,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     string,
     { label: string; sinceRound?: number } | null
   > = {};
+  /** Per-PC receivedBuffs (Shield of Faith, Bless, etc.) so the encounter
+   *  view can label "PC has +2 AC because Shield of Faith from Cleric
+   *  Vortha" alongside the rolled-up participantPcStats. Buff *effects*
+   *  already flow through derive() into participantPcStats automatically;
+   *  this field gives the DM source visibility for those effects. */
+  const participantPcReceivedBuffs: Record<
+    string,
+    Array<{ id: string; spellSlug: string; slot?: number; variant?: string; sourceLabel?: string }>
+  > = {};
 
   /** Persisted plan per participant — read from the new plan_json column so
    *  SSR can render the chooser's selection without waiting for the SSE
@@ -265,6 +274,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
           .map(k => ({ slug: k.slug, name: k.slug, level: 0 }));
         participantPcConditions[participant.id] = [...(doc.conditions ?? [])];
         participantPcConcentrating[participant.id] = doc.concentrating ?? null;
+        participantPcReceivedBuffs[participant.id] = [...(doc.receivedBuffs ?? [])];
         try {
           const { lookup } = await buildContentLookup(char.ownerUserId ?? undefined, campaign.id);
           const d = serializeDerived(derive(doc, lookup));
@@ -496,6 +506,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     participantPcActions,
     participantPcTriggers,
     participantPcConcentrating,
+    participantPcReceivedBuffs,
     participantPlans,
     participantNonPcConcentrating,
     actionLog: logRows.map((r) => ({

@@ -89,6 +89,7 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
     'participantPcStats',
     'participantPcActions',
     'participantPcConcentrating',
+    'participantPcReceivedBuffs',
     'participantPlans',
     'actionLog',
     'party',

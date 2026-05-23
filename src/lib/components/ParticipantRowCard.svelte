@@ -24,6 +24,11 @@
   export let isActive: boolean;
   export let isSelected: boolean;
   export let activeConds: string[];
+  /** Display-only labels for receivedBuffs active on a PC participant.
+   *  Buff *effects* are already rolled into the participant's stats by
+   *  derive() upstream; this is purely so the DM (and player) can see
+   *  the source — "Shield of Faith from Cleric Vortha". */
+  export let receivedBuffLabels: string[] = [];
   /** Display label for concentration (or null if none); already resolved
    *  upstream from either the PC document or the SSE concentration field. */
   export let concLabel: string | null;
@@ -103,6 +108,14 @@
     {/if}
     {#if activeConds.length > 0}
       <span class="ml-1 text-[10px] text-amber-400">{activeConds.join(', ')}</span>
+    {/if}
+    {#if receivedBuffLabels.length > 0}
+      <span
+        class="ml-1 text-[10px] text-emerald-300"
+        title="Received buffs (effects already applied to stats)"
+      >
+        +{receivedBuffLabels.join(', ')}
+      </span>
     {/if}
   </span>
   {#if role === 'dm' || p.reveals?.vitals || p.kind === 'pc'}

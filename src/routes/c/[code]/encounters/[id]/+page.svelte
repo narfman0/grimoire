@@ -1198,6 +1198,9 @@
           {isSelected}
           activeConds={conditionsForParticipant(p, data.participantPcConditions, liveHpMap[p.id]?.conditions)}
           concLabel={concLbl}
+          receivedBuffLabels={(data.participantPcReceivedBuffs?.[p.id] ?? []).map(
+            (b) => (b.sourceLabel ? `${b.spellSlug} (${b.sourceLabel})` : b.spellSlug)
+          )}
           liveCurrentHp={liveHpMap[p.id]?.currentHp}
           liveTempHp={liveHpMap[p.id]?.tempHp}
           editingInitiative={initiativeEditFor === p.id}
