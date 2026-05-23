@@ -239,24 +239,28 @@ on activate; derive() reads it back. The sheet UI gets a new
 affordance ("accept buff from X"). Big design pass — touches
 sheet ↔ encounter data flow.
 
-### Inventory-state conditions — DEFERRED
+### Inventory-state conditions — SHIPPED (auto-cancel side)
 
-Several activations auto-cancel based on what the character is wearing
-or wielding (Bladesong: ends if you don medium/heavy armor or a
-shield; Mage Armor: ends if the target dons armor; Cleric "armor of
-the gods" gates: only active if wearing heavy armor). The
-`autoCancelOn` field on activations today only checks the conditions
-list — no inventory predicate.
+`ActivationDeclaration.autoCancelOn` accepts a mixed list of condition
+slugs and inventory predicates of the shape
+`{wearing: 'armor.light' | 'armor.medium' | 'armor.heavy' | 'shield'}`
+(commit d161615). The activation auto-cancel walk evaluates the new
+predicate against `Derived.equipped`, a denormalized equipped-armor +
+shield summary computed once in derive() and shared with the AC
+formula. The sheet wires the walk into `setInventoryFlag` (new) so
+equipping medium / heavy armor or a shield drops Bladesong-style
+activations in real time. Bladesong migrated to the new shape
+(grimoire-packs commit f1640bc).
 
-**Sample blocked rows:** Bladesong armor cancel,
-Mage Armor armor cancel, several monk martial-arts modifiers gated
-on "unarmed or with a monk weapon," several barbarian features
-gated on "not wearing heavy armor."
-
-**Where to start:** A predicate language for `autoCancelOn` —
-something like `autoCancelOn: ['incapacitated', { wearing: 'armor.medium' }]`
-that the activation cancel walk evaluates against
-`derived.equipped`. Small-medium scope; adds a predicate kind.
+Still deferred: **attack-time inventory predicates** (Bladesong's
+"using two hands to make a weapon attack" trigger, monk martial-arts
+"unarmed or with a monk weapon" gates). These need an action-modifier
+`appliesTo.predicates` extension — different code path from the
+autoCancelOn walk because the predicate fires per-attack rather than
+per-state-change. Estimated 4-6 monk + 2 bladesong + 2 barbarian rows
+still blocked. Same pattern as the per-weapon enchantment tracking
+gap below — both want a weapon-identity predicate on action-modifier
+predicates.
 
 ### Per-weapon enchantment tracking — DEFERRED
 
