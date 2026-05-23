@@ -418,3 +418,205 @@ describe('usesMax evaluation against character context', () => {
     expect(l6.usesMax).toBe(4);
   });
 });
+
+// Locks the per-weapon dynamic variants contract: a spell row with
+// `variantsFromWeapons.modifiers` template generates one variant per
+// equipped weapon in the character's inventory; activation + variant
+// pick synthesizes an action-modifier whose `weapon.slug` predicate
+// matches only the chosen weapon. Powers Magic Weapon / Elemental
+// Weapon's "touched weapon" semantics.
+describe('variantsFromWeapons (per-weapon dynamic variants)', () => {
+  const LONGSWORD: ContentRow = {
+    kind: 'item',
+    slug: 'longsword',
+    version: 1,
+    source: 'test',
+    name: 'Longsword',
+    data: {
+      category: 'weapon',
+      weaponType: 'martial',
+      activities: [
+        {
+          id: 'attack',
+          type: 'attack',
+          name: 'Longsword',
+          cost: 'action',
+          attackRange: 'melee',
+          attackAbility: 'str',
+          damage: { parts: [{ dice: '1d8', type: 'slashing' }] }
+        }
+      ]
+    }
+  };
+  const DAGGER: ContentRow = {
+    kind: 'item',
+    slug: 'dagger',
+    version: 1,
+    source: 'test',
+    name: 'Dagger',
+    data: {
+      category: 'weapon',
+      weaponType: 'simple',
+      activities: [
+        {
+          id: 'attack',
+          type: 'attack',
+          name: 'Dagger',
+          cost: 'action',
+          attackRange: 'melee',
+          attackAbility: 'str',
+          damage: { parts: [{ dice: '1d4', type: 'piercing' }] }
+        }
+      ]
+    }
+  };
+  const MAGIC_WEAPON_FEATURE: ContentRow = {
+    kind: 'feature',
+    slug: 'magic-weapon-shape',
+    version: 1,
+    source: 'test',
+    name: 'Magic Weapon Shape',
+    data: {
+      ownerKind: 'subclass',
+      ownerSlug: 'test-subclass',
+      minLevel: 1,
+      activations: [
+        {
+          id: 'magic-weapon-active',
+          name: 'Magic Weapon',
+          cost: 'bonus',
+          duration: { value: 1, units: 'hour' },
+          condition: 'magic-weapon-active',
+          variantsFromWeapons: {
+            modifiers: [
+              {
+                kind: 'action-modifier',
+                id: 'magic-weapon-attack-bonus',
+                appliesTo: {
+                  activityType: 'attack',
+                  predicates: [{ 'weapon.slug': '__weapon__' }]
+                },
+                effects: [{ target: 'attack.roll', mode: 'ADD', value: 1 }]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  };
+  // Pull the Magic Weapon feature in via the class's features list —
+  // mirrors how SRD spell rows would attach via a known spell list.
+  const MW_CLASS: ContentRow = {
+    ...SYNTH_CLASS,
+    data: { ...SYNTH_CLASS.data, features: ['magic-weapon-shape'] }
+  };
+  function lookup(): ContentLookup {
+    const map = new Map<string, ContentRow>([
+      ['class/test-class', MW_CLASS],
+      ['subclass/test-subclass', SYNTH_SUBCLASS],
+      ['species/test-species', SYNTH_SPECIES],
+      ['feature/magic-weapon-shape', MAGIC_WEAPON_FEATURE],
+      ['item/longsword', LONGSWORD],
+      ['item/dagger', DAGGER]
+    ]);
+    return (ref) => map.get(`${ref.kind}/${ref.slug}`);
+  }
+  function characterWithGear(
+    activations?: Record<string, { active: boolean; usesRemaining?: number; variant?: string }>,
+    extraInventory: Array<{ slug: string }> = []
+  ): CharacterDocument {
+    return {
+      ...baseCharacter(activations),
+      inventory: [
+        { contentKind: 'item', contentSlug: 'longsword', equipped: true, attuned: false },
+        { contentKind: 'item', contentSlug: 'dagger', equipped: true, attuned: false },
+        ...extraInventory.map((i) => ({
+          contentKind: 'item' as const,
+          contentSlug: i.slug,
+          equipped: true,
+          attuned: false
+        }))
+      ],
+      classes: [{ slug: 'test-class', level: 5, subclass: 'test-subclass', hpRolledPerLevel: [8, 5, 5, 5, 5] }]
+    };
+  }
+
+  it('exposes one variant per equipped weapon', () => {
+    const d = derive(characterWithGear(), lookup());
+    const mw = d.availableActivations.find((a) => a.id === 'magic-weapon-active')!;
+    expect(mw.variants).toEqual([
+      { id: 'longsword', label: 'Longsword' },
+      { id: 'dagger', label: 'Dagger' }
+    ]);
+  });
+
+  it('skips non-weapon items from the variant list', () => {
+    const SHIELD: ContentRow = {
+      kind: 'item',
+      slug: 'shield',
+      version: 1,
+      source: 'test',
+      name: 'Shield',
+      data: { category: 'armor', armorType: 'shield' }
+    };
+    const lookupWithShield: ContentLookup = (ref) => {
+      if (ref.kind === 'item' && ref.slug === 'shield') return SHIELD;
+      return lookup()(ref);
+    };
+    const char = characterWithGear(undefined, [{ slug: 'shield' }]);
+    const d = derive(char, lookupWithShield);
+    const mw = d.availableActivations.find((a) => a.id === 'magic-weapon-active')!;
+    expect(mw.variants?.map((v) => v.id)).toEqual(['longsword', 'dagger']);
+  });
+
+  it('synthesizes a +1 attack action-modifier only for the picked weapon', () => {
+    const d = derive(
+      characterWithGear({ 'magic-weapon-active': { active: true, variant: 'longsword' } }),
+      lookup()
+    );
+    const longswordAttack = d.actions.find(
+      (a) => a.sourceContent.slug === 'longsword' && a.type === 'attack'
+    );
+    const daggerAttack = d.actions.find(
+      (a) => a.sourceContent.slug === 'dagger' && a.type === 'attack'
+    );
+    expect(longswordAttack).toBeDefined();
+    expect(daggerAttack).toBeDefined();
+    // Longsword gets the +1 (its attackBonus includes the action-modifier's add).
+    const lsModIds = longswordAttack!.appliedModifiers.map((m) => m.modifierId);
+    expect(lsModIds).toContain('magic-weapon-attack-bonus');
+    // Dagger does not.
+    const dgModIds = daggerAttack!.appliedModifiers.map((m) => m.modifierId);
+    expect(dgModIds).not.toContain('magic-weapon-attack-bonus');
+  });
+
+  it('synthesizes nothing when the picked variant is no longer equipped', () => {
+    // Character had picked "longsword" but only the dagger is equipped now.
+    const char: CharacterDocument = {
+      ...characterWithGear({ 'magic-weapon-active': { active: true, variant: 'longsword' } }),
+      inventory: [
+        { contentKind: 'item', contentSlug: 'dagger', equipped: true, attuned: false }
+      ]
+    };
+    const d = derive(char, lookup());
+    const daggerAttack = d.actions.find(
+      (a) => a.sourceContent.slug === 'dagger' && a.type === 'attack'
+    );
+    expect(daggerAttack).toBeDefined();
+    // Neither weapon picks up the bonus — picked variant isn't in dynamicVariants.
+    const dgModIds = daggerAttack!.appliedModifiers.map((m) => m.modifierId);
+    expect(dgModIds).not.toContain('magic-weapon-attack-bonus');
+  });
+
+  it('synthesizes nothing when activation is inactive', () => {
+    const d = derive(
+      characterWithGear({ 'magic-weapon-active': { active: false, variant: 'longsword' } }),
+      lookup()
+    );
+    const longswordAttack = d.actions.find(
+      (a) => a.sourceContent.slug === 'longsword' && a.type === 'attack'
+    );
+    const lsModIds = longswordAttack!.appliedModifiers.map((m) => m.modifierId);
+    expect(lsModIds).not.toContain('magic-weapon-attack-bonus');
+  });
+});

@@ -608,6 +608,16 @@ export interface ActivationDeclaration {
    *  the activation is active (replaces the now-deprecated
    *  modifierFromChoice usage for activation-tied picks). */
   variants?: ActivationVariant[];
+  /** Dynamic per-weapon variants. When set, derive() generates a
+   *  variant per equipped weapon in the character's inventory and
+   *  exposes the menu on availableActivations[]. On activation, the
+   *  picked weapon's slug is substituted for any `"__weapon__"` string
+   *  literal in the template (typically in an action-modifier's
+   *  `appliesTo.predicates[].weapon.slug`). Powers spells like Magic
+   *  Weapon / Elemental Weapon that enchant "the weapon you touched"
+   *  rather than all weapons. Mutually exclusive with `variants[]` —
+   *  authoring both is a content bug. */
+  variantsFromWeapons?: { modifiers: Array<Record<string, unknown>> };
 }
 
 /** A condition slug, or an inventory-state predicate, that can appear

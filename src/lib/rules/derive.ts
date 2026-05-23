@@ -820,6 +820,28 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           ? Math.max(0, state.usesRemaining)
           : usesMax;
 
+      // Per-weapon dynamic variants: walk equipped inventory for items
+      // tagged category=weapon and emit one variant per weapon. The
+      // variant id is the weapon's content slug (substituted into the
+      // modifier template at synthesis time). Mutually exclusive with
+      // static `variants[]` — if both are authored, static wins.
+      const variantsFromWeapons = decl.variantsFromWeapons as
+        | { modifiers: Array<Record<string, unknown>> }
+        | undefined;
+      let dynamicVariants: Array<{ id: string; label: string }> | undefined;
+      if (variantsFromWeapons && !decl.variants) {
+        dynamicVariants = [];
+        for (const slot of character.inventory) {
+          if (!slot.equipped) continue;
+          const itemRow = content({ kind: slot.contentKind, slug: slot.contentSlug });
+          if (!itemRow || (itemRow.data as { category?: string }).category !== 'weapon') continue;
+          dynamicVariants.push({
+            id: slot.contentSlug,
+            label: itemRow.name ?? slot.contentSlug
+          });
+        }
+      }
+
       availableActivations.push({
         id: decl.id,
         name: decl.name ?? decl.id,
@@ -836,7 +858,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         ...(decl.autoCancelOn ? { autoCancelOn: decl.autoCancelOn } : {}),
         ...(decl.variants
           ? { variants: decl.variants.map((v) => ({ id: v.id, label: v.label })) }
-          : {}),
+          : dynamicVariants
+            ? { variants: dynamicVariants }
+            : {}),
         ...(state?.variant ? { activeVariant: state.variant } : {}),
         active: isActive
       });
@@ -872,6 +896,44 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
                 raw: m
               });
             }
+          }
+        }
+      }
+
+      // Per-weapon variant synthesis: substitute the picked weapon slug
+      // into the modifier template's `"__weapon__"` placeholders, then
+      // push the synthesized modifiers through the same allMods pipeline.
+      // Gate on the variant actually existing in the current dynamic
+      // list — if the player picked a weapon that's since been
+      // unequipped, no bonus is synthesized (correct behavior).
+      if (
+        isActive &&
+        state?.variant &&
+        variantsFromWeapons &&
+        dynamicVariants &&
+        dynamicVariants.some((v) => v.id === state.variant)
+      ) {
+        for (let i = 0; i < variantsFromWeapons.modifiers.length; i++) {
+          const tmpl = variantsFromWeapons.modifiers[i];
+          const m = substituteWeaponPlaceholder(tmpl, state.variant) as Record<string, unknown>;
+          const kind = (m.kind as string | undefined) ?? 'stat-modifier';
+          const baseId = `${a.row.kind}/${a.row.slug}/activation/${decl.id}/${state.variant}/${i}`;
+          if (kind === 'stat-modifier') {
+            allMods.push({ id: baseId, kind: 'stat-modifier', source: a, raw: m });
+          } else if (kind === 'action-modifier') {
+            allMods.push({
+              id: (m.id as string | undefined) ?? baseId,
+              kind: 'action-modifier',
+              source: a,
+              raw: m
+            });
+          } else if (kind === 'overlay-hp-pool') {
+            allMods.push({
+              id: (m.id as string | undefined) ?? baseId,
+              kind: 'overlay-hp-pool',
+              source: a,
+              raw: m
+            });
           }
         }
       }
@@ -1632,6 +1694,24 @@ function formatActivationDuration(
     return `${d.value} ${u}`;
   }
   return undefined;
+}
+
+// Deep-clone an activation variant modifier template, replacing any
+// string literal equal to "__weapon__" with the picked weapon slug.
+// Used for variantsFromWeapons synthesis so a single Magic Weapon
+// template row produces a per-weapon action-modifier whose appliesTo
+// predicate `weapon.slug` matches only the chosen weapon.
+function substituteWeaponPlaceholder(value: unknown, weaponSlug: string): unknown {
+  if (typeof value === 'string') return value === '__weapon__' ? weaponSlug : value;
+  if (Array.isArray(value)) return value.map((v) => substituteWeaponPlaceholder(v, weaponSlug));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = substituteWeaponPlaceholder(v, weaponSlug);
+    }
+    return out;
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------------------
