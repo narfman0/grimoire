@@ -1924,27 +1924,73 @@ function realizeActivity(
     action.range = act.range as { value: number; units: string };
   }
 
-  // Upcast scaling — passed through unchanged onto the Action. Consumers
-  // (encounter runtime / planner) read this when the player picks a slot
-  // to cast at and call applyUpcast() to get the slot-adjusted variant.
-  // Defaults baseSlotLevel to the spell row's `level` field when omitted.
+  // Upcast scaling — merged from two pack shapes:
+  //   (a) Activity-level `upcastScaling` (engine-native, covers all
+  //       scaling kinds incl. tempHp).
+  //   (b) The SRD-author shape `damage.scalesWithSlotLevel` and
+  //       activity-level `scalesWithSlotLevel`, using the existing
+  //       perSlotAbove / addDice / addDarts / addTargets keys the SRD
+  //       content already ships.
+  //
+  // Consumers (encounter runtime / planner) read Action.upcastScaling
+  // and call applyUpcast(action, slot) to get the slot-adjusted variant.
+  const upcastScaling: Record<string, unknown> = {};
+  let upcastBase: number | undefined;
+  // (a) Engine-native shape
   if (act.upcastScaling && typeof act.upcastScaling === 'object') {
     const spec = act.upcastScaling as Record<string, unknown>;
-    const baseLevel =
-      typeof spec.baseSlotLevel === 'number'
-        ? spec.baseSlotLevel
-        : (source.data.level as number | undefined);
+    if (typeof spec.baseSlotLevel === 'number') upcastBase = spec.baseSlotLevel;
+    if (typeof spec.extraDamagePerSlot === 'string') upcastScaling.extraDamagePerSlot = spec.extraDamagePerSlot;
+    if (typeof spec.extraFlatDamagePerSlot === 'number')
+      upcastScaling.extraFlatDamagePerSlot = spec.extraFlatDamagePerSlot;
+    if (typeof spec.extraTargetsPerSlot === 'number')
+      upcastScaling.extraTargetsPerSlot = spec.extraTargetsPerSlot;
+    if (typeof spec.extraHealPerSlot === 'string') upcastScaling.extraHealPerSlot = spec.extraHealPerSlot;
+    if (typeof spec.extraTempHpPerSlot === 'number')
+      upcastScaling.extraTempHpPerSlot = spec.extraTempHpPerSlot;
+  }
+  // (b) SRD shape: damage.scalesWithSlotLevel for damage scaling
+  const damageBlock = act.damage as Record<string, unknown> | undefined;
+  const damageScaling = damageBlock?.scalesWithSlotLevel as Record<string, unknown> | undefined;
+  if (damageScaling) {
+    if (upcastBase === undefined && typeof damageScaling.perSlotAbove === 'number') {
+      upcastBase = damageScaling.perSlotAbove;
+    }
+    if (!('extraDamagePerSlot' in upcastScaling) && typeof damageScaling.addDice === 'string') {
+      upcastScaling.extraDamagePerSlot = damageScaling.addDice;
+    }
+  }
+  // (b) SRD shape: activity-level scalesWithSlotLevel for target-count
+  // (Magic Missile addDarts; Hold Person / Banishment addTargets) and
+  // heal scaling (Cure Wounds addDice at activity scope).
+  const actScaling = act.scalesWithSlotLevel as Record<string, unknown> | undefined;
+  if (actScaling) {
+    if (upcastBase === undefined && typeof actScaling.perSlotAbove === 'number') {
+      upcastBase = actScaling.perSlotAbove;
+    }
+    if (!('extraTargetsPerSlot' in upcastScaling)) {
+      if (typeof actScaling.addTargets === 'number') {
+        upcastScaling.extraTargetsPerSlot = actScaling.addTargets;
+      } else if (typeof actScaling.addDarts === 'number') {
+        upcastScaling.extraTargetsPerSlot = actScaling.addDarts;
+      }
+    }
+    // Heal scaling at activity scope — only treat addDice as heal when the
+    // activity has a `heal` field (Cure Wounds shape).
+    if (
+      !('extraHealPerSlot' in upcastScaling) &&
+      typeof actScaling.addDice === 'string' &&
+      act.heal
+    ) {
+      upcastScaling.extraHealPerSlot = actScaling.addDice;
+    }
+  }
+  // Final assembly: need both a base slot level (spell row's level is the
+  // sensible default) and at least one scaling field.
+  if (Object.keys(upcastScaling).length > 0) {
+    const baseLevel = upcastBase ?? (source.data.level as number | undefined);
     if (typeof baseLevel === 'number') {
-      const scaling: Record<string, unknown> = { baseSlotLevel: baseLevel };
-      if (typeof spec.extraDamagePerSlot === 'string') scaling.extraDamagePerSlot = spec.extraDamagePerSlot;
-      if (typeof spec.extraFlatDamagePerSlot === 'number')
-        scaling.extraFlatDamagePerSlot = spec.extraFlatDamagePerSlot;
-      if (typeof spec.extraTargetsPerSlot === 'number')
-        scaling.extraTargetsPerSlot = spec.extraTargetsPerSlot;
-      if (typeof spec.extraHealPerSlot === 'string') scaling.extraHealPerSlot = spec.extraHealPerSlot;
-      if (typeof spec.extraTempHpPerSlot === 'number')
-        scaling.extraTempHpPerSlot = spec.extraTempHpPerSlot;
-      action.upcastScaling = scaling as Action['upcastScaling'];
+      action.upcastScaling = { baseSlotLevel: baseLevel, ...upcastScaling } as Action['upcastScaling'];
     }
   }
 
