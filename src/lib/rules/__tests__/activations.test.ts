@@ -345,4 +345,76 @@ describe('usesMax evaluation against character context', () => {
     expect(aspect.usesMax).toBeNull();
     expect(aspect.refreshOn).toBeNull();
   });
+
+  // Locks the perClass-table activation contract that rage depends on:
+  // rage's RAW uses are a hardcoded {2,2,3,3,3,4,…,99} table indexed by
+  // barbarian level, not a clean formula. evaluateValue already handles
+  // the shape for activity-level uses; this asserts the activation
+  // primitive routes through the same path.
+  it('resolves uses.max as a perClass-table indexed by class level', () => {
+    const ragerCharacter = (barbLevel: number): CharacterDocument => ({
+      ...baseCharacter(),
+      classes: [
+        {
+          slug: 'test-class',
+          level: barbLevel,
+          subclass: 'test-subclass',
+          hpRolledPerLevel: Array(barbLevel).fill(8)
+        }
+      ]
+    });
+    const RAGE_LIKE_FEATURE: ContentRow = {
+      kind: 'feature',
+      slug: 'rage-like',
+      version: 1,
+      source: 'test',
+      name: 'Rage-Like',
+      data: {
+        ownerKind: 'class',
+        ownerSlug: 'test-class',
+        minLevel: 1,
+        activations: [
+          {
+            id: 'rage-like',
+            name: 'Rage-Like',
+            cost: 'bonus',
+            duration: { value: 1, units: 'minute' },
+            uses: {
+              max: { perClass: 'test-class', table: [2, 2, 3, 3, 3, 4, 4, 4, 4, 4] },
+              per: 'long-rest'
+            },
+            condition: 'rage-like-active'
+          }
+        ],
+        modifiers: []
+      }
+    };
+    // Class row that lists the rage-like feature — without this the
+    // feature-walk in derive() never reaches it.
+    const RAGE_CLASS: ContentRow = {
+      ...SYNTH_CLASS,
+      data: { ...SYNTH_CLASS.data, features: ['rage-like'] }
+    };
+    const lookup: ContentLookup = (ref) => {
+      const map = new Map<string, ContentRow>([
+        [`class/test-class`, RAGE_CLASS],
+        [`subclass/test-subclass`, SYNTH_SUBCLASS],
+        [`species/test-species`, SYNTH_SPECIES],
+        [`feature/rage-like`, RAGE_LIKE_FEATURE]
+      ]);
+      return map.get(`${ref.kind}/${ref.slug}`);
+    };
+    const l1 = derive(ragerCharacter(1), lookup).availableActivations.find(
+      (a) => a.id === 'rage-like'
+    )!;
+    expect(l1.usesMax).toBe(2);
+    const l3 = derive(ragerCharacter(3), lookup).availableActivations.find(
+      (a) => a.id === 'rage-like'
+    )!;
+    expect(l3.usesMax).toBe(3);
+    const l6 = derive(ragerCharacter(6), lookup).availableActivations.find(
+      (a) => a.id === 'rage-like'
+    )!;
+    expect(l6.usesMax).toBe(4);
+  });
 });

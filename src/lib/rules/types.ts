@@ -563,10 +563,16 @@ export interface ActivationDeclaration {
    *  Game-time only — the engine doesn't tick a count-down. Player toggles
    *  off manually when the in-fiction duration ends. */
   duration?: ActivationDuration | 'persistent';
-  /** Per-rest use cap. `max` is evaluated against the character context
-   *  (so 'proficiencyBonus' / 'wisMod' resolve). `per` controls when
-   *  refreshActivations() resets uses back to max. */
-  uses?: { max: number | string; per: 'short-rest' | 'long-rest' | 'day' };
+  /** Per-rest use cap. `max` is evaluated via evaluateValue — accepts
+   *  literal numbers, magic strings ('proficiencyBonus', 'wisMod',
+   *  `classLevel:<slug>`, arithmetic like 'max(1, intMod)'), and the
+   *  perClass-table shape used by activity-level uses for things like
+   *  rage (`{perClass: 'barbarian', table: [2,2,3,3,3,4,…]}`). `per`
+   *  controls when refreshActivations() resets uses back to max. */
+  uses?: {
+    max: number | string | { perClass: string; table: Array<number | string> };
+    per: 'short-rest' | 'long-rest' | 'day';
+  };
   /** True if this activation requires concentration. Toggling on cancels
    *  any other concentration the character is currently maintaining. */
   concentration?: boolean;
