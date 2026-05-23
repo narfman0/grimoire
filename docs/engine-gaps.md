@@ -69,6 +69,64 @@ Also closed in the same commit: the API schema gap where
 validator on every PATCH because they weren't declared on the
 CharacterDocument schema.
 
+### Conditional-on-existing-proficiency choice routing — SHIPPED
+
+Feature shapes like Iron Mind and Elegant Courtier read "gain
+proficiency in X; if you already have proficiency, gain Expertise (or
+some other alternate) instead." Previously the engine had no way to
+express the conditional branch — rows either over-granted (proficiency
++ expertise) or stayed T1-STUB.
+
+**Shape.** Any choice decl that synthesizes a single proficiency grant
+(`skillProficiency`, `savingThrow`, `language`, `toolProficiency`) can
+ship an `elseAlready` override:
+
+```jsonc
+{
+  "choices": {
+    "skillProficiency": {
+      "allowedSkills": ["insight", "perception", "persuasion"],
+      "elseAlready": {
+        "targetPrefix": "expertise.skill",
+        "mode": "OVERRIDE",
+        "value": true
+      }
+    }
+  }
+}
+```
+
+When the player's recorded pick is already in the character's
+**baseline proficiency set**, derive() emits the `elseAlready` modifier
+instead of the default `{targetPrefix}.{pick}` grant. For Iron Mind,
+the same shape applies to `savingThrow` with `targetPrefix:
+"expertise.save"`; derive() now honors `expertise.save.<ab>` as a
+PB-doubling save grant (SaveCell gained an `expertise: boolean`
+field).
+
+**Ordering choice (documented in code).** Only non-choice grants count
+toward "already proficient":
+- `character.proficienciesChosen.{skills,languages,tools}`
+- `class.saves` arrays
+- `proficiency.<kind>.<slug>` modifier entries on any active row
+
+Choice-driven grants from other features are intentionally NOT
+included. This keeps the routing deterministic regardless of which
+feature derive() processes first and matches RAW intent — the "already
+proficient" prerequisite is a base-character state, not a stacking
+interaction with a simultaneous pick.
+
+**Sheet hint.** `FeatureChoicesPanel.svelte` accepts an optional
+`stats` prop; when the player's pick lands on a baseline-proficient
+target, the picker shows an inline "Already proficient — will grant
+Expertise instead" hint under the select.
+
+**Pack work pending (follow-on round).** Iron Mind and Elegant
+Courtier (xanathars/features/{gloom-stalker,samurai}.json) currently
+encode the choice as a plain three-option `savingThrow` allow-list.
+Migrating them to use `elseAlready` lets the player simply pick the
+target save and the engine routes to expertise automatically.
+
 ### Encounter-runtime trigger consumers — PARTIAL (primitive shipped)
 
 `src/lib/server/encounter/triggers.ts` (commit 62e70ed) exposes a pure

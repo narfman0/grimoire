@@ -2625,6 +2625,7 @@
       </div>
       <FeatureChoicesPanel
         pendingChoices={derived.pendingFeatureChoices}
+        stats={derived.stats}
         {busy}
         on:pick={onFeaturePick}
       />

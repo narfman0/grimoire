@@ -19,6 +19,42 @@
   export let pendingChoices: PendingFeatureChoice[] = [];
   /** Disable inputs (busy state from parent). */
   export let busy = false;
+  /** Resolved character proficiency sets, used to surface the
+   *  `elseAlready` conditional-routing hint ("you already have
+   *  Persuasion — picking this will grant Expertise instead").
+   *  Caller threads `derived.stats` here. Optional; absent → no hint. */
+  export let stats:
+    | {
+        skills?: Record<string, { proficient?: boolean }>;
+        saves?: Record<string, { proficient?: boolean }>;
+        languages?: string[];
+        tools?: string[];
+      }
+    | null = null;
+
+  function elseAlreadyHint(
+    slot: string,
+    decl: Record<string, unknown>,
+    pick: string
+  ): string | null {
+    if (!stats || !pick) return null;
+    const ea = decl.elseAlready as { targetPrefix?: string } | undefined;
+    if (!ea) return null;
+    const tp = ea.targetPrefix ?? '';
+    let already = false;
+    if (slot === 'skillProficiency') {
+      already = !!stats.skills?.[pick]?.proficient;
+    } else if (slot === 'savingThrow') {
+      already = !!stats.saves?.[pick]?.proficient;
+    } else if (slot === 'language') {
+      already = !!stats.languages?.includes(pick);
+    } else if (slot === 'toolProficiency') {
+      already = !!stats.tools?.includes(pick);
+    }
+    if (!already) return null;
+    if (tp.startsWith('expertise.')) return 'Already proficient — will grant Expertise instead.';
+    return 'Already proficient — alternate grant will apply.';
+  }
 
   const ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
@@ -253,6 +289,11 @@
                   <option value={s}>{s}</option>
                 {/each}
               </select>
+              {#if elseAlreadyHint('skillProficiency', p.declarations.skillProficiency, selectedFor(p.featureSlug, 'skillProficiency'))}
+                <span class="mt-1 block text-[10px] text-amber-400">
+                  {elseAlreadyHint('skillProficiency', p.declarations.skillProficiency, selectedFor(p.featureSlug, 'skillProficiency'))}
+                </span>
+              {/if}
             </label>
           {/if}
 
@@ -287,6 +328,11 @@
                   <option value={ab}>{ab.toUpperCase()}</option>
                 {/each}
               </select>
+              {#if elseAlreadyHint('savingThrow', p.declarations.savingThrow, selectedFor(p.featureSlug, 'savingThrow'))}
+                <span class="mt-1 block text-[10px] text-amber-400">
+                  {elseAlreadyHint('savingThrow', p.declarations.savingThrow, selectedFor(p.featureSlug, 'savingThrow'))}
+                </span>
+              {/if}
             </label>
           {/if}
 
