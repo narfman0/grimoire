@@ -16,6 +16,8 @@ import type {
   AbilityCell,
   AbilityKey,
   Action,
+  ActivationDeclaration,
+  AvailableActivation,
   AppliedModifier,
   AvailableToggle,
   CharacterDocument,
@@ -780,8 +782,101 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     classLevels,
     abilityMods: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
     walkSpeed: 0,
-    conditionStacks: character.conditionStacks ?? {}
+    conditionStacks: character.conditionStacks ?? {},
+    // resolvedConditions reference is shared — we extend it with
+    // activation-injected condition slugs after the activation walk
+    // (see below). All appliesWhen.condition checks downstream read
+    // from this set, so activation gating is uniform with character
+    // conditions.
+    resolvedConditions
   };
+
+  // ACTIVATIONS — walk active content's `data.activations[]` declarations,
+  // pair with character.activations state, build the Derived manifest,
+  // inject active conditions into resolvedConditions, and synthesize
+  // variant modifiers into allMods. Runs before phase 2(a) so the rest
+  // of phase 2 sees the activation-gated modifiers fire correctly via
+  // ctx.resolvedConditions checks in applyTarget. `uses.max` formulas
+  // resolve against ctx as it stands now (proficiencyBonus + classLevels
+  // available; abilityMods still zero — uses formulas based on ability
+  // mods will read 0 until evaluated post-phase-2; note in pack content).
+  const availableActivations: AvailableActivation[] = [];
+  const charActivations = character.activations ?? {};
+  for (const a of active) {
+    const decls = a.data.activations as ActivationDeclaration[] | undefined;
+    if (!Array.isArray(decls)) continue;
+    for (const decl of decls) {
+      if (!decl || typeof decl.id !== 'string' || typeof decl.condition !== 'string') continue;
+      const state = charActivations[decl.id];
+      const isActive = state?.active === true;
+
+      let usesMax: number | null = null;
+      if (decl.uses && decl.uses.max !== undefined) {
+        const evaluated = evaluateValue(decl.uses.max, ctx);
+        if (typeof evaluated === 'number') usesMax = Math.max(0, Math.floor(evaluated));
+      }
+      const usesRemaining =
+        state?.usesRemaining !== undefined && state?.usesRemaining !== null
+          ? Math.max(0, state.usesRemaining)
+          : usesMax;
+
+      availableActivations.push({
+        id: decl.id,
+        name: decl.name ?? decl.id,
+        sourceContent: { kind: a.row.kind, slug: a.row.slug },
+        description: decl.description,
+        cost: decl.cost,
+        duration: formatActivationDuration(decl.duration),
+        usesMax,
+        usesRemaining,
+        refreshOn: decl.uses?.per ?? null,
+        ...(decl.concentration ? { concentration: true } : {}),
+        ...(decl.group ? { group: decl.group } : {}),
+        condition: decl.condition,
+        ...(decl.autoCancelOn ? { autoCancelOn: decl.autoCancelOn } : {}),
+        ...(decl.variants
+          ? { variants: decl.variants.map((v) => ({ id: v.id, label: v.label })) }
+          : {}),
+        ...(state?.variant ? { activeVariant: state.variant } : {}),
+        active: isActive
+      });
+
+      if (isActive && decl.condition) {
+        resolvedConditions.add(decl.condition);
+      }
+
+      // Variant modifier synthesis — only when active AND a variant is
+      // picked. Routes stat-modifier / action-modifier / overlay-hp-pool
+      // kinds through the standard allMods pipeline.
+      if (isActive && state?.variant && Array.isArray(decl.variants)) {
+        const chosen = decl.variants.find((v) => v?.id === state.variant);
+        if (chosen && Array.isArray(chosen.modifiers)) {
+          for (let i = 0; i < chosen.modifiers.length; i++) {
+            const m = chosen.modifiers[i] as Record<string, unknown>;
+            const kind = (m.kind as string | undefined) ?? 'stat-modifier';
+            const baseId = `${a.row.kind}/${a.row.slug}/activation/${decl.id}/${state.variant}/${i}`;
+            if (kind === 'stat-modifier') {
+              allMods.push({ id: baseId, kind: 'stat-modifier', source: a, raw: m });
+            } else if (kind === 'action-modifier') {
+              allMods.push({
+                id: (m.id as string | undefined) ?? baseId,
+                kind: 'action-modifier',
+                source: a,
+                raw: m
+              });
+            } else if (kind === 'overlay-hp-pool') {
+              allMods.push({
+                id: (m.id as string | undefined) ?? baseId,
+                kind: 'overlay-hp-pool',
+                source: a,
+                raw: m
+              });
+            }
+          }
+        }
+      }
+    }
+  }
 
   // (a) Ability scores
   const abilities: Record<AbilityKey, AbilityCell> = {} as Record<AbilityKey, AbilityCell>;
@@ -1017,6 +1112,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target as string;
     if (!target || m.raw.value !== true) continue;
+    // Honor appliesWhen.condition — activation-gated immunities (Form
+    // of Dread immunity.frightened, etc.) only fire when the relevant
+    // condition is in resolvedConditions.
+    const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
+    if (
+      appliesWhen?.condition &&
+      !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)
+    )
+      continue;
     const qualifier =
       typeof m.raw.qualifier === 'string' ? (m.raw.qualifier as string) : undefined;
     if (target.startsWith('resistance.')) {
@@ -1188,7 +1292,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       const enabled =
         character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
       const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-      if (appliesWhen?.condition && !character.conditions.includes(appliesWhen.condition)) continue;
+      if (appliesWhen?.condition && !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)) continue;
       if (!enabled) continue;
       const appliesTo = m.raw.appliesTo as
         | { activityType?: string; predicates?: Array<Record<string, unknown>> }
@@ -1492,8 +1596,21 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort(),
     outboundEffects,
     overlayHpPools,
-    pendingFeatureChoices
+    pendingFeatureChoices,
+    availableActivations
   };
+}
+
+function formatActivationDuration(
+  d: ActivationDeclaration['duration'] | undefined
+): string | undefined {
+  if (!d) return undefined;
+  if (d === 'persistent') return 'persistent';
+  if (typeof d === 'object' && typeof d.value === 'number' && typeof d.units === 'string') {
+    const u = d.value === 1 ? d.units : `${d.units}s`;
+    return `${d.value} ${u}`;
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -1542,7 +1659,7 @@ function applyTarget(
       character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
     if (!enabled) return false;
     const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-    if (appliesWhen?.condition && !character.conditions.includes(appliesWhen.condition)) return false;
+    if (appliesWhen?.condition && !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)) return false;
     return true;
   });
   if (eligible.length === 0) return base;
@@ -1673,7 +1790,7 @@ function computeSpeeds(
       character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
     if (!enabled) return false;
     const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-    if (appliesWhen?.condition && !character.conditions.includes(appliesWhen.condition)) return false;
+    if (appliesWhen?.condition && !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)) return false;
     return true;
   });
   if (eligibleAll.length > 0) {

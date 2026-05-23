@@ -152,6 +152,19 @@ export const CharacterDocument = z
     /** Player picks declared on the subclass row itself (rare — most
      *  subclass picks live on the per-level feature row instead). */
     subclassChoices: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+    /** Per-activation player state. Keyed by activation id from
+     *  data.activations[].id on the source row. */
+    activations: z
+      .record(
+        z.string(),
+        z.object({
+          active: z.boolean(),
+          usesRemaining: z.number().int().nonnegative().optional(),
+          variant: z.string().optional(),
+          activatedAtRound: z.number().int().nonnegative().optional()
+        })
+      )
+      .optional(),
     resourcesSpent: z.record(z.string(), z.number().int().nonnegative()).optional(),
     /** Per-turn action-economy slots — auto-reset on turn-rise + rest. */
     actionUsedThisRound: z.boolean().optional(),

@@ -98,9 +98,31 @@ export interface CharacterDocument {
    *  ends voluntarily, on long rest, or when a new concentration starts.
    *  Damage-triggered CON saves are DM-adjudicated. */
   concentrating?: { label: string; sinceRound?: number } | null;
+  /** Per-activation player state, keyed by `activation.id` declared on a
+   *  feature/spell row. Tracks whether the activation is currently on,
+   *  uses remaining (for per-rest activations), and the picked variant
+   *  for activations with a variants[] menu. derive() reads this to
+   *  decide whether to inject the activation's `condition` slug into the
+   *  resolved condition set (which gates appliesWhen.condition modifiers
+   *  on stat/action/outbound shapes). */
+  activations?: Record<string, ActivationState>;
   /** Action ids (derived.actions[].id) the player has pinned. The planner
    *  surfaces these at the top of the picker. */
   favoriteActionIds?: string[];
+}
+
+export interface ActivationState {
+  /** Whether the activation is currently on. */
+  active: boolean;
+  /** Uses remaining for per-rest activations; omit / null for unlimited. */
+  usesRemaining?: number;
+  /** For activations with variants[], the picked variant id. The picked
+   *  variant's modifiers are synthesized when active=true. */
+  variant?: string;
+  /** Round number when this activation was last toggled on. Set by the
+   *  encounter runtime when an in-encounter activation fires; the sheet
+   *  ignores it. */
+  activatedAtRound?: number;
 }
 
 export interface ContentRow {
@@ -501,6 +523,98 @@ export interface Derived {
    *  and writes selections back into `character.featureChoices[slug]`
    *  (or `character.subclassChoices[slug]` for subclass-row picks). */
   pendingFeatureChoices: PendingFeatureChoice[];
+  /** Player-toggleable activations declared on active feature / spell rows
+   *  (Bladesong, Rage, Form of Dread, Magic Weapon, etc.). The sheet
+   *  renders a toggle per entry; toggling on writes
+   *  `character.activations[id].active = true`, which derive() reads back
+   *  on the next pass to inject the activation's `condition` slug into
+   *  resolved conditions (gating appliesWhen.condition modifiers) and
+   *  to synthesize the picked variant's modifiers when applicable. */
+  availableActivations: AvailableActivation[];
+}
+
+export interface ActivationDuration {
+  value: number;
+  units: 'round' | 'turn' | 'minute' | 'hour';
+}
+
+export interface ActivationVariant {
+  id: string;
+  label: string;
+  /** Modifier rows synthesized when this variant is the picked variant
+   *  AND the parent activation is active. Same shape as modifierFromChoice
+   *  option modifiers — stat-modifier / action-modifier / overlay-hp-pool. */
+  modifiers?: Array<Record<string, unknown>>;
+}
+
+/** Authored on a feature / spell / item row's `data.activations[]`. */
+export interface ActivationDeclaration {
+  /** Stable slug used as the key in `character.activations`. Distinct
+   *  from `condition` (the slug injected into resolvedConditions when
+   *  active) so multiple activations can target the same condition slug
+   *  if needed. */
+  id: string;
+  name: string;
+  description?: string;
+  /** Action economy cost to activate. Display-only — the planner uses
+   *  this to surface "BA to start" in the activation panel. */
+  cost?: 'action' | 'bonus' | 'reaction' | 'free' | 'none';
+  /** Display-only duration string the sheet renders alongside the toggle.
+   *  Game-time only — the engine doesn't tick a count-down. Player toggles
+   *  off manually when the in-fiction duration ends. */
+  duration?: ActivationDuration | 'persistent';
+  /** Per-rest use cap. `max` is evaluated against the character context
+   *  (so 'proficiencyBonus' / 'wisMod' resolve). `per` controls when
+   *  refreshActivations() resets uses back to max. */
+  uses?: { max: number | string; per: 'short-rest' | 'long-rest' | 'day' };
+  /** True if this activation requires concentration. Toggling on cancels
+   *  any other concentration the character is currently maintaining. */
+  concentration?: boolean;
+  /** Mutually-exclusive band — only one activation per group can be
+   *  active at a time. Toggling one on auto-cancels others in the group
+   *  (Wild Heart Aspect: owl/panther/salmon are in the same group; Rage
+   *  of the Wilds: bear/eagle/wolf are in the same group). */
+  group?: string;
+  /** Slug injected into resolvedConditions when active=true. Existing
+   *  appliesWhen.condition modifiers gated on this slug fire on the
+   *  next derive() pass. */
+  condition: string;
+  /** Conditions whose presence auto-cancels this activation. Used for
+   *  e.g. Bladesong (cancels on incapacitated, wearing medium/heavy
+   *  armor). The encounter runtime / sheet calls a helper to honor. */
+  autoCancelOn?: string[];
+  /** Variant menu — when set, the player picks one variant when
+   *  activating; the picked variant's modifiers are synthesized while
+   *  the activation is active (replaces the now-deprecated
+   *  modifierFromChoice usage for activation-tied picks). */
+  variants?: ActivationVariant[];
+}
+
+/** Per-character snapshot of an authored activation declaration plus the
+ *  player's current state. */
+export interface AvailableActivation {
+  id: string;
+  name: string;
+  sourceContent: { kind: string; slug: string };
+  description?: string;
+  cost?: ActivationDeclaration['cost'];
+  /** Display-only duration string (e.g. "1 minute", "persistent"). */
+  duration?: string;
+  /** Per-rest cap; null = unlimited. */
+  usesMax: number | null;
+  /** Uses remaining; null = unlimited. */
+  usesRemaining: number | null;
+  /** Refresh policy from the declaration's `uses.per`, null when unlimited. */
+  refreshOn: 'short-rest' | 'long-rest' | 'day' | null;
+  concentration?: boolean;
+  group?: string;
+  condition: string;
+  autoCancelOn?: string[];
+  variants?: Array<{ id: string; label: string }>;
+  /** Currently-picked variant id, when the activation has variants. */
+  activeVariant?: string;
+  /** Whether the activation is currently on. */
+  active: boolean;
 }
 
 export interface PendingFeatureChoice {

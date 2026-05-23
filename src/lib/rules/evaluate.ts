@@ -18,6 +18,16 @@ export interface EvalContext {
   /** Current stack count per stackable condition (e.g. exhaustion 1–10).
    *  Used by the perConditionStack evaluator shape. */
   conditionStacks: Record<string, number>;
+  /** Resolved condition slugs — union of character.conditions, their
+   *  implied chains (unconscious → prone + incapacitated), and the
+   *  condition slugs auto-injected by currently-active activations
+   *  (bladesong → 'bladesong-active'). Modifier appliesWhen.condition
+   *  checks should test against this set, not character.conditions
+   *  directly, so activation gating fires the same as character-set
+   *  conditions. Populated as a Set in derive(); evaluateValue doesn't
+   *  read it directly today, so it's optional for callers that build a
+   *  minimal ctx for token resolution alone (e.g. unit tests). */
+  resolvedConditions?: Set<string>;
 }
 
 const CLASS_LEVEL_TOKEN_RE = /^([a-z][a-z0-9]*)Level$/;
