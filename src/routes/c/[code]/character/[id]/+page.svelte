@@ -8,7 +8,7 @@
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import SpellManagerModal from '$lib/components/SpellManagerModal.svelte';
   import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
-  import { derive } from '$lib/rules';
+  import { derive, refreshActivations, applyAutoCancelOnConditionChange } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
@@ -622,6 +622,7 @@
   }
 
   async function toggleCondition(name: string, on: boolean) {
+    const available = derived?.availableActivations ?? [];
     await patchDocument((d) => {
       const has = d.conditions.includes(name);
       if (on && !has) {
@@ -631,6 +632,11 @@
           if (!d.conditionStacks) d.conditionStacks = {};
           if (!d.conditionStacks[name]) d.conditionStacks[name] = 1;
         }
+        // Auto-cancel activations whose autoCancelOn list includes the
+        // newly-added condition (Bladesong drops on incapacitated, etc.).
+        const cancelled = applyAutoCancelOnConditionChange(d, available);
+        d.activations = cancelled.activations ?? d.activations;
+        d.concentrating = cancelled.concentrating ?? null;
       } else if (!on && has) {
         d.conditions = d.conditions.filter((c) => c !== name);
         // Clear the stack when condition is removed.
@@ -1291,12 +1297,22 @@
 
   async function shortRest() {
     if (!derived) return;
+    const available = derived.availableActivations ?? [];
     await patchDocument((d) => {
       resetResourcesByPer(d, 'short-rest');
       d.actionUsedThisRound = false;
       d.bonusActionUsedThisRound = false;
       d.reactionUsedThisRound = false;
       d.movementUsedThisRound = 0;
+      // Refresh per-short-rest activation uses + drop active toggles
+      // (rest length is longer than typical activation durations).
+      const refreshed = refreshActivations(d, available, 'short-rest');
+      d.activations = refreshed.activations ?? {};
+      for (const a of available) {
+        if (a.duration === 'persistent') continue;
+        const state = d.activations[a.id];
+        if (state?.active) d.activations[a.id] = { ...state, active: false };
+      }
     });
     restingShort = true;
     restNote = 'Short rest — short-rest resources restored. Spend hit dice below as needed.';
@@ -1325,6 +1341,17 @@
       d.reactionUsedThisRound = false;
       d.movementUsedThisRound = 0;
       d.concentrating = null;
+      // Refresh per-rest activation uses + drop all active toggles
+      // (long rest covers short, day, and long activation refresh
+      // policies).
+      const available = derived!.availableActivations ?? [];
+      const refreshed = refreshActivations(d, available, 'long-rest');
+      d.activations = refreshed.activations ?? {};
+      for (const a of available) {
+        if (a.duration === 'persistent') continue;
+        const state = d.activations[a.id];
+        if (state?.active) d.activations[a.id] = { ...state, active: false };
+      }
       // Toggles (Reckless, GWM…) are per-turn / per-attack choices — don't
       // reset them on rest. Conditions like "frightened" generally end on a
       // long rest unless the source persists, but we don't track durations
