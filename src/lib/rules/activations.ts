@@ -201,6 +201,13 @@ export function toggleActivation(
  *  - long-rest: refreshes activations whose `uses.per` is one of
  *    'short-rest' | 'long-rest' | 'day' (long rest is also a short rest;
  *    "next dawn" abilities also refresh on long rest in practice).
+ *
+ *  Also clears per-rest variant picks (Fiendish Resilience-style
+ *  "choose one when you rest" activations): an activation whose
+ *  `restPickRequired` matches the rest kind has its recorded `variant`
+ *  field wiped, which flips the derived `active` state back off until
+ *  the player records a new pick. Long-rest covers short-rest picks
+ *  via the same set as the uses-refresh path.
  */
 export function refreshActivations(
   character: CharacterDocument,
@@ -214,16 +221,73 @@ export function refreshActivations(
   const next: Record<string, ActivationState> = { ...(character.activations ?? {}) };
   let mutated = false;
   for (const a of available) {
-    if (a.refreshOn === null) continue;
-    if (!refreshSet.has(a.refreshOn)) continue;
-    if (a.usesMax === null) continue;
-    const cur = next[a.id];
-    if (cur?.usesRemaining === a.usesMax) continue;
-    next[a.id] = { ...(cur ?? { active: false }), usesRemaining: a.usesMax };
-    mutated = true;
+    // Uses-refresh path
+    if (a.refreshOn !== null && refreshSet.has(a.refreshOn) && a.usesMax !== null) {
+      const cur = next[a.id];
+      if (cur?.usesRemaining !== a.usesMax) {
+        next[a.id] = { ...(cur ?? { active: false }), usesRemaining: a.usesMax };
+        mutated = true;
+      }
+    }
+    // Rest-pick clear path — wipe the variant on a matching rest so
+    // the derived `active` state flips off. Subsequent player input
+    // records a new pick (which flips it back on for the next rest
+    // period). Also forces the stored `active` flag back to false so
+    // the rest-pick row stops gating modifiers via the legacy boolean
+    // check until a new variant is recorded.
+    if (a.restPickRequired && refreshSet.has(a.restPickRequired)) {
+      const cur = next[a.id];
+      if (cur?.variant !== undefined || cur?.active === true) {
+        const { variant: _drop, ...rest } = cur;
+        void _drop;
+        next[a.id] = { ...rest, active: false };
+        mutated = true;
+      }
+    }
   }
   if (!mutated) return character;
   return { ...character, activations: next };
+}
+
+/** Record a rest-pick variant on an activation. Used by the sheet's
+ *  rest-pick dropdown — when the player selects an option, this writes
+ *  `state.variant` and ensures `state.active=true` so derive() picks up
+ *  the synthesized modifiers + condition injection on the next pass.
+ *  Passing `null` for `variant` clears the pick (mirrors selecting the
+ *  empty "— pick at rest —" option).
+ *
+ *  Only applies to activations whose declaration has `restPickRequired`
+ *  set (mirrored onto the manifest). Calling this on a non-rest-pick
+ *  activation returns the character unchanged. */
+export function pickRestVariant(
+  character: CharacterDocument,
+  available: AvailableActivation[],
+  id: string,
+  variant: string | null
+): CharacterDocument {
+  const a = available.find((x) => x.id === id);
+  if (!a) return character;
+  if (!a.restPickRequired) return character;
+  // Validate against declared variants when present.
+  if (variant !== null && a.variants && !a.variants.some((v) => v.id === variant)) {
+    return character;
+  }
+  const activations = { ...(character.activations ?? {}) };
+  const cur = activations[id] ?? { active: false };
+  if (variant === null) {
+    if (cur.variant === undefined && cur.active === false) return character;
+    const { variant: _drop, ...rest } = cur;
+    void _drop;
+    activations[id] = { ...rest, active: false };
+    // Belt and braces: ensure `variant` is gone even if `rest` somehow
+    // retained it (Object spread without a `delete` is sufficient since
+    // the destructure pulled it out, but guard against future shape
+    // changes adding a non-`variant` field that aliases).
+  } else {
+    if (cur.variant === variant && cur.active === true) return character;
+    activations[id] = { ...cur, active: true, variant };
+  }
+  return { ...character, activations };
 }
 
 /** Walk available activations and toggle off any whose `autoCancelOn`

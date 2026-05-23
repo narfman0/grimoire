@@ -108,6 +108,75 @@ describe('ActivationsPanel', () => {
     expect(getByText(/incapacitated, unconscious/)).toBeTruthy();
   });
 
+  it('renders rest-pick dropdown (no activate button) for restPickRequired rows', () => {
+    const a = avail({
+      id: 'fiendish-resilience',
+      name: 'Fiendish Resilience',
+      usesMax: null,
+      usesRemaining: null,
+      refreshOn: null,
+      restPickRequired: 'short-rest',
+      restPickLabel: 'Damage type',
+      variants: [
+        { id: 'fire', label: 'Fire' },
+        { id: 'cold', label: 'Cold' }
+      ]
+    });
+    const { getByRole, queryByRole, getByText } = render(ActivationsPanel, {
+      props: { activations: [a] }
+    });
+    expect(getByText(/pick at short-rest/i)).toBeTruthy();
+    const select = getByRole('combobox') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    // No activate / deactivate button on rest-pick rows
+    expect(queryByRole('button', { name: /Activate/i })).toBeNull();
+    expect(queryByRole('button', { name: /Deactivate/i })).toBeNull();
+  });
+
+  it('rest-pick dropdown dispatches restPick with the chosen variant', async () => {
+    const onRestPick = vi.fn();
+    const a = avail({
+      id: 'fiendish-resilience',
+      name: 'Fiendish Resilience',
+      usesMax: null,
+      usesRemaining: null,
+      refreshOn: null,
+      restPickRequired: 'short-rest',
+      variants: [
+        { id: 'fire', label: 'Fire' },
+        { id: 'cold', label: 'Cold' }
+      ]
+    });
+    const { getByRole, component } = render(ActivationsPanel, { props: { activations: [a] } });
+    component.$on('restPick', (e) => onRestPick(e.detail));
+    const select = getByRole('combobox') as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: 'cold' } });
+    expect(onRestPick).toHaveBeenCalledWith({ id: 'fiendish-resilience', variant: 'cold' });
+  });
+
+  it('rest-pick dropdown dispatches restPick with variant=null when cleared', async () => {
+    const onRestPick = vi.fn();
+    const a = avail({
+      id: 'fiendish-resilience',
+      name: 'Fiendish Resilience',
+      usesMax: null,
+      usesRemaining: null,
+      refreshOn: null,
+      active: true,
+      activeVariant: 'fire',
+      restPickRequired: 'short-rest',
+      variants: [
+        { id: 'fire', label: 'Fire' },
+        { id: 'cold', label: 'Cold' }
+      ]
+    });
+    const { getByRole, component } = render(ActivationsPanel, { props: { activations: [a] } });
+    component.$on('restPick', (e) => onRestPick(e.detail));
+    const select = getByRole('combobox') as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: '' } });
+    expect(onRestPick).toHaveBeenCalledWith({ id: 'fiendish-resilience', variant: null });
+  });
+
   it('busy disables both the variant dropdown and the activate button', () => {
     const a = avail({
       variants: [{ id: 'v1', label: 'V1' }]

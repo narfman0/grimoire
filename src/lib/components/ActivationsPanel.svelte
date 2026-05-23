@@ -8,6 +8,9 @@
 
   const dispatch = createEventDispatcher<{
     toggle: { id: string; on: boolean; variant?: string; slot?: number };
+    /** Per-rest variant pick (Fiendish Resilience-style). `variant=null`
+     *  clears the slot — picked again at the next rest. */
+    restPick: { id: string; variant: string | null };
   }>();
 
   // Per-row variant pick. Seeded from a row's activeVariant when present
@@ -40,6 +43,16 @@
       detail.slot = slotPick[a.id] ?? a.slotScaling.baseSlotLevel;
     }
     dispatch('toggle', detail);
+  }
+
+  function handleRestPick(a: AvailableActivation, raw: string) {
+    const variant = raw === '' ? null : raw;
+    dispatch('restPick', { id: a.id, variant });
+  }
+
+  function onRestPickChange(a: AvailableActivation, ev: Event) {
+    const target = ev.currentTarget as HTMLSelectElement;
+    handleRestPick(a, target.value);
   }
 
   function disabledReason(a: AvailableActivation): string | null {
@@ -94,42 +107,60 @@
               </span>
             {/if}
             <span class="ml-auto flex items-center gap-1">
-              {#if a.variants && a.variants.length > 0}
-                <select
-                  bind:value={variantPick[a.id]}
-                  class="rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-xs disabled:opacity-50"
-                  disabled={busy || a.active}
-                  aria-label="{a.name} variant"
-                >
-                  {#each a.variants as v}
-                    <option value={v.id}>{v.label}</option>
-                  {/each}
-                </select>
-              {/if}
-              {#if a.slotScaling}
+              {#if a.restPickRequired}
                 <label class="inline-flex items-center gap-1 text-[10px] text-slate-400">
-                  slot
-                  <input
-                    type="number"
-                    min={a.slotScaling.baseSlotLevel}
-                    max="9"
-                    bind:value={slotPick[a.id]}
-                    class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-xs disabled:opacity-50"
-                    disabled={busy || a.active}
-                    aria-label="{a.name} cast slot"
-                  />
+                  {a.restPickLabel ?? 'pick'}
+                  <select
+                    value={a.activeVariant ?? ''}
+                    class="rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-xs disabled:opacity-50"
+                    disabled={busy}
+                    aria-label="{a.name} rest pick"
+                    on:change={(e) => onRestPickChange(a, e)}
+                  >
+                    <option value="">— pick at {a.restPickRequired} —</option>
+                    {#each a.variants ?? [] as v}
+                      <option value={v.id}>{v.label}</option>
+                    {/each}
+                  </select>
                 </label>
+              {:else}
+                {#if a.variants && a.variants.length > 0}
+                  <select
+                    bind:value={variantPick[a.id]}
+                    class="rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-xs disabled:opacity-50"
+                    disabled={busy || a.active}
+                    aria-label="{a.name} variant"
+                  >
+                    {#each a.variants as v}
+                      <option value={v.id}>{v.label}</option>
+                    {/each}
+                  </select>
+                {/if}
+                {#if a.slotScaling}
+                  <label class="inline-flex items-center gap-1 text-[10px] text-slate-400">
+                    slot
+                    <input
+                      type="number"
+                      min={a.slotScaling.baseSlotLevel}
+                      max="9"
+                      bind:value={slotPick[a.id]}
+                      class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-xs disabled:opacity-50"
+                      disabled={busy || a.active}
+                      aria-label="{a.name} cast slot"
+                    />
+                  </label>
+                {/if}
+                <button
+                  class="rounded border px-2 py-0.5 text-xs disabled:opacity-40 {a.active
+                    ? 'border-emerald-600 bg-emerald-900/40 text-emerald-200 hover:bg-emerald-900/60'
+                    : 'border-slate-600 text-slate-300 hover:bg-slate-800'}"
+                  disabled={busy || reason !== null}
+                  title={reason ?? ''}
+                  on:click={() => handleToggle(a, !a.active)}
+                >
+                  {a.active ? '■ Deactivate' : '▶ Activate'}
+                </button>
               {/if}
-              <button
-                class="rounded border px-2 py-0.5 text-xs disabled:opacity-40 {a.active
-                  ? 'border-emerald-600 bg-emerald-900/40 text-emerald-200 hover:bg-emerald-900/60'
-                  : 'border-slate-600 text-slate-300 hover:bg-slate-800'}"
-                disabled={busy || reason !== null}
-                title={reason ?? ''}
-                on:click={() => handleToggle(a, !a.active)}
-              >
-                {a.active ? '■ Deactivate' : '▶ Activate'}
-              </button>
             </span>
           </div>
           {#if wouldBreakConcentration}
