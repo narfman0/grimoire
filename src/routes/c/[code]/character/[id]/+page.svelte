@@ -8,7 +8,13 @@
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import SpellManagerModal from '$lib/components/SpellManagerModal.svelte';
   import ActionEconomyPanel from '$lib/components/ActionEconomyPanel.svelte';
-  import { derive, refreshActivations, applyAutoCancelOnConditionChange } from '$lib/rules';
+  import ActivationsPanel from '$lib/components/ActivationsPanel.svelte';
+  import {
+    derive,
+    refreshActivations,
+    applyAutoCancelOnConditionChange,
+    toggleActivation
+  } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
@@ -655,6 +661,19 @@
   async function toggleModifier(id: string, enabled: boolean) {
     await patchDocument((d) => {
       d.modifierToggles[id] = enabled;
+    });
+  }
+
+  async function handleActivationToggle(
+    e: CustomEvent<{ id: string; on: boolean; variant?: string }>
+  ) {
+    if (!derived) return;
+    const available = derived.availableActivations;
+    const { id, on, variant } = e.detail;
+    await patchDocument((d) => {
+      const result = toggleActivation(d, available, id, on, variant ? { variant } : {});
+      d.activations = result.character.activations ?? {};
+      d.concentrating = result.character.concentrating ?? null;
     });
   }
 
@@ -1756,6 +1775,15 @@
         {/each}
       </ul>
     </section>
+  {/if}
+
+  {#if derived.availableActivations.length > 0}
+    <ActivationsPanel
+      activations={derived.availableActivations}
+      {busy}
+      concentratingLabel={document.concentrating?.label ?? null}
+      on:toggle={handleActivationToggle}
+    />
   {/if}
 
   <!-- Conditions + toggles -->
