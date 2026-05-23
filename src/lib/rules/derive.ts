@@ -1924,6 +1924,28 @@ function realizeActivity(
     action.range = act.range as { value: number; units: string };
   }
 
+  // Upcast scaling — passed through unchanged onto the Action. Consumers
+  // (encounter runtime / planner) read this when the player picks a slot
+  // to cast at and call applyUpcast() to get the slot-adjusted variant.
+  // Defaults baseSlotLevel to the spell row's `level` field when omitted.
+  if (act.upcastScaling && typeof act.upcastScaling === 'object') {
+    const spec = act.upcastScaling as Record<string, unknown>;
+    const baseLevel =
+      typeof spec.baseSlotLevel === 'number'
+        ? spec.baseSlotLevel
+        : (source.data.level as number | undefined);
+    if (typeof baseLevel === 'number') {
+      const scaling: Record<string, unknown> = { baseSlotLevel: baseLevel };
+      if (typeof spec.extraDamagePerSlot === 'string') scaling.extraDamagePerSlot = spec.extraDamagePerSlot;
+      if (typeof spec.extraFlatDamagePerSlot === 'number')
+        scaling.extraFlatDamagePerSlot = spec.extraFlatDamagePerSlot;
+      if (typeof spec.extraTargetsPerSlot === 'number')
+        scaling.extraTargetsPerSlot = spec.extraTargetsPerSlot;
+      if (typeof spec.extraHealPerSlot === 'string') scaling.extraHealPerSlot = spec.extraHealPerSlot;
+      action.upcastScaling = scaling as Action['upcastScaling'];
+    }
+  }
+
   if (type === 'attack') {
     const attack = act.attack as
       | {

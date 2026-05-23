@@ -298,7 +298,36 @@ export interface Action {
    *  shows the action with a "available after X" hint; the encounter
    *  runtime gates execution. */
   gatedOnTrigger?: string;
+  /** For leveled spells whose damage / target count / heal scales with
+   *  the slot level expended. The base values on this Action are written
+   *  for `baseSlotLevel`; the encounter runtime / planner picks an
+   *  actual slot and calls `applyUpcast(action, slot)` to get the
+   *  scaled Action. Absent → no scaling (cantrips with character-level
+   *  scaling use the activity's `perTotalLevel` table, not this field). */
+  upcastScaling?: UpcastScaling;
   appliedModifiers: AppliedModifier[];
+}
+
+export interface UpcastScaling {
+  /** Slot level the base values on this Action are written for.
+   *  Casting at slot < baseSlotLevel is illegal (engine clamps).
+   *  Casting at slot >= baseSlotLevel applies (slot - baseSlotLevel)
+   *  steps of each scaling field. */
+  baseSlotLevel: number;
+  /** Per-slot-above-base extra damage roll added to the first damage
+   *  part (Fireball: '1d6'; Burning Hands: '1d6'). */
+  extraDamagePerSlot?: string;
+  /** Per-slot-above-base flat damage add to the first damage part
+   *  (Inflict Wounds: 1d10 per slot, but the prose phrases as flat
+   *  additional dice — same shape as extraDamagePerSlot for that case;
+   *  this field is reserved for rare numeric-only adds). */
+  extraFlatDamagePerSlot?: number;
+  /** Per-slot-above-base extra target count (Magic Missile: 1 dart per
+   *  slot; Hold Person: 1 additional target per slot). */
+  extraTargetsPerSlot?: number;
+  /** Per-slot-above-base extra heal die (Cure Wounds: '1d8'; Healing
+   *  Word: '1d4'). Applied to the activity's heal-die formula. */
+  extraHealPerSlot?: string;
 }
 
 export type ActionCost =
