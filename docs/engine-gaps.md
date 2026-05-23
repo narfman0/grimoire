@@ -165,7 +165,7 @@ When the encounter logs a cast at slot N > baseSlotLevel, derive()
 (or a runtime helper) walks the steps and computes the upscaled
 value. Big unlock — would T2-promote ~150 spell rows.
 
-### Spell-mechanic primitives that have no current home — DEFERRED
+### Spell-mechanic primitives that have no current home — PARTIAL
 
 A handful of spell mechanics need their own primitives before the
 content can encode them:
@@ -179,10 +179,124 @@ content can encode them:
   active concentration / duration. Needs `concentrating.X` as a
   trigger-scope predicate.
 - **Damage rider on weapon attacks for duration** (Magic Weapon, Holy
-  Weapon, Elemental Weapon): like item enhancement bonuses (Phase 1b)
-  but scoped to a self-buff with a duration timer. The action-modifier
-  + appliesWhen.condition shape works once the encounter runtime
-  exposes "spell-effect-active-on-self" as a condition slug.
+  Weapon, Elemental Weapon): **SHIPPED** via the activation primitive
+  (see below) — action-modifier + appliesWhen.condition gated on a
+  player-toggleable activation. The "applies to ALL weapons while
+  active" caveat is the per-weapon-tracking gap still listed below.
+
+### Activation primitive — SHIPPED (long-tail authoring close to exhausted)
+
+Player-toggleable self-buff state — Bladesong, Rage, Magic Weapon,
+Armor of Agathys, Elemental Weapon, Shield of Faith, Longstrider, etc.
+— is now first-class. Pack rows declare `data.activations[]` with id,
+cost, duration, uses (number | string | perClass-table), concentration,
+group (mutual-exclusion), condition slug, autoCancelOn list, and
+optional variants. `Derived.availableActivations[]` carries the runtime
+manifest. The sheet's `ActivationsPanel.svelte` renders one row per
+declaration with uses tracking, concentration warnings, variant
+dropdowns, and auto-cancel on rest / condition change. derive()
+auto-injects an activation's `condition` slug into resolvedConditions
+when active, so existing `appliesWhen.condition` modifiers fire
+without further wiring.
+
+**Shipped commits:** b554e6f (primitive) → 1ceac63 (helpers) → b37fc15
+(refactor) → 84bf339 (rest/condition wiring) → e4cc397 (sheet panel)
+→ 41ed2b6 (perClass-table uses) → 0c54d71 (SRD rage migration).
+
+**Long-tail authoring status:** Done. Migrated rows: SRD rage,
+Bladesong (tashas), Magic Weapon (2014 + 2024), Armor of Agathys
+(2014 + 2024), Elemental Weapon (2024), Shield of Faith (2014 + 2024),
+Longstrider (2014 + 2024). A `grep` audit of `appliesWhen.condition`
+across both content repos shows the remaining rows are either (a)
+enemy-targeting condition gates (Aura of Conquest's "frightened"
+predicate, not a player activation) or (b) ride on the SRD rage
+condition (Storm Herald aura variants, Path of the Totem Warrior
+totems, Divine Fury) — all auto-surface through rage's activation.
+
+**Remaining activation work is engine-side, not content-side** —
+see the new gap entries below.
+
+### Target-bounded buff primitive — DEFERRED (blocks ally-buff spells)
+
+The activation primitive applies a self-buff to whoever activates the
+spell on their own sheet. There's no engine-side way to model "Cleric
+casts Shield of Faith on the Wizard → Wizard's sheet shows +2 AC."
+For now, ally-buffs are pragmatically encoded as self-only — the
+target ally must activate the same spell on their own character to
+get the bonus.
+
+**Sample blocked rows:** Bless (+1d4 to attacks/saves for up to 3
+allies), Aid (+5 HP max for up to 3 allies), Heroism (temp HP per
+turn to one ally), Haste (+2 AC + double speed + extra action on
+one ally), Vow of Enmity (advantage vs one target). Estimated ~25
+rows across SRD + non-SRD spell sources.
+
+**Where to start:** Add a `buffApplications: BuffApplication[]` field
+on the character, where a buff application carries source spell slug,
+source character id (or null for self), expires-at, and the modifier
+rows to apply. The activation primitive would emit a buff application
+on activate; derive() reads it back. The sheet UI gets a new
+affordance ("accept buff from X"). Big design pass — touches
+sheet ↔ encounter data flow.
+
+### Inventory-state conditions — DEFERRED
+
+Several activations auto-cancel based on what the character is wearing
+or wielding (Bladesong: ends if you don medium/heavy armor or a
+shield; Mage Armor: ends if the target dons armor; Cleric "armor of
+the gods" gates: only active if wearing heavy armor). The
+`autoCancelOn` field on activations today only checks the conditions
+list — no inventory predicate.
+
+**Sample blocked rows:** Bladesong armor cancel,
+Mage Armor armor cancel, several monk martial-arts modifiers gated
+on "unarmed or with a monk weapon," several barbarian features
+gated on "not wearing heavy armor."
+
+**Where to start:** A predicate language for `autoCancelOn` —
+something like `autoCancelOn: ['incapacitated', { wearing: 'armor.medium' }]`
+that the activation cancel walk evaluates against
+`derived.equipped`. Small-medium scope; adds a predicate kind.
+
+### Per-weapon enchantment tracking — DEFERRED
+
+Magic Weapon / Elemental Weapon / Holy Weapon RAW says the bonus
+applies to "the weapon you touched." The engine applies the
+action-modifier to ALL weapon attacks while the activation is on. For
+most party-level play this overshoots — a dual-wielding fighter
+casting Magic Weapon on their main-hand also gets the bonus on
+off-hand attacks.
+
+**Sample blocked rows:** Magic Weapon (2014 + 2024), Elemental
+Weapon (2024), Holy Weapon, Brand of Pact's Boon (in some Warlock
+builds). Estimated 5-8 rows.
+
+**Where to start:** A weapon-identity predicate on action-modifier
+`appliesTo.predicates` like `{ weapon.slug: { eq: 'longsword' } }`
+that the activation-time variant picks (already supported via
+ActivationVariant.modifiers). Player picks the touched weapon when
+activating; only that weapon's attacks benefit. Medium scope; touches
+the action-modifier predicate evaluator.
+
+### Slot-aware action-modifier scaling — DEFERRED
+
+Spells that upcast change their modifier values per cast slot — Magic
+Weapon bumps from +1 to +2 (slot 3-5) to +3 (slot 6+), Elemental
+Weapon bumps damage dice from 1d4 to 2d4 to 3d4. Today the
+action-modifier value is fixed at the base slot.
+
+**Sample blocked rows:** Magic Weapon (both editions), Elemental
+Weapon (2024), Holy Weapon, Divine Smite (slot scaling), Armor of
+Agathys retaliation amount. Estimated 8-12 rows. Closely related to
+the existing `Spell upcast scaling — DEFERRED` entry above; the
+activation primitive doesn't make this any harder, but it doesn't
+solve it either.
+
+**Where to start:** Activation declarations could grow a
+`variantsBySlot: Record<number, { modifiers: [...] }>` — the player
+picks a slot when activating (already implicit in the casting
+surface) and the engine synthesizes the slot's modifier set. Or fold
+into the broader spell upcast scaling work.
 
 ## Related
 
