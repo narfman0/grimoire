@@ -1,32 +1,188 @@
 [
   {
     "kind": "spell",
-    "slug": "fireball",
+    "slug": "animate-dead",
     "version": 1,
-    "name": "Fireball",
+    "name": "Animate Dead",
     "data": {
       "level": 3,
-      "school": "evocation",
-      "castingTime": "action",
-      "range": { "value": 150, "units": "ft" },
-      "components": ["v", "s", "m"],
+      "school": "necromancy",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "instantaneous",
-      "activities": [
-        {
-          "id": "fireball-cast",
-          "type": "save",
-          "name": "Fireball",
-          "cost": "action",
-          "save": {
-            "ability": "dex",
-            "dc": { "calc": "spell" }
-          },
-          "damage": {
-            "parts": [{ "dice": "8d6", "type": "fire", "halfOnSave": true }],
-            "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "1d6" }
-          },
-          "target": { "affects": "area", "shape": "sphere", "radius": 20 }
-        }
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a drop of blood, a piece of flesh, and a pinch of bone dust",
+      "classes": [
+        "cleric",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "beacon-of-hope",
+    "version": 1,
+    "name": "Beacon of Hope",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "bestow-curse",
+    "version": 1,
+    "name": "Bestow Curse",
+    "data": {
+      "level": 3,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "cleric",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "blink",
+    "version": 1,
+    "name": "Blink",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "call-lightning",
+    "version": 1,
+    "name": "Call Lightning",
+    "data": {
+      "level": 3,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "clairvoyance",
+    "version": 1,
+    "name": "Clairvoyance",
+    "data": {
+      "level": 3,
+      "school": "divination",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 1,
+        "units": "mile"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a focus worth at least 100 gp, either a jeweled horn for hearing or a glass eye for seeing",
+      "classes": [
+        "bard",
+        "cleric",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "conjure-animals",
+    "version": 1,
+    "name": "Conjure Animals",
+    "data": {
+      "level": 3,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid",
+        "ranger"
       ]
     }
   },
@@ -39,8 +195,13 @@
       "level": 3,
       "school": "abjuration",
       "castingTime": "reaction",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["s"],
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "s"
+      ],
       "duration": "instantaneous",
       "activities": [
         {
@@ -50,43 +211,184 @@
           "cost": "reaction",
           "save": {
             "ability": "spellcasting-of-target",
-            "dc": { "calc": "spell" }
+            "dc": {
+              "calc": "spell"
+            }
           },
-          "target": { "affects": "creature", "count": 1 }
+          "target": {
+            "affects": "creature",
+            "count": 1
+          }
         }
       ]
     }
   },
   {
     "kind": "spell",
-    "slug": "spirit-guardians",
+    "slug": "create-food-and-water",
     "version": 1,
-    "name": "Spirit Guardians",
+    "name": "Create Food and Water",
     "data": {
       "level": 3,
       "school": "conjuration",
       "castingTime": "action",
-      "range": { "value": 0, "units": "self" },
-      "components": ["v", "s", "m"],
-      "duration": "concentration, up to 10 minutes",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "daylight",
+    "version": 1,
+    "name": "Daylight",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "druid",
+        "paladin",
+        "ranger",
+        "sorcerer"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "dispel-magic",
+    "version": 1,
+    "name": "Dispel Magic",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "cleric",
+        "druid",
+        "paladin",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "fear",
+    "version": 1,
+    "name": "Fear",
+    "data": {
+      "level": 3,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 30
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
       "concentration": true,
       "ritual": false,
+      "materialComponent": "a white feather or the heart of a hen",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "fireball",
+    "version": 1,
+    "name": "Fireball",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
       "activities": [
         {
-          "id": "spirit-guardians-cast",
+          "id": "fireball-cast",
           "type": "save",
-          "name": "Spirit Guardians",
+          "name": "Fireball",
           "cost": "action",
           "save": {
-            "ability": "wis",
-            "dc": { "calc": "spell" }
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
           },
           "damage": {
-            "parts": [{ "dice": "3d8", "type": "radiant", "halfOnSave": true, "alternativeType": "necrotic" }],
-            "scalesWithSlotLevel": { "perSlotAbove": 3, "addDice": "1d8" }
+            "parts": [
+              {
+                "dice": "8d6",
+                "type": "fire",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 1,
+              "addDice": "1d6"
+            }
           },
-          "target": { "affects": "area", "shape": "emanation", "radius": 15 },
-          "note": "Choose radiant (typically good) or necrotic (typically evil) when casting. The area moves with the caster. Hostile creatures in the area have their speed halved. First entered or starting turn there triggers the save and damage."
+          "target": {
+            "affects": "area",
+            "shape": "sphere",
+            "radius": 20
+          }
         }
       ]
     }
@@ -100,8 +402,15 @@
       "level": 3,
       "school": "transmutation",
       "castingTime": "action",
-      "range": { "value": 0, "units": "touch" },
-      "components": ["v", "s", "m"],
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "concentration, up to 10 minutes",
       "concentration": true,
       "ritual": false,
@@ -111,10 +420,21 @@
           "type": "utility",
           "name": "Fly",
           "cost": "action",
-          "target": { "affects": "creature", "count": 1 },
-          "scalesWithSlotLevel": { "perSlotAbove": 3, "addTargets": 1 },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 3,
+            "addTargets": 1
+          },
           "appliedModifiers": [
-            { "kind": "stat-modifier", "target": "speed.fly", "mode": "UPGRADE", "value": 60 }
+            {
+              "kind": "stat-modifier",
+              "target": "speed.fly",
+              "mode": "UPGRADE",
+              "value": 60
+            }
           ],
           "note": "Target gains a flying speed of 60 feet for the duration. If still flying when the spell ends, target falls unless it can otherwise stop the fall."
         }
@@ -123,34 +443,59 @@
   },
   {
     "kind": "spell",
-    "slug": "lightning-bolt",
+    "slug": "gaseous-form",
     "version": 1,
-    "name": "Lightning Bolt",
+    "name": "Gaseous Form",
     "data": {
       "level": 3,
-      "school": "evocation",
+      "school": "transmutation",
       "castingTime": "action",
-      "range": { "value": 0, "units": "self" },
-      "components": ["v", "s", "m"],
-      "duration": "instantaneous",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a bit of gauze and a wisp of smoke",
+      "classes": [
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "glyph-of-warding",
+    "version": 1,
+    "name": "Glyph of Warding",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "1 hour",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled or triggered",
       "concentration": false,
       "ritual": false,
-      "activities": [
-        {
-          "id": "lightning-bolt-cast",
-          "type": "save",
-          "name": "Lightning Bolt",
-          "cost": "action",
-          "save": {
-            "ability": "dex",
-            "dc": { "calc": "spell" }
-          },
-          "damage": {
-            "parts": [{ "dice": "8d6", "type": "lightning", "halfOnSave": true }],
-            "scalesWithSlotLevel": { "perSlotAbove": 3, "addDice": "1d6" }
-          },
-          "target": { "affects": "area", "shape": "line", "length": 100, "width": 5 }
-        }
+      "materialComponent": "incense and powdered diamond worth at least 200 gp, which the spell consumes",
+      "classes": [
+        "bard",
+        "cleric",
+        "wizard"
       ]
     }
   },
@@ -163,8 +508,15 @@
       "level": 3,
       "school": "transmutation",
       "castingTime": "action",
-      "range": { "value": 30, "units": "ft" },
-      "components": ["v", "s", "m"],
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "concentration, up to 1 minute",
       "concentration": true,
       "ritual": false,
@@ -174,14 +526,177 @@
           "type": "utility",
           "name": "Haste",
           "cost": "action",
-          "target": { "affects": "creature", "count": 1 },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
           "appliedModifiers": [
-            { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 2 },
-            { "kind": "stat-modifier", "target": "save.advantage.dex", "mode": "OVERRIDE", "value": true },
-            { "kind": "stat-modifier", "target": "speed.walk", "mode": "MULTIPLY", "value": 2 }
+            {
+              "kind": "stat-modifier",
+              "target": "ac",
+              "mode": "ADD",
+              "value": 2
+            },
+            {
+              "kind": "stat-modifier",
+              "target": "save.advantage.dex",
+              "mode": "OVERRIDE",
+              "value": true
+            },
+            {
+              "kind": "stat-modifier",
+              "target": "speed.walk",
+              "mode": "MULTIPLY",
+              "value": 2
+            }
           ],
           "note": "Target's speed doubles, +2 AC, Advantage on DEX saves, and gains an additional action each turn limited to Attack (one weapon attack only), Dash, Disengage, Hide, or Utilize. When the spell ends, target can't move or take actions until after its next turn (lethargy)."
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "hypnotic-pattern",
+    "version": 1,
+    "name": "Hypnotic Pattern",
+    "data": {
+      "level": 3,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a glowing stick of incense or a crystal vial filled with phosphorescent material",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "lightning-bolt",
+    "version": 1,
+    "name": "Lightning Bolt",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "lightning-bolt-cast",
+          "type": "save",
+          "name": "Lightning Bolt",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "8d6",
+                "type": "lightning",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 3,
+              "addDice": "1d6"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "line",
+            "length": 100,
+            "width": 5
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "magic-circle",
+    "version": 1,
+    "name": "Magic Circle",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "holy water or powdered silver and iron worth at least 100 gp, which the spell consumes",
+      "classes": [
+        "cleric",
+        "paladin",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "major-image",
+    "version": 1,
+    "name": "Major Image",
+    "data": {
+      "level": 3,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a bit of fleece",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
       ]
     }
   },
@@ -194,8 +709,13 @@
       "level": 3,
       "school": "abjuration",
       "castingTime": "bonus",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["v"],
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
@@ -205,10 +725,611 @@
           "type": "heal",
           "name": "Mass Healing Word",
           "cost": "bonus",
-          "heal": { "amount": "1d4 + spellMod" },
-          "scalesWithSlotLevel": { "perSlotAbove": 3, "addDice": "1d4" },
-          "target": { "affects": "creature", "count": 6 }
+          "heal": {
+            "amount": "1d4 + spellMod"
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 3,
+            "addDice": "1d4"
+          },
+          "target": {
+            "affects": "creature",
+            "count": 6
+          }
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "meld-into-stone",
+    "version": 1,
+    "name": "Meld into Stone",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": true,
+      "classes": [
+        "cleric",
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "nondetection",
+    "version": 1,
+    "name": "Nondetection",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a pinch of diamond dust worth 25 gp sprinkled over the target, which the spell consumes",
+      "classes": [
+        "bard",
+        "ranger",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "phantom-steed",
+    "version": 1,
+    "name": "Phantom Steed",
+    "data": {
+      "level": 3,
+      "school": "illusion",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": true,
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "plant-growth",
+    "version": 1,
+    "name": "Plant Growth",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "druid",
+        "ranger"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "protection-from-energy",
+    "version": 1,
+    "name": "Protection from Energy",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "druid",
+        "ranger",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "remove-curse",
+    "version": 1,
+    "name": "Remove Curse",
+    "data": {
+      "level": 3,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "paladin",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "revivify",
+    "version": 1,
+    "name": "Revivify",
+    "data": {
+      "level": 3,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "diamonds worth 300 gp, which the spell consumes",
+      "classes": [
+        "cleric",
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sending",
+    "version": 1,
+    "name": "Sending",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "unlimited"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 round",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a short piece of fine copper wire",
+      "classes": [
+        "bard",
+        "cleric",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sleet-storm",
+    "version": 1,
+    "name": "Sleet Storm",
+    "data": {
+      "level": 3,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a pinch of dust and a few drops of water",
+      "classes": [
+        "druid",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "slow",
+    "version": 1,
+    "name": "Slow",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a drop of molasses",
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "speak-with-dead",
+    "version": 1,
+    "name": "Speak with Dead",
+    "data": {
+      "level": 3,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "burning incense",
+      "classes": [
+        "bard",
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "speak-with-plants",
+    "version": 1,
+    "name": "Speak with Plants",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 30
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "druid",
+        "ranger"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "spirit-guardians",
+    "version": 1,
+    "name": "Spirit Guardians",
+    "data": {
+      "level": 3,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "concentration, up to 10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "spirit-guardians-cast",
+          "type": "save",
+          "name": "Spirit Guardians",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "3d8",
+                "type": "radiant",
+                "halfOnSave": true,
+                "alternativeType": "necrotic"
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 3,
+              "addDice": "1d8"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "emanation",
+            "radius": 15
+          },
+          "note": "Choose radiant (typically good) or necrotic (typically evil) when casting. The area moves with the caster. Hostile creatures in the area have their speed halved. First entered or starting turn there triggers the save and damage."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "stinking-cloud",
+    "version": 1,
+    "name": "Stinking Cloud",
+    "data": {
+      "level": 3,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a rotten egg or several skunk cabbage leaves",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "tiny-hut",
+    "version": 1,
+    "name": "Tiny Hut",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 10
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a small crystal bead",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "tongues",
+    "version": 1,
+    "name": "Tongues",
+    "data": {
+      "level": 3,
+      "school": "divination",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a small clay model of a ziggurat",
+      "classes": [
+        "bard",
+        "cleric",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "vampiric-touch",
+    "version": 1,
+    "name": "Vampiric Touch",
+    "data": {
+      "level": 3,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "water-breathing",
+    "version": 1,
+    "name": "Water Breathing",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "24 hours",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a short reed or piece of straw",
+      "classes": [
+        "druid",
+        "ranger",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "water-walk",
+    "version": 1,
+    "name": "Water Walk",
+    "data": {
+      "level": 3,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a piece of cork",
+      "classes": [
+        "cleric",
+        "druid",
+        "ranger",
+        "sorcerer"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "wind-wall",
+    "version": 1,
+    "name": "Wind Wall",
+    "data": {
+      "level": 3,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a tiny fan and a feather of exotic origin",
+      "classes": [
+        "druid",
+        "ranger"
       ]
     }
   }

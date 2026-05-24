@@ -1,29 +1,165 @@
 [
   {
     "kind": "spell",
-    "slug": "heal",
+    "slug": "blade-barrier",
     "version": 1,
-    "name": "Heal",
+    "name": "Blade Barrier",
     "data": {
       "level": 6,
-      "school": "abjuration",
+      "school": "evocation",
       "castingTime": "action",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["v", "s"],
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "chain-lightning",
+    "version": 1,
+    "name": "Chain Lightning",
+    "data": {
+      "level": 6,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
-      "activities": [
-        {
-          "id": "heal-cast",
-          "type": "heal",
-          "name": "Heal",
-          "cost": "action",
-          "heal": { "amount": "70" },
-          "scalesWithSlotLevel": { "perSlotAbove": 6, "addHp": 10 },
-          "target": { "affects": "creature", "count": 1 },
-          "note": "Target regains 70 HP and ends the Blinded, Deafened, and Poisoned conditions. No effect on Constructs or Undead."
-        }
+      "materialComponent": "a bit of fur; a piece of amber, glass, or a crystal rod; and three silver pins",
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "circle-of-death",
+    "version": 1,
+    "name": "Circle of Death",
+    "data": {
+      "level": 6,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "the powder of a crushed black pearl worth at least 500 gp",
+      "classes": [
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "conjure-fey",
+    "version": 1,
+    "name": "Conjure Fey",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid",
+        "warlock"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "contingency",
+    "version": 1,
+    "name": "Contingency",
+    "data": {
+      "level": 6,
+      "school": "evocation",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 days",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a statuette of yourself carved from ivory and decorated with gems worth at least 1,500 gp",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "create-undead",
+    "version": 1,
+    "name": "Create Undead",
+    "data": {
+      "level": 6,
+      "school": "necromancy",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "one clay pot filled with grave dirt, one clay pot filled with brackish water, and one 150 gp black onyx stone for each corpse",
+      "classes": [
+        "cleric",
+        "warlock",
+        "wizard"
       ]
     }
   },
@@ -36,8 +172,15 @@
       "level": 6,
       "school": "transmutation",
       "castingTime": "action",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["v", "s", "m"],
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
@@ -49,15 +192,700 @@
           "cost": "action",
           "save": {
             "ability": "dex",
-            "dc": { "calc": "spell" }
+            "dc": {
+              "calc": "spell"
+            }
           },
           "damage": {
-            "parts": [{ "dice": "10d6+40", "type": "force" }],
-            "scalesWithSlotLevel": { "perSlotAbove": 6, "addDice": "3d6" }
+            "parts": [
+              {
+                "dice": "10d6+40",
+                "type": "force"
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 6,
+              "addDice": "3d6"
+            }
           },
-          "target": { "affects": "creature", "count": 1 },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
           "note": "On a failed DEX save, target takes damage; if reduced to 0 HP, it is disintegrated (only ash + equipment remains; can be restored only by True Resurrection or Wish). Can also target a Large or smaller nonmagical object or a creation of magical force (auto-disintegrated)."
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "eyebite",
+    "version": 1,
+    "name": "Eyebite",
+    "data": {
+      "level": 6,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "find-the-path",
+    "version": 1,
+    "name": "Find the Path",
+    "data": {
+      "level": 6,
+      "school": "divination",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 day",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a set of divinatory tools— such as bones, ivory sticks, cards, teeth, or carved runes—worth 100 gp and an object from the location you wish to find",
+      "classes": [
+        "bard",
+        "cleric",
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "flesh-to-stone",
+    "version": 1,
+    "name": "Flesh to Stone",
+    "data": {
+      "level": 6,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a pinch of lime, water, and earth",
+      "classes": [
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "forbiddance",
+    "version": 1,
+    "name": "Forbiddance",
+    "data": {
+      "level": 6,
+      "school": "abjuration",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 day",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a sprinkling of holy water, rare incense, and powdered ruby worth at least 1,000 gp",
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "freezing-sphere",
+    "version": 1,
+    "name": "Freezing Sphere",
+    "data": {
+      "level": 6,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 300,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a small crystal sphere",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "globe-of-invulnerability",
+    "version": 1,
+    "name": "Globe of Invulnerability",
+    "data": {
+      "level": 6,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 10
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a glass or crystal bead that shatters when the spell ends",
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "guards-and-wards",
+    "version": 1,
+    "name": "Guards and Wards",
+    "data": {
+      "level": 6,
+      "school": "abjuration",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "24 hours",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "burning incense, a small measure of brimstone and oil, a knotted string, a small amount of umber hulk blood, and a small silver rod worth at least 10 gp",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "harm",
+    "version": 1,
+    "name": "Harm",
+    "data": {
+      "level": 6,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "heal",
+    "version": 1,
+    "name": "Heal",
+    "data": {
+      "level": 6,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "heal-cast",
+          "type": "heal",
+          "name": "Heal",
+          "cost": "action",
+          "heal": {
+            "amount": "70"
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 6,
+            "addHp": 10
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target regains 70 HP and ends the Blinded, Deafened, and Poisoned conditions. No effect on Constructs or Undead."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "heroes-feast",
+    "version": 1,
+    "name": "Heroes’ Feast",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a gem-encrusted bowl worth at least 1,000 gp, which the spell consumes",
+      "classes": [
+        "cleric",
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "instant-summons",
+    "version": 1,
+    "name": "Instant Summons",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a sapphire worth 1,000 gp",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "irresistible-dance",
+    "version": 1,
+    "name": "Irresistible Dance",
+    "data": {
+      "level": 6,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "magic-jar",
+    "version": 1,
+    "name": "Magic Jar",
+    "data": {
+      "level": 6,
+      "school": "necromancy",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a gem, crystal, reliquary, or some other ornamental container worth at least 500 gp",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mass-suggestion",
+    "version": 1,
+    "name": "Mass Suggestion",
+    "data": {
+      "level": 6,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "m"
+      ],
+      "duration": "24 hours",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a snake’s tongue and either a bit of honeycomb or a drop of sweet oil",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "move-earth",
+    "version": 1,
+    "name": "Move Earth",
+    "data": {
+      "level": 6,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "2 hours",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "an iron blade and a small bag containing a mixture of soils—clay, loam, and sand",
+      "classes": [
+        "druid",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "planar-ally",
+    "version": 1,
+    "name": "Planar Ally",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "programmed-illusion",
+    "version": 1,
+    "name": "Programmed Illusion",
+    "data": {
+      "level": 6,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a bit of fleece and jade dust worth at least 25 gp",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sunbeam",
+    "version": 1,
+    "name": "Sunbeam",
+    "data": {
+      "level": 6,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 60
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a magnifying glass",
+      "classes": [
+        "druid",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "transport-via-plants",
+    "version": 1,
+    "name": "Transport via Plants",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 round",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "true-seeing",
+    "version": 1,
+    "name": "True Seeing",
+    "data": {
+      "level": 6,
+      "school": "divination",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "an ointment for the eyes that costs 25 gp; is made from mushroom powder, saffron, and fat; and is consumed by the spell",
+      "classes": [
+        "bard",
+        "cleric",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "wall-of-ice",
+    "version": 1,
+    "name": "Wall of Ice",
+    "data": {
+      "level": 6,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a small piece of quartz",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "wall-of-thorns",
+    "version": 1,
+    "name": "Wall of Thorns",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a handful of thorns",
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "wind-walk",
+    "version": 1,
+    "name": "Wind Walk",
+    "data": {
+      "level": 6,
+      "school": "transmutation",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "fire and holy water",
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "word-of-recall",
+    "version": 1,
+    "name": "Word of Recall",
+    "data": {
+      "level": 6,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 5,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
       ]
     }
   }

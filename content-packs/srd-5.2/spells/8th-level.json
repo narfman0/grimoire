@@ -1,6 +1,386 @@
 [
   {
     "kind": "spell",
+    "slug": "animal-shapes",
+    "version": 1,
+    "name": "Animal Shapes",
+    "data": {
+      "level": 8,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "24 hours",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "antimagic-field",
+    "version": 1,
+    "name": "Antimagic Field",
+    "data": {
+      "level": 8,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 10
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a pinch of powdered iron or iron filings",
+      "classes": [
+        "cleric",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "antipathy-sympathy",
+    "version": 1,
+    "name": "Antipathy/Sympathy",
+    "data": {
+      "level": 8,
+      "school": "enchantment",
+      "castingTime": "1 hour",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 days",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "either a lump of alum soaked in vinegar for the antipathy effect or a drop of honey for the sympathy effect",
+      "classes": [
+        "druid",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "clone",
+    "version": 1,
+    "name": "Clone",
+    "data": {
+      "level": 8,
+      "school": "necromancy",
+      "castingTime": "1 hour",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a diamond worth at least 1,000 gp and at least 1 cubic inch of flesh of the creature that is to be cloned, which the spell consumes, and a vessel worth at least 2,000 gp that has a sealable lid and is large enough to hold a Medium creature, such as a huge urn, coffin, mud- filled cyst in the ground, or crystal container filled with salt water",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "control-weather",
+    "version": 1,
+    "name": "Control Weather",
+    "data": {
+      "level": 8,
+      "school": "transmutation",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 0,
+        "units": "special",
+        "raw": "Self (5-mile radius)"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "8 hours",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "burning incense and bits of earth and wood mixed in water",
+      "classes": [
+        "cleric",
+        "druid",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "demiplane",
+    "version": 1,
+    "name": "Demiplane",
+    "data": {
+      "level": 8,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "dominate-monster",
+    "version": 1,
+    "name": "Dominate Monster",
+    "data": {
+      "level": 8,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "earthquake",
+    "version": 1,
+    "name": "Earthquake",
+    "data": {
+      "level": 8,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 500,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a pinch of dirt, a piece of rock, and a lump of clay",
+      "classes": [
+        "cleric",
+        "druid",
+        "sorcerer"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "feeblemind",
+    "version": 1,
+    "name": "Feeblemind",
+    "data": {
+      "level": 8,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a handful of clay, crystal, glass, or mineral spheres",
+      "classes": [
+        "bard",
+        "druid",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "glibness",
+    "version": 1,
+    "name": "Glibness",
+    "data": {
+      "level": 8,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "warlock"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "holy-aura",
+    "version": 1,
+    "name": "Holy Aura",
+    "data": {
+      "level": 8,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a tiny reliquary worth at least 1,000 gp containing a sacred relic, such as a scrap of cloth from a saint’s robe or a piece of parchment from a religious text",
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "incendiary-cloud",
+    "version": 1,
+    "name": "Incendiary Cloud",
+    "data": {
+      "level": 8,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "maze",
+    "version": 1,
+    "name": "Maze",
+    "data": {
+      "level": 8,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mind-blank",
+    "version": 1,
+    "name": "Mind Blank",
+    "data": {
+      "level": 8,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "24 hours",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
     "slug": "power-word-stun",
     "version": 1,
     "name": "Power Word Stun",
@@ -8,8 +388,13 @@
       "level": 8,
       "school": "enchantment",
       "castingTime": "action",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["v"],
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
@@ -19,9 +404,41 @@
           "type": "utility",
           "name": "Power Word Stun",
           "cost": "action",
-          "target": { "affects": "creature", "count": 1 },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
           "note": "If target has 150 HP or fewer, it gains the Stunned condition. Otherwise the spell has no effect. Target then makes a CON save at the end of each of its turns; on a success, the spell ends. No save on initial application — only the HP threshold gate."
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sunburst",
+    "version": 1,
+    "name": "Sunburst",
+    "data": {
+      "level": 8,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "fire and a piece of sunstone",
+      "classes": [
+        "druid",
+        "sorcerer",
+        "wizard"
       ]
     }
   }

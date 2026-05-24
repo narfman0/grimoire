@@ -1,6 +1,278 @@
 [
   {
     "kind": "spell",
+    "slug": "arcane-sword",
+    "version": 1,
+    "name": "Arcane Sword",
+    "data": {
+      "level": 7,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a miniature platinum sword with a grip and pommel of copper and zinc, worth 250 gp",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "conjure-celestial",
+    "version": 1,
+    "name": "Conjure Celestial",
+    "data": {
+      "level": 7,
+      "school": "conjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "delayed-blast-fireball",
+    "version": 1,
+    "name": "Delayed Blast Fireball",
+    "data": {
+      "level": 7,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a tiny ball of bat guano and sulfur",
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "divine-word",
+    "version": 1,
+    "name": "Divine Word",
+    "data": {
+      "level": 7,
+      "school": "evocation",
+      "castingTime": "bonus",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "etherealness",
+    "version": 1,
+    "name": "Etherealness",
+    "data": {
+      "level": 7,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "cleric",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "finger-of-death",
+    "version": 1,
+    "name": "Finger of Death",
+    "data": {
+      "level": 7,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "fire-storm",
+    "version": 1,
+    "name": "Fire Storm",
+    "data": {
+      "level": 7,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 150,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "druid",
+        "sorcerer"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "forcecage",
+    "version": 1,
+    "name": "Forcecage",
+    "data": {
+      "level": 7,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 100,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "ruby dust worth 1,500 gp",
+      "classes": [
+        "bard",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "magnificent-mansion",
+    "version": 1,
+    "name": "Magnificent Mansion",
+    "data": {
+      "level": 7,
+      "school": "conjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 300,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "24 hours",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a miniature portal carved from ivory, a small piece of polished marble, and a tiny silver spoon, each item worth at least 5 gp",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mirage-arcane",
+    "version": 1,
+    "name": "Mirage Arcane",
+    "data": {
+      "level": 7,
+      "school": "illusion",
+      "castingTime": "10 minutes",
+      "range": {
+        "value": 0,
+        "units": "sight"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 days",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "druid",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
     "slug": "plane-shift",
     "version": 1,
     "name": "Plane Shift",
@@ -8,8 +280,15 @@
       "level": 7,
       "school": "conjuration",
       "castingTime": "action",
-      "range": { "value": 0, "units": "touch" },
-      "components": ["v", "s", "m"],
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
@@ -19,9 +298,262 @@
           "type": "utility",
           "name": "Plane Shift",
           "cost": "action",
-          "target": { "affects": "creature", "count": 9 },
+          "target": {
+            "affects": "creature",
+            "count": 9
+          },
           "note": "Two modes. (1) Transport: you and up to eight willing creatures linked by hand (or yourself alone) travel to another plane. (2) Banish: with a melee spell attack against one unwilling creature, succeed and force a CHA save (DC = spell save); on a failed save the target is banished to another plane (no return without aid). v0 cannot model planar shifts — surfaces as a note only."
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "prismatic-spray",
+    "version": 1,
+    "name": "Prismatic Spray",
+    "data": {
+      "level": 7,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 60
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "project-image",
+    "version": 1,
+    "name": "Project Image",
+    "data": {
+      "level": 7,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 500,
+        "units": "mile"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 day",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a small replica of you made from materials worth at least 5 gp",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "regenerate",
+    "version": 1,
+    "name": "Regenerate",
+    "data": {
+      "level": 7,
+      "school": "transmutation",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a prayer wheel and holy water",
+      "classes": [
+        "bard",
+        "cleric",
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "resurrection",
+    "version": 1,
+    "name": "Resurrection",
+    "data": {
+      "level": 7,
+      "school": "necromancy",
+      "castingTime": "1 hour",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a diamond worth at least 1,000 gp, which the spell consumes",
+      "classes": [
+        "bard",
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "reverse-gravity",
+    "version": 1,
+    "name": "Reverse Gravity",
+    "data": {
+      "level": 7,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 100,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a lodestone and iron filings",
+      "classes": [
+        "druid",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sequester",
+    "version": 1,
+    "name": "Sequester",
+    "data": {
+      "level": 7,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a powder composed of diamond, emerald, ruby, and sapphire dust worth at least 5,000 gp, which the spell consumes",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "simulacrum",
+    "version": 1,
+    "name": "Simulacrum",
+    "data": {
+      "level": 7,
+      "school": "illusion",
+      "castingTime": "12 hours",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "snow or ice in quantities sufficient to made a life-size copy of the duplicated creature; some hair, fingernail clippings, or other piece of that creature’s body placed inside the snow or ice; and powdered ruby worth 1,500 gp, sprinkled over the duplicate and consumed by the spell",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "symbol",
+    "version": 1,
+    "name": "Symbol",
+    "data": {
+      "level": 7,
+      "school": "abjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled or triggered",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "mercury, phosphorus, and powdered diamond and opal with a total value of at least 1,000 gp, which the spell consumes",
+      "classes": [
+        "bard",
+        "cleric",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "teleport",
+    "version": 1,
+    "name": "Teleport",
+    "data": {
+      "level": 7,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "sorcerer",
+        "wizard"
       ]
     }
   }

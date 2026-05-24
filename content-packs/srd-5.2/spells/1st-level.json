@@ -1,134 +1,57 @@
 [
   {
     "kind": "spell",
-    "slug": "magic-missile",
+    "slug": "alarm",
     "version": 1,
-    "name": "Magic Missile",
-    "data": {
-      "level": 1,
-      "school": "evocation",
-      "castingTime": "action",
-      "range": { "value": 120, "units": "ft" },
-      "components": ["v", "s"],
-      "duration": "instantaneous",
-      "activities": [
-        {
-          "id": "magic-missile-cast",
-          "type": "damage",
-          "name": "Magic Missile",
-          "cost": "action",
-          "autoHit": true,
-          "damage": {
-            "parts": [{ "dice": "1d4+1", "type": "force" }],
-            "perDart": 3,
-            "scalesWithSlotLevel": { "perSlotAbove": 1, "addDarts": 1 }
-          },
-          "target": { "affects": "creature", "count": 3, "perDart": true }
-        }
-      ]
-    }
-  },
-  {
-    "kind": "spell",
-    "slug": "shield",
-    "version": 1,
-    "name": "Shield",
+    "name": "Alarm",
     "data": {
       "level": 1,
       "school": "abjuration",
-      "castingTime": "reaction",
-      "range": { "value": 0, "units": "self" },
-      "components": ["v", "s"],
-      "duration": "1 round",
-      "activities": [
-        {
-          "id": "shield-cast",
-          "type": "utility",
-          "name": "Shield",
-          "cost": "reaction",
-          "modifiers": [
-            { "kind": "stat-modifier", "target": "ac", "mode": "ADD", "value": 5 }
-          ]
-        }
-      ]
-    }
-  },
-  {
-    "kind": "spell",
-    "slug": "mage-armor",
-    "version": 1,
-    "name": "Mage Armor",
-    "data": {
-      "level": 1,
-      "school": "abjuration",
-      "castingTime": "action",
-      "range": { "value": 0, "units": "touch" },
-      "components": ["v", "s", "m"],
+      "castingTime": "1 minute",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "8 hours",
-      "activities": [
-        {
-          "id": "mage-armor-cast",
-          "type": "utility",
-          "name": "Mage Armor",
-          "cost": "action",
-          "appliedModifiers": [
-            { "kind": "stat-modifier", "target": "ac.formula", "mode": "OVERRIDE", "value": { "base": 13, "ability": "dex" } }
-          ]
-        }
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a tiny bell and a piece of fine silver wire",
+      "classes": [
+        "ranger",
+        "wizard"
       ]
     }
   },
   {
     "kind": "spell",
-    "slug": "cure-wounds",
+    "slug": "bane",
     "version": 1,
-    "name": "Cure Wounds",
+    "name": "Bane",
     "data": {
       "level": 1,
-      "school": "abjuration",
+      "school": "enchantment",
       "castingTime": "action",
-      "range": { "value": 0, "units": "touch" },
-      "components": ["v", "s"],
-      "duration": "instantaneous",
-      "concentration": false,
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
       "ritual": false,
-      "activities": [
-        {
-          "id": "cure-wounds-cast",
-          "type": "heal",
-          "name": "Cure Wounds",
-          "cost": "action",
-          "heal": { "amount": "2d8 + spellMod" },
-          "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "2d8" },
-          "target": { "affects": "creature", "count": 1 }
-        }
-      ]
-    }
-  },
-  {
-    "kind": "spell",
-    "slug": "healing-word",
-    "version": 1,
-    "name": "Healing Word",
-    "data": {
-      "level": 1,
-      "school": "abjuration",
-      "castingTime": "bonus",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["v"],
-      "duration": "instantaneous",
-      "concentration": false,
-      "ritual": false,
-      "activities": [
-        {
-          "id": "healing-word-cast",
-          "type": "heal",
-          "name": "Healing Word",
-          "cost": "bonus",
-          "heal": { "amount": "1d4 + spellMod" },
-          "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "1d4" },
-          "target": { "affects": "creature", "count": 1 }
-        }
+      "materialComponent": "a drop of blood",
+      "classes": [
+        "bard",
+        "cleric"
       ]
     }
   },
@@ -141,8 +64,15 @@
       "level": 1,
       "school": "enchantment",
       "castingTime": "action",
-      "range": { "value": 30, "units": "ft" },
-      "components": ["v", "s", "m"],
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "concentration, up to 1 minute",
       "concentration": true,
       "ritual": false,
@@ -152,10 +82,278 @@
           "type": "utility",
           "name": "Bless",
           "cost": "action",
-          "target": { "affects": "creature", "count": 3 },
-          "scalesWithSlotLevel": { "perSlotAbove": 1, "addTargets": 1 },
+          "target": {
+            "affects": "creature",
+            "count": 3
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 1,
+            "addTargets": 1
+          },
           "note": "Up to three creatures of your choice add 1d4 to attack rolls and saving throws made while the spell is active."
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "burning-hands",
+    "version": 1,
+    "name": "Burning Hands",
+    "data": {
+      "level": 1,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "burning-hands-cast",
+          "type": "save",
+          "name": "Burning Hands",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "3d6",
+                "type": "fire",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 1,
+              "addDice": "1d6"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cone",
+            "length": 15
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "charm-person",
+    "version": 1,
+    "name": "Charm Person",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "druid",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "color-spray",
+    "version": 1,
+    "name": "Color Spray",
+    "data": {
+      "level": 1,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 15
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 round",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a pinch of powder or sand that is colored red, yellow, and blue",
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "command",
+    "version": 1,
+    "name": "Command",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "1 round",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "comprehend-languages",
+    "version": 1,
+    "name": "Comprehend Languages",
+    "data": {
+      "level": 1,
+      "school": "divination",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a pinch of soot and salt",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "create-or-destroy-water",
+    "version": 1,
+    "name": "Create or Destroy Water",
+    "data": {
+      "level": 1,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a drop of water if creating water or a few grains of sand if destroying it",
+      "classes": [
+        "cleric",
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "cure-wounds",
+    "version": 1,
+    "name": "Cure Wounds",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "cure-wounds-cast",
+          "type": "heal",
+          "name": "Cure Wounds",
+          "cost": "action",
+          "heal": {
+            "amount": "2d8 + spellMod"
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 1,
+            "addDice": "2d8"
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "detect-evil-and-good",
+    "version": 1,
+    "name": "Detect Evil and Good",
+    "data": {
+      "level": 1,
+      "school": "divination",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "cleric",
+        "paladin"
       ]
     }
   },
@@ -168,8 +366,14 @@
       "level": 1,
       "school": "divination",
       "castingTime": "action",
-      "range": { "value": 0, "units": "self" },
-      "components": ["v", "s"],
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
       "duration": "concentration, up to 10 minutes",
       "concentration": true,
       "ritual": true,
@@ -186,27 +390,135 @@
   },
   {
     "kind": "spell",
-    "slug": "hex",
+    "slug": "detect-poison-and-disease",
     "version": 1,
-    "name": "Hex",
+    "name": "Detect Poison and Disease",
     "data": {
       "level": 1,
-      "school": "enchantment",
+      "school": "divination",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": true,
+      "materialComponent": "a yew leaf",
+      "classes": [
+        "cleric",
+        "druid",
+        "paladin",
+        "ranger"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "disguise-self",
+    "version": 1,
+    "name": "Disguise Self",
+    "data": {
+      "level": 1,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "divine-favor",
+    "version": 1,
+    "name": "Divine Favor",
+    "data": {
+      "level": 1,
+      "school": "evocation",
       "castingTime": "bonus",
-      "range": { "value": 90, "units": "ft" },
-      "components": ["v", "s", "m"],
-      "duration": "concentration, up to 1 hour",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
       "concentration": true,
       "ritual": false,
-      "activities": [
-        {
-          "id": "hex-cast",
-          "type": "utility",
-          "name": "Hex",
-          "cost": "bonus",
-          "target": { "affects": "creature", "count": 1 },
-          "note": "Target takes an extra 1d6 necrotic damage whenever you hit it with an attack. Also gives disadvantage on ability checks with one chosen ability. As a bonus action, transfer the curse to a new target if the original drops to 0 HP. Upcast: 3rd-4th level = up to 8 hours, 5th+ = up to 24 hours."
-        }
+      "classes": [
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "entangle",
+    "version": 1,
+    "name": "Entangle",
+    "data": {
+      "level": 1,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "expeditious-retreat",
+    "version": 1,
+    "name": "Expeditious Retreat",
+    "data": {
+      "level": 1,
+      "school": "transmutation",
+      "castingTime": "bonus",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "warlock",
+        "wizard"
       ]
     }
   },
@@ -219,8 +531,13 @@
       "level": 1,
       "school": "evocation",
       "castingTime": "action",
-      "range": { "value": 60, "units": "ft" },
-      "components": ["v"],
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
       "duration": "concentration, up to 1 minute",
       "concentration": true,
       "ritual": false,
@@ -232,11 +549,715 @@
           "cost": "action",
           "save": {
             "ability": "dex",
-            "dc": { "calc": "spell" }
+            "dc": {
+              "calc": "spell"
+            }
           },
-          "target": { "affects": "area", "shape": "cube", "size": 20 },
+          "target": {
+            "affects": "area",
+            "shape": "cube",
+            "size": 20
+          },
           "note": "Each creature in the cube on a failed DEX save is outlined in colored light: attack rolls against it have Advantage, and it can't benefit from the Invisible condition. Sheds dim light in a 10-ft radius."
         }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "false-life",
+    "version": 1,
+    "name": "False Life",
+    "data": {
+      "level": 1,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a small amount of alcohol or distilled spirits",
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "feather-fall",
+    "version": 1,
+    "name": "Feather Fall",
+    "data": {
+      "level": 1,
+      "school": "transmutation",
+      "castingTime": "reaction",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a small feather or piece of down",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "floating-disk",
+    "version": 1,
+    "name": "Floating Disk",
+    "data": {
+      "level": 1,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a drop of mercury",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "fog-cloud",
+    "version": 1,
+    "name": "Fog Cloud",
+    "data": {
+      "level": 1,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid",
+        "ranger",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "grease",
+    "version": 1,
+    "name": "Grease",
+    "data": {
+      "level": 1,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a bit of pork rind or butter",
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "guiding-bolt",
+    "version": 1,
+    "name": "Guiding Bolt",
+    "data": {
+      "level": 1,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 round",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "healing-word",
+    "version": 1,
+    "name": "Healing Word",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "bonus",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "healing-word-cast",
+          "type": "heal",
+          "name": "Healing Word",
+          "cost": "bonus",
+          "heal": {
+            "amount": "1d4 + spellMod"
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 1,
+            "addDice": "1d4"
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "heroism",
+    "version": 1,
+    "name": "Heroism",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "hex",
+    "version": 1,
+    "name": "Hex",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "bonus",
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "concentration, up to 1 hour",
+      "concentration": true,
+      "ritual": false,
+      "activities": [
+        {
+          "id": "hex-cast",
+          "type": "utility",
+          "name": "Hex",
+          "cost": "bonus",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target takes an extra 1d6 necrotic damage whenever you hit it with an attack. Also gives disadvantage on ability checks with one chosen ability. As a bonus action, transfer the curse to a new target if the original drops to 0 HP. Upcast: 3rd-4th level = up to 8 hours, 5th+ = up to 24 hours."
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "hideous-laughter",
+    "version": 1,
+    "name": "Hideous Laughter",
+    "data": {
+      "level": 1,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "tiny tarts and a feather that is waved in the air",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "identify",
+    "version": 1,
+    "name": "Identify",
+    "data": {
+      "level": 1,
+      "school": "divination",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a pearl worth at least 100 gp and an owl feather",
+      "classes": [
+        "bard",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "illusory-script",
+    "version": 1,
+    "name": "Illusory Script",
+    "data": {
+      "level": 1,
+      "school": "illusion",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "s",
+        "m"
+      ],
+      "duration": "10 days",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a lead-based ink worth at least 10 gp, which the spell consumes",
+      "classes": [
+        "bard",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "inflict-wounds",
+    "version": 1,
+    "name": "Inflict Wounds",
+    "data": {
+      "level": 1,
+      "school": "necromancy",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "jump",
+    "version": 1,
+    "name": "Jump",
+    "data": {
+      "level": 1,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a grasshopper’s hind leg",
+      "classes": [
+        "druid",
+        "ranger",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "longstrider",
+    "version": 1,
+    "name": "Longstrider",
+    "data": {
+      "level": 1,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a pinch of dirt",
+      "classes": [
+        "bard",
+        "druid",
+        "ranger",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mage-armor",
+    "version": 1,
+    "name": "Mage Armor",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "8 hours",
+      "activities": [
+        {
+          "id": "mage-armor-cast",
+          "type": "utility",
+          "name": "Mage Armor",
+          "cost": "action",
+          "appliedModifiers": [
+            {
+              "kind": "stat-modifier",
+              "target": "ac.formula",
+              "mode": "OVERRIDE",
+              "value": {
+                "base": 13,
+                "ability": "dex"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "magic-missile",
+    "version": 1,
+    "name": "Magic Missile",
+    "data": {
+      "level": 1,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "activities": [
+        {
+          "id": "magic-missile-cast",
+          "type": "damage",
+          "name": "Magic Missile",
+          "cost": "action",
+          "autoHit": true,
+          "damage": {
+            "parts": [
+              {
+                "dice": "1d4+1",
+                "type": "force"
+              }
+            ],
+            "perDart": 3,
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 1,
+              "addDarts": 1
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 3,
+            "perDart": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "protection-from-evil-and-good",
+    "version": 1,
+    "name": "Protection from Evil and Good",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "holy water or powdered silver and iron, which the spell consumes",
+      "classes": [
+        "cleric",
+        "paladin",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "purify-food-and-drink",
+    "version": 1,
+    "name": "Purify Food and Drink",
+    "data": {
+      "level": 1,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": true,
+      "classes": [
+        "cleric",
+        "druid",
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "sanctuary",
+    "version": 1,
+    "name": "Sanctuary",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "bonus",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a small silver mirror",
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "shield",
+    "version": 1,
+    "name": "Shield",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "reaction",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 round",
+      "activities": [
+        {
+          "id": "shield-cast",
+          "type": "utility",
+          "name": "Shield",
+          "cost": "reaction",
+          "modifiers": [
+            {
+              "kind": "stat-modifier",
+              "target": "ac",
+              "mode": "ADD",
+              "value": 5
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "shield-of-faith",
+    "version": 1,
+    "name": "Shield of Faith",
+    "data": {
+      "level": 1,
+      "school": "abjuration",
+      "castingTime": "bonus",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a small parchment with a bit of holy text written on it",
+      "classes": [
+        "cleric",
+        "paladin"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "silent-image",
+    "version": 1,
+    "name": "Silent Image",
+    "data": {
+      "level": 1,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "10 minutes",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a bit of fleece",
+      "classes": [
+        "bard",
+        "sorcerer",
+        "wizard"
       ]
     }
   },
@@ -249,8 +1270,15 @@
       "level": 1,
       "school": "enchantment",
       "castingTime": "action",
-      "range": { "value": 90, "units": "ft" },
-      "components": ["v", "s", "m"],
+      "range": {
+        "value": 90,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
       "duration": "1 minute",
       "concentration": false,
       "ritual": false,
@@ -262,9 +1290,15 @@
           "cost": "action",
           "save": {
             "ability": "wis",
-            "dc": { "calc": "spell" }
+            "dc": {
+              "calc": "spell"
+            }
           },
-          "target": { "affects": "area", "shape": "sphere", "radius": 5 },
+          "target": {
+            "affects": "area",
+            "shape": "sphere",
+            "radius": 5
+          },
           "note": "Each creature in a 5-ft-radius sphere makes a WIS save or has the Unconscious condition for the duration. Sleep ends on the target if it takes damage or someone uses an action to wake it. Constructs and Undead automatically succeed. Upcast effect is per the 2024 SRD; v0 leaves it as a note."
         }
       ]
@@ -272,34 +1306,86 @@
   },
   {
     "kind": "spell",
-    "slug": "burning-hands",
+    "slug": "speak-with-animals",
     "version": 1,
-    "name": "Burning Hands",
+    "name": "Speak with Animals",
+    "data": {
+      "level": 1,
+      "school": "divination",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": false,
+      "ritual": true,
+      "classes": [
+        "bard",
+        "druid",
+        "ranger"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "thunderwave",
+    "version": 1,
+    "name": "Thunderwave",
     "data": {
       "level": 1,
       "school": "evocation",
       "castingTime": "action",
-      "range": { "value": 0, "units": "self" },
-      "components": ["v", "s"],
+      "range": {
+        "value": 0,
+        "units": "self",
+        "area": 15
+      },
+      "components": [
+        "v",
+        "s"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
-      "activities": [
-        {
-          "id": "burning-hands-cast",
-          "type": "save",
-          "name": "Burning Hands",
-          "cost": "action",
-          "save": {
-            "ability": "dex",
-            "dc": { "calc": "spell" }
-          },
-          "damage": {
-            "parts": [{ "dice": "3d6", "type": "fire", "halfOnSave": true }],
-            "scalesWithSlotLevel": { "perSlotAbove": 1, "addDice": "1d6" }
-          },
-          "target": { "affects": "area", "shape": "cone", "length": 15 }
-        }
+      "classes": [
+        "bard",
+        "druid",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "unseen-servant",
+    "version": 1,
+    "name": "Unseen Servant",
+    "data": {
+      "level": 1,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": false,
+      "ritual": true,
+      "materialComponent": "a piece of string and a bit of wood",
+      "classes": [
+        "bard",
+        "warlock",
+        "wizard"
       ]
     }
   }

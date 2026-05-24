@@ -1,6 +1,385 @@
 [
   {
     "kind": "spell",
+    "slug": "astral-projection",
+    "version": 1,
+    "name": "Astral Projection",
+    "data": {
+      "level": 9,
+      "school": "necromancy",
+      "castingTime": "1 hour",
+      "range": {
+        "value": 10,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "special",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "for each creature you affect with this spell, you must provide one jacinth worth at least 1,000 gp and one ornately carved bar of silver worth at least 100 gp, all of which the spell consumes",
+      "classes": [
+        "cleric",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "foresight",
+    "version": 1,
+    "name": "Foresight",
+    "data": {
+      "level": 9,
+      "school": "divination",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "8 hours",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a hummingbird feather",
+      "classes": [
+        "bard",
+        "druid",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "gate",
+    "version": 1,
+    "name": "Gate",
+    "data": {
+      "level": 9,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a diamond worth at least 5,000 gp",
+      "classes": [
+        "cleric",
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "imprisonment",
+    "version": 1,
+    "name": "Imprisonment",
+    "data": {
+      "level": 9,
+      "school": "abjuration",
+      "castingTime": "1 minute",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "until dispelled",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a vellum depiction or a carved statuette in the likeness of the target, and a special component that varies according to the version of the spell you choose, worth at least 500 gp per Hit Die of the target",
+      "classes": [
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "mass-heal",
+    "version": 1,
+    "name": "Mass Heal",
+    "data": {
+      "level": 9,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "cleric"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "meteor-swarm",
+    "version": 1,
+    "name": "Meteor Swarm",
+    "data": {
+      "level": 9,
+      "school": "evocation",
+      "castingTime": "action",
+      "range": {
+        "value": 1,
+        "units": "mile"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "power-word-kill",
+    "version": 1,
+    "name": "Power Word Kill",
+    "data": {
+      "level": 9,
+      "school": "enchantment",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "bard",
+        "sorcerer",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "prismatic-wall",
+    "version": 1,
+    "name": "Prismatic Wall",
+    "data": {
+      "level": 9,
+      "school": "abjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 60,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "10 minutes",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "shapechange",
+    "version": 1,
+    "name": "Shapechange",
+    "data": {
+      "level": 9,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a jade circlet worth at least 1,500 gp, which you must place on your head before you cast the spell",
+      "classes": [
+        "druid",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "storm-of-vengeance",
+    "version": 1,
+    "name": "Storm of Vengeance",
+    "data": {
+      "level": 9,
+      "school": "conjuration",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "sight"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "1 minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "time-stop",
+    "version": 1,
+    "name": "Time Stop",
+    "data": {
+      "level": 9,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "classes": [
+        "sorcerer",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "true-polymorph",
+    "version": 1,
+    "name": "True Polymorph",
+    "data": {
+      "level": 9,
+      "school": "transmutation",
+      "castingTime": "action",
+      "range": {
+        "value": 30,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "1 hour",
+      "concentration": true,
+      "ritual": false,
+      "materialComponent": "a drop of mercury, a dollop of gum arabic, and a wisp of smoke",
+      "classes": [
+        "bard",
+        "warlock",
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "true-resurrection",
+    "version": 1,
+    "name": "True Resurrection",
+    "data": {
+      "level": 9,
+      "school": "necromancy",
+      "castingTime": "1 hour",
+      "range": {
+        "value": 0,
+        "units": "touch"
+      },
+      "components": [
+        "v",
+        "s",
+        "m"
+      ],
+      "duration": "instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "materialComponent": "a sprinkle of holy water and diamonds worth at least 25,000 gp, which the spell consumes",
+      "classes": [
+        "cleric",
+        "druid"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
+    "slug": "weird",
+    "version": 1,
+    "name": "Weird",
+    "data": {
+      "level": 9,
+      "school": "illusion",
+      "castingTime": "action",
+      "range": {
+        "value": 120,
+        "units": "ft"
+      },
+      "components": [
+        "v",
+        "s"
+      ],
+      "duration": "one minute",
+      "concentration": true,
+      "ritual": false,
+      "classes": [
+        "wizard"
+      ]
+    }
+  },
+  {
+    "kind": "spell",
     "slug": "wish",
     "version": 1,
     "name": "Wish",
@@ -8,8 +387,13 @@
       "level": 9,
       "school": "conjuration",
       "castingTime": "action",
-      "range": { "value": 0, "units": "self" },
-      "components": ["v"],
+      "range": {
+        "value": 0,
+        "units": "self"
+      },
+      "components": [
+        "v"
+      ],
       "duration": "instantaneous",
       "concentration": false,
       "ritual": false,
