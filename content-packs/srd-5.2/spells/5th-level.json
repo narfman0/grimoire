@@ -76,6 +76,42 @@
       "materialComponent": "an eggshell and a snakeskin glove",
       "classes": [
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "arcane-hand-cast",
+          "type": "attack",
+          "name": "Arcane Hand (Bigby's Hand)",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [
+              {
+                "dice": "4d8",
+                "type": "force"
+              }
+            ]
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "4d8",
+                "type": "force"
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 5,
+              "addDice": "2d8"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Conjure a Large hand. Bonus action to direct: Clenched Fist (4d8 force on hit), Forceful Hand (push/shove), Grasping Hand (grapple), Interposing Hand (half cover)."
+        }
       ]
     }
   },
@@ -400,6 +436,29 @@
         "bard",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "dominate-person-cast",
+          "type": "save",
+          "name": "Dominate Person",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Humanoid target (WIS save negates). On failure, charmed and you can telepathically command. Target re-saves whenever it takes damage. Concentration, up to 1 minute (longer with higher slots).",
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 5,
+            "addDurationStep": 1
+          }
+        }
       ]
     }
   },
@@ -456,6 +515,46 @@
       "materialComponent": "pinch of sulfur",
       "classes": [
         "cleric"
+      ],
+      "activities": [
+        {
+          "id": "flame-strike-cast",
+          "type": "save",
+          "name": "Flame Strike",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "4d6",
+                "type": "fire",
+                "halfOnSave": true
+              },
+              {
+                "dice": "4d6",
+                "type": "radiant",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 5,
+              "addDice": "1d6",
+              "addDiceType": "split"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cylinder",
+            "radius": 10,
+            "height": 40
+          },
+          "note": "DEX save: 4d6 fire + 4d6 radiant, half on success. Upcast: +1d6 of each per slot above 5th."
+        }
       ]
     }
   },
@@ -513,6 +612,19 @@
         "bard",
         "cleric",
         "druid"
+      ],
+      "activities": [
+        {
+          "id": "greater-restoration-cast",
+          "type": "utility",
+          "name": "Greater Restoration",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Reduce target’s exhaustion by one, OR end charmed/petrified/cursed, one reduction to ability/HP max, or any spell with that effect."
+        }
       ]
     }
   },

@@ -306,6 +306,23 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "dispel-magic-cast",
+          "type": "utility",
+          "name": "Dispel Magic",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target one creature/object/effect within 120 ft. End any spell of 3rd level or lower automatically. For higher levels, make a spellcasting check DC 10+spell level; success ends it.",
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 3,
+            "addAutoDispelLevel": 1
+          }
+        }
       ]
     }
   },
@@ -337,6 +354,26 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "fear-cast",
+          "type": "save",
+          "name": "Fear",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cone",
+            "length": 30
+          },
+          "note": "Each creature in a 30-ft cone makes a WIS save. On a failure, drops what it holds and is frightened. While frightened, it must Dash away. Repeat save at end of each turn."
+        }
       ]
     }
   },
@@ -987,6 +1024,27 @@
         "druid",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "sleet-storm-cast",
+          "type": "save",
+          "name": "Sleet Storm",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cylinder",
+            "radius": 20,
+            "height": 40
+          },
+          "note": "Difficult terrain, heavily obscured. Open flames are doused. Creatures in the area make a DEX save on cast or fall prone. Concentrating creatures make a CON save or lose concentration."
+        }
       ]
     }
   },
@@ -1015,6 +1073,27 @@
       "classes": [
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "slow-cast",
+          "type": "save",
+          "name": "Slow",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cube",
+            "size": 40,
+            "count": 6
+          },
+          "note": "Up to six creatures in a 40-ft cube (WIS save negates). Failed targets have speed halved, -2 AC and DEX saves, no reactions, and may take only one of action/bonus action per turn."
+        }
       ]
     }
   },

@@ -52,6 +52,29 @@
       "classes": [
         "bard",
         "cleric"
+      ],
+      "activities": [
+        {
+          "id": "bane-cast",
+          "type": "save",
+          "name": "Bane",
+          "cost": "action",
+          "save": {
+            "ability": "cha",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 3
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 1,
+            "addTargets": 1
+          },
+          "note": "Up to three creatures (CHA save negates) subtract 1d4 from each attack roll and saving throw for the duration."
+        }
       ]
     }
   },
@@ -175,6 +198,29 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "charm-person-cast",
+          "type": "save",
+          "name": "Charm Person",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 1,
+            "addTargets": 1
+          },
+          "note": "Humanoid (WIS save negates, advantage if in combat). On a failure, target is charmed by the caster for 1 hour or until harmed."
+        }
       ]
     }
   },
@@ -723,6 +769,42 @@
       "ritual": false,
       "classes": [
         "cleric"
+      ],
+      "activities": [
+        {
+          "id": "guiding-bolt-cast",
+          "type": "attack",
+          "name": "Guiding Bolt",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [
+              {
+                "dice": "4d6",
+                "type": "radiant"
+              }
+            ]
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "4d6",
+                "type": "radiant"
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 1,
+              "addDice": "1d6"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "On hit: 4d6 radiant. The next attack roll against the target before the end of your next turn has advantage."
+        }
       ]
     }
   },

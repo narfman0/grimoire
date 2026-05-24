@@ -428,6 +428,25 @@
         "bard",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "detect-thoughts-cast",
+          "type": "save",
+          "name": "Detect Thoughts",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Read surface thoughts of a creature within 30 ft. Probe deeper on a failed WIS save. Concentration, up to 1 minute."
+        }
       ]
     }
   },
@@ -847,6 +866,19 @@
         "druid",
         "paladin",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "lesser-restoration-cast",
+          "type": "utility",
+          "name": "Lesser Restoration",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "End one disease, or one condition affecting the target: blinded, deafened, paralyzed, or poisoned."
+        }
       ]
     }
   },
@@ -1017,6 +1049,18 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "mirror-image-cast",
+          "type": "utility",
+          "name": "Mirror Image",
+          "cost": "action",
+          "target": {
+            "affects": "self"
+          },
+          "note": "Three illusory duplicates appear. Each time you are targeted by an attack, a duplicate is hit instead (AC 10 + DEX mod) until destroyed."
+        }
       ]
     }
   },
@@ -1074,6 +1118,40 @@
       "materialComponent": "several seeds of any moonseed plant and a piece of opalescent feldspar",
       "classes": [
         "druid"
+      ],
+      "activities": [
+        {
+          "id": "moonbeam-cast",
+          "type": "save",
+          "name": "Moonbeam",
+          "cost": "action",
+          "save": {
+            "ability": "con",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "2d10",
+                "type": "radiant",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 2,
+              "addDice": "1d10"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cylinder",
+            "radius": 5,
+            "height": 40
+          },
+          "note": "Creatures entering the cylinder or starting their turn there make a CON save; 2d10 radiant on failure, half on success. Shapechangers have disadvantage and revert."
+        }
       ]
     }
   },
@@ -1102,6 +1180,20 @@
       "classes": [
         "druid",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "pass-without-trace-cast",
+          "type": "utility",
+          "name": "Pass Without Trace",
+          "cost": "action",
+          "target": {
+            "affects": "area",
+            "shape": "radius",
+            "radius": 30
+          },
+          "note": "You and allies within 30 ft gain +10 to Stealth checks and cannot be tracked except by magic. Concentration, up to 1 hour."
+        }
       ]
     }
   },
@@ -1287,6 +1379,18 @@
         "bard",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "see-invisibility-cast",
+          "type": "utility",
+          "name": "See Invisibility",
+          "cost": "action",
+          "target": {
+            "affects": "self"
+          },
+          "note": "For 1 hour, you see invisible creatures and objects and into the Ethereal Plane."
+        }
       ]
     }
   },
@@ -1481,6 +1585,25 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "suggestion-cast",
+          "type": "save",
+          "name": "Suggestion",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Suggest a reasonable activity (1-2 sentences) to a target that can hear/understand you. WIS save negates; on failure, target pursues the activity for the duration (up to 8 hours). Concentration."
+        }
       ]
     }
   },

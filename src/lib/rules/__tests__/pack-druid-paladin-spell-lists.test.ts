@@ -117,11 +117,12 @@ describe('spellListAdditions on druid-circle + paladin-oath features', () => {
   });
 
   it('gracefully skips spell slugs that are not in pack content (no cast surface, no crash)', () => {
-    // moonbeam / pass-without-trace / scrying are on the 2024 PHB tables but
-    // are NOT in content-packs/srd-5.2/spells. derive() should still complete,
-    // the slug should still surface on alwaysPreparedFromContent (so the UI
-    // can label "always prepared from subclass"), and no action row should
-    // exist for the missing spell.
+    // chromatic-orb / dissonant-whispers are on the 2024 PHB tables but
+    // are NOT in content-packs/srd-5.2/spells (Product Identity, not in SRD
+    // 5.1 either). derive() should still complete, the slug should still
+    // surface on alwaysPreparedFromContent (so the UI can label "always
+    // prepared from subclass"), and no action row should exist for the
+    // missing spell.
     const subclass: ContentRow = {
       kind: 'subclass',
       slug: 'circle-of-the-test-void',
@@ -140,17 +141,17 @@ describe('spellListAdditions on druid-circle + paladin-oath features', () => {
         ownerKind: 'subclass',
         ownerSlug: 'circle-of-the-test-void',
         minLevel: 3,
-        spellListAdditions: ['moonbeam', 'pass-without-trace', 'cure-wounds']
+        spellListAdditions: ['chromatic-orb', 'dissonant-whispers', 'cure-wounds']
       }
     };
     const char = character('druid', 'circle-of-the-test-void');
     const d = derive(char, lookupWith(subclass, feature));
-    expect(d.alwaysPreparedFromContent).toContain('moonbeam');
-    expect(d.alwaysPreparedFromContent).toContain('pass-without-trace');
+    expect(d.alwaysPreparedFromContent).toContain('chromatic-orb');
+    expect(d.alwaysPreparedFromContent).toContain('dissonant-whispers');
     expect(d.alwaysPreparedFromContent).toContain('cure-wounds');
     // The missing spells have no cast surface — graceful degradation.
-    expect(d.actions.find((a) => a.sourceContent.slug === 'moonbeam')).toBeUndefined();
-    expect(d.actions.find((a) => a.sourceContent.slug === 'pass-without-trace')).toBeUndefined();
+    expect(d.actions.find((a) => a.sourceContent.slug === 'chromatic-orb')).toBeUndefined();
+    expect(d.actions.find((a) => a.sourceContent.slug === 'dissonant-whispers')).toBeUndefined();
     // But the in-SRD spell still resolves.
     expect(d.actions.find((a) => a.sourceContent.slug === 'cure-wounds')).toBeDefined();
   });

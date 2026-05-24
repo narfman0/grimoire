@@ -190,6 +190,19 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "power-word-kill-cast",
+          "type": "utility",
+          "name": "Power Word Kill",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target one creature you can see within 60 ft. If it has 100 hit points or fewer, it dies. Otherwise no effect."
+        }
       ]
     }
   },
@@ -350,6 +363,19 @@
       "classes": [
         "cleric",
         "druid"
+      ],
+      "activities": [
+        {
+          "id": "true-resurrection-cast",
+          "type": "utility",
+          "name": "True Resurrection",
+          "cost": "1 hour",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Restore life to a creature dead up to 200 years. Closes all wounds, restores missing body parts, cures all diseases/poisons and conditions."
+        }
       ]
     }
   },

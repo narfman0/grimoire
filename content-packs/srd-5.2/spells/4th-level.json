@@ -634,6 +634,37 @@
       "ritual": false,
       "classes": [
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "phantasmal-killer-cast",
+          "type": "save",
+          "name": "Phantasmal Killer",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "4d10",
+                "type": "psychic"
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 4,
+              "addDice": "1d10"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target makes a WIS save or becomes frightened. While frightened, it makes another WIS save at end of each turn; on failure takes 4d10 psychic."
+        }
       ]
     }
   },
