@@ -14,6 +14,7 @@ import {
 } from './damage-source';
 import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor, type EvalContext } from './evaluate';
 import { applyNumericMode, defaultPriority, type Mode } from './modes';
+import { monsterDerive } from './monster-derive';
 import { predicateMatches, type PredicateContext } from './predicates';
 import { SKILLS, SKILL_ABILITY } from './skills';
 import type {
@@ -21,6 +22,7 @@ import type {
   AbilityKey,
   Action,
   ActivationDeclaration,
+  ActiveForm,
   AvailableActivation,
   AppliedModifier,
   AvailableToggle,
@@ -29,6 +31,7 @@ import type {
   ContentRef,
   ContentRow,
   Derived,
+  DerivedCompanion,
   OutboundEffect,
   OverlayHpPool,
   PendingFeatureChoice,
@@ -2021,6 +2024,84 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Polymorph form snapshot. When the character has stepped into a
+  // beast / aberration / angel via Wild Shape, Polymorph spell, Form
+  // of Dread, etc., resolve the monster row via the existing content
+  // lookup (mirrors the spellListAdditions content-lookup pattern at
+  // line ~422) and run `monsterDerive` to produce a snapshot. Any
+  // modifier from an active feature/feat/species/etc. row carrying
+  // `persistsInForm: true` is also collected here so the runtime can
+  // overlay it on top of the form's snapshot when adjudicating the
+  // form's saves / AC / etc. The base PC's stats path is unaffected —
+  // these modifiers are PC modifiers that *also* persist in form,
+  // not form-only modifiers.
+  let activeForm: ActiveForm | undefined;
+  if (character.polymorphForm) {
+    const formState = character.polymorphForm;
+    const monsterRow = content({ kind: 'monster', slug: formState.slug });
+    if (!monsterRow) {
+      validations.push({
+        severity: 'warning',
+        code: 'polymorph-form-missing-content',
+        message: `Polymorph form '${formState.slug}' not found in content lookup.`
+      });
+    } else {
+      const persistentModifiers: Array<Record<string, unknown>> = [];
+      for (const a of active) {
+        const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+        for (const m of mods) {
+          if (m && typeof m === 'object' && m.persistsInForm === true) {
+            persistentModifiers.push(m);
+          }
+        }
+      }
+      activeForm = {
+        sourceContent: formState.sourceContent,
+        statblock: monsterDerive(monsterRow.data),
+        persistentModifiers,
+        formSaveSource: formState.formSaveSource ?? 'form',
+        currentHp: formState.currentHp,
+        maxHp: formState.maxHp,
+        roundsRemaining: formState.roundsRemaining ?? null
+      };
+    }
+  }
+
+  // Companion snapshots. Walk character.companions[], filter to
+  // status='summoned' (dismissed entries stay in the document but
+  // don't show on the encounter tracker), and produce a Derived
+  // snapshot per entry. Same content-lookup pattern as polymorph
+  // form. sharesInitiative defaults to true per the design doc's
+  // recommendation on open question #1 — Beast Master / Drakewarden
+  // companions share the controller's initiative; familiars opt out
+  // by setting the flag false on the companion state.
+  let companions: DerivedCompanion[] | undefined;
+  if (Array.isArray(character.companions) && character.companions.length > 0) {
+    const out: DerivedCompanion[] = [];
+    for (const c of character.companions) {
+      if (c.status !== 'summoned') continue;
+      const monsterRow = content({ kind: 'monster', slug: c.slug });
+      if (!monsterRow) {
+        validations.push({
+          severity: 'warning',
+          code: 'companion-missing-content',
+          message: `Companion '${c.slug}' (${c.name}) not found in content lookup.`
+        });
+        continue;
+      }
+      out.push({
+        slug: c.slug,
+        name: c.name,
+        statblock: monsterDerive(monsterRow.data),
+        currentHp: c.currentHp,
+        maxHp: c.maxHp,
+        status: 'summoned',
+        sharesInitiative: c.sharesInitiative ?? true
+      });
+    }
+    if (out.length > 0) companions = out;
+  }
+
   return {
     stats,
     actions,
@@ -2033,7 +2114,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     overlayHpPools,
     pendingFeatureChoices,
     availableActivations,
-    equipped: { armorType: equippedArmorType, shield: equippedShield }
+    equipped: { armorType: equippedArmorType, shield: equippedShield },
+    ...(activeForm !== undefined ? { activeForm } : {}),
+    ...(companions !== undefined ? { companions } : {})
   };
 }
 

@@ -56,3 +56,78 @@ export function applyHealDelta<T extends HpState>(
           : state.currentHp + n
   };
 }
+
+/** Form HP bucket — see `applyFormDamage`. The form's HP pool is
+ *  independent of the base character's HP. Damage flows through the
+ *  form's pool first; overflow on a 0-HP form cascades to the base
+ *  PC's stack (which still routes through tempHp → overlayHp →
+ *  currentHp per `applyDamageDelta`). */
+export interface FormHpState {
+  current: number;
+  max: number;
+}
+
+/** Result of `applyFormDamage`: the new form-HP bucket, the new base
+ *  HP state (with overflow damage applied if the form dropped to 0),
+ *  and the overflow amount that cascaded — useful for UI attribution
+ *  ("Greenscale absorbed 5, you took the remaining 3"). */
+export interface ApplyFormDamageResult<T extends HpState> {
+  form: FormHpState;
+  base: T;
+  overflowToBase: number;
+}
+
+/** Damage routing for a polymorphed character. Absorption order is
+ *  tempHp → overlayHp → formHp → base currentHp (the first three
+ *  belong to the base HP stack; only base HP catches the cascade when
+ *  form HP runs out).
+ *
+ *  Rationale: temp HP / overlay HP are conceptually "external" buffers
+ *  the PC carries with them into the form (Heroism temp HP doesn't
+ *  vanish when you Wild Shape mid-cast). Form HP is the form's own
+ *  body. When the form's body is destroyed, the leftover hit lands on
+ *  the PC's own meat. RAW Wild Shape: when the form drops, "any
+ *  excess damage carries over to your normal form." */
+export function applyFormDamage<T extends HpState>(
+  baseState: T,
+  formHp: FormHpState,
+  amount: number
+): ApplyFormDamageResult<T> {
+  const n = Math.max(0, Math.floor(amount));
+  // Step 1: drain tempHp and overlayHp via the same math as the
+  // base-only path. We use a synthetic intermediate state with
+  // currentHp = null so the base currentHp is preserved here; the
+  // form's HP takes the next bite.
+  const buffered = applyDamageDelta(
+    { ...baseState, currentHp: null } as T,
+    n
+  );
+  // Reconstruct: the amount that *would have* hit currentHp on the
+  // base-only path is exactly (n - tempHpAbsorbed - overlayAbsorbed).
+  const tempAbsorbed = (baseState.tempHp ?? 0) - (buffered.tempHp ?? 0);
+  const overlayAbsorbed =
+    baseState.overlayHp !== undefined && buffered.overlayHp !== undefined
+      ? baseState.overlayHp - buffered.overlayHp
+      : 0;
+  let remaining = n - tempAbsorbed - overlayAbsorbed;
+
+  // Step 2: form HP absorbs next. Overflow cascades to base.
+  const formAbsorbed = Math.min(formHp.current, remaining);
+  remaining -= formAbsorbed;
+  const nextForm: FormHpState = {
+    current: formHp.current - formAbsorbed,
+    max: formHp.max
+  };
+
+  // Step 3: any leftover lands on the base PC's currentHp (floored at 0).
+  const overflowToBase = remaining;
+  const baseCurrent =
+    baseState.currentHp == null
+      ? null
+      : Math.max(0, baseState.currentHp - overflowToBase);
+  const nextBase: T = {
+    ...buffered,
+    currentHp: baseCurrent
+  } as T;
+  return { form: nextForm, base: nextBase, overflowToBase };
+}

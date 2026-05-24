@@ -22,19 +22,32 @@ separate design pass.
 
 ## Engine deferrals
 
-### Polymorph / companion / overlay-HP — PARTIAL (overlay shipped)
+### Polymorph / companion / overlay-HP — PARTIAL (engine shipped; API + UI deferred)
 
 Three related "extra entity / extra HP bucket" mechanics:
 
 1. **Statblock replacement** (Druid Wild Shape, Form of Dread, Avenging
    Angel). The character temporarily becomes a beast / aberration with a
-   different HP pool, AC, attack list, and ability scores. **DESIGNED**
-   — see [polymorph-companion-design.md](./polymorph-companion-design.md).
-   Not implemented.
+   different HP pool, AC, attack list, and ability scores. **SHIPPED
+   (engine layer)** — `CharacterDocument.polymorphForm` →
+   `Derived.activeForm` (statblock via `monsterDerive` + persistent
+   modifiers via `persistsInForm: true` marker + form-save-source flag).
+   `hp.applyFormDamage` cascades damage temp → overlay → form HP → base
+   with overflow tracking. See
+   [polymorph-companion-design.md](./polymorph-companion-design.md).
+   API + UI (Phase 5b) still pending:
+   POST/DELETE `/api/encounters/[id]/participants/[pid]/polymorph`,
+   sibling participant row spawn, form-switch UI on the sheet.
 2. **Controlled minor entity** (Ranger Beast Master companion, Echo Knight
    echo, Drakewarden drake, Pact of the Chain familiar with combat use).
    First-class entity the player commands alongside their own turn.
-   **DESIGNED** — same design doc. Not implemented.
+   **SHIPPED (engine layer)** — `CharacterDocument.companions[]` →
+   `Derived.companions[]` (statblock via `monsterDerive` per entry, with
+   `sharesInitiative` default-true per design open-question #1 and
+   dismissed entries filtered out). API + UI (Phase 5a) still pending:
+   `participants.controller_participant_id` schema column, POST
+   `/api/encounters/[id]/participants/[pid]/companion/[cid]`, companion
+   card on the planner.
 3. **Overlay HP pool** (Arcane Ward, Bladesong, Tortle Shell Defense
    stance-toggle AC). **SHIPPED** — `Derived.overlayHpPools[]` (commit
    0ede556). hp.applyDamageDelta absorbs in order temp → overlay →
@@ -43,7 +56,8 @@ Three related "extra entity / extra HP bucket" mechanics:
 
 **Sample blocked rows (1 + 2):** Druid Wild Shape, Echo Knight
 (`wildemount/`), Beast Master, all 6 `wildemount/echo-knight` features.
-Estimated ~50 rows across SRD + non-SRD.
+Engine plumbing is now in place — these rows unblock when Phase 5a/5b
+API + UI ship. Estimated ~50 rows across SRD + non-SRD.
 
 ### Arithmetic-token evaluator — SHIPPED
 

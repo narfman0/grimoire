@@ -2,6 +2,7 @@
 // contract narrative; this file is just the types those words describe.
 
 import type { DamageSourcePredicate } from './damage-source';
+import type { MonsterDerived } from './monster-derive';
 
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
@@ -121,6 +122,61 @@ export interface CharacterDocument {
   /** Action ids (derived.actions[].id) the player has pinned. The planner
    *  surfaces these at the top of the picker. */
   favoriteActionIds?: string[];
+  /** Currently-active polymorph form. Null/absent when in base form. The
+   *  slug references a content row of kind 'monster' (the form's
+   *  statblock). When present, derive() resolves the form via the
+   *  ContentLookup and populates `Derived.activeForm` with a snapshot. */
+  polymorphForm?: PolymorphFormState | null;
+  /** Companions the PC controls (Beast Master companion, Pact of the
+   *  Chain familiar, Drakewarden drake, …). Persists across encounters;
+   *  derive() walks them and emits a `Derived.companions[]` entry per
+   *  `summoned` row (dismissed rows are omitted from Derived). */
+  companions?: CompanionState[];
+}
+
+/** Per-character polymorph state — see `CharacterDocument.polymorphForm`. */
+export interface PolymorphFormState {
+  /** Slug of the monster content row whose statblock the PC currently
+   *  inhabits. */
+  slug: string;
+  /** Source feature/spell that granted the form (Wild Shape, Polymorph
+   *  spell, Form of Dread, …). Used by the encounter runtime for
+   *  cleanup-rule decisions (e.g. Wild Shape reverts to base on 0 HP). */
+  sourceContent: { kind: string; slug: string };
+  /** Form HP. Independent of `character.currentHp` — damage flows into
+   *  the form's pool first, with overflow cascading to base. */
+  currentHp: number;
+  maxHp: number;
+  /** Round count remaining at form-end. Null/absent = no timer (Wild
+   *  Shape uses a per-rest resource instead of a per-encounter clock). */
+  roundsRemaining?: number;
+  /** RAW per Wild Shape vs Polymorph: 'base' (Wild Shape — saves use
+   *  the PC's own ability scores) or 'form' (Polymorph — saves use the
+   *  form's ability scores). The encounter runtime reads this when
+   *  resolving forced saves on the form participant. Default 'form'. */
+  formSaveSource?: 'base' | 'form';
+}
+
+/** Per-character companion entry — see `CharacterDocument.companions`. */
+export interface CompanionState {
+  /** Slug of the monster content row backing this companion. */
+  slug: string;
+  /** Player-chosen display name ("Greymane", "Mr. Whiskers", …). */
+  name: string;
+  /** Source feature/spell that granted the companion (Find Familiar,
+   *  Beast Master, Drakewarden, …). Display + runtime cleanup. */
+  sourceContent: { kind: string; slug: string };
+  currentHp: number;
+  maxHp: number;
+  /** 'summoned' = visible on the tracker / Derived.companions; 'dismissed'
+   *  = hidden but data preserved (familiar at rest, drake recalled). */
+  status: 'summoned' | 'dismissed';
+  /** Whether the companion acts on the controller's initiative slot
+   *  (true — default for Beast Master, Drakewarden) or rolls its own
+   *  (false — default for Find Familiar). Per the design doc's open
+   *  question #1: the recommendation is a data field defaulting to
+   *  true. derive() defaults missing values to `true`. */
+  sharesInitiative?: boolean;
 }
 
 export interface ReceivedBuff {
@@ -633,6 +689,57 @@ export interface Derived {
    *  character has no armor body slot equipped (i.e. unarmored). shield
    *  reflects whether any equipped item is `armorType: 'shield'`. */
   equipped: EquippedInventory;
+  /** Statblock active when the character is polymorphed. Absent in
+   *  base form. The encounter layer / sheet renders this in place of
+   *  the base stats when present; base resources / spell slots remain
+   *  visible because the form doesn't consume them (with the exception
+   *  of Wild Shape uses, which is a separate resource entry). */
+  activeForm?: ActiveForm;
+  /** Companions the character controls. derive() walks
+   *  `character.companions` (filtered to `status: 'summoned'`) and
+   *  produces a Derived-shaped snapshot per entry by running
+   *  `monsterDerive` against the form's statblock data. The encounter
+   *  participant row for the PC will eventually carry a
+   *  `controllerForParticipants: string[]` field that links companion
+   *  participant rows back to their controller — that's a follow-on
+   *  phase (5a API). */
+  companions?: DerivedCompanion[];
+}
+
+/** Polymorph form snapshot emitted by derive() — see `Derived.activeForm`. */
+export interface ActiveForm {
+  sourceContent: { kind: string; slug: string };
+  statblock: MonsterDerived;
+  /** Modifiers from base feature/feat/species rows carrying
+   *  `persistsInForm: true`. The encounter runtime overlays these on
+   *  top of `statblock` when rendering form actions / saves. Without
+   *  the flag, base PC modifiers don't propagate to the form snapshot. */
+  persistentModifiers: Array<Record<string, unknown>>;
+  /** Mirrored from `PolymorphFormState.formSaveSource`, defaulted to
+   *  'form' when omitted on the source state. */
+  formSaveSource: 'base' | 'form';
+  /** Mirrored from `PolymorphFormState.currentHp`. */
+  currentHp: number;
+  /** Mirrored from `PolymorphFormState.maxHp`. */
+  maxHp: number;
+  /** Mirrored from `PolymorphFormState.roundsRemaining`, defaulted to
+   *  null when the form has no timer. */
+  roundsRemaining: number | null;
+}
+
+/** Companion snapshot emitted by derive() — see `Derived.companions`. */
+export interface DerivedCompanion {
+  slug: string;
+  name: string;
+  statblock: MonsterDerived;
+  currentHp: number;
+  maxHp: number;
+  /** Always 'summoned' on Derived (dismissed entries are filtered out
+   *  by derive()). Kept on the shape so downstream code reading the
+   *  Derived view doesn't have to special-case absent status. */
+  status: 'summoned';
+  /** Defaulted to true when omitted on the underlying `CompanionState`. */
+  sharesInitiative: boolean;
 }
 
 export interface EquippedInventory {
