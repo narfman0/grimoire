@@ -2199,7 +2199,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const seenResourceIds = new Set<string>();
   const resourcesSpent = character.resourcesSpent ?? {};
   for (const a of active) {
-    if (a.row.kind !== 'class') continue;
+    // Class-resource declarations live on `class` rows canonically (Bardic
+    // Inspiration, Ki / Focus, Sorcery Points, …). Subclass rows may also
+    // declare resources gated by subclass-pick (Battle Master's Superiority
+    // Dice are the canonical example — declared on the subclass row so
+    // non-Battle-Master fighters don't see the pool).
+    if (a.row.kind !== 'class' && a.row.kind !== 'subclass') continue;
     const decls = a.data.resources as Array<Record<string, unknown>> | undefined;
     if (!Array.isArray(decls)) continue;
     for (const raw of decls) {

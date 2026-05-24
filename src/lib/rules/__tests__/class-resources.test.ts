@@ -406,3 +406,76 @@ describe('multi-class duplicate-id edge', () => {
     expect(warning).toBeDefined();
   });
 });
+
+// --- subclass-row resource declarations -----------------------------
+// Battle Master's Superiority Dice declare on the subclass row (not the
+// class row) so non-Battle-Master fighters don't get an unused pool.
+// derive() walks both kinds.
+
+describe('subclass-row resource declarations', () => {
+  const PLAIN_FIGHTER: ContentRow = {
+    kind: 'class',
+    slug: 'plainfighter',
+    version: 1,
+    source: 'test',
+    name: 'Plain Fighter',
+    data: {
+      hitDie: 10,
+      primaryAbility: 'str',
+      saves: ['str', 'con']
+      // No resources declared on the class row.
+    }
+  };
+
+  const SUBCLASS_BATTLEMASTER: ContentRow = {
+    kind: 'subclass',
+    slug: 'subclass-battlemaster',
+    version: 1,
+    source: 'test',
+    name: 'Subclass Battle Master',
+    data: {
+      parentClass: 'plainfighter',
+      subclassFeatures: [{ level: 3, name: 'Combat Superiority' }],
+      resources: [
+        {
+          id: 'subclass-superiority',
+          name: 'Superiority Dice',
+          max: {
+            perClass: 'plainfighter',
+            table: [0, 0, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6]
+          },
+          dieSize: 'd8',
+          refresh: 'short-rest',
+          spendKind: 'die'
+        }
+      ]
+    }
+  };
+
+  it('emits a resource pool declared on a subclass row', () => {
+    const character = baseCharacter([
+      {
+        slug: 'plainfighter',
+        level: 5,
+        subclass: 'subclass-battlemaster',
+        hpRolledPerLevel: Array(5).fill(10)
+      }
+    ]);
+    const lookup = makeLookup([PLAIN_FIGHTER, SUBCLASS_BATTLEMASTER]);
+    const d = derive(character, lookup);
+    const pool = d.classResources?.find((r) => r.id === 'subclass-superiority');
+    expect(pool).toBeDefined();
+    expect(pool!.max).toBe(4);
+    expect(pool!.dieSize).toBe('d8');
+    expect(pool!.refresh).toBe('short-rest');
+  });
+
+  it('does NOT emit the subclass pool when the character has no subclass picked', () => {
+    const character = baseCharacter([
+      { slug: 'plainfighter', level: 3, hpRolledPerLevel: [10, 6, 6] }
+    ]);
+    const lookup = makeLookup([PLAIN_FIGHTER, SUBCLASS_BATTLEMASTER]);
+    const d = derive(character, lookup);
+    expect(d.classResources?.find((r) => r.id === 'subclass-superiority')).toBeUndefined();
+  });
+});
