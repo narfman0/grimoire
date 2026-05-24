@@ -23,6 +23,18 @@
       "materialComponent": "a bit of bat fur",
       "classes": [
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "arcane-eye-cast",
+          "type": "utility",
+          "name": "Arcane Eye",
+          "cost": "action",
+          "target": {
+            "affects": "self"
+          },
+          "note": "Create an invisible magical eye that you can see through (darkvision 30 ft). Action to move it up to 30 ft in any direction. Concentration, 1 hour."
+        }
       ]
     }
   },
@@ -349,6 +361,29 @@
       "classes": [
         "druid",
         "sorcerer"
+      ],
+      "activities": [
+        {
+          "id": "dominate-beast-cast",
+          "type": "save",
+          "name": "Dominate Beast",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 4,
+            "addDurationStep": 1
+          },
+          "note": "Beast target (WIS save negates). On failure, charmed and you may telepathically command. Target re-saves when damaged. Concentration, 1 minute (longer with upcast)."
+        }
       ]
     }
   },
@@ -458,6 +493,19 @@
         "cleric",
         "druid",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "freedom-of-movement-cast",
+          "type": "utility",
+          "name": "Freedom of Movement",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target's movement is unimpeded by difficult terrain, magical effects that reduce speed, paralysis, or restraints. Underwater movement at normal speed. Duration: 1 hour."
+        }
       ]
     }
   },
@@ -577,6 +625,46 @@
         "druid",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "ice-storm-cast",
+          "type": "save",
+          "name": "Ice Storm",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "2d8",
+                "type": "bludgeoning",
+                "halfOnSave": true
+              },
+              {
+                "dice": "4d6",
+                "type": "cold",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 4,
+              "addDice": "1d8",
+              "addDiceType": "bludgeoning"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "cylinder",
+            "radius": 20,
+            "height": 40
+          },
+          "note": "Each creature in cylinder: DEX save. On failure 2d8 bludgeoning + 4d6 cold (half on success). Area becomes difficult terrain."
+        }
       ]
     }
   },
@@ -847,6 +935,19 @@
         "ranger",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "stoneskin-cast",
+          "type": "utility",
+          "name": "Stoneskin",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target gains resistance to nonmagical bludgeoning, piercing, and slashing damage. Material: 100 gp diamond dust. Concentration, 1 hour."
+        }
       ]
     }
   },

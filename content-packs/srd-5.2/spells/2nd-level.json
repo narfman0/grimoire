@@ -313,6 +313,26 @@
       "classes": [
         "bard",
         "cleric"
+      ],
+      "activities": [
+        {
+          "id": "calm-emotions-cast",
+          "type": "save",
+          "name": "Calm Emotions",
+          "cost": "action",
+          "save": {
+            "ability": "cha",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "area",
+            "shape": "radius",
+            "radius": 20
+          },
+          "note": "Humanoids in a 20-ft radius (CHA save negates). Choose: suppress charmed/frightened, OR render apathetic (no attacks unless attacked). Concentration, 1 minute."
+        }
       ]
     }
   },
@@ -369,6 +389,20 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "darkness-cast",
+          "type": "utility",
+          "name": "Darkness",
+          "cost": "action",
+          "target": {
+            "affects": "area",
+            "shape": "radius",
+            "radius": 15
+          },
+          "note": "A 15-ft radius sphere of magical darkness. Even darkvision cannot see through it. Concentration, up to 10 minutes."
+        }
       ]
     }
   },
@@ -638,6 +672,38 @@
       "classes": [
         "druid",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "flaming-sphere-cast",
+          "type": "save",
+          "name": "Flaming Sphere",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "2d6",
+                "type": "fire",
+                "halfOnSave": true
+              }
+            ],
+            "scalesWithSlotLevel": {
+              "perSlotAbove": 2,
+              "addDice": "1d6"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Conjure a 5-ft sphere. Ram a creature (DEX save: 2d6 fire, half on success). Bonus action to move 30 ft. Concentration, 1 minute."
+        }
       ]
     }
   },
@@ -1022,6 +1088,23 @@
       "classes": [
         "paladin",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "magic-weapon-cast",
+          "type": "utility",
+          "name": "Magic Weapon",
+          "cost": "bonus",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 2,
+            "addBonusStep": 1
+          },
+          "note": "Touch a nonmagical weapon. It becomes magical with +1 to attack/damage rolls (upcast: +2 at 4th, +3 at 6th). Concentration, 1 hour."
+        }
       ]
     }
   },

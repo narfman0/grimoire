@@ -219,6 +219,18 @@
       "classes": [
         "druid",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "commune-with-nature-cast",
+          "type": "utility",
+          "name": "Commune with Nature",
+          "cost": "1 minute",
+          "target": {
+            "affects": "self"
+          },
+          "note": "Become aware of nature within 3 miles (or 300 ft underground). Learn up to three facts about terrain/bodies of water/plants/creatures/buildings/celestial bodies. Cannot be cast indoors."
+        }
       ]
     }
   },
@@ -977,6 +989,25 @@
         "druid",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "scrying-cast",
+          "type": "save",
+          "name": "Scrying",
+          "cost": "10 minutes",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Choose a creature; it makes a WIS save (modifier based on familiarity). On failure, a sensor lets you see/hear from its location for the duration. Concentration, 10 minutes."
+        }
       ]
     }
   },
@@ -1004,6 +1035,25 @@
         "bard",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "seeming-cast",
+          "type": "save",
+          "name": "Seeming",
+          "cost": "action",
+          "save": {
+            "ability": "cha",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Disguise any number of willing creatures (visual illusion only). Unwilling creatures get a CHA save. Physical interaction reveals it. Lasts 8 hours."
+        }
       ]
     }
   },
@@ -1111,6 +1161,18 @@
       "classes": [
         "druid",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "tree-stride-cast",
+          "type": "utility",
+          "name": "Tree Stride",
+          "cost": "action",
+          "target": {
+            "affects": "self"
+          },
+          "note": "Once per turn, use 5 ft of movement to step into a living tree and emerge from a tree of the same kind within 500 ft. Concentration, 1 minute."
+        }
       ]
     }
   },

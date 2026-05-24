@@ -102,6 +102,18 @@
       "classes": [
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "blink-cast",
+          "type": "utility",
+          "name": "Blink",
+          "cost": "action",
+          "target": {
+            "affects": "self"
+          },
+          "note": "At end of each turn, roll 1d20. On 11+, vanish into the Ethereal Plane until start of next turn. Reappear in an empty space within 10 ft. Duration: 1 minute (no concentration)."
+        }
       ]
     }
   },
@@ -275,6 +287,20 @@
         "paladin",
         "ranger",
         "sorcerer"
+      ],
+      "activities": [
+        {
+          "id": "daylight-cast",
+          "type": "utility",
+          "name": "Daylight",
+          "cost": "action",
+          "target": {
+            "affects": "area",
+            "shape": "radius",
+            "radius": 60
+          },
+          "note": "A point sheds bright light in 60-ft radius and dim light 60 ft further. Counts as sunlight. Suppressed by darkness of higher level. Duration: 1 hour."
+        }
       ]
     }
   },
@@ -504,6 +530,19 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "gaseous-form-cast",
+          "type": "utility",
+          "name": "Gaseous Form",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target becomes a misty cloud (10 ft fly speed, can pass through openings). Resistance to nonmagical damage, advantage on STR/DEX/CON saves, immune to nonmagical weapons. Concentration, 1 hour."
+        }
       ]
     }
   },
@@ -881,6 +920,20 @@
         "bard",
         "druid",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "plant-growth-cast",
+          "type": "utility",
+          "name": "Plant Growth",
+          "cost": "action",
+          "target": {
+            "affects": "area",
+            "shape": "radius",
+            "radius": 100
+          },
+          "note": "Two modes. Action: enrich a 1/2-mile-radius area for one year (2x crop yield). 1 minute: overgrow a 100-ft radius — difficult terrain, costs 4x movement, lasts indefinitely."
+        }
       ]
     }
   },
@@ -910,6 +963,19 @@
         "ranger",
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "protection-from-energy-cast",
+          "type": "utility",
+          "name": "Protection from Energy",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Target gains resistance to one damage type (acid, cold, fire, lightning, or thunder) of your choice. Concentration, 1 hour."
+        }
       ]
     }
   },
@@ -995,6 +1061,19 @@
         "bard",
         "cleric",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "sending-cast",
+          "type": "utility",
+          "name": "Sending",
+          "cost": "action",
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "Send a 25-word message to a creature you know. They receive it and may reply (also 25 words). Range: any distance, including other planes (chance to fail across planes)."
+        }
       ]
     }
   },

@@ -275,6 +275,29 @@
       "classes": [
         "cleric",
         "paladin"
+      ],
+      "activities": [
+        {
+          "id": "command-cast",
+          "type": "save",
+          "name": "Command",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "scalesWithSlotLevel": {
+            "perSlotAbove": 1,
+            "addTargets": 1
+          },
+          "note": "Speak a one-word command. WIS save negates; on failure target follows the order on its next turn (approach, drop, flee, grovel, halt)."
+        }
       ]
     }
   },
@@ -935,6 +958,25 @@
       "classes": [
         "bard",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "hideous-laughter-cast",
+          "type": "save",
+          "name": "Hideous Laughter",
+          "cost": "action",
+          "save": {
+            "ability": "wis",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "target": {
+            "affects": "creature",
+            "count": 1
+          },
+          "note": "WIS save negates; on failure target falls prone, becomes incapacitated, unable to stand for the duration. Re-save at end of each turn (advantage if damaged this turn). Creatures w/o INT 5+ are unaffected."
+        }
       ]
     }
   },
@@ -1410,6 +1452,18 @@
         "bard",
         "druid",
         "ranger"
+      ],
+      "activities": [
+        {
+          "id": "speak-with-animals-cast",
+          "type": "utility",
+          "name": "Speak with Animals",
+          "cost": "action",
+          "target": {
+            "affects": "self"
+          },
+          "note": "Communicate with beasts for 10 minutes. GM determines depth of interaction based on the animal's intelligence."
+        }
       ]
     }
   },
