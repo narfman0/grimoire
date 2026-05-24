@@ -36,6 +36,7 @@ import type {
   OverlayHpPool,
   PendingFeatureChoice,
   Resource,
+  ResolvedClassResource,
   SaveAdvantageSourceQualified,
   SaveCell,
   SkillCell,
@@ -2102,6 +2103,74 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (out.length > 0) companions = out;
   }
 
+  // Class-resource pools. Walk each active class row's `data.resources`
+  // array (an array of ClassResourceDecl) and resolve each pool against
+  // the character's context. `max` accepts the same value shapes as
+  // activation `uses.max` (literal, token, perClass-table) so we reuse
+  // evaluateValue. `dieSize` accepts a literal string or a perClass-table
+  // of strings — die-scaling by level (Bardic Inspiration d6→d8→d10→d12,
+  // Superiority Dice d8→d10→d12, Psionic Energy Dice d6→d8→d10→d12) flows
+  // through the same perClass branch in evaluateValue.
+  //
+  // Multi-class edge: if a later class row declares the same id, drop it
+  // and emit a soft validation note. The first declaration wins.
+  let classResources: ResolvedClassResource[] | undefined;
+  const seenResourceIds = new Set<string>();
+  const resourcesSpent = character.resourcesSpent ?? {};
+  for (const a of active) {
+    if (a.row.kind !== 'class') continue;
+    const decls = a.data.resources as Array<Record<string, unknown>> | undefined;
+    if (!Array.isArray(decls)) continue;
+    for (const raw of decls) {
+      if (!raw || typeof raw !== 'object') continue;
+      const id = raw.id as string | undefined;
+      const name = raw.name as string | undefined;
+      const refresh = raw.refresh as ResolvedClassResource['refresh'] | undefined;
+      const spendKind = raw.spendKind as ResolvedClassResource['spendKind'] | undefined;
+      if (typeof id !== 'string' || !id) continue;
+      if (typeof name !== 'string' || !name) continue;
+      if (
+        refresh !== 'short-rest' &&
+        refresh !== 'long-rest' &&
+        refresh !== 'per-turn' &&
+        refresh !== 'per-round'
+      )
+        continue;
+      if (spendKind !== 'die' && spendKind !== 'point') continue;
+      if (seenResourceIds.has(id)) {
+        validations.push({
+          severity: 'warning',
+          code: 'class-resource-duplicate-id',
+          message: `Class resource '${id}' declared by multiple class rows; keeping the first.`
+        });
+        continue;
+      }
+      const maxEval = evaluateValue(raw.max, ctx);
+      const max =
+        typeof maxEval === 'number' ? Math.max(0, Math.floor(maxEval)) : 0;
+      if (max <= 0) continue;
+      let dieSize: string | undefined;
+      if (raw.dieSize !== undefined) {
+        const evaluated = evaluateValue(raw.dieSize, ctx);
+        if (typeof evaluated === 'string' && evaluated.length > 0) dieSize = evaluated;
+      }
+      const spent = Math.max(0, resourcesSpent[id] ?? 0);
+      const current = Math.max(0, Math.min(max, max - spent));
+      seenResourceIds.add(id);
+      const entry: ResolvedClassResource = {
+        id,
+        name,
+        sourceClassSlug: a.row.slug,
+        max,
+        refresh,
+        spendKind,
+        current,
+        ...(dieSize ? { dieSize } : {})
+      };
+      (classResources ??= []).push(entry);
+    }
+  }
+
   return {
     stats,
     actions,
@@ -2116,7 +2185,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     availableActivations,
     equipped: { armorType: equippedArmorType, shield: equippedShield },
     ...(activeForm !== undefined ? { activeForm } : {}),
-    ...(companions !== undefined ? { companions } : {})
+    ...(companions !== undefined ? { companions } : {}),
+    ...(classResources !== undefined ? { classResources } : {})
   };
 }
 

@@ -16,4 +16,9 @@ export {
   type DamageSourcePredicate,
   type DamageSourceContext
 } from './damage-source';
+export {
+  spendResource,
+  refreshResourcesOnRest,
+  type SpendResourceResult
+} from './class-resources';
 export type * from './types';

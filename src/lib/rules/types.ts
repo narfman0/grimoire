@@ -610,6 +610,68 @@ export interface Resource {
   appliesCondition?: string;
 }
 
+/** Per-class spendable pool (Bardic Inspiration, Ki / Focus, Sorcery Points,
+ *  Superiority Dice, Psionic Energy Dice, Channel Divinity uses, Wild Shape
+ *  uses, Rage uses, etc.). Authored on the class content row's
+ *  `data.resources` array; derive() surfaces the resolved pool on
+ *  `Derived.classResources` after composing levels and proficiency bonus.
+ *
+ *  Both die-based pools (Bardic Inspiration, Superiority Dice, Psi-Energy)
+ *  and point-based pools (Ki, Sorcery Points, Channel Divinity uses, Rage
+ *  uses) are first-class — `spendKind` disambiguates. The pool's `max`
+ *  field accepts the same value shapes that activation `uses.max` does:
+ *  a literal number, a string token (`'proficiencyBonus'`, `'monkLevel'`,
+ *  arithmetic like `'2 * proficiencyBonus'`), or the perClass-table shape
+ *  (`{perClass: 'fighter', table: [0, 0, 4, 4, ...]}`). Same for `dieSize`
+ *  — fixed string ('d6') or perClass-table of strings for level-scaled
+ *  dice. */
+export interface ClassResourceDecl {
+  /** Stable id — keyed in `character.resourcesSpent` and on
+   *  `Derived.classResources`. */
+  id: string;
+  /** Human label rendered by the sheet. */
+  name: string;
+  /** Pool maximum. Evaluated by `evaluateValue` against the character
+   *  context, so any shape that resolver accepts is legal. */
+  max: number | string | { perClass: string; table: Array<number | string> };
+  /** Die size for die-based pools ('d4'|'d6'|'d8'|'d10'|'d12'). Use a
+   *  perClass-table of strings (`{perClass: 'bard', table: ['d6', 'd6', ...,
+   *  'd8', ..., 'd10', ..., 'd12']}`) for level-scaling dice. Omit on
+   *  point-based pools (Ki, Sorcery Points). */
+  dieSize?: string | { perClass: string; table: string[] };
+  /** When the pool refills. `'per-turn'` / `'per-round'` are reserved for
+   *  future use (no current consumer); `'short-rest'` and `'long-rest'`
+   *  drive the `refreshResourcesOnRest` helper today. Per RAW, long rest
+   *  refreshes short-rest pools too. */
+  refresh: 'short-rest' | 'long-rest' | 'per-turn' | 'per-round';
+  /** Whether each spend consumes a single die from the pool (BI,
+   *  Superiority, Psi-Energy) or a stackable point count (Ki, Sorcery,
+   *  Channel Divinity, Rage). The shapes are equivalent for
+   *  bookkeeping — the field is informational for the UI and downstream
+   *  spend semantics. */
+  spendKind: 'die' | 'point';
+}
+
+/** Resolved class-resource snapshot emitted on `Derived.classResources`.
+ *  Created by walking each active class row's declared `data.resources`
+ *  array, evaluating `max` / `dieSize` against the character's context,
+ *  and folding in any spend recorded on `character.resourcesSpent[id]`. */
+export interface ResolvedClassResource {
+  id: string;
+  name: string;
+  /** Slug of the class row that contributed the declaration. */
+  sourceClassSlug: string;
+  /** Resolved pool maximum. */
+  max: number;
+  /** Resolved die size ('d10', etc.) when the underlying declaration had
+   *  one. Omitted for point-based pools. */
+  dieSize?: string;
+  refresh: 'short-rest' | 'long-rest' | 'per-turn' | 'per-round';
+  spendKind: 'die' | 'point';
+  /** `max - (character.resourcesSpent[id] ?? 0)`, clamped to [0, max]. */
+  current: number;
+}
+
 export interface ValidationIssue {
   severity: 'warning' | 'error';
   code: string;
@@ -704,6 +766,15 @@ export interface Derived {
    *  participant rows back to their controller — that's a follow-on
    *  phase (5a API). */
   companions?: DerivedCompanion[];
+  /** Resolved class-resource pools currently available to the character
+   *  (Bardic Inspiration, Ki / Focus, Sorcery Points, Superiority Dice,
+   *  Psionic Energy Dice, Channel Divinity uses, Wild Shape uses, Rage
+   *  uses, …). Sourced from active class rows' `data.resources`
+   *  declarations. Multi-class edge: when two class rows declare the
+   *  same resource id, the first class with the declaration wins (the
+   *  later declaration is dropped silently in v1; the runtime emits no
+   *  validation since this is a vanishingly rare RAW collision). */
+  classResources?: ResolvedClassResource[];
 }
 
 /** Polymorph form snapshot emitted by derive() — see `Derived.activeForm`. */
