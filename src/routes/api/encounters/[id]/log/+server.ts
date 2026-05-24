@@ -21,6 +21,12 @@ import { SubmitActionLogRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import {
+  buildTriggerEventsFromLog,
+  makeFactionContext
+} from '$lib/server/encounter/log-triggers';
+import { matchTriggers } from '$lib/server/encounter/triggers';
+import { loadEncounterTriggerContext } from '$lib/server/encounter/load-participant-triggers';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -132,7 +138,67 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .from(schema.actionLog)
     .where(eq(schema.actionLog.id, row.id))
     .limit(1);
-  return json(serialize(stored[0]), { status: 201 });
+
+  // Trigger consumer wiring (engine gap #2 — see docs/engine-gaps.md).
+  // After the row commits, evaluate which trigger declarations on the
+  // encounter's participants fire on this log row. We return the
+  // matched opportunities on the response so the client can prompt the
+  // player; auto-firing grants is a follow-on (the UI does not yet
+  // consume `triggerOpportunities`).
+  // TODO: surface the returned `triggerOpportunities` in the encounter
+  //   page UI as a prompt panel ("Relentless Endurance — use 1/long?").
+  let triggerOpportunities: Array<{
+    participantId: string;
+    triggerId: string;
+    triggerName: string;
+    sourceContent: { kind: string; slug: string };
+    eventName: string;
+    grants?: unknown;
+    limit?: { per: string; uses: number };
+  }> = [];
+  try {
+    const { enc } = await requireEncounter(locals.user.id, encounterId);
+    const { triggers, factions } = await loadEncounterTriggerContext(
+      encounterId,
+      enc.campaignId
+    );
+    if (triggers.length > 0) {
+      const factionCtx = makeFactionContext(factions);
+      const events = buildTriggerEventsFromLog(
+        {
+          participantId: stored[0].participantId,
+          targetParticipantId: stored[0].targetParticipantId,
+          actionId: stored[0].actionId,
+          hit: stored[0].hit,
+          damageRoll: stored[0].damageRoll,
+          targetHpBefore: stored[0].targetHpBefore,
+          targetHpAfter: stored[0].targetHpAfter
+        },
+        factionCtx
+      );
+      for (const evt of events) {
+        const opps = matchTriggers(triggers, evt);
+        for (const o of opps) {
+          triggerOpportunities.push({
+            participantId: o.participantId,
+            triggerId: o.trigger.id,
+            triggerName: o.trigger.name,
+            sourceContent: o.trigger.sourceContent,
+            eventName: evt.name,
+            grants: o.trigger.grants,
+            limit: o.trigger.limit
+          });
+        }
+      }
+    }
+  } catch {
+    // Trigger evaluation is best-effort; never block the log POST on
+    // it. A malformed character doc or content lookup glitch shouldn't
+    // prevent the action from being recorded.
+    triggerOpportunities = [];
+  }
+
+  return json({ ...serialize(stored[0]), triggerOpportunities }, { status: 201 });
 };
 
 export const _openapi = {

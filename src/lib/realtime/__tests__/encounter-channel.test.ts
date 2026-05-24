@@ -250,6 +250,53 @@ describe('connectEncounter (polling)', () => {
       const next = conn.applyDamage('mob-7', 5, nullSeed);
       expect(next.currentHp).toBeNull();
     });
+
+    // Damage-source predicate consumer wiring (engine gap #1 — see
+    // docs/engine-gaps.md). When the caller passes a resolution payload
+    // containing the target's source-predicate maps + the incoming
+    // event's source kind, the channel narrows the amount before
+    // subtracting HP. Spell-Resistant: only halves spell-source fire.
+    it('applyDamage halves predicate-narrowed fire when source is a spell', () => {
+      conn = connectEncounter({ encounterId: 'enc-1' });
+      const cleanSeed: ParticipantHp = { currentHp: 10, tempHp: 0, conditions: [], concentrating: null };
+      const next = conn.applyDamage('mob-7', 8, cleanSeed, {
+        damageType: 'fire',
+        context: { damageSourceKind: 'spell' },
+        stats: {
+          resistances: new Set(['fire']),
+          immunities: new Set(),
+          vulnerabilities: new Set(),
+          resistanceQualifiers: {},
+          immunityQualifiers: {},
+          vulnerabilityQualifiers: {},
+          resistanceSourcePredicates: { fire: { kind: 'spell' } },
+          immunitySourcePredicates: {},
+          vulnerabilitySourcePredicates: {}
+        }
+      });
+      expect(next.currentHp).toBe(6); // 10 - floor(8/2) = 6
+    });
+
+    it('applyDamage does NOT halve predicate-narrowed fire from a weapon source', () => {
+      conn = connectEncounter({ encounterId: 'enc-1' });
+      const cleanSeed: ParticipantHp = { currentHp: 10, tempHp: 0, conditions: [], concentrating: null };
+      const next = conn.applyDamage('mob-7', 8, cleanSeed, {
+        damageType: 'fire',
+        context: { damageSourceKind: 'nonmagical' },
+        stats: {
+          resistances: new Set(['fire']),
+          immunities: new Set(),
+          vulnerabilities: new Set(),
+          resistanceQualifiers: {},
+          immunityQualifiers: {},
+          vulnerabilityQualifiers: {},
+          resistanceSourcePredicates: { fire: { kind: 'spell' } },
+          immunitySourcePredicates: {},
+          vulnerabilitySourcePredicates: {}
+        }
+      });
+      expect(next.currentHp).toBe(2); // 10 - 8 = 2 (no narrowing applies)
+    });
   });
 
   it('destroy() stops the polling interval and sets status to closed', () => {

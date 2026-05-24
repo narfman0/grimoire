@@ -15,7 +15,22 @@
 
 import { writable, type Readable } from 'svelte/store';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
+import { computeIncomingDamage, type DamageResolutionStats } from '../rules/incoming-damage';
+import type { DamageSourceContext } from '../rules/damage-source';
 import { toasts, type ApiError } from '$lib/client/errors';
+
+/** Optional resolution context for an incoming damage event. When passed
+ *  to `applyDamage`, the channel runs the amount through
+ *  `computeIncomingDamage(...)` to apply the target's predicate-narrowed
+ *  resistance/immunity/vulnerability before subtracting HP. When omitted,
+ *  the channel falls back to the legacy unconditional `applyDamageDelta`
+ *  shape so call sites that don't yet plumb the damage type are
+ *  unaffected. */
+export interface IncomingDamageResolution {
+  damageType?: string;
+  context?: DamageSourceContext;
+  stats?: DamageResolutionStats;
+}
 
 export interface TurnPlan {
   actionId: string;
@@ -61,8 +76,21 @@ export interface ConnectedEncounter {
   setConditions(participantId: string, conditions: string[]): Promise<void>;
   /** Damage helper: subtract amount from current HP, draining temp HP first.
    *  Returns the new HP shape (for log-entry bookkeeping). Re-uses the SSR
-   *  seed when no live entry exists yet. Fires `setHp` under the hood. */
-  applyDamage(participantId: string, amount: number, seed: ParticipantHp): ParticipantHp;
+   *  seed when no live entry exists yet. Fires `setHp` under the hood.
+   *
+   *  Optional `resolution` carries damage type + source context + the
+   *  target's stat-block predicate maps. When provided, the channel
+   *  consults the target's resistance/immunity/vulnerability source
+   *  predicates via `computeIncomingDamage` before subtracting HP — so a
+   *  Spell-Resistant character only halves fire from a spell source.
+   *  When omitted (the legacy call shape), the amount is applied
+   *  unconditionally. */
+  applyDamage(
+    participantId: string,
+    amount: number,
+    seed: ParticipantHp,
+    resolution?: IncomingDamageResolution
+  ): ParticipantHp;
   /** Heal helper: add to current HP, capped at maxHp when provided. */
   applyHeal(participantId: string, amount: number, maxHp: number | null, seed: ParticipantHp): ParticipantHp;
   /** Set or clear a non-PC participant's concentration target. Server
@@ -265,9 +293,23 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       }
     },
 
-    applyDamage(participantId, amount, seed) {
+    applyDamage(participantId, amount, seed, resolution) {
       const cur = readHp(state, participantId) ?? seed;
-      const next = applyDamageDelta(cur, amount);
+      // If a full resolution payload is provided, narrow the incoming
+      // amount by the target's predicate-aware resistance/immunity/
+      // vulnerability maps before subtracting HP. Otherwise fall back to
+      // the legacy unconditional shape so existing call sites are
+      // unaffected.
+      const effective =
+        resolution?.stats
+          ? computeIncomingDamage(
+              amount,
+              resolution.damageType,
+              resolution.context ?? {},
+              resolution.stats
+            )
+          : amount;
+      const next = applyDamageDelta(cur, effective);
       // fire-and-forget; rollback handled inside setHp on failure
       void this.setHp(participantId, { currentHp: next.currentHp, tempHp: next.tempHp });
       return next;
