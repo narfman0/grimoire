@@ -161,22 +161,17 @@ damage.bonus paths so the audit trail and mode semantics stay
 uniform. Unblocks 60+ magic weapons + spell focuses across SRD and
 packs.
 
-### Union-shape feature choices — DEFERRED
+### Union-shape feature choices — SHIPPED
 
-Several subclass-feature picks let the player pick one of N options
-that map to *different* modifier kinds (Wild Heart Aspect of the Wilds:
-Owl=darkvision / Panther=climb-speed / Salmon=swim-speed; Transmuter's
-Stone: darkvision OR resistance OR speed bonus OR proficiency;
-Kobold Legacy: skill OR save-advantage OR cantrip). The `choices`
-slots today are single-kind (`skillProficiency` → one skill,
-`feature` → one feature row). There's no slot that emits an arbitrary
-stat-modifier from a named option.
+`choices.modifierFromChoice` (commits 05077e1 + 24639b7) lets a single
+choice slot emit an arbitrary set of stat-modifiers per named option,
+covering features whose picks map to *different* modifier kinds (Wild
+Heart Aspect of the Wilds: Owl=darkvision / Panther=climb-speed /
+Salmon=swim-speed; Transmuter's Stone: darkvision OR resistance OR
+speed bonus OR proficiency; Kobold Legacy: skill OR save-advantage OR
+cantrip).
 
-**SRD reach:** Multiple SRD subclass features (Aspect of the Wilds, etc.)
-sit at the audit's "menu-pick / engine-gap" tag.
-
-**Where to start:** Add a `modifierFromChoice` slot to the engine's
-choice spec:
+**Authoring shape:**
 ```ts
 modifierFromChoice: {
   options: [
@@ -186,7 +181,15 @@ modifierFromChoice: {
   ]
 }
 ```
-On the character side: `featureChoices[slug].modifierFromChoice.option = 'owl'`. derive() synthesizes the option's modifiers. ~25 rows across SRD + packs unblock.
+On the character side: `featureChoices[slug].modifierFromChoice.option = 'owl'`. derive() synthesizes the option's modifiers. `FeatureChoicesPanel.svelte` renders a single-select per active row. ~25 rows across SRD + packs unblock — pack authoring round still in flight.
+
+**Still deferred — modifierFromChoice through activation synthesis:**
+Elemental Weapon's element pick lives in `choices.modifierFromChoice`
+(character-level), which doesn't flow through the activation
+synthesis path (variantsFromWeapons + scalingByCastSlot). A clean fix
+needs routing modifierFromChoice modifiers through activation
+synthesis. See "Per-weapon enchantment tracking" entry below for the
+related per-weapon gap.
 
 ### Multi-pick choice counts on skill / language slots — SHIPPED
 
@@ -221,29 +224,31 @@ royal-envoy over-grant fix (scag). Earlier pack migrations under
 College of Lore, Kenku, Lizardfolk, Changeling (mpmm), Knowledge
 Domain. Total ~15 rows migrated.
 
-### Spell upcast scaling — DEFERRED
+### Spell upcast scaling — SHIPPED (engine; pack authoring round in flight)
 
-153 spells with "At Higher Levels" prose have no `scaling` /
-`upcastScaling` field, so casting at a higher slot silently doesn't
-adjust the activity's damage / heal / target count / duration.
+Engine support landed via `Action.upcastScaling` + `applyUpcast(action,
+slotLevel)` in `src/lib/rules/upcast.ts` (commits 13cccfe, 19dc7a7,
+b2303f3). The pure helper consumes `extraDamagePerSlot`,
+`extraFlatDamagePerSlot`, `extraTargetsPerSlot`, `extraHealPerSlot`,
+and `extraTempHpPerSlot` keys on the activity's `upcastScaling` spec.
+derive() also consumes the SRD's `scalesWithSlotLevel` shape and lifts
+it into `Action.upcastScaling` so SRD spells already carrying that
+prose-side field pick up the behavior automatically. `b2e9d31` surfaces
+the upcast preview on action cards in the sheet.
 
-**SRD reach:** Magic Missile, Burning Hands, Cure Wounds, Fireball,
-Scorching Ray, Spiritual Weapon, etc. — basically every leveled
-damaging spell.
-
-**Where to start:** A `scaling` field on activities:
+**Authoring shape (pack-side):**
 ```ts
-scaling: {
-  by: 'slotLevel',
-  baseSlotLevel: <spell.level>,
-  steps: [
-    { field: 'damage.parts.0.dice', perLevel: '1d6' }
-  ]
+upcastScaling: {
+  baseSlotLevel: 3,
+  extraDamagePerSlot: '1d6'   // bumps the first damage roll
 }
 ```
-When the encounter logs a cast at slot N > baseSlotLevel, derive()
-(or a runtime helper) walks the steps and computes the upscaled
-value. Big unlock — would T2-promote ~150 spell rows.
+
+**Pack authoring round (follow-on):** 153 SRD spells with "At Higher
+Levels" prose still need `upcastScaling` fields authored on their
+activity rows. Magic Missile, Burning Hands, Cure Wounds, Fireball,
+Scorching Ray, Spiritual Weapon, etc. — basically every leveled
+damaging spell. Big T2→T3 promotion when the round lands.
 
 ### Spell-mechanic primitives that have no current home — PARTIAL
 
