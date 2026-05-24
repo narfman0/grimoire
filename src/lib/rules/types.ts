@@ -433,6 +433,27 @@ export interface Action {
   attackAbility?: AbilityKey;
   attackRange?: 'melee' | 'ranged';
   weaponProperties?: string[];
+  /** Description prose surfaced to the planner UI / hover tooltip. Populated
+   *  on synthesized Actions (maneuvers etc.) so the player can read the
+   *  RAW effect without leaving the planner. Optional everywhere else. */
+  description?: string;
+  /** Class-resource id that this Action debits when it fires (e.g.
+   *  `'superiority'` for Battle Master maneuvers, `'ki'` for Monk
+   *  abilities). The planner reads `Derived.classResources` to size the
+   *  spend (die or point); the encounter runtime debits via
+   *  `spendResource(character, derived.classResources, action.spendsResource)`
+   *  on resolution. */
+  spendsResource?: string;
+  /** Free-text label for an optional extra damage rider added to this
+   *  Action by a maneuver / class-resource spend (e.g.
+   *  `"+1 superiority die (d8)"`). Display-only; the runtime resolves the
+   *  actual die from `spendsResource` at roll time. */
+  riderLabel?: string;
+  /** Optional structured maneuver-rider attached to this Action. Surfaced
+   *  by derive() when the action represents a maneuver effect; the
+   *  planner reads this to render save / damage / movement riders without
+   *  free-form parsing of `description`. */
+  maneuverRider?: ManeuverRider;
   /** How the action selects affected creatures. Heuristic in derive(): self
    *  when range.units === 'self' or range.value === 0 with no attack/save;
    *  single when there's an attack roll; multi when there's a save DC with
@@ -488,6 +509,137 @@ export interface Action {
    *  cast) drive this. */
   grants?: ActionGrants;
   appliedModifiers: AppliedModifier[];
+}
+
+/** Battle Master / Martial Adept / Superior Technique maneuver content
+ *  model. Authored on a parent class/subclass feature row's
+ *  `data.maneuvers: ManeuverDecl[]`. The player picks N of them via
+ *  `data.choices.maneuvers = { picks: ..., allowedIds?: [...] }` and
+ *  records picks in `character.featureChoices[slug].maneuvers =
+ *  [{ maneuverId: '...' }, ...]`. derive() finds each picked maneuver
+ *  in the catalog and synthesizes the corresponding Action / Trigger /
+ *  OutboundEffect (per `effect.kind`) carrying `spendsResource:
+ *  'superiority'` so the planner knows which class resource to debit. */
+export interface ManeuverDecl {
+  /** Slug-style identifier — referenced from
+   *  `character.featureChoices[slug].maneuvers[].maneuverId` and used
+   *  as the synthesized Action / Trigger id suffix. */
+  id: string;
+  name: string;
+  description: string;
+  /** Action-economy cost to invoke the maneuver. RAW maneuvers cost
+   *  `'free'` (riders on an attack), `'reaction'` (Riposte, Parry),
+   *  `'bonus'` (Commander's Strike, Rally), or rarely `'action'`. */
+  cost: 'free' | 'bonus' | 'reaction' | 'action';
+  /** Class-resource id whose pool funds this maneuver. v1: always
+   *  `'superiority'`; the field is future-proofed for Monk Focus etc. */
+  spendsResource: string;
+  effect: ManeuverEffect;
+}
+
+/** Discriminated union of maneuver effect shapes. Each kind drives a
+ *  different derive() emission (Action vs. Trigger vs. OutboundEffect).
+ *  See WS1 design plan ("Synthesis" section) for the per-kind output. */
+export type ManeuverEffect =
+  | {
+      kind: 'on-hit-rider';
+      /** Adds a damage die from the spent class-resource pool to the
+       *  triggering attack's damage on hit. */
+      damageRider?: { dieFromResource: string; type: string };
+      /** Save imposed on the target on hit. */
+      save?: {
+        ability: AbilityKey;
+        dc: { calc: 'maneuver' } | { value: number };
+        onFail: ManeuverSaveEffect;
+      };
+      /** Caps the maneuver to targets of the given size or smaller
+       *  (RAW Trip Attack / Pushing Attack exclude Huge+). */
+      maxTargetSize?: 'medium' | 'large';
+    }
+  | {
+      kind: 'pre-roll';
+      /** Adds the spent resource's die to a roll BEFORE seeing the
+       *  result. RAW Precision Attack adds to the attack roll. */
+      addsToRoll: 'attack';
+      dieFromResource: string;
+    }
+  | {
+      kind: 'damage-reduction';
+      /** Reduces incoming damage by `dieFromResource` (+ optional ability
+       *  mod). Powers Parry. */
+      reduceBy: { dieFromResource: string; addAbilityMod?: AbilityKey };
+      /** Trigger event slug surfaced by the encounter runtime when the
+       *  player takes damage matching the maneuver's RAW filter (e.g.
+       *  `'damage.taken'` for Parry's melee filter). */
+      triggerOn: string;
+    }
+  | {
+      kind: 'reaction-attack';
+      /** Trigger event slug that arms the maneuver (e.g.
+       *  `'attack.targets-self.miss'` for Riposte's "creature misses you
+       *  with a melee attack"). */
+      triggerOn: string;
+      attackType: 'melee-weapon' | 'weapon';
+      damageRider: { dieFromResource: string; type: string };
+    }
+  | {
+      kind: 'ally-attack';
+      /** Resource cost on the maneuver user (bonus action). */
+      costOnSelf: 'bonus' | 'action';
+      /** Resource cost on the ally who gets the bonus weapon attack. */
+      costOnAlly: 'reaction';
+      attackType: 'weapon';
+      damageRider: { dieFromResource: string; type: string };
+    }
+  | {
+      kind: 'temp-hp-grant';
+      costOnSelf: 'bonus' | 'action';
+      tempHp: { dieFromResource: string; addAbilityMod?: AbilityKey };
+      /** When set, the maneuver targets `'self'` or `'ally'`. RAW Rally
+       *  grants temp HP to one ally. */
+      targets?: 'self' | 'ally';
+    }
+  | {
+      kind: 'target-free-move';
+      /** Distance the target may move without provoking opportunity
+       *  attacks (RAW Maneuvering Attack: "up to half the ally's
+       *  speed"). The encounter runtime evaluates the distance at
+       *  resolution time. */
+      distance: 'half-ally-speed' | { feet: number };
+    };
+
+/** Effect applied to a saving-throw target on a failed save (`save.onFail`
+ *  on an `on-hit-rider` maneuver). Discriminated by `kind`. */
+export type ManeuverSaveEffect =
+  | { kind: 'condition'; condition: 'prone' | 'frightened' | 'restrained' | 'grappled' }
+  | { kind: 'drop-item'; targets: 'held-item' }
+  | { kind: 'forced-move'; distance: number }
+  | { kind: 'disadvantage-against-others' }
+  | { kind: 'forced-move-target'; distance: number };
+
+/** Subset of ManeuverEffect surfaced on a synthesized Action.maneuverRider
+ *  so the planner UI can render save / damage / movement riders structured.
+ *  Mirrors the authoring shape minus the discriminating `kind` (since the
+ *  Action's `type` already encodes the synthesis kind). */
+export interface ManeuverRider {
+  /** Damage die added to the action on hit/cast. */
+  damageRider?: { dieFromResource: string; type: string };
+  /** Save imposed on the target. `dcValue` is the resolved DC at
+   *  derive() time (8 + PB + best STR/DEX mod for `{calc: 'maneuver'}`). */
+  save?: {
+    ability: AbilityKey;
+    dcValue: number;
+    onFail: ManeuverSaveEffect;
+  };
+  /** Caps target size for the rider (e.g. Trip Attack — Large or smaller). */
+  maxTargetSize?: 'medium' | 'large';
+  /** Temp HP granted on resolution (Rally). */
+  tempHp?: { dieFromResource: string; addAbilityMod?: AbilityKey };
+  /** Reduction die / mod applied to incoming damage (Parry — flagged so
+   *  the planner can preview the reduction amount). */
+  reduceBy?: { dieFromResource: string; addAbilityMod?: AbilityKey };
+  /** Free-move distance for the target (Maneuvering Attack). */
+  freeMove?: 'half-ally-speed' | { feet: number };
 }
 
 export interface ActionGrants {
@@ -597,6 +749,18 @@ export interface TriggerDeclaration {
   scope?: unknown;
   grants?: TriggerGrant | unknown;
   limit?: { per: string; uses: number };
+  /** Class-resource id whose pool funds invocation of this trigger
+   *  (e.g. `'superiority'` for Battle Master Riposte / Parry). The
+   *  planner reads this to decide whether the player has budget left;
+   *  the encounter runtime debits the pool on use. */
+  spendsResource?: string;
+  /** Description prose surfaced to the encounter / planner UI when
+   *  surfacing the trigger opportunity. */
+  description?: string;
+  /** Optional structured rider attached to the trigger (e.g. Parry's
+   *  damage-reduction die + ability mod) so the planner can render the
+   *  effect without parsing prose. */
+  maneuverRider?: ManeuverRider;
 }
 
 export interface Resource {

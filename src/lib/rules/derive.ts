@@ -32,6 +32,10 @@ import type {
   ContentRow,
   Derived,
   DerivedCompanion,
+  ManeuverDecl,
+  ManeuverEffect,
+  ManeuverRider,
+  ManeuverSaveEffect,
   OutboundEffect,
   OverlayHpPool,
   PendingFeatureChoice,
@@ -205,7 +209,8 @@ function isChoiceAllowed(
 function isSlotUnresolved(
   slotKey: string,
   decl: Record<string, unknown> | undefined,
-  pick: unknown
+  pick: unknown,
+  ctx?: EvalContext
 ): boolean {
   // The spell slot is plural but its payload shape is
   // `{ spells: [...] }`, not a bare array.
@@ -214,6 +219,20 @@ function isSlotUnresolved(
     const spells = (pick as { spells?: unknown[] } | undefined)?.spells;
     if (cap == null) return spells == null;
     return !Array.isArray(spells) || spells.length < cap;
+  }
+  // Maneuver slot: choices.maneuvers = { picks: <number | string | perClass-table>, allowedIds?: [...] }
+  // picks.maneuvers = [{ maneuverId: '...' }, ...]
+  if (slotKey === 'maneuvers') {
+    const picksDeclared = decl?.picks;
+    let cap: number | undefined;
+    if (typeof picksDeclared === 'number') {
+      cap = picksDeclared;
+    } else if (picksDeclared != null && ctx) {
+      const resolved = evaluateValue(picksDeclared, ctx);
+      if (typeof resolved === 'number') cap = Math.max(0, Math.floor(resolved));
+    }
+    if (cap == null || cap === 0) return !Array.isArray(pick);
+    return !Array.isArray(pick) || pick.length < cap;
   }
   const PLURAL_SLOTS = new Set([
     'skillProficiencies',
@@ -1936,6 +1955,68 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Maneuvers (Battle Master maneuver content model)
+  // ---------------------------------------------------------------------
+  // Walk active feature / subclass rows for `data.maneuvers[]` catalogs +
+  // `data.choices.maneuvers` declarations. For each picked maneuver id,
+  // emit a synthesized Action / Trigger / OutboundEffect per the
+  // maneuver's effect.kind tagged with `spendsResource` so the planner
+  // debits the class-resource pool on use.
+  //
+  // The save-DC resolver `{calc: 'maneuver'}` resolves to
+  // `8 + PB + max(strMod, dexMod)`. An optional
+  // `data.maneuverDCAbility: 'str'|'dex'` override on the parent feature
+  // pins the ability when the player explicitly chooses.
+  for (const a of active) {
+    if (a.row.kind !== 'feature' && a.row.kind !== 'subclass') continue;
+    const catalog = a.data.maneuvers as ManeuverDecl[] | undefined;
+    if (!Array.isArray(catalog) || catalog.length === 0) continue;
+    const choicesDecl = a.data.choices as
+      | Record<string, Record<string, unknown> | undefined>
+      | undefined;
+    const slotDecl = choicesDecl?.maneuvers as
+      | { picks?: unknown; allowedIds?: string[] }
+      | undefined;
+    if (!slotDecl) continue;
+    const picksRaw =
+      a.row.kind === 'feature'
+        ? character.featureChoices?.[a.row.slug]
+        : character.subclassChoices?.[a.row.slug];
+    const picks = (picksRaw?.maneuvers as Array<{ maneuverId?: string }> | undefined) ?? [];
+    if (picks.length === 0) continue;
+
+    const allowedIds = Array.isArray(slotDecl.allowedIds) ? new Set(slotDecl.allowedIds) : null;
+
+    // DC ability resolution: explicit override wins; otherwise
+    // max(strMod, dexMod) per RAW "your choice."
+    const dcAbilityOverride = a.data.maneuverDCAbility as 'str' | 'dex' | 'auto' | undefined;
+    const strMod = stats.abilities.str.mod;
+    const dexMod = stats.abilities.dex.mod;
+    let dcAbilityMod: number;
+    if (dcAbilityOverride === 'str') dcAbilityMod = strMod;
+    else if (dcAbilityOverride === 'dex') dcAbilityMod = dexMod;
+    else dcAbilityMod = Math.max(strMod, dexMod);
+    const maneuverSaveDC = 8 + stats.proficiencyBonus + dcAbilityMod;
+
+    for (const pickRec of picks) {
+      const maneuverId = pickRec?.maneuverId;
+      if (!maneuverId) continue;
+      if (allowedIds && !allowedIds.has(maneuverId)) continue;
+      const mdecl = catalog.find((m) => m && m.id === maneuverId);
+      if (!mdecl) continue;
+      synthesizeManeuver({
+        decl: mdecl,
+        source: a,
+        actions,
+        triggers,
+        outboundEffects,
+        maneuverSaveDC,
+        validations
+      });
+    }
+  }
+
   // Pending feature choices — declarative manifest of `data.choices`
   // entries on active feature / subclass rows + whatever picks the
   // player has recorded so far. The UI walks this to render per-feature
@@ -1965,7 +2046,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       kind: a.row.kind,
       declarations,
       picks,
-      unresolved: slotKeys.some((k) => isSlotUnresolved(k, declarations[k], picks[k]))
+      unresolved: slotKeys.some((k) => isSlotUnresolved(k, declarations[k], picks[k], ctx))
     });
   }
 
@@ -3188,4 +3269,222 @@ function bumpFormula(formula: string, bonus: number, mode: Mode): string {
   if (total === 0) return dice;
   const sign = total >= 0 ? '+' : '';
   return `${dice}${sign}${total}`;
+}
+
+// ---------------------------------------------------------------------------
+// Maneuver synthesis (Battle Master)
+// ---------------------------------------------------------------------------
+// Per-pick emission: walks the declared `ManeuverEffect` discriminant and
+// emits Action / Trigger / OutboundEffect entries tagged with
+// `spendsResource` so the planner debits the class-resource pool. See
+// docs/three-workstreams-plan.md WS1 § "Synthesis" for the table mapping
+// effect.kind → emission.
+
+function maneuverCostToActionCost(cost: ManeuverDecl['cost']): Action['cost'] {
+  if (cost === 'free' || cost === 'action' || cost === 'bonus' || cost === 'reaction') return cost;
+  return 'free';
+}
+
+function resolveManeuverSaveDC(
+  dc: { calc: 'maneuver' } | { value: number },
+  maneuverSaveDC: number
+): number {
+  if ('value' in dc && typeof dc.value === 'number') return dc.value;
+  return maneuverSaveDC;
+}
+
+interface SynthesizeManeuverArgs {
+  decl: ManeuverDecl;
+  source: ActiveContent;
+  actions: Action[];
+  triggers: TriggerDeclaration[];
+  outboundEffects: OutboundEffect[];
+  maneuverSaveDC: number;
+  validations: ValidationIssue[];
+}
+
+function synthesizeManeuver(args: SynthesizeManeuverArgs): void {
+  const { decl, source, actions, triggers, outboundEffects, maneuverSaveDC } = args;
+  const sourceContent = { kind: source.row.kind, slug: source.row.slug };
+  const idBase = `${source.row.kind}/${source.row.slug}/maneuver/${decl.id}`;
+  const effect: ManeuverEffect = decl.effect;
+
+  switch (effect.kind) {
+    case 'on-hit-rider': {
+      const rider: ManeuverRider = {};
+      if (effect.damageRider) rider.damageRider = effect.damageRider;
+      if (effect.save) {
+        rider.save = {
+          ability: effect.save.ability,
+          dcValue: resolveManeuverSaveDC(effect.save.dc, maneuverSaveDC),
+          onFail: effect.save.onFail
+        };
+      }
+      if (effect.maxTargetSize) rider.maxTargetSize = effect.maxTargetSize;
+      const action: Action = {
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        type: 'maneuver-rider',
+        cost: maneuverCostToActionCost(decl.cost),
+        targetMode: 'single',
+        description: decl.description,
+        spendsResource: decl.spendsResource,
+        gatedOnTrigger: 'attack.hit',
+        maneuverRider: rider,
+        appliedModifiers: []
+      };
+      if (effect.save) {
+        action.saveDC = {
+          ability: effect.save.ability,
+          value: resolveManeuverSaveDC(effect.save.dc, maneuverSaveDC)
+        };
+      }
+      actions.push(action);
+      break;
+    }
+    case 'pre-roll': {
+      const action: Action = {
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        type: 'maneuver-pre-roll',
+        cost: maneuverCostToActionCost(decl.cost),
+        targetMode: 'single',
+        description: decl.description,
+        spendsResource: decl.spendsResource,
+        gatedOnTrigger: 'attack.declare',
+        riderLabel: `+1 ${effect.dieFromResource} die to ${effect.addsToRoll} roll`,
+        appliedModifiers: []
+      };
+      actions.push(action);
+      break;
+    }
+    case 'damage-reduction': {
+      const rider: ManeuverRider = { reduceBy: effect.reduceBy };
+      triggers.push({
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        on: [effect.triggerOn],
+        scope: { selfOnly: true },
+        grants: { type: 'damage.reduce', amount: `1${effect.reduceBy.dieFromResource}-die` },
+        spendsResource: decl.spendsResource,
+        description: decl.description,
+        maneuverRider: rider
+      });
+      break;
+    }
+    case 'reaction-attack': {
+      const rider: ManeuverRider = { damageRider: effect.damageRider };
+      triggers.push({
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        on: [effect.triggerOn],
+        scope: { selfOnly: true },
+        grants: { type: 'reaction-weapon-attack' },
+        spendsResource: decl.spendsResource,
+        description: decl.description,
+        maneuverRider: rider
+      });
+      break;
+    }
+    case 'ally-attack': {
+      // Self-cost: bonus action on the user. Ally-cost: reaction on the
+      // ally + an extra weapon attack with the rider added. v1 surfaces
+      // via an OutboundEffect targeting an ally — the encounter layer
+      // resolves the ally pick and ferries the reaction-attack grant.
+      outboundEffects.push({
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        rangeFt: 5, // RAW: ally within 5 ft (typical; varies by table)
+        targets: 'ally',
+        excludeSelf: true,
+        modifiers: [
+          {
+            kind: 'maneuver-ally-grant',
+            grant: { type: 'reaction-weapon-attack' },
+            damageRider: effect.damageRider,
+            spendsResource: decl.spendsResource,
+            sourceManeuver: decl.id
+          }
+        ]
+      });
+      const action: Action = {
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        type: 'maneuver-ally-attack',
+        cost: effect.costOnSelf,
+        targetMode: 'single',
+        description: decl.description,
+        spendsResource: decl.spendsResource,
+        riderLabel: `Ally adds ${effect.damageRider.dieFromResource} die to ${effect.damageRider.type} damage`,
+        appliedModifiers: []
+      };
+      actions.push(action);
+      break;
+    }
+    case 'temp-hp-grant': {
+      const rider: ManeuverRider = { tempHp: effect.tempHp };
+      const action: Action = {
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        type: 'maneuver-buff',
+        cost: effect.costOnSelf,
+        targetMode: 'single',
+        description: decl.description,
+        spendsResource: decl.spendsResource,
+        riderLabel: `temp HP = 1${effect.tempHp.dieFromResource}-die${
+          effect.tempHp.addAbilityMod ? ` + ${effect.tempHp.addAbilityMod}` : ''
+        }`,
+        maneuverRider: rider,
+        grants: { tempHp: `1d-die${effect.tempHp.addAbilityMod ? `+${effect.tempHp.addAbilityMod}` : ''}` },
+        appliedModifiers: []
+      };
+      actions.push(action);
+      break;
+    }
+    case 'target-free-move': {
+      const rider: ManeuverRider = { freeMove: effect.distance };
+      const action: Action = {
+        id: idBase,
+        sourceContent,
+        name: decl.name,
+        type: 'maneuver-ally-move',
+        cost: maneuverCostToActionCost(decl.cost),
+        targetMode: 'single',
+        description: decl.description,
+        spendsResource: decl.spendsResource,
+        gatedOnTrigger: 'attack.hit',
+        riderLabel:
+          effect.distance === 'half-ally-speed'
+            ? 'Ally moves up to half their speed without provoking opportunity attacks'
+            : `Ally moves up to ${(effect.distance as { feet: number }).feet} ft without provoking opportunity attacks`,
+        maneuverRider: rider,
+        appliedModifiers: []
+      };
+      actions.push(action);
+      break;
+    }
+    default: {
+      // Forward-compat: unknown effect kinds emit a soft validation note
+      // so pack authors get feedback. The discriminant is exhaustive
+      // today, so this branch is reachable only via authoring drift.
+      args.validations.push({
+        severity: 'warning',
+        code: 'unknown-maneuver-effect-kind',
+        message: `Maneuver '${decl.id}' has unknown effect.kind on ${sourceContent.kind}/${sourceContent.slug}.`
+      });
+      break;
+    }
+  }
+
+  // Suppress the unused-import note for ManeuverSaveEffect — the type is
+  // exported via re-export below; this branch keeps the symbol visible to
+  // tsc when the union grows.
+  void (null as unknown as ManeuverSaveEffect | null);
 }
