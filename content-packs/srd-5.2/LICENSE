@@ -1,0 +1,44 @@
+# License
+
+This pack carries the slug `srd-5.2` and is intended to track the WotC
+**System Reference Document 5.2.1** (April 2025 release), licensed under
+[Creative Commons Attribution 4.0 International (CC-BY 4.0)](https://creativecommons.org/licenses/by/4.0/legalcode).
+
+## Required attribution
+
+Operators redistributing this content must surface the following notice
+where the content is displayed:
+
+> Portions of this content are from the System Reference Document 5.2.1
+> © 2025 Wizards of the Coast LLC, available at
+> <https://dnd.wizards.com/resources/systems-reference-document> under
+> the Creative Commons Attribution 4.0 International License. Wizards
+> of the Coast endorsement is not implied.
+
+## Provenance notes
+
+The numeric / categorical fields on each spell row (`level`, `school`,
+`castingTime`, `range`, `components`, `duration`, `concentration`,
+`ritual`, `classes`) are factual game-rule data. Mechanical fields
+(`activities[]`, `upcastScaling`, etc.) are original engine-shape
+expressions of the same facts.
+
+**Spell descriptions (`data.description`)** — when present — are brief
+original paraphrases authored for this pack. Verbatim prose from any
+licensed source is not included. Phase-1 slug-stub rows ship without a
+`description` field; Phase-2 hand-authored rows carry short summaries
+covering only the mechanical effect.
+
+## Cross-reference: SRD 5.1 (OGL 1.0a)
+
+A locally available SRD 5.1 prose-as-JSON dump
+(`~/workspace/dnd-5e-srd`) was used as a structural reference during
+bulk import — solely for spell *names* and the canonical metadata table
+(level / school / casting time / range / components / duration). These
+are facts, not protected expression. No description prose was copied
+verbatim.
+
+If this pack is ever reauthored to include verbatim SRD 5.1 prose, it
+must be relabeled `srd-5.1` and ship the full OGL 1.0a notice + Section
+15 attribution per the [seed-sources.md](../../docs/seed-sources.md)
+guidance.
