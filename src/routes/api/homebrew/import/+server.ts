@@ -51,6 +51,7 @@ interface ImportResult {
 export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const ownerUserId = locals.user.id;
+  const ownerUsername = locals.user.username;
 
   const body = await parseJson(request, HomebrewImportRequest);
   if (body.rows.length > HOMEBREW_IMPORT_MAX_ROWS) {
@@ -93,7 +94,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             version: body.meta.version,
             defaultSource: body.meta.default_source,
             loadedAt: now,
-            author: body.meta.author ?? locals.user.username,
+            author: body.meta.author ?? ownerUsername,
             edition: null,
             ownerUserId,
             visibility: 'private',
@@ -107,7 +108,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
               version: body.meta.version,
               defaultSource: body.meta.default_source,
               loadedAt: now,
-              author: body.meta.author ?? locals.user.username,
+              author: body.meta.author ?? ownerUsername,
               updatedAt: now
             }
           })
