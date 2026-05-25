@@ -706,6 +706,7 @@ export const KNOWN_TRIGGER_EVENTS = [
   'check.declare',
   // Damage taken (self-as-target)
   'damage.taken',
+  'damage.reduce-to-zero',
   'attack.targets-self.declare',
   'attack.targets-self.hit',
   // Spell lifecycle

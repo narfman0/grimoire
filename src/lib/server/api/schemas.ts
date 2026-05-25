@@ -228,6 +228,19 @@ export const UpdateCharacterRequest = z
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateCharacterRequest');
 
+/** Accepts the exact shape returned by GET so callers can download → modify → PUT back. */
+export const PutCharacterRequest = z
+  .object({
+    name: CharacterName,
+    document: CharacterDocument,
+    // Passthrough fields from the GET response — accepted but not applied.
+    id: z.string().optional(),
+    campaignId: z.string().nullable().optional(),
+    ownerUserId: z.string().nullable().optional(),
+    updatedAt: z.number().optional()
+  })
+  .openapi('PutCharacterRequest');
+
 // ---------------------------------------------------------------------------
 // Inferred TS types — handlers import these so the runtime + compile-time
 // shape can't drift.
@@ -242,6 +255,7 @@ export type TCreateCampaignResponse = z.infer<typeof CreateCampaignResponse>;
 export type TJoinCampaignRequest = z.infer<typeof JoinCampaignRequest>;
 export type TCreateCharacterRequest = z.infer<typeof CreateCharacterRequest>;
 export type TUpdateCharacterRequest = z.infer<typeof UpdateCharacterRequest>;
+export type TPutCharacterRequest = z.infer<typeof PutCharacterRequest>;
 
 // ---------------------------------------------------------------------------
 // Content (public catalog API)
