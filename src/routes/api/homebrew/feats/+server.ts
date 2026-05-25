@@ -8,9 +8,9 @@ import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { FeatHomebrewCreate } from '$lib/server/content/schemas';
+import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
 import type { RequestHandler } from './$types';
 
-const HOMEBREW_PACK_SLUG = 'homebrew';
 const HOMEBREW_SOURCE = 'homebrew';
 
 function serialize(r: typeof schema.content.$inferSelect) {
@@ -61,6 +61,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .limit(1);
   if (existing.length > 0) throw error(409, `you already have a feat with slug "${body.slug}"`);
 
+  const packSlug = await resolvePackSlugForCreate(body.packSlug, locals.user.id);
+  const source = packSlug === HOMEBREW_PACK_SLUG ? HOMEBREW_SOURCE : packSlug;
   const id = crypto.randomUUID();
   const now = new Date();
   await db.insert(schema.content).values({
@@ -68,10 +70,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     kind: 'feat',
     slug: body.slug,
     version: 1,
-    source: HOMEBREW_SOURCE,
+    source,
     scopeId: null,
     ownerUserId: locals.user.id,
-    packSlug: HOMEBREW_PACK_SLUG,
+    packSlug,
     name: body.name,
     data: JSON.stringify(body.data),
     createdAt: now,

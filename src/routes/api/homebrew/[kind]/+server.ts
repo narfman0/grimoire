@@ -9,9 +9,9 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { HomebrewCreate, homebrewSchemaFor } from '$lib/server/content/schemas';
+import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
 import type { RequestHandler } from './$types';
 
-const HOMEBREW_PACK_SLUG = 'homebrew';
 const HOMEBREW_SOURCE = 'homebrew';
 
 function serialize(r: typeof schema.content.$inferSelect) {
@@ -79,6 +79,11 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
   if (existing.length > 0)
     throw error(409, `you already have a ${kind} with slug "${envelope.slug}"`);
 
+  const packSlug = await resolvePackSlugForCreate(envelope.packSlug, locals.user.id);
+  // When the row lands in a user-owned pack, stamp its source so the pack's
+  // export round-trips the slug accurately. Fast-path bucket keeps the
+  // legacy 'homebrew' source for backward compat with existing rows.
+  const source = packSlug === HOMEBREW_PACK_SLUG ? HOMEBREW_SOURCE : packSlug;
   const id = crypto.randomUUID();
   const now = new Date();
   await db.insert(schema.content).values({
@@ -86,10 +91,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     kind,
     slug: envelope.slug,
     version: 1,
-    source: HOMEBREW_SOURCE,
+    source,
     scopeId: null,
     ownerUserId: locals.user.id,
-    packSlug: HOMEBREW_PACK_SLUG,
+    packSlug,
     name: envelope.name,
     data: JSON.stringify(dataParsed.data),
     visibility: 'private',

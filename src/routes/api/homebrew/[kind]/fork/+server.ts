@@ -9,9 +9,9 @@ import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { ForkBody, homebrewSchemaFor } from '$lib/server/content/schemas';
+import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
 import type { RequestHandler } from './$types';
 
-const HOMEBREW_PACK_SLUG = 'homebrew';
 const HOMEBREW_SOURCE = 'homebrew';
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
@@ -66,6 +66,8 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     .limit(1);
   if (conflict.length > 0) throw error(409, `you already have a ${kind} with slug "${newSlug}"`);
 
+  const packSlug = await resolvePackSlugForCreate(body.packSlug, locals.user.id);
+  const source = packSlug === HOMEBREW_PACK_SLUG ? HOMEBREW_SOURCE : packSlug;
   const id = crypto.randomUUID();
   const now = new Date();
   await db.insert(schema.content).values({
@@ -73,10 +75,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     kind,
     slug: newSlug,
     version: 1,
-    source: HOMEBREW_SOURCE,
+    source,
     scopeId: null,
     ownerUserId: locals.user.id,
-    packSlug: HOMEBREW_PACK_SLUG,
+    packSlug,
     name: src.name,
     data: src.data,
     visibility: 'private',

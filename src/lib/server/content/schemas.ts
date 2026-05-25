@@ -148,7 +148,9 @@ export type FeatData = z.infer<typeof FeatDataSchema>;
 export const FeatHomebrewCreate = z.object({
   slug: Slug,
   name: z.string().min(1).max(200),
-  data: FeatDataSchema
+  data: FeatDataSchema,
+  /** Optional pack to land the row in. Same semantics as HomebrewCreate. */
+  packSlug: PackSlug.optional()
 });
 export type FeatHomebrewCreate = z.infer<typeof FeatHomebrewCreate>;
 
@@ -300,7 +302,11 @@ export function homebrewSchemaFor(kind: string): z.ZodTypeAny | null {
 export const HomebrewCreate = z.object({
   slug: Slug,
   name: z.string().min(1).max(200),
-  data: PermissiveData
+  data: PermissiveData,
+  /** Optional pack to land the row in. Defaults to the synthetic 'homebrew'
+   *  fast-path bucket. Any other value must point at a pack the caller owns
+   *  (or 'homebrew'); otherwise the handler returns 403. */
+  packSlug: PackSlug.optional()
 });
 export type HomebrewCreate = z.infer<typeof HomebrewCreate>;
 
@@ -363,7 +369,9 @@ export const ForkBody = z.object({
   authorUserId: z.string().min(1),
   /** Optional new slug for the fork; defaults server-side to
    *  `{author-username}-{slug}`. Must be unique within (caller, kind). */
-  newSlug: Slug.optional()
+  newSlug: Slug.optional(),
+  /** Optional pack to land the forked row in. Same semantics as HomebrewCreate. */
+  packSlug: PackSlug.optional()
 });
 
 /** POST /api/homebrew/subscriptions body. */
