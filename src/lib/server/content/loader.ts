@@ -1,8 +1,14 @@
-// Pack loader. Walks ./content-packs/ and $GRIMOIRE_PACKS_DIR at server boot,
-// validates each pack's meta.json and content files, and upserts rows into
-// the `packs` and `content` tables. See docs/pack-loader.md.
+// Pack loader. Historically walked ./content-packs/ AND $GRIMOIRE_PACKS_DIR
+// at server boot. The non-SRD half has moved to user-owned homebrew imported
+// via POST /api/homebrew/import (see docs/content-distribution.md); this
+// loader's only remaining responsibility is seeding the in-repo SRD pack on
+// first boot of a fresh database.
+//
+// `loadAllPacks` is retained as a deprecated entry point — engine tests still
+// reach for the old walk-everything semantics in places. New callers should
+// use `seedSrdIfMissing` instead.
 
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -11,8 +17,6 @@ import { logger } from '$lib/server/logger';
 import { ContentRowFileOrArray, PackMeta, type ContentRowFile } from './schemas';
 
 const DEFAULT_REPO_PACKS_DIR = './content-packs';
-// Override with GRIMOIRE_PACKS_DIR env var to point at a different directory.
-const DEFAULT_EXTRA_PACKS_DIR = '../grimoire-packs';
 
 /** A row's `data` is "skeleton" when it contributes nothing to the rules
  *  engine — no activities, features, modifiers, or triggers. Display-only
@@ -42,16 +46,44 @@ interface PackContext {
 }
 
 /**
- * Walk every pack directory under both roots and load them.
+ * Walk every pack directory under the repo's `./content-packs/` and load
+ * them. Historically also walked `$GRIMOIRE_PACKS_DIR` — that has been
+ * removed; non-SRD content now flows through `/api/homebrew/import`.
  *
- * Order is alphabetical by `meta.slug` across both roots, so behavior is
- * deterministic regardless of where a pack was discovered.
+ * @deprecated Use `seedSrdIfMissing` for the boot-time SRD seed. This entry
+ * point is preserved for test code that pre-dates the split.
  */
 export async function loadAllPacks(): Promise<LoaderResult> {
-  const roots = [DEFAULT_REPO_PACKS_DIR];
-  const extra = process.env.GRIMOIRE_PACKS_DIR ?? DEFAULT_EXTRA_PACKS_DIR;
-  if (extra && existsSync(extra)) roots.push(extra);
+  return loadFromRoots([DEFAULT_REPO_PACKS_DIR]);
+}
 
+/**
+ * Seed the in-repo SRD pack on first boot. Idempotent — if any SRD pack
+ * row (e.g. `srd-5.2`) already exists in the `packs` table the loader
+ * returns `{loaded: 0, skipped: true}` without touching disk.
+ *
+ * This is the replacement for `loadAllPacks` at server boot. Non-SRD
+ * content (the old GRIMOIRE_PACKS_DIR path) now flows through
+ * `/api/homebrew/import` — see docs/content-distribution.md.
+ */
+export async function seedSrdIfMissing(): Promise<{ loaded: number; skipped: boolean }> {
+  // Probe the packs table for any SRD-flavored slug; if even one is
+  // present we treat the seed as done. Avoids the per-row reconciliation
+  // cost (and the orphan-warn noise) on every boot of an existing DB.
+  const seeded = await db
+    .select({ slug: schema.packs.slug })
+    .from(schema.packs)
+    .where(inArray(schema.packs.slug, ['srd-5.2', 'srd-5.1']))
+    .limit(1);
+  if (seeded.length > 0) {
+    logger.info({ slug: seeded[0].slug }, 'srd pack already seeded — skipping load');
+    return { loaded: 0, skipped: true };
+  }
+  const result = await loadFromRoots([DEFAULT_REPO_PACKS_DIR]);
+  return { loaded: result.rowsLoaded, skipped: false };
+}
+
+async function loadFromRoots(roots: string[]): Promise<LoaderResult> {
   const packDirs: string[] = [];
   for (const root of roots) {
     if (!existsSync(root)) continue;

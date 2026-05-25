@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { eq } from 'drizzle-orm';
-import { loadAllPacks } from '$lib/server/content';
+import { seedSrdIfMissing } from '$lib/server/content';
 import { loadUserFromCookie, deleteExpiredSessions } from '$lib/server/auth/sessions';
 import { closeDb, db, schema } from '$lib/server/db';
 import { logger } from '$lib/server/logger';
@@ -15,7 +15,10 @@ Sentry.init({
 const SESSION_GC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export const init: ServerInit = async () => {
-  await loadAllPacks();
+  // First-boot SRD seed only. Non-SRD content is imported by the operator
+  // via POST /api/homebrew/import after the server is up (see
+  // docs/content-distribution.md).
+  await seedSrdIfMissing();
   await deleteExpiredSessions();
   setInterval(() => {
     deleteExpiredSessions().catch((err) => logger.error({ err }, 'session GC failed'));

@@ -42,12 +42,14 @@ export const notes = sqliteTable('notes', {
 });
 
 // ---------------------------------------------------------------------------
-// Content catalog (M1.5) — see docs/content-model.md + docs/pack-loader.md.
+// Content catalog (M1.5) — see docs/content-model.md + docs/content-distribution.md.
 //
-// `packs` is one row per pack directory loaded from ./content-packs/ or
-// $GRIMOIRE_PACKS_DIR. `content` is the row-per-item catalog the rules
-// engine and public /api/content read from. Both are populated by the
-// boot-time pack loader; not directly mutated by app code.
+// `packs` is one row per content pack: the in-repo SRD pack (seeded once
+// at first boot) plus the synthetic 'homebrew' pack that every user-owned
+// row hangs off. `content` is the row-per-item catalog the rules engine
+// and public /api/content read from. SRD rows arrive via the first-boot
+// seed; homebrew rows arrive via /api/homebrew/[kind] CRUD and
+// /api/homebrew/import bulk upload.
 // ---------------------------------------------------------------------------
 
 export const packs = sqliteTable('packs', {

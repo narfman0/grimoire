@@ -1,2 +1,2 @@
-export { loadAllPacks } from './loader';
+export { loadAllPacks, seedSrdIfMissing } from './loader';
 export * from './schemas';
