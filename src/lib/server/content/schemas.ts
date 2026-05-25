@@ -304,6 +304,43 @@ export const HomebrewCreate = z.object({
 });
 export type HomebrewCreate = z.infer<typeof HomebrewCreate>;
 
+// ---------------------------------------------------------------------------
+// HomebrewImportRequest — POST /api/homebrew/import body. Bulk-imports a
+// pack-shaped manifest (meta + rows[]) as the caller's owned homebrew. Pairs
+// with the GET /api/homebrew/export endpoint, which emits the same shape so
+// users can round-trip their content.
+// ---------------------------------------------------------------------------
+
+/** Pack-style meta envelope sent alongside the rows. Mirrors PackMeta but
+ *  drops the on-disk-only fields and explicitly omits `edition` (per-row
+ *  data still carries it as needed). */
+export const HomebrewImportMeta = z.object({
+  slug: PackSlug,
+  name: z.string().min(1).max(200),
+  version: z.string().min(1).max(64),
+  default_source: z.string().min(1).max(64),
+  author: z.string().max(200).optional()
+});
+export type HomebrewImportMeta = z.infer<typeof HomebrewImportMeta>;
+
+/** Maximum rows accepted in one import. Above this, the endpoint returns
+ *  413 — the operator should split the manifest into batches. */
+export const HOMEBREW_IMPORT_MAX_ROWS = 2000;
+
+/** Per-row payload — same shape as the on-disk pack loader row. The `data`
+ *  field is validated against the kind-specific homebrew schema during the
+ *  request handler, not here. */
+export const HomebrewImportRow = ContentRowFile;
+export type HomebrewImportRow = z.infer<typeof HomebrewImportRow>;
+
+export const HomebrewImportRequest = z.object({
+  meta: HomebrewImportMeta,
+  // Row count cap is enforced in the handler so we can return 413 instead
+  // of a generic 400. Schema-side cap stays high to catch obvious abuse.
+  rows: z.array(HomebrewImportRow).max(HOMEBREW_IMPORT_MAX_ROWS * 10)
+});
+export type HomebrewImportRequest = z.infer<typeof HomebrewImportRequest>;
+
 /** PATCH /api/homebrew/[kind]/[slug] body. */
 export const HomebrewPatch = z.object({
   name: z.string().min(1).max(200).optional(),
