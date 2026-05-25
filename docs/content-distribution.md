@@ -17,14 +17,70 @@ Two on-ramps, scoped by licensing model:
    under this path is publishable open source.
 
 2. **POST /api/homebrew/import.** Authenticated users upload pack-shaped
-   JSON manifests; every row is stamped `owner_user_id = <caller>`,
-   `pack_slug = 'homebrew'`, `visibility = 'unlisted'`. This is the
-   sole entry point for non-SRD content (book imports, third-party,
-   per-instance homebrew). The old `$GRIMOIRE_PACKS_DIR` filesystem walk
-   has been removed.
+   JSON manifests. The `meta.slug` field decides where rows land:
+   `'homebrew'` keeps the legacy fast-path bucket (per-user-scoped via
+   `owner_user_id`); any other slug upserts a real `packs` row owned by
+   the caller and stamps `content.pack_slug = meta.slug` on every row.
+   Every row is stamped `owner_user_id = <caller>` and
+   `visibility = 'unlisted'`. This is the bulk entry point for non-SRD
+   content; the single-row CRUD endpoints (`POST /api/homebrew/[kind]`)
+   accept the same optional `packSlug` body field. The old
+   `$GRIMOIRE_PACKS_DIR` filesystem walk has been removed.
 
 A companion `GET /api/homebrew/export` emits the same manifest shape so
-import → export is a true roundtrip.
+import → export is a true roundtrip. The export accepts `?pack=<slug>` to
+scope to one pack and `?kind=` / `?source=` for finer filtering.
+
+## packs table — first-class object
+
+`packs` rows are the FK target every `content.pack_slug` points at. The
+table grew up in M3.6 from "directory-of-files pointer" to a real
+user-owned object:
+
+| Column          | Type    | Notes                                            |
+| --------------- | ------- | ------------------------------------------------ |
+| `slug`          | text PK | matches `meta.json`'s `slug`; URL-safe           |
+| `name`          | text    | display label                                    |
+| `description`   | text    | free-text blurb shown in browse / detail UI      |
+| `version`       | text    | informational; e.g. `'1.0'`                      |
+| `default_source`| text    | applied to rows that omit `source`               |
+| `edition`       | text    | `'5e'` / `'5.5e'`; drives the browse filter      |
+| `author`        | text    | informational; not the FK                        |
+| `owner_user_id` | text    | NULL = system pack (SRD, `homebrew` bucket)      |
+| `visibility`    | text    | `'private'`/`'unlisted'`/`'public'`              |
+| `loaded_at`     | int ms  | last on-disk seed; null for API-created packs    |
+| `created_at`    | int ms  | row creation time                                |
+| `updated_at`    | int ms  | last metadata edit                               |
+
+System pack slugs reserved for the migration layer: `srd-5.2` (public,
+CC-BY) and `homebrew` (private, synthetic fast-path bucket). Neither can
+be created, renamed, or deleted via the API.
+
+## /api/packs endpoints
+
+```
+POST   /api/packs                 create a pack owned by the caller
+GET    /api/packs[?owner=<id>]    list visible packs
+GET    /api/packs/[slug]          detail + per-kind row counts
+PATCH  /api/packs/[slug]          edit metadata or rename slug (owner only)
+DELETE /api/packs/[slug]?cascade=true   wipe pack + rows (owner only)
+```
+
+Visibility rules:
+
+- **Anonymous**: only `visibility='public'` packs are listed/visible.
+- **Logged in**: caller sees own packs (any visibility) + every `public`
+  pack + system packs (NULL owner). `?owner=<id>` scopes the list.
+- **Detail GET**: 404 if the pack is `private` and the caller isn't the
+  owner (system packs are always visible).
+
+Slug rename: `PATCH /api/packs/<old>` with `{ "newSlug": "<new>" }`
+performs a transactional rename — both `packs.slug` and every
+`content.pack_slug = '<old>'` row are updated atomically (FKs deferred
+within the txn). Collisions return 409.
+
+Deletes refuse system slugs (400). For non-empty packs, `?cascade=true`
+is required so wiping rows is explicit.
 
 ## First-boot SRD seed
 
@@ -95,6 +151,11 @@ Response:
 Semantics:
 
 - **Auth required.** Unauthenticated requests get `401`.
+- **Pack target.** `meta.slug === 'homebrew'` keeps the legacy fast-path
+  bucket; rows are FK'd at `packs.slug = 'homebrew'`. Any other
+  `meta.slug` upserts a real `packs` row owned by the caller; cross-user
+  slug collision returns `409` (the caller picks a different slug or
+  forks).
 - **Per-row validation.** Each row's `data` is validated against the
   kind-specific schema in `src/lib/server/content/schemas.ts`. Failures
   go into `errors[]` and the row is skipped — sibling rows continue.
@@ -108,7 +169,9 @@ Semantics:
 - **Bulk cap.** Requests above `HOMEBREW_IMPORT_MAX_ROWS` (2000) get
   `413`. Split larger uploads into multiple requests.
 - **Cross-user coexistence.** Two users can each own a `feat:fireball`
-  with no conflict — the DB unique index includes `owner_user_id`.
+  in the fast-path bucket with no conflict — the DB unique index
+  includes `owner_user_id`. For real packs the slug itself is the
+  collision boundary (one pack per slug).
 
 ## GET /api/homebrew/export
 
@@ -119,7 +182,10 @@ Returns the caller's owned content in the same manifest shape POST
 GET /api/homebrew/export
 GET /api/homebrew/export?kind=feature
 GET /api/homebrew/export?source=my-pack
+GET /api/homebrew/export?pack=my-pack
 ```
+
+Without `?pack`, every row across every pack the caller owns is exported.
 
 When the user has no rows the response is `{ "meta": null, "rows": [] }`.
 Otherwise `meta.slug` and `meta.default_source` are inferred from the most
