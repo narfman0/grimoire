@@ -14,18 +14,22 @@ silently drift.
 | -------------- | ------- | ---------------------------------------------------------- | -------- |
 | `srd-5.2`      | CC-BY 4.0 | **Primary v1 seed.** 9 species, 12 classes (one subclass each), ~48 feats incl. GWM, all SRD spells, weapons, armor, magic items, conditions, basic backgrounds. Released April 2025 by WotC. | This repo, `content-packs/srd-5.2/`. |
 | `srd-5.1`      | OGL 1.0a | Older SRD; broadly similar coverage but **only one feat (Grappler)** and an older rules baseline. Available locally at `~/workspace/dnd-5e-srd` as prose JSON. | This repo if used; preferred to use 5.2 wherever possible. |
-| Non-SRD official | proprietary | Content from PHB, Xanathar's, Tasha's, Wildemount, and other published sourcebooks beyond the SRD. | **`grimoire-packs` (separate private repo).** Never this repo. |
-| `homebrew`     | none    | DM- or player-authored content, scoped to a campaign or user. | `grimoire-packs` or operator's local pack dir. |
-| Third-party SRD-equivalent | varies | Future: Kobold Press CC-BY content, Level Up A5E, etc. Each gets its own `source` slug like `kobold-tob-cc-by`. | This repo only if openly licensed; otherwise `grimoire-packs`. |
+| Non-SRD official | proprietary | Content from PHB, Xanathar's, Tasha's, Wildemount, and other published sourcebooks beyond the SRD. | **DB, per-user, via POST /api/homebrew/import** — never in this repo's git history. |
+| `homebrew`     | none    | DM- or player-authored content, scoped to a user. | DB, written via the `/api/homebrew/[kind]` editor or the bulk `/api/homebrew/import` endpoint. |
+| Third-party SRD-equivalent | varies | Future: Kobold Press CC-BY content, Level Up A5E, etc. Each gets its own `source` slug like `kobold-tob-cc-by`. | This repo only if openly licensed; otherwise per-user homebrew (same import flow). |
 
 ## Rule: non-SRD content never enters this repo
 
 The public grimoire repo and any public deployment of its API ship **only**
 openly-licensed content (`srd-5.2`, possibly `srd-5.1`, future CC-BY
 third-party). Anything else — official WotC content beyond SRD, the
-operator's homebrew, third-party paid content — lives in
-**[grimoire-packs](https://github.com/narfman0/grimoire-packs)** (a separate
-private repo) and is loaded at runtime via `GRIMOIRE_PACKS_DIR`.
+operator's homebrew, third-party paid content — lives in the database as
+**per-user homebrew**, imported via `POST /api/homebrew/import` (typically
+dumped from an operator-controlled
+[grimoire-packs](https://github.com/narfman0/grimoire-packs) checkout via
+`scripts/dump-packs-to-import-tarball.mjs`). See
+[content-distribution.md](./content-distribution.md) for the import
+contract.
 
 Reasons:
 
@@ -129,10 +133,9 @@ Two places attribution appears:
 Per-content-row badges (e.g., "SRD 5.2" pill on the Greatsword card) are
 nice-to-have, deferred to UI polish.
 
-## Pack loading at runtime
+## Content distribution at runtime
 
-A pack is a directory of JSON files (one per row, or batched per kind) under
-a top-level slug:
+The on-disk pack shape is unchanged for the SRD:
 
 ```
 content-packs/srd-5.2/
@@ -143,22 +146,19 @@ content-packs/srd-5.2/
   ...
 ```
 
-At boot, the server walks two directories:
+But the loader's responsibility has shrunk:
 
-1. `./content-packs/` — packs shipped with this repo (SRD only).
-2. `$GRIMOIRE_PACKS_DIR` — operator-supplied packs (default unset; typical
-   value `/srv/grimoire/packs/` or a symlink to a checkout of
-   `grimoire-packs`).
+1. **First boot only.** `seedSrdIfMissing()` walks `./content-packs/` and
+   upserts rows. If the `packs` table already has the SRD slug the walk
+   is skipped.
+2. **Non-SRD content** is imported per-user via
+   `POST /api/homebrew/import` and stamped `owner_user_id = <caller>`,
+   `pack_slug = 'homebrew'`. The `GRIMOIRE_PACKS_DIR` filesystem walk
+   has been removed. See [content-distribution.md](./content-distribution.md).
 
-Both feed the same loader, which upserts rows into the `content` table.
-Rows persist across boots (the table is the source of truth at query time);
-the boot walk is for keeping the DB in sync with what's on disk.
-
-Campaign enablement: a campaign carries `enabled_packs: string[]` (pack
-slugs). The content resolver filters rows by
-`scope_id IS NULL AND pack_slug IN campaign.enabled_packs`. SRD 5.2 is
-always enabled. Packs added at runtime require the DM to opt in via the
-campaign settings UI before their content appears in pickers.
+Campaign enablement (future): a campaign will carry per-source allow-lists
+so a DM can opt into a player's imported homebrew on a per-row basis. SRD
+content stays globally enabled by default.
 
 ## v1 seeding plan
 
@@ -168,7 +168,7 @@ campaign settings UI before their content appears in pickers.
    `{type:'bonus', target:'ability.str', value:2}` doesn't extract
    automatically. Budget this honestly — it's hundreds of small JSON
    blobs, not a script run.
-3. For non-SRD content, author pack files in **the grimoire-packs repo**, not here.
+3. For non-SRD content, author pack files in **the grimoire-packs repo**, not here. Upload them per-user via `POST /api/homebrew/import`.
 4. Use `~/workspace/dnd-5e-srd` (SRD 5.1) prose as a sanity-check source
    for SRD 5.2 rows, but tag the rows themselves `source: 'srd-5.2'`.
 5. Stub `src/lib/server/content/sources.ts` with `srd-5.2` and

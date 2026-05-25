@@ -1,4 +1,25 @@
-# pack loader
+# pack loader — SUPERSEDED
+
+**This document is historical.** The boot-time walk of both
+`./content-packs/` and `$GRIMOIRE_PACKS_DIR` no longer happens. The
+`$GRIMOIRE_PACKS_DIR` env-var has been removed; non-SRD content now flows
+through `POST /api/homebrew/import` as user-owned homebrew.
+
+See **[content-distribution.md](./content-distribution.md)** for the
+current spec, including:
+
+- `seedSrdIfMissing()` — the boot-time SRD seed (in-repo
+  `./content-packs/` only, idempotent).
+- `POST /api/homebrew/import` — the bulk import endpoint that replaces
+  the `$GRIMOIRE_PACKS_DIR` walk.
+- `GET /api/homebrew/export` — the roundtrip companion.
+- The `scripts/dump-packs-to-import-tarball.mjs` CLI that converts a
+  grimoire-packs checkout into an import-ready manifest.
+
+The rest of this file is preserved verbatim for archaeology — refer to
+the new doc for anything operational.
+
+---
 
 How content gets from JSON files on disk into the `content` table at
 runtime. This is the spec; implementation lands in M1.5.

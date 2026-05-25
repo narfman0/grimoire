@@ -61,11 +61,11 @@ Every modifier has two orthogonal state fields:
 
 ## Packs
 
-Content is grouped into packs (a directory of JSON files). Each pack has a `meta.json` with `slug`, `name`, `version`, `author`, `default_source`. The loader walks pack directories at boot and upserts rows into `content`. See `docs/pack-loader.md`.
+Content is grouped into packs (a directory of JSON files). Each pack has a `meta.json` with `slug`, `name`, `version`, `author`, `default_source`. The in-repo SRD pack is seeded once at first boot; non-SRD content is imported per-user via `POST /api/homebrew/import`. See `docs/content-distribution.md`.
 
 ## Related
 
 - [rules-engine.md](./rules-engine.md) — how `derive()` reads and applies this content.
-- [pack-loader.md](./pack-loader.md) — how content gets from JSON files into the DB.
+- [content-distribution.md](./content-distribution.md) — how content gets from JSON files (or upload) into the DB.
 - [seed-sources.md](./seed-sources.md) — license and attribution per source.
 - [data-model.md](./data-model.md) — full DB schema.

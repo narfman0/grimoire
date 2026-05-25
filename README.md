@@ -13,7 +13,7 @@ Status: **active table use**.
 - **Live character sheets** — HP, conditions, spell slots, and resources sync in real time across all players
 - **Encounter runner** — initiative order, per-participant action economy foldout, spell casting with slot consumption, concentration tracking, damage saves
 - **Rules engine** — derives AC, attack bonuses, save DCs, proficiencies, and resistances from class/subclass/feat/species/background content
-- **Content packs** — SRD 5.2 ships in-repo; non-SRD content loaded from `$GRIMOIRE_PACKS_DIR` at boot; homebrew authored in-app
+- **Content packs** — SRD 5.2 ships in-repo and is seeded on first boot; non-SRD content imported per-user via `POST /api/homebrew/import`; homebrew authored in-app
 - **Homebrew editors** — structured forms for all 11 content kinds (spells, items, feats, classes, subclasses, species, subspecies, backgrounds, features, conditions, monsters)
 - **Feat picker** — player-choice slots with prereq enforcement; subclass expanded spells auto-populate
 - **Multi-campaign characters** — one character can belong to multiple campaigns via a join table
@@ -80,7 +80,10 @@ isn't buffered (nginx: `proxy_buffering off;`).
   commit format, boundaries, verification before push.
 - **API** → [`/api`](http://localhost:5173/api) (Scalar reference) or
   `GET /api/openapi.json`.
-- **Architecture** → `docs/` (data model, rules engine, pack loader).
+- **Architecture** → `docs/` (data model, rules engine, content distribution).
 - **Content packs** → SRD 5.2 (CC-BY 4.0) ships in
-  `content-packs/`. Non-SRD content goes in `$GRIMOIRE_PACKS_DIR`
-  (private repo or any local path). See `docs/pack-loader.md`.
+  `content-packs/` and is seeded on first boot. Non-SRD content is
+  imported per-user via `POST /api/homebrew/import` (use
+  `scripts/dump-packs-to-import-tarball.mjs` to dump a `grimoire-packs`
+  checkout into an import-ready manifest). See
+  `docs/content-distribution.md`.
