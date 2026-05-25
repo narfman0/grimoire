@@ -52,18 +52,40 @@ export const notes = sqliteTable('notes', {
 // /api/homebrew/import bulk upload.
 // ---------------------------------------------------------------------------
 
-export const packs = sqliteTable('packs', {
-  slug: text('slug').primaryKey(),                                  // matches meta.json `slug`
-  name: text('name').notNull(),
-  version: text('version').notNull(),                               // informational
-  defaultSource: text('default_source').notNull(),                  // applied to rows that omit `source`
-  loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull(),
-  author: text('author'),
-  /** Rules edition this pack targets ('5e', '5.5e', …). Drives the browse
-   *  edition filter and (later) campaign-scoped pickers. Nullable because
-   *  legacy packs may not declare one yet. */
-  edition: text('edition')
-});
+export const packs = sqliteTable(
+  'packs',
+  {
+    slug: text('slug').primaryKey(),                                  // matches meta.json `slug`
+    name: text('name').notNull(),
+    version: text('version').notNull(),                               // informational
+    defaultSource: text('default_source').notNull(),                  // applied to rows that omit `source`
+    loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull(),
+    author: text('author'),
+    /** Rules edition this pack targets ('5e', '5.5e', …). Drives the browse
+     *  edition filter and (later) campaign-scoped pickers. Nullable because
+     *  legacy packs may not declare one yet. */
+    edition: text('edition'),
+    /** Free-text description shown in the pack browse / detail UI. Null for
+     *  the system `homebrew` bucket and legacy rows that pre-date the column. */
+    description: text('description'),
+    /** Author of this pack as a first-class user. NULL = system pack
+     *  (SRD and the synthetic `homebrew` bucket). User-created packs from
+     *  /api/homebrew/import or POST /api/packs stamp the caller's id here. */
+    ownerUserId: text('owner_user_id').references(() => users.id, { onDelete: 'set null' }),
+    /** Same model as content.visibility:
+     *    'private'  — only the owner sees the pack and its rows
+     *    'unlisted' — URL-shareable; hidden from browse
+     *    'public'   — surfaced in /packs and /homebrew/browse
+     *  The SRD pack is 'public'; the synthetic 'homebrew' bucket is 'private'. */
+    visibility: text('visibility').notNull().default('private'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+  },
+  (t) => ({
+    byOwner: index('packs_owner').on(t.ownerUserId),
+    byVisibility: index('packs_visibility').on(t.visibility)
+  })
+);
 
 export const content = sqliteTable(
   'content',

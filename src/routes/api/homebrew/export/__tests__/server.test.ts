@@ -22,12 +22,15 @@ const userOf = (id: string, username = 'user') => ({
 });
 
 async function seedHomebrewPack(db: Db): Promise<void> {
+  const now = new Date();
   await db.insert(schema.packs).values({
     slug: 'homebrew',
     name: 'Homebrew',
     version: '1',
     defaultSource: 'homebrew',
-    loadedAt: new Date()
+    loadedAt: now,
+    visibility: 'private',
+    createdAt: now
   });
 }
 

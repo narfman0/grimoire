@@ -26,9 +26,18 @@ async function seedHomebrew(
   slug: string,
   published: boolean
 ): Promise<void> {
+  const packNow = new Date();
   await db
     .insert(schema.packs)
-    .values({ slug: 'homebrew', name: 'Homebrew', version: '1', defaultSource: 'homebrew', loadedAt: new Date() })
+    .values({
+      slug: 'homebrew',
+      name: 'Homebrew',
+      version: '1',
+      defaultSource: 'homebrew',
+      loadedAt: packNow,
+      visibility: 'private',
+      createdAt: packNow
+    })
     .onConflictDoNothing();
   const now = new Date();
   await db.insert(schema.content).values({

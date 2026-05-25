@@ -22,14 +22,17 @@ type DbType = typeof Db;
 export const TEST_PACK_SLUG = 'test-fixture';
 
 export async function seedTestPack(db: DbType): Promise<void> {
+  const now = new Date();
   await db.insert(schema.packs).values({
     slug: TEST_PACK_SLUG,
     name: 'Test Fixture Pack',
     version: '0.0.0',
     defaultSource: TEST_PACK_SLUG,
-    loadedAt: new Date(),
+    loadedAt: now,
     author: null,
-    edition: '5e'
+    edition: '5e',
+    visibility: 'public',
+    createdAt: now
   });
 }
 

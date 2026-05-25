@@ -180,6 +180,10 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
   // Upsert packs row first, then content rows, all in one txn.
   const now = new Date();
   db.transaction((tx) => {
+    // SRD-style packs loaded from disk are CC-BY public; non-SRD on-disk
+    // packs (test fixtures, dev imports) default to private. The post-M1.5
+    // `packs.visibility` column lets us reflect that distinction.
+    const onDiskVisibility = ctx.meta.slug.startsWith('srd-') ? 'public' : 'private';
     tx.insert(schema.packs)
       .values({
         slug: ctx.meta.slug,
@@ -188,7 +192,11 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
         defaultSource: ctx.meta.default_source,
         loadedAt: now,
         author: ctx.meta.author ?? null,
-        edition: ctx.meta.edition ?? null
+        edition: ctx.meta.edition ?? null,
+        ownerUserId: ctx.authorUserId,
+        visibility: onDiskVisibility,
+        createdAt: now,
+        updatedAt: now
       })
       .onConflictDoUpdate({
         target: schema.packs.slug,
@@ -198,7 +206,9 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
           defaultSource: ctx.meta.default_source,
           loadedAt: now,
           author: ctx.meta.author ?? null,
-          edition: ctx.meta.edition ?? null
+          edition: ctx.meta.edition ?? null,
+          ownerUserId: ctx.authorUserId,
+          updatedAt: now
         }
       })
       .run();

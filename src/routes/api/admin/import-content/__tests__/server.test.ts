@@ -14,24 +14,30 @@ const userOf = (id: string) => ({ id, username: 'user', isAdmin: false, email: n
  *  production. content.pack_slug → packs.slug is a FK, so any homebrew
  *  insert needs this row to exist. */
 async function seedHomebrewPack(db: Db): Promise<void> {
+  const now = new Date();
   await db.insert(schema.packs).values({
     slug: 'homebrew',
     name: 'Homebrew',
     version: '1',
     defaultSource: 'homebrew',
-    loadedAt: new Date()
+    loadedAt: now,
+    visibility: 'private',
+    createdAt: now
   });
 }
 
 /** Seed a stand-in SRD-5.2 pack row for tests that pre-insert pack-loaded
  *  (owner=null) content rows. content.pack_slug FKs into packs.slug. */
 async function seedSrdPack(db: Db): Promise<void> {
+  const now = new Date();
   await db.insert(schema.packs).values({
     slug: 'srd-5.2',
     name: 'SRD 5.2',
     version: '1',
     defaultSource: 'srd-5.2',
-    loadedAt: new Date()
+    loadedAt: now,
+    visibility: 'public',
+    createdAt: now
   });
 }
 
