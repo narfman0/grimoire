@@ -142,11 +142,14 @@ describe('GET /api/homebrew/export', () => {
   it('only includes the calling user’s rows (no cross-user leakage)', async () => {
     const aliceId = await seedUser(db, { username: 'alice' });
     const bobId = await seedUser(db, { username: 'bob' });
+    // Real packs are owner-scoped now, so each user gets their own pack
+    // slug. Cross-user collision on real-pack slugs is a 409 (covered in
+    // the import tests); here we just want disjoint rows.
     await importPost(
       makeEvent({
         user: userOf(aliceId, 'alice'),
         body: {
-          meta: baseMeta,
+          meta: { ...baseMeta, slug: 'alice-pack', default_source: 'alice-pack' },
           rows: [{ kind: 'feature', slug: 'a', version: 1, name: 'Alice', data: {} }]
         }
       })
@@ -155,7 +158,7 @@ describe('GET /api/homebrew/export', () => {
       makeEvent({
         user: userOf(bobId, 'bob'),
         body: {
-          meta: baseMeta,
+          meta: { ...baseMeta, slug: 'bob-pack', default_source: 'bob-pack' },
           rows: [{ kind: 'feature', slug: 'b', version: 1, name: 'Bob', data: {} }]
         }
       })

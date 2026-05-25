@@ -4,7 +4,9 @@
 //
 // Query params:
 //   ?kind=feature       — filter to one content kind (default: all kinds)
-//   ?source=my-pack     — filter to one source slug
+//   ?source=my-pack     — filter to one source slug (legacy filter; still works)
+//   ?pack=my-pack       — filter to one pack slug; without this, every row
+//                          across every pack the caller owns is exported
 //   ?include_deleted    — accepted but ignored; soft-delete isn't a thing yet
 //
 // When the user has no rows the response is { meta: null, rows: [] } so
@@ -41,10 +43,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
   const kindFilter = url.searchParams.get('kind');
   const sourceFilter = url.searchParams.get('source');
+  const packFilter = url.searchParams.get('pack');
 
   const conditions = [eq(schema.content.ownerUserId, ownerUserId)];
   if (kindFilter) conditions.push(eq(schema.content.kind, kindFilter));
   if (sourceFilter) conditions.push(eq(schema.content.source, sourceFilter));
+  if (packFilter) conditions.push(eq(schema.content.packSlug, packFilter));
 
   const rows = await db
     .select()

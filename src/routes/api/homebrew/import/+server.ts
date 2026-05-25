@@ -3,10 +3,17 @@
 // (same shape in both directions) so a user can round-trip their authored
 // content between instances without admin privileges or filesystem access.
 //
+// Pack handling (post-M1.5):
+//   - meta.slug === 'homebrew' → rows land in the synthetic fast-path bucket
+//     (legacy behavior). Cross-user, owner-scoped via content.owner_user_id.
+//   - meta.slug !== 'homebrew' → upsert a real `packs` row owned by the
+//     caller and stamp content.pack_slug = meta.slug on every imported row.
+//     Re-imports by the same owner update the pack + rows in place; a
+//     collision with another user's pack of the same slug returns 409.
+//
 // Per-row semantics:
 //   - ownerUserId = caller's user id
-//   - packSlug    = 'homebrew' (the synthetic FK target seeded by the
-//                   homebrew-pack migration; required by the schema)
+//   - packSlug    = meta.slug (real pack) or 'homebrew' (fast-path bucket)
 //   - source      = row.source ?? meta.default_source
 //   - visibility  = 'unlisted' (matches what the on-disk loader stamps)
 //
@@ -53,8 +60,60 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const result: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] };
   const now = new Date();
 
+  // Real-pack path: meta.slug !== 'homebrew' means the user is uploading a
+  // distinct manifest that should live in its own packs row. Validate
+  // ownership before we open the txn — a collision with someone else's pack
+  // is a 409, not a per-row error.
+  const packSlugToUse = body.meta.slug;
+  const isFastPath = packSlugToUse === HOMEBREW_PACK_SLUG;
+  if (!isFastPath) {
+    const [existingPack] = await db
+      .select()
+      .from(schema.packs)
+      .where(eq(schema.packs.slug, packSlugToUse))
+      .limit(1);
+    if (existingPack && existingPack.ownerUserId !== ownerUserId) {
+      throw error(
+        409,
+        `pack "${packSlugToUse}" is owned by another user — pick a different slug or fork it`
+      );
+    }
+  }
+
   try {
     db.transaction((tx) => {
+      // Upsert the pack row first when we're not using the fast-path bucket.
+      // Idempotent: re-imports refresh name/version/description without
+      // disturbing visibility (the owner can edit that via PATCH /api/packs).
+      if (!isFastPath) {
+        tx.insert(schema.packs)
+          .values({
+            slug: packSlugToUse,
+            name: body.meta.name,
+            version: body.meta.version,
+            defaultSource: body.meta.default_source,
+            loadedAt: now,
+            author: body.meta.author ?? locals.user.username,
+            edition: null,
+            ownerUserId,
+            visibility: 'private',
+            createdAt: now,
+            updatedAt: now
+          })
+          .onConflictDoUpdate({
+            target: schema.packs.slug,
+            set: {
+              name: body.meta.name,
+              version: body.meta.version,
+              defaultSource: body.meta.default_source,
+              loadedAt: now,
+              author: body.meta.author ?? locals.user.username,
+              updatedAt: now
+            }
+          })
+          .run();
+      }
+
       for (const row of body.rows) {
         // Validate the per-row data payload against the kind-specific schema.
         // Unknown kinds and shape failures land in errors[] and the row is
@@ -113,7 +172,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
               source,
               scopeId: null,
               ownerUserId,
-              packSlug: HOMEBREW_PACK_SLUG,
+              packSlug: packSlugToUse,
               name: row.name,
               data: dataJson,
               visibility: 'unlisted',
@@ -128,6 +187,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
               name: row.name,
               source,
               data: dataJson,
+              packSlug: packSlugToUse,
               updatedAt: now
             })
             .where(eq(schema.content.id, existing[0].id))

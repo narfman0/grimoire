@@ -50,7 +50,7 @@ describe('POST /api/homebrew/import', () => {
     await seedHomebrewPack(db);
   });
 
-  it('inserts a mixed-kind batch as owned homebrew (visibility=unlisted)', async () => {
+  it('inserts a mixed-kind batch as owned homebrew (visibility=unlisted, real pack)', async () => {
     const userId = await seedUser(db, { username: 'alice' });
     const res = await POST(
       makeEvent({
@@ -73,12 +73,74 @@ describe('POST /api/homebrew/import', () => {
       .from(schema.content)
       .where(eq(schema.content.ownerUserId, userId));
     expect(rows).toHaveLength(3);
+    // meta.slug = 'my-pack' (not 'homebrew') so a real packs row is created
+    // and every content row points at it.
     for (const r of rows) {
       expect(r.ownerUserId).toBe(userId);
-      expect(r.packSlug).toBe('homebrew');
+      expect(r.packSlug).toBe('my-pack');
       expect(r.source).toBe('my-pack');
       expect(r.visibility).toBe('unlisted');
     }
+
+    const [pack] = await db
+      .select()
+      .from(schema.packs)
+      .where(eq(schema.packs.slug, 'my-pack'))
+      .limit(1);
+    expect(pack).toBeDefined();
+    expect(pack.ownerUserId).toBe(userId);
+    expect(pack.visibility).toBe('private');
+  });
+
+  it("meta.slug === 'homebrew' lands rows in the fast-path bucket (no new packs row)", async () => {
+    const userId = await seedUser(db, { username: 'alice' });
+    const res = await POST(
+      makeEvent({
+        user: userOf(userId, 'alice'),
+        body: {
+          meta: { slug: 'homebrew', name: 'Homebrew', version: '1', default_source: 'homebrew' },
+          rows: [{ kind: 'feature', slug: 'foo', version: 1, name: 'Foo', data: {} }]
+        }
+      })
+    );
+    expect((await res.json()).created).toBe(1);
+
+    const [row] = await db
+      .select()
+      .from(schema.content)
+      .where(eq(schema.content.ownerUserId, userId))
+      .limit(1);
+    expect(row.packSlug).toBe('homebrew');
+
+    // No new packs row beyond the synthetic 'homebrew' bucket already seeded.
+    const allPacks = await db.select().from(schema.packs);
+    expect(allPacks).toHaveLength(1);
+  });
+
+  it('refuses to clobber another user\'s pack of the same slug (409)', async () => {
+    const aliceId = await seedUser(db, { username: 'alice' });
+    const bobId = await seedUser(db, { username: 'bob' });
+    await POST(
+      makeEvent({
+        user: userOf(aliceId, 'alice'),
+        body: {
+          meta: { ...baseMeta, slug: 'contested' },
+          rows: [{ kind: 'feature', slug: 'a', version: 1, name: 'A', data: {} }]
+        }
+      })
+    );
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user: userOf(bobId, 'bob'),
+          body: {
+            meta: { ...baseMeta, slug: 'contested' },
+            rows: [{ kind: 'feature', slug: 'a', version: 1, name: 'A', data: {} }]
+          }
+        })
+      ),
+      409
+    );
   });
 
   it('re-importing the same slugs updates in place (no duplicates)', async () => {
@@ -181,15 +243,25 @@ describe('POST /api/homebrew/import', () => {
     );
   });
 
-  it('upsert is scoped to the caller: another user with the same slug coexists', async () => {
+  it('upsert is scoped to the caller via the fast-path bucket (cross-user coexistence)', async () => {
+    // Two users importing into the synthetic 'homebrew' bucket with the
+    // same slug both succeed — content.owner_user_id distinguishes them.
+    // Real packs (meta.slug !== 'homebrew') are owner-locked instead — see
+    // the 409 test above.
     const aliceId = await seedUser(db, { username: 'alice' });
     const bobId = await seedUser(db, { username: 'bob' });
+    const fastPathMeta = {
+      slug: 'homebrew',
+      name: 'Homebrew',
+      version: '1',
+      default_source: 'homebrew'
+    };
 
     await POST(
       makeEvent({
         user: userOf(aliceId, 'alice'),
         body: {
-          meta: baseMeta,
+          meta: fastPathMeta,
           rows: [{ kind: 'feature', slug: 'shared', version: 1, name: 'Alice', data: {} }]
         }
       })
@@ -198,7 +270,7 @@ describe('POST /api/homebrew/import', () => {
       makeEvent({
         user: userOf(bobId, 'bob'),
         body: {
-          meta: baseMeta,
+          meta: fastPathMeta,
           rows: [{ kind: 'feature', slug: 'shared', version: 1, name: 'Bob', data: {} }]
         }
       })
