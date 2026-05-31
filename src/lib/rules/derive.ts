@@ -17,6 +17,7 @@ import { applyNumericMode, defaultPriority, type Mode } from './modes';
 import { monsterDerive } from './monster-derive';
 import { predicateMatches, type PredicateContext } from './predicates';
 import { SKILLS, SKILL_ABILITY } from './skills';
+import { slugify } from './slug';
 import type {
   AbilityCell,
   AbilityKey,
@@ -397,7 +398,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       (a.data.subclassFeatures as Array<{ name?: string; level?: number }> | undefined) ?? [];
     for (const f of inlineFeatures) {
       if (!f?.name) continue;
-      const slug = slugifyName(f.name);
+      const slug = slugify(f.name);
       const featLevel = f.level ?? 1;
       // Subclass features unlock at a per-class level; gate by parent class.
       if (a.row.kind === 'subclass') {
@@ -2392,16 +2393,6 @@ function resolveStatToken(token: string, stats: StatBlock): number {
   const ab = AB_MOD[token];
   if (ab) return stats.abilities[ab].mod;
   return 0;
-}
-
-/** Lower-case, hyphenate, strip non-[a-z0-9-] — matches the slug convention
- *  used in feature content rows. Used to map 5etools-imported display names
- *  ("Divine Fury") to the engine's slugged feature lookups ("divine-fury"). */
-function slugifyName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 }
 
 function applyTarget(

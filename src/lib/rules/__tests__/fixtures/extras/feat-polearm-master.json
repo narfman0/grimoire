@@ -1,0 +1,40 @@
+{
+  "kind": "feat",
+  "slug": "polearm-master",
+  "version": 1,
+  "name": "Polearm Master",
+  "data": {
+    "description": "You can keep your enemies at bay with reach weapons.",
+    "modifiers": [
+      {
+        "kind": "action-modifier",
+        "id": "polearm-master-bonus-attack",
+        "name": "Polearm Master — Butt Strike (Bonus Action)",
+        "appliesTo": {
+          "activityType": "attack",
+          "predicates": [
+            { "attack.range": "melee" },
+            { "weapon.properties": "reach" }
+          ]
+        },
+        "effects": [
+          {
+            "target": "flag.polearm-master-bonus-attack",
+            "mode": "OVERRIDE",
+            "value": true
+          }
+        ]
+      }
+    ],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "polearm-master-reaction",
+        "name": "Polearm Master — opportunity attack on entry",
+        "on": ["creature.enters.reach"],
+        "grants": { "type": "opportunity-attack" }
+      }
+    ],
+    "category": "General"
+  }
+}

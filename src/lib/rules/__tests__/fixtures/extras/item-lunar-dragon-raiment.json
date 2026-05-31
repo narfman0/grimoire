@@ -1,0 +1,28 @@
+{
+  "kind": "item",
+  "slug": "lunar-dragon-raiment",
+  "version": 1,
+  "name": "Lunar Dragon Raiment",
+  "data": {
+    "category": "armor",
+    "armorType": "medium",
+    "armorClassFormula": { "base": 14, "ability": "dex", "abilityCap": 2 },
+    "rarity": "rare",
+    "requiresAttunement": true,
+    "description": "This armor is crafted from the scales of a lunar dragon. While wearing and attuned to this armor, you gain resistance to Cold and Fire damage. You can also cast the Ray of Frost cantrip at will.",
+    "weight": 20,
+    "modifiers": [
+      { "kind": "stat-modifier", "target": "resistance.cold", "mode": "OVERRIDE", "value": true },
+      { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+    ],
+    "activities": [
+      {
+        "id": "ldr-cast-ray-of-frost",
+        "type": "cast-spell",
+        "name": "Lunar Dragon Raiment — Ray of Frost",
+        "cost": "action",
+        "spell": { "slug": "ray-of-frost" }
+      }
+    ]
+  }
+}

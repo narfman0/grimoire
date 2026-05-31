@@ -1,0 +1,36 @@
+{
+  "kind": "item",
+  "slug": "elven-scorn",
+  "version": 1,
+  "name": "Elven Scorn",
+  "data": {
+    "category": "weapon",
+    "weaponType": "martial-melee",
+    "properties": ["heavy", "reach", "two-handed"],
+    "rarity": "uncommon",
+    "requiresAttunement": true,
+    "description": "This elven-crafted pike is imbued with a magical grudge. You gain a +1 bonus to attack rolls and damage rolls made with this weapon.",
+    "weight": 18,
+    "modifiers": [
+      { "kind": "stat-modifier", "target": "attack.bonus", "mode": "ADD", "value": 1 },
+      { "kind": "stat-modifier", "target": "damage.bonus", "mode": "ADD", "value": 1 }
+    ],
+    "activities": [
+      {
+        "id": "elven-scorn-attack",
+        "type": "attack",
+        "name": "Elven Scorn Attack",
+        "cost": "action",
+        "attack": {
+          "ability": "str",
+          "classification": "weapon",
+          "range": "melee",
+          "damage": [
+            { "dice": "1d10", "type": "piercing" },
+            { "dice": "2d6", "type": "piercing" }
+          ]
+        }
+      }
+    ]
+  }
+}

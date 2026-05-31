@@ -281,6 +281,82 @@ describe('item enhancement bonus on attacks (Phase 1b)', () => {
   });
 });
 
+describe('Lunar Dragon Raiment (Spelljammer) — Ray of Frost at will + resistances', () => {
+  it('produces a Ray of Frost cast-spell action when equipped and attuned', () => {
+    const character = withInventory([
+      { contentKind: 'item', contentSlug: 'lunar-dragon-raiment', version: 1, equipped: true, attuned: true }
+    ]);
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+
+    const fromLDR = d.actions.filter((a) => a.sourceContent.slug === 'lunar-dragon-raiment');
+    expect(fromLDR.length).toBeGreaterThanOrEqual(1);
+
+    const rayOfFrost = fromLDR.find((a) => a.id.endsWith('/ldr-cast-ray-of-frost'));
+    expect(rayOfFrost).toBeDefined();
+    expect(rayOfFrost!.cost).toBe('action');
+  });
+
+  it('Ray of Frost is at-will — no uses resource emitted', () => {
+    const character = withInventory([
+      { contentKind: 'item', contentSlug: 'lunar-dragon-raiment', version: 1, equipped: true, attuned: true }
+    ]);
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+
+    const res = d.resources.find((r) => r.id.includes('ldr-cast-ray-of-frost'));
+    expect(res).toBeUndefined();
+  });
+
+  it('grants cold and fire resistance when equipped and attuned', () => {
+    const character = withInventory([
+      { contentKind: 'item', contentSlug: 'lunar-dragon-raiment', version: 1, equipped: true, attuned: true }
+    ]);
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+
+    expect(d.stats.resistances).toContain('cold');
+    expect(d.stats.resistances).toContain('fire');
+  });
+});
+
+describe('Elven Scorn (Spelljammer) — two damage rolls (1d10 + 2d6 piercing)', () => {
+  it('attack action has both 1d10 and 2d6 piercing damage rolls', () => {
+    const character = withInventory([
+      { contentKind: 'item', contentSlug: 'elven-scorn', version: 1, equipped: true, attuned: true }
+    ]);
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'elven-scorn');
+    expect(attack).toBeDefined();
+    expect(attack!.damageRolls).toBeDefined();
+    expect(attack!.damageRolls!.length).toBeGreaterThanOrEqual(2);
+
+    const allPiercing = attack!.damageRolls!.filter((r) => r.type === 'piercing');
+    expect(allPiercing.length).toBeGreaterThanOrEqual(2);
+
+    const hasPike = allPiercing.some((r) => r.formula.includes('1d10'));
+    const hasBonus = allPiercing.some((r) => r.formula.includes('2d6'));
+    expect(hasPike).toBe(true);
+    expect(hasBonus).toBe(true);
+  });
+});
+
+describe('Polearm Master feat — bonus attack flag on reach weapon attacks', () => {
+  it('flag.polearm-master-bonus-attack appears on the feat content row', () => {
+    const featRow = chronurgy.makeLookup(PACKS)({ kind: 'feat', slug: 'polearm-master' });
+    expect(featRow).toBeDefined();
+
+    const mods = (featRow!.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    const flagMod = mods.find(
+      (m) => m.kind === 'action-modifier' && m.id === 'polearm-master-bonus-attack'
+    );
+    expect(flagMod).toBeDefined();
+
+    const effects = flagMod!.effects as Array<{ target: string; value: unknown }>;
+    const flagEffect = effects.find((e) => e.target === 'flag.polearm-master-bonus-attack');
+    expect(flagEffect).toBeDefined();
+    expect(flagEffect!.value).toBe(true);
+  });
+});
+
 describe('cast-spell activity with missing spell row', () => {
   it('still emits a utility-shaped action and does not throw', () => {
     // Synthesize an inventory item that points at a fabricated content slug

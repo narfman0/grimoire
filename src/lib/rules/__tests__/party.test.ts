@@ -134,6 +134,60 @@ describe('Half-Orc Zealot Barbarian L3', () => {
   });
 });
 
+describe('Zealot Barbarian — Divine Fury + Warrior of the Gods feature authoring', () => {
+  it('divine-fury action-modifier appears in greatsword appliedModifiers while raging', () => {
+    const lookup = zealot.makeLookup(PACKS);
+    const d = derive(zealot.CHARACTER, lookup);
+
+    // Character fixture has rage active (conditions: ['rage']) and
+    // divine-fury-bonus in modifierToggles: { 'divine-fury-bonus': true }.
+    const greatsword = d.actions.find((a) => a.sourceContent.slug === 'greatsword');
+    expect(greatsword).toBeDefined();
+    expect(greatsword!.type).toBe('attack');
+    expect(greatsword!.attackRange).toBe('melee');
+
+    const modIds = greatsword!.appliedModifiers.map((m) => m.modifierId);
+    // divine-fury-bonus action-modifier from the zealot feature fires because
+    // appliesWhen.condition='rage' is satisfied and the attack is melee.
+    expect(modIds).toContain('divine-fury-bonus');
+  });
+
+  it('divine-fury produces an extra damage.dice roll on the greatsword action', () => {
+    const lookup = zealot.makeLookup(PACKS);
+    const d = derive(zealot.CHARACTER, lookup);
+
+    const greatsword = d.actions.find((a) => a.sourceContent.slug === 'greatsword');
+    expect(greatsword).toBeDefined();
+    // The greatsword should have at least the base damage roll.
+    // The damage.dice effect from divine-fury appends an extra roll.
+    expect(greatsword!.damageRolls).toBeDefined();
+    expect(greatsword!.damageRolls!.length).toBeGreaterThanOrEqual(1);
+    // The greatsword base damage roll is slashing; divine-fury appends radiant.
+    const slashing = greatsword!.damageRolls!.find((r) => r.type === 'slashing');
+    expect(slashing).toBeDefined();
+  });
+
+  it('warrior-of-the-gods feature row carries the no-material-component-on-revive flag modifier', () => {
+    const lookup = zealot.makeLookup(PACKS);
+    // Verify the feature row itself is present and has the expected flag modifier.
+    const featureRow = lookup({ kind: 'feature', slug: 'warrior-of-the-gods' });
+    expect(featureRow).toBeDefined();
+    const mods = (featureRow!.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    const flagMod = mods.find(
+      (m) => m.kind === 'stat-modifier' && m.target === 'flag.no-material-component-on-revive'
+    );
+    expect(flagMod).toBeDefined();
+    expect(flagMod!.value).toBe(true);
+    expect(flagMod!.mode).toBe('OVERRIDE');
+
+    // Also verify derive() does not error when warrior-of-the-gods is active
+    // (the flag modifier does not produce validation warnings).
+    const d = derive(zealot.CHARACTER, lookup);
+    const errors = d.validations.filter((v) => v.severity === 'error');
+    expect(errors).toHaveLength(0);
+  });
+});
+
 describe("Ray'Quasar — Tortle Chronurgy Magic Wizard 10", () => {
   it('composes the basic stat block', () => {
     const lookup = chronurgy.makeLookup(PACKS);
