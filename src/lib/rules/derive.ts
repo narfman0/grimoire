@@ -687,6 +687,18 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           deferredRefs.push({ kind: 'feature', slug: featurePick });
         }
       }
+      // Feat-pick: any content kind with choices.feat defers loading of the
+      // chosen feat (e.g. Custom Lineage granting a free feat at level 1).
+      // Declaration: choices.feat = { allowedFeats?: string[] | 'all' }
+      // Pick:        <content>.choices.feat = { slug: "polearm-master" }
+      const featPickDecl = decl.feat as { allowedFeats?: string[] | 'all' } | undefined;
+      const featPickSlug = (picks.feat as { slug?: string } | undefined)?.slug;
+      if (featPickDecl && featPickSlug) {
+        const allowed = featPickDecl.allowedFeats;
+        if (!allowed || allowed === 'all' || allowed.includes(featPickSlug)) {
+          deferredRefs.push({ kind: 'feat', slug: featPickSlug });
+        }
+      }
       // Multi-pick expertise: choices.expertises = { allowedSkills: [...] | "proficient" }
       // picks.expertises = [{ skill: "arcana" }, { skill: "perception" }]
       // "allowedSkills": "proficient" means the player must already be proficient.
@@ -2026,7 +2038,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const pendingFeatureChoices: PendingFeatureChoice[] = [];
   const seenChoiceKeys = new Set<string>();
   for (const a of active) {
-    if (a.row.kind !== 'feature' && a.row.kind !== 'subclass') continue;
+    if (
+      a.row.kind !== 'feature' &&
+      a.row.kind !== 'subclass' &&
+      a.row.kind !== 'species' &&
+      a.row.kind !== 'background'
+    ) continue;
     const decl = a.data.choices as Record<string, Record<string, unknown> | undefined> | undefined;
     if (!decl) continue;
     const slotKeys = Object.keys(decl).filter((k) => decl[k] != null);
@@ -2034,10 +2051,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     const dedupeKey = `${a.row.kind}/${a.row.slug}`;
     if (seenChoiceKeys.has(dedupeKey)) continue;
     seenChoiceKeys.add(dedupeKey);
-    const picksRaw =
-      a.row.kind === 'feature'
-        ? character.featureChoices?.[a.row.slug]
-        : character.subclassChoices?.[a.row.slug];
+    let picksRaw: Record<string, unknown> | undefined;
+    if (a.row.kind === 'feature') {
+      picksRaw = character.featureChoices?.[a.row.slug];
+    } else if (a.row.kind === 'subclass') {
+      picksRaw = character.subclassChoices?.[a.row.slug];
+    } else if (a.row.kind === 'species') {
+      picksRaw = character.species.slug === a.row.slug ? character.species.choices : undefined;
+    } else if (a.row.kind === 'background') {
+      picksRaw = character.background?.slug === a.row.slug ? character.background?.choices : undefined;
+    }
     const picks = (picksRaw ?? {}) as Record<string, unknown>;
     const declarations: Record<string, Record<string, unknown>> = {};
     for (const k of slotKeys) declarations[k] = decl[k] as Record<string, unknown>;

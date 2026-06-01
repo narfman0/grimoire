@@ -14,7 +14,7 @@
           "activityType": "attack",
           "predicates": [
             { "attack.range": "melee" },
-            { "weapon.properties": "reach" }
+            { "weapon.property": "reach" }
           ]
         },
         "effects": [

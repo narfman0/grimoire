@@ -1,0 +1,15 @@
+{
+  "kind": "species",
+  "slug": "custom-lineage",
+  "version": 2,
+  "name": "Custom Lineage",
+  "data": {
+    "description": "Fully customizable lineage — grants a feat, one +2 ASI, and one skill proficiency.",
+    "speed": 30,
+    "choices": {
+      "asi": { "bonus": 2, "allowedAbilities": ["str", "dex", "con", "int", "wis", "cha"] },
+      "feat": { "allowedFeats": "all" },
+      "skillProficiency": { "allowedSkills": "all" }
+    }
+  }
+}
