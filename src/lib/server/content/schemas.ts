@@ -90,6 +90,15 @@ export const StatModifierSchema = z.object({
   priority: z.number().int().optional()
 });
 
+/** Discriminated union that covers all modifier kinds the engine handles.
+ *  `action-modifier` and `overlay-hp-pool` use `.passthrough()` so their
+ *  full shapes are validated by the rules engine at the use site. */
+export const AnyModifierSchema = z.discriminatedUnion('kind', [
+  StatModifierSchema,
+  z.object({ kind: z.literal('action-modifier') }).passthrough(),
+  z.object({ kind: z.literal('overlay-hp-pool') }).passthrough()
+]);
+
 const Ability = z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']);
 
 export const FeatChoicesSchema = z
@@ -138,7 +147,8 @@ export const FeatDataSchema = z
     category: z.string().max(64).optional(),
     description: z.string().max(8000).optional(),
     prerequisite: z.string().max(500).optional(),
-    modifiers: z.array(StatModifierSchema).optional(),
+    modifiers: z.array(AnyModifierSchema).optional(),
+    triggers: z.array(z.object({}).passthrough()).optional(),
     choices: FeatChoicesSchema.optional()
   })
   .strict();
@@ -212,7 +222,7 @@ export const SpellDataSchema = z
   .passthrough();
 export type SpellData = z.infer<typeof SpellDataSchema>;
 
-const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary', 'artifact'] as const;
+const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary', 'artifact', 'varies', 'unknown', 'none'] as const;
 export const Rarity = z.enum(RARITIES);
 
 export const ItemDataSchema = z
@@ -220,7 +230,7 @@ export const ItemDataSchema = z
     category: z.string().max(64).optional(),
     rarity: Rarity.optional(),
     requiresAttunement: z.boolean().optional(),
-    weight: z.number().nonnegative().optional(),
+    weight: z.number().nonnegative().nullable().optional(),
     slot: z.string().max(64).optional(),
     description: z.string().max(16000).optional(),
     note: z.string().max(2000).optional(),
@@ -244,7 +254,7 @@ export const MonsterDataSchema = z
     size: MonsterSize.optional(),
     type: z.string().max(64).optional(),
     alignment: z.string().max(64).optional(),
-    ac: z.number().int().nonnegative().optional(),
+    ac: z.number().int().nonnegative().nullable().optional(),
     acDescription: z.string().max(200).optional(),
     hp: HpSchema.optional(),
     speed: z.record(z.string(), z.number().int().nonnegative()).optional(),
