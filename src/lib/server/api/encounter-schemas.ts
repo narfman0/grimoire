@@ -83,7 +83,9 @@ export const UpdateParticipantRequest = z
     /** DM-swappable monster type. Setting this points the participant at a
      *  different content row; the encounter page re-derives statblock + HP
      *  caps from the new slug on the next SSR pass. */
-    statblockSlug: z.string().nullable().optional()
+    statblockSlug: z.string().nullable().optional(),
+    /** Link or unlink a PC participant to a character sheet. */
+    characterId: Uuid.nullable().optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateParticipantRequest');
