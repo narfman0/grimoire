@@ -15,7 +15,7 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { PackSlug, Visibility } from '$lib/server/content/schemas';
-import { __SYSTEM_PACK_SLUGS } from '../+server';
+import { _SYSTEM_PACK_SLUGS } from '../+server';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ slug: PackSlug });
