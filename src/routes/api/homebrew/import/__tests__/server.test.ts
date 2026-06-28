@@ -193,8 +193,8 @@ describe('POST /api/homebrew/import', () => {
           meta: baseMeta,
           rows: [
             { kind: 'spell', slug: 'good', version: 1, name: 'Good', data: { level: 2 } },
-            // FeatDataSchema is .strict(); randomField is unknown — rejected.
-            { kind: 'feat', slug: 'bad', version: 1, name: 'Bad', data: { randomField: 1 } },
+            // Use an actually-invalid feat row (choices.asi has a bad ability) — rejected.
+            { kind: 'feat', slug: 'bad', version: 1, name: 'Bad', data: { choices: { asi: { allowedAbilities: ['nope'] } } } },
             { kind: 'spell', slug: 'also-good', version: 1, name: 'Also', data: {} }
           ]
         }

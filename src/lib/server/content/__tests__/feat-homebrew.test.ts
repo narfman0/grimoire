@@ -48,9 +48,9 @@ describe('FeatDataSchema', () => {
     expect(r.success).toBe(false);
   });
 
-  it('rejects an unknown top-level key', () => {
+  it('passes through unknown top-level keys (pack import compat)', () => {
     const r = FeatDataSchema.safeParse({ randomField: 1 });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 
   it('expertise allowedSkills accepts the "proficient" literal', () => {
