@@ -92,6 +92,106 @@ export async function requireMembershipByCode(
   return m;
 }
 
+/** Resolves /campaigns/<dmUsername>/<slug> to the campaign row (id, code, name, slug).
+ *  Returns null when no matching campaign exists. */
+export async function resolveCampaignByDmAndSlug(
+  dmUsername: string,
+  slug: string
+): Promise<{ id: string; code: string; name: string; slug: string } | null> {
+  const rows = await db
+    .select({
+      id: schema.campaigns.id,
+      code: schema.campaigns.code,
+      name: schema.campaigns.name,
+      slug: schema.campaigns.slug
+    })
+    .from(schema.campaigns)
+    .innerJoin(
+      schema.campaignMembers,
+      and(
+        eq(schema.campaignMembers.campaignId, schema.campaigns.id),
+        eq(schema.campaignMembers.role, 'dm')
+      )
+    )
+    .innerJoin(schema.users, eq(schema.users.id, schema.campaignMembers.userId))
+    .where(
+      and(eq(schema.users.username, dmUsername), eq(schema.campaigns.slug, slug))
+    )
+    .limit(1);
+  if (rows.length === 0) return null;
+  return {
+    id: rows[0].id,
+    code: rows[0].code,
+    name: rows[0].name,
+    slug: rows[0].slug ?? slug
+  };
+}
+
+/** Resolves /characters/<username>/<slug> to the character row.
+ *  Returns null when no matching character exists. */
+export async function resolveCharacterByOwnerAndSlug(
+  username: string,
+  slug: string
+): Promise<{
+  id: string;
+  ownerUserId: string | null;
+  ownerUsername: string | null;
+  name: string;
+  slug: string | null;
+  document: string | null;
+  updatedAt: Date;
+} | null> {
+  const rows = await db
+    .select({
+      id: schema.characters.id,
+      ownerUserId: schema.characters.ownerUserId,
+      ownerUsername: schema.users.username,
+      name: schema.characters.name,
+      slug: schema.characters.slug,
+      document: schema.characters.document,
+      updatedAt: schema.characters.updatedAt
+    })
+    .from(schema.characters)
+    .innerJoin(schema.users, eq(schema.users.id, schema.characters.ownerUserId))
+    .where(
+      and(eq(schema.users.username, username), eq(schema.characters.slug, slug))
+    )
+    .limit(1);
+  if (rows.length === 0) return null;
+  return rows[0];
+}
+
+/** Authorises access to a character sheet. Throws 401/403 if the viewer has
+ *  no access. Returns `canEdit` (owner/admin) and the set of campaign ids the
+ *  viewer shares with the character (used to filter live-encounter visibility). */
+export async function requireCharacterViewAccess(
+  user: { id: string; isAdmin: boolean },
+  character: { id: string; ownerUserId: string | null }
+): Promise<{ canEdit: boolean; sharedCampaignIds: string[] }> {
+  const isOwner = character.ownerUserId === user.id;
+  if (isOwner || user.isAdmin) {
+    return { canEdit: true, sharedCampaignIds: [] };
+  }
+  // Viewer is not the owner — check whether they share a campaign with this character.
+  const sharedRows = await db
+    .select({ campaignId: schema.campaignCharacters.campaignId })
+    .from(schema.campaignCharacters)
+    .innerJoin(
+      schema.campaignMembers,
+      and(
+        eq(schema.campaignMembers.campaignId, schema.campaignCharacters.campaignId),
+        eq(schema.campaignMembers.userId, user.id),
+        eq(schema.campaignMembers.status, 'approved')
+      )
+    )
+    .where(eq(schema.campaignCharacters.characterId, character.id));
+  if (sharedRows.length === 0) throw error(403, 'not authorised to view this character');
+  return {
+    canEdit: false,
+    sharedCampaignIds: sharedRows.map((r) => r.campaignId)
+  };
+}
+
 export async function getMembershipByCampaignId(
   userId: string,
   campaignId: string

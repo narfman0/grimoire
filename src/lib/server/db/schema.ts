@@ -17,6 +17,7 @@ export const campaigns = sqliteTable('campaigns', {
   id: text('id').primaryKey(), // uuid
   code: text('code').notNull().unique(), // short shareable code, e.g. 6-char base32
   name: text('name').notNull(),
+  slug: text('slug'), // url-safe campaign name for human-readable URLs; null until assigned
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
 
@@ -26,6 +27,7 @@ export const characters = sqliteTable('characters', {
     .references(() => campaigns.id), // nullable: standalone characters have no home campaign
   ownerUserId: text('owner_user_id'), // FK to users.id; nullable for legacy/test rows pre-auth
   name: text('name').notNull(),
+  slug: text('slug'), // url-safe character name for human-readable URLs; null until assigned
   document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });

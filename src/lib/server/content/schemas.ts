@@ -151,7 +151,7 @@ export const FeatDataSchema = z
     triggers: z.array(z.object({}).passthrough()).optional(),
     choices: FeatChoicesSchema.optional()
   })
-  .strict();
+  .passthrough();
 export type FeatData = z.infer<typeof FeatDataSchema>;
 
 /** Body of a POST /api/homebrew/feats request. */

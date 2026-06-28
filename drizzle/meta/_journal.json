@@ -43,6 +43,13 @@
       "when": 1779731657056,
       "tag": "0005_odd_colonel_america",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1780260192443,
+      "tag": "0006_slug_columns",
+      "breakpoints": true
     }
   ]
 }
