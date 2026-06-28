@@ -165,9 +165,12 @@
           "str": 13
         }
       },
-      "abilityChoices": [
-        "str"
-      ],
+      "choices": {
+        "asi": {
+          "bonus": 1,
+          "allowedAbilities": ["str", "dex"]
+        }
+      },
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -192,12 +195,6 @@
               "value": "proficiencyBonus"
             }
           ]
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "ability.str",
-          "mode": "ADD",
-          "value": 1
         }
       ],
       "triggers": [
