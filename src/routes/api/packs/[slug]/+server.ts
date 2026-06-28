@@ -15,12 +15,12 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { PackSlug, Visibility } from '$lib/server/content/schemas';
-import { SYSTEM_PACK_SLUGS } from '../+server';
+import { __SYSTEM_PACK_SLUGS } from '../+server';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ slug: PackSlug });
 
-export const PackPatchBody = z
+export const _PackPatchBody = z
   .object({
     name: z.string().min(1).max(200).optional(),
     description: z.string().max(2000).nullable().optional(),
@@ -41,7 +41,7 @@ export const PackPatchBody = z
       b.newSlug !== undefined,
     { message: 'at least one field must be provided' }
   );
-export type PackPatchBody = z.infer<typeof PackPatchBody>;
+export type PackPatchBody = z.infer<typeof _PackPatchBody>;
 
 function serialize(p: typeof schema.packs.$inferSelect, rowCount: number, byKind: Record<string, number>) {
   return {
@@ -105,7 +105,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { slug } = parseParams({ slug: params.slug }, Params);
-  const body = await parseJson(request, PackPatchBody);
+  const body = await parseJson(request, _PackPatchBody);
 
   const [existing] = await db
     .select()
@@ -124,7 +124,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   // Slug rename is the interesting branch — it cascades to content.pack_slug
   // and re-checks collision. Pure-metadata edits skip the txn.
   if (body.newSlug && body.newSlug !== slug) {
-    if (SYSTEM_PACK_SLUGS.has(body.newSlug)) {
+    if (_SYSTEM_PACK_SLUGS.has(body.newSlug)) {
       throw error(409, `pack slug "${body.newSlug}" is reserved`);
     }
     const [collision] = await db
@@ -193,7 +193,7 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
   const { slug } = parseParams({ slug: params.slug }, Params);
   const cascade = url.searchParams.get('cascade') === 'true';
 
-  if (SYSTEM_PACK_SLUGS.has(slug)) {
+  if (_SYSTEM_PACK_SLUGS.has(slug)) {
     throw error(400, `system pack "${slug}" cannot be deleted`);
   }
 
@@ -231,6 +231,6 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
 
 export const _openapi = {
   GET: { summary: 'Fetch pack detail + per-kind row counts' },
-  PATCH: { summary: 'Update pack metadata or rename slug (owner only)', body: PackPatchBody },
+  PATCH: { summary: 'Update pack metadata or rename slug (owner only)', body: _PackPatchBody },
   DELETE: { summary: 'Delete a pack (owner only); requires ?cascade=true when rows exist' }
 } as const;

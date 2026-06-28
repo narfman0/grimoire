@@ -21,10 +21,10 @@ import type { RequestHandler } from './$types';
 
 /** Slugs the user can never create/delete; they're system-owned and the
  *  loader / single-row endpoints depend on the row existing. */
-export const SYSTEM_PACK_SLUGS = new Set(['homebrew', 'srd-5.2', 'srd-5.1']);
+export const _SYSTEM_PACK_SLUGS = new Set(['homebrew', 'srd-5.2', 'srd-5.1']);
 
 /** Body for POST /api/packs. */
-export const PackCreateBody = z.object({
+export const _PackCreateBody = z.object({
   slug: PackSlug,
   name: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
@@ -32,7 +32,7 @@ export const PackCreateBody = z.object({
   edition: z.string().min(1).max(32).optional(),
   visibility: Visibility.optional()
 });
-export type PackCreateBody = z.infer<typeof PackCreateBody>;
+export type PackCreateBody = z.infer<typeof _PackCreateBody>;
 
 function serialize(p: typeof schema.packs.$inferSelect, rowCount: number) {
   return {
@@ -51,9 +51,9 @@ function serialize(p: typeof schema.packs.$inferSelect, rowCount: number) {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
-  const body = await parseJson(request, PackCreateBody);
+  const body = await parseJson(request, _PackCreateBody);
 
-  if (SYSTEM_PACK_SLUGS.has(body.slug)) {
+  if (_SYSTEM_PACK_SLUGS.has(body.slug)) {
     throw error(409, `pack slug "${body.slug}" is reserved`);
   }
 
@@ -153,6 +153,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Create a new content pack owned by the caller', body: PackCreateBody },
+  POST: { summary: 'Create a new content pack owned by the caller', body: _PackCreateBody },
   GET: { summary: 'List packs visible to the caller (self + public + system)' }
 } as const;
