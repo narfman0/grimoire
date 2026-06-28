@@ -11,6 +11,7 @@ primary_region = 'iad'
 [env]
   DATABASE_URL = '/data/grimoire.db'
   NODE_ENV = 'production'
+  BODY_SIZE_LIMIT = '10485760'
 
 [[mounts]]
   source = 'grimoire_data'
