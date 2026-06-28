@@ -725,7 +725,10 @@ export const KNOWN_TRIGGER_EVENTS = [
   'creature.turn-start',
   'creature.reduce-to-zero',
   'enemy.reduce-to-zero',
-  'enemy.dies-within-range'
+  'enemy.dies-within-range',
+  'enemy.disengages-within-5ft',
+  'enemy.enters-reach',
+  'ally.attacked-within-5ft'
 ] as const;
 export type TriggerEvent = (typeof KNOWN_TRIGGER_EVENTS)[number];
 
