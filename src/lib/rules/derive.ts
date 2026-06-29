@@ -2504,16 +2504,8 @@ function computeAC(
     }
   }
 
-  // Apply ac modifiers (e.g., shield +2)
-  if (shield) {
-    const shieldMods = (shield.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
-    for (const m of shieldMods) {
-      if (m.kind === 'stat-modifier' && (m.target as string) === 'ac' && (m.mode as string) === 'ADD') {
-        const value = evaluateValue(m.value, ctx);
-        if (typeof value === 'number') base += value;
-      }
-    }
-  }
+  // ac stat-modifiers (shield +2, magic items, etc.) are in allMods and
+  // applied uniformly by applyTarget — no special shield block needed.
   const final = applyTarget(mods, character, 'ac', base, ctx);
   return typeof final === 'number' ? final : base;
 }

@@ -398,3 +398,20 @@ describe('cast-spell activity with missing spell row', () => {
     expect(phantom!.damageRolls).toBeUndefined();
   });
 });
+
+describe('Shield AC bonus', () => {
+  it('adds +2 AC exactly once when a shield is equipped alongside armor', () => {
+    // Regression: shield +2 was applied twice — once via direct shield block
+    // in computeAC and once via applyTarget(mods, 'ac', ...) — producing +4.
+    const character: CharacterDocument = {
+      ...chronurgy.CHARACTER,
+      // tortle has no armor, base AC = 17 (natural armor formula 17)
+      inventory: [
+        { contentKind: 'item', contentSlug: 'shield', version: 1, equipped: true, attuned: false, slot: 'offHand' }
+      ]
+    };
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+    // Tortle natural armor = 17; shield = +2; total = 19 (not 21).
+    expect(d.stats.ac).toBe(19);
+  });
+});
