@@ -33,11 +33,12 @@
             >
               {c.name}
             </a>
+          {:else if c.slug}
+            <a class="font-medium hover:text-emerald-300" href={`/characters/${c.ownerUsername}/${c.slug}`}>
+              {c.name}
+            </a>
           {:else}
             <span class="font-medium text-slate-300">{c.name}</span>
-            <span class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-              retired
-            </span>
           {/if}
           {#if c.descLine}
             <p class="text-xs text-slate-500">{c.descLine}</p>

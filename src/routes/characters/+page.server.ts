@@ -10,11 +10,13 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) throw redirect(303, '/login');
+  const user = locals.user;
 
   const charRows = await db
     .select({
       id: schema.characters.id,
       name: schema.characters.name,
+      slug: schema.characters.slug,
       campaignId: schema.characters.campaignId,
       document: schema.characters.document,
       updatedAt: schema.characters.updatedAt
@@ -73,6 +75,8 @@ export const load: PageServerLoad = async ({ locals }) => {
       return {
         id: c.id,
         name: c.name,
+        slug: c.slug,
+        ownerUsername: user.username,
         homeCampaignId: c.campaignId,
         descLine,
         totalLevel,
