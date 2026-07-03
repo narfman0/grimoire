@@ -235,8 +235,8 @@
       });
       if (res.ok) {
         showLinkPicker = false;
-        linkChosenId = '';
         await invalidateAll();
+        linkChosenId = '';
       } else {
         error = `Could not link character (${res.status})`;
       }
