@@ -317,10 +317,14 @@
         <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
           <CharacterCard
             name={c.name}
-            href={c.campaigns.length > 0 ? `/c/${c.campaigns[0].code}/character/${c.id}` : undefined}
+            href={c.campaigns.length > 0
+              ? `/c/${c.campaigns[0].code}/character/${c.id}`
+              : c.slug
+                ? `/characters/${c.ownerUsername}/${c.slug}`
+                : undefined}
             title={c.campaigns.length > 0 ? `Open in ${c.campaigns[0].name}` : undefined}
             descLine={c.descLine}
-            isRetired={c.campaigns.length === 0}
+            isRetired={false}
           />
           <div class="flex flex-wrap items-center gap-1 text-xs text-slate-400">
             {#each c.campaigns as link}

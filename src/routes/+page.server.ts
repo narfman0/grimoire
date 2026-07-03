@@ -90,6 +90,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     .select({
       id: schema.characters.id,
       name: schema.characters.name,
+      slug: schema.characters.slug,
       document: schema.characters.document,
       updatedAt: schema.characters.updatedAt
     })
@@ -137,6 +138,8 @@ export const load: PageServerLoad = async ({ locals }) => {
     return {
       id: c.id,
       name: c.name,
+      slug: c.slug,
+      ownerUsername: locals.user.username,
       descLine,
       totalLevel,
       campaigns: linksByChar.get(c.id) ?? []
