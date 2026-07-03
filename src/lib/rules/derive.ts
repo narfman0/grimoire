@@ -246,6 +246,14 @@ function isSlotUnresolved(
     if (cap == null) return pick == null;
     return !Array.isArray(pick) || pick.length < cap;
   }
+  // Multi-pick feature slot: choices.feature = { picks: N, allowedFeatures: [...] }
+  // picks.feature = { features: string[] } when N > 1; { feature: string } when N === 1.
+  if (slotKey === 'feature') {
+    const cap = (decl?.picks as number | undefined) ?? 1;
+    if (cap <= 1) return pick == null;
+    const features = (pick as { features?: unknown[] } | undefined)?.features;
+    return !Array.isArray(features) || features.length < cap;
+  }
   // Scalar slot — any non-null pick counts as resolved. (The picker UI
   // is responsible for shape correctness; derive() just checks
   // presence.)
@@ -680,11 +688,26 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       }
       // Feature-pick: any content kind with choices.feature defers loading of
       // the chosen sub-feature (e.g. Giant Ancestry picking an ancestry type).
-      const featureDecl = decl.feature as { allowedFeatures?: string[] } | undefined;
-      const featurePick = (picks.feature as { feature?: string } | undefined)?.feature;
-      if (featureDecl && featurePick) {
-        if (!featureDecl.allowedFeatures || featureDecl.allowedFeatures.includes(featurePick)) {
-          deferredRefs.push({ kind: 'feature', slug: featurePick });
+      // Single-pick: picks.feature = { feature: "slug" }
+      // Multi-pick (picks > 1): picks.feature = { features: ["slug-a", "slug-b"] }
+      const featureDecl = decl.feature as { allowedFeatures?: string[]; picks?: number } | undefined;
+      if (featureDecl) {
+        const pickCount = featureDecl.picks ?? 1;
+        if (pickCount > 1) {
+          const featureSlugs = (picks.feature as { features?: string[] } | undefined)?.features ?? [];
+          for (const fp of featureSlugs) {
+            if (!fp) continue;
+            if (!featureDecl.allowedFeatures || featureDecl.allowedFeatures.includes(fp)) {
+              deferredRefs.push({ kind: 'feature', slug: fp });
+            }
+          }
+        } else {
+          const featurePick = (picks.feature as { feature?: string } | undefined)?.feature;
+          if (featurePick) {
+            if (!featureDecl.allowedFeatures || featureDecl.allowedFeatures.includes(featurePick)) {
+              deferredRefs.push({ kind: 'feature', slug: featurePick });
+            }
+          }
         }
       }
       // Feat-pick: any content kind with choices.feat defers loading of the

@@ -895,6 +895,7 @@
   let featDraftTool = '';
   let featDraftSpells: string[] = [];
   let featDraftFeature = '';
+  let featDraftFeatures: string[] = [];
   let featDraftAsiMode: 'one' | 'split' = 'one';
   let featDraftAsiSelections: string[] = [''];
 
@@ -963,11 +964,17 @@
     featDraftTool = '';
     featDraftSpells = [];
     featDraftFeature = '';
+    featDraftFeatures = [];
     featDraftAsiMode = 'one';
     featDraftAsiSelections = [''];
     lastDraftKey = featPickerKey;
   }
   $: pickedFeatChoices = featByPickerId(featPickerKey)?.choices ?? null;
+  $: featFeaturePickCount = (pickedFeatChoices?.feature as { picks?: number } | undefined)?.picks ?? 1;
+  $: featFeatureAllowed = (pickedFeatChoices?.feature as { allowedFeatures?: string[] } | undefined)?.allowedFeatures ?? [];
+  $: featFeatureCategory = (pickedFeatChoices?.feature as { category?: string } | undefined)?.category ?? 'Feature';
+  $: featFeatureReady = !pickedFeatChoices?.feature ||
+    (featFeaturePickCount > 1 ? featDraftFeatures.length >= featFeaturePickCount : !!featDraftFeature);
   /** Skill list restricted to "currently proficient" for the expertise input
    *  when the feat says `allowedSkills: 'proficient'`. Falls back to all
    *  skills if derived isn't ready. */
@@ -1012,8 +1019,13 @@
     if (opt.choices?.spell && featDraftSpells.length > 0) {
       choices.spell = { spells: featDraftSpells };
     }
-    if (opt.choices?.feature && featDraftFeature) {
-      choices.feature = { feature: featDraftFeature };
+    if (opt.choices?.feature) {
+      const pickCount = (opt.choices.feature as { picks?: number }).picks ?? 1;
+      if (pickCount > 1 && featDraftFeatures.length > 0) {
+        choices.feature = { features: featDraftFeatures };
+      } else if (pickCount <= 1 && featDraftFeature) {
+        choices.feature = { feature: featDraftFeature };
+      }
     }
     await patchDocument((d) => {
       // Dedupe per (slug, authorUserId) — Alice's and Bob's "alert" coexist.
@@ -1067,7 +1079,9 @@
     if (c.toolProficiency?.tool) parts.push(`tool ${c.toolProficiency.tool}`);
     if (c.language?.language) parts.push(`language ${c.language.language}`);
     if (c.spell?.spells?.length) parts.push(`spells: ${c.spell.spells.join(', ')}`);
-    if (c.feature?.feature) parts.push(`feature ${c.feature.feature}`);
+    if ((c.feature as { features?: string[] } | undefined)?.features?.length)
+      parts.push(`${(c.feature as { features?: string[] }).features!.join(', ')}`);
+    else if (c.feature?.feature) parts.push(`feature ${c.feature.feature}`);
     return parts.join(' · ');
   }
 
@@ -2371,7 +2385,7 @@
               (!!pickedFeatChoices?.savingThrow && !featDraftSave) ||
               (!!pickedFeatChoices?.language && !featDraftLanguage) ||
               (!!pickedFeatChoices?.toolProficiency && !featDraftTool) ||
-              (!!pickedFeatChoices?.feature && !featDraftFeature) ||
+              !featFeatureReady ||
               (!!pickedFeatChoices?.spell &&
                 pickedFeatChoices.spell.picks != null &&
                 featDraftSpells.length !== pickedFeatChoices.spell.picks) ||
@@ -2547,20 +2561,46 @@
                 </label>
               {/if}
               {#if pickedFeatChoices.feature}
-                <label class="text-xs">
-                  <span class="block text-slate-400">
-                    {pickedFeatChoices.feature.category ?? 'Feature'}
+                <div class="text-xs">
+                  <span class="block text-slate-400 mb-1">
+                    {featFeatureCategory}{#if featFeaturePickCount > 1} — pick {featFeaturePickCount}{/if}
                   </span>
-                  <select
-                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1"
-                    bind:value={featDraftFeature}
-                  >
-                    <option value="">—</option>
-                    {#each pickedFeatChoices.feature.allowedFeatures ?? [] as fslug}
-                      <option value={fslug}>{fslug}</option>
-                    {/each}
-                  </select>
-                </label>
+                  {#if featFeaturePickCount > 1}
+                    <ul class="grid grid-cols-2 gap-1">
+                      {#each featFeatureAllowed as fslug}
+                        {@const checked = featDraftFeatures.includes(fslug)}
+                        {@const atCap = featDraftFeatures.length >= featFeaturePickCount && !checked}
+                        <li>
+                          <label class="flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              {checked}
+                              disabled={atCap}
+                              on:change={(e) => {
+                                if (checkboxChecked(e)) {
+                                  if (!featDraftFeatures.includes(fslug)) featDraftFeatures = [...featDraftFeatures, fslug];
+                                } else {
+                                  featDraftFeatures = featDraftFeatures.filter((s) => s !== fslug);
+                                }
+                              }}
+                            />
+                            <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>{fslug}</span>
+                          </label>
+                        </li>
+                      {/each}
+                    </ul>
+                  {:else}
+                    <select
+                      class="rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                      bind:value={featDraftFeature}
+                    >
+                      <option value="">—</option>
+                      {#each featFeatureAllowed as fslug}
+                        <option value={fslug}>{fslug}</option>
+                      {/each}
+                    </select>
+                  {/if}
+                </div>
               {/if}
             </div>
             {#if pickedFeatChoices.spell}

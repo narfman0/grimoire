@@ -135,6 +135,7 @@ export const FeatChoicesSchema = z
       .optional(),
     feature: z
       .object({
+        picks: z.number().int().min(1).max(20).optional(),
         allowedFeatures: z.array(z.string()).optional(),
         category: z.string().optional()
       })
