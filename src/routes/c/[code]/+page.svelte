@@ -492,6 +492,48 @@
 </section>
 {/if}
 
+<!-- ── Party members ──────────────────────────────────────────────── -->
+<section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+  <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    Party
+    <span class="ml-1 text-xs font-normal text-slate-600">({data.campaignMembers.length})</span>
+  </h2>
+  <div class="flex flex-wrap gap-3">
+    {#each data.campaignMembers as member (member.id)}
+      {@const chars = data.characters.filter((c) => c.ownerUserId === member.id)}
+      <div class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+        <!-- Portrait (first character's portrait, or fallback) -->
+        {#if chars[0]?.portrait}
+          <img
+            src={chars[0].portrait}
+            alt={chars[0].name}
+            class="h-10 w-7 rounded object-cover object-top"
+          />
+        {:else}
+          <div class="flex h-10 w-7 items-center justify-center rounded bg-slate-800 text-lg">
+            {member.role === 'dm' ? '🎲' : '🧙'}
+          </div>
+        {/if}
+        <!-- Info -->
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-200">{member.username}</p>
+          {#if chars.length > 0}
+            <p class="truncate text-xs text-slate-400">{chars.map((c) => c.name).join(', ')}</p>
+          {:else}
+            <p class="text-xs text-slate-600">no character</p>
+          {/if}
+        </div>
+        <!-- Role badge -->
+        <span class="ml-1 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide
+          {member.role === 'dm' ? 'bg-amber-900/60 text-amber-300' : 'bg-slate-800 text-slate-400'}">
+          {member.role}
+        </span>
+      </div>
+    {/each}
+  </div>
+</section>
+
+<!-- ── Characters ─────────────────────────────────────────────────── -->
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
   <div class="mb-3 flex items-baseline justify-between">
     <h2 class="text-lg font-semibold">Characters</h2>

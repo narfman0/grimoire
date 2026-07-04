@@ -130,7 +130,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   // All approved campaign members with usernames — feeds both the author grant
   // dropdown and the username resolution for existing grants.
   const memberUserRows = await db
-    .select({ id: schema.users.id, username: schema.users.username })
+    .select({
+      id: schema.users.id,
+      username: schema.users.username,
+      role: schema.campaignMembers.role
+    })
     .from(schema.campaignMembers)
     .innerJoin(schema.users, eq(schema.users.id, schema.campaignMembers.userId))
     .where(
@@ -240,17 +244,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     characters: characterRows.map((r) => {
       let descLine = '';
       let totalLevel = 0;
+      let portrait: string | undefined;
       if (r.document) {
         try {
           const doc = JSON.parse(r.document) as {
             classes?: Array<{ slug?: string; level?: number; subclass?: string }>;
             species?: { slug?: string };
+            portrait?: string;
           };
           const cls = (doc.classes ?? [])
             .map((k) => `${k.slug ?? '?'}${k.subclass ? ` (${k.subclass})` : ''} ${k.level ?? '?'}`)
             .join(', ');
           descLine = `${doc.species?.slug ?? 'unknown'} — ${cls}`;
           totalLevel = (doc.classes ?? []).reduce((s, k) => s + (k.level ?? 0), 0);
+          portrait = doc.portrait;
         } catch {
           // ignore
         }
@@ -263,6 +270,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         hasDocument: r.document != null,
         descLine,
         totalLevel,
+        portrait,
         updatedAt: r.updatedAt.getTime()
       };
     }),
