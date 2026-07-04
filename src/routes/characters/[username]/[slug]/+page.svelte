@@ -36,12 +36,19 @@
     type TurnPlan,
     type ParticipantHp
   } from '$lib/realtime/encounter-channel';
+  import PortraitPicker from '$lib/components/PortraitPicker.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
 
   let busy = false;
   let damageInput = 0;
+  let showPortraitPicker = false;
+
+  async function selectPortrait(url: string) {
+    showPortraitPicker = false;
+    await patchDocument((d) => { d.portrait = url; });
+  }
 
   // Quick-init state: shown when data.document is null (stub character).
   let initBusy = false;
@@ -1583,9 +1590,28 @@
   <title>{data.character.name}</title>
 </svelte:head>
 
-<header class="mb-6 flex items-baseline justify-between">
-  <div>
-    <h1 class="flex items-baseline gap-2 text-2xl font-semibold">
+<header class="mb-6 flex items-start justify-between gap-4">
+  <!-- Portrait -->
+  <div class="relative shrink-0">
+    <button
+      class="group relative h-24 w-16 overflow-hidden rounded border border-slate-700 bg-slate-900 hover:border-emerald-600"
+      title="Change portrait"
+      on:click={() => (showPortraitPicker = !showPortraitPicker)}
+    >
+      {#if document?.portrait}
+        <img src={document.portrait} alt="portrait" class="h-full w-full object-cover object-top" />
+      {:else}
+        <span class="flex h-full w-full items-center justify-center text-2xl text-slate-600">🧙</span>
+      {/if}
+      <span class="absolute inset-0 flex items-end justify-center bg-black/0 pb-1 text-[9px] text-transparent transition-all group-hover:bg-black/50 group-hover:text-white">
+        change
+      </span>
+    </button>
+  </div>
+
+  <!-- Name + identity -->
+  <div class="min-w-0 flex-1">
+    <h1 class="flex flex-wrap items-baseline gap-2 text-2xl font-semibold">
       <span>{data.character.name}</span>
       <span
         class="inline-block h-1.5 w-1.5 rounded-full {syncStatus === 'open'
@@ -1616,10 +1642,25 @@
       <p class="text-sm text-slate-400">no document yet</p>
     {/if}
   </div>
-  <a class="text-xs text-slate-400 hover:text-slate-200" href="/characters">
+
+  <a class="shrink-0 text-xs text-slate-400 hover:text-slate-200" href="/characters">
     ← all characters
   </a>
 </header>
+
+{#if showPortraitPicker && document}
+  <div class="mb-6 rounded-lg border border-slate-700 bg-slate-900/60 p-4">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-200">Choose portrait</h2>
+      <button class="text-xs text-slate-500 hover:text-slate-200" on:click={() => (showPortraitPicker = false)}>✕ close</button>
+    </div>
+    <PortraitPicker
+      characterId={data.character.id}
+      currentPortrait={document.portrait}
+      on:select={(e) => selectPortrait(e.detail)}
+    />
+  </div>
+{/if}
 
 {#if editingMeta && document}
   <section class="mb-6 rounded-lg border border-emerald-800 bg-emerald-950/20 p-4">

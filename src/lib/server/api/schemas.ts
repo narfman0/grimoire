@@ -192,7 +192,10 @@ export const CharacterDocument = z
       .nullable()
       .optional(),
     /** Action ids the player has pinned in the planner picker. */
-    favoriteActionIds: z.array(z.string()).optional()
+    favoriteActionIds: z.array(z.string()).optional(),
+    /** Portrait image URL — either a pre-generated gallery path (/portraits/*)
+     *  or an uploaded portrait served via /api/portraits/[id]. */
+    portrait: z.string().url().or(z.string().startsWith('/')).optional()
   })
   .openapi('CharacterDocument');
 

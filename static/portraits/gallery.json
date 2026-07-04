@@ -1,0 +1,10 @@
+[
+  { "slug": "dratheous",     "label": "Dratheous",       "url": "/portraits/dratheous.jpg" },
+  { "slug": "rayquasar",     "label": "Ray'Quasar",      "url": "/portraits/rayquasar.jpg" },
+  { "slug": "lando",         "label": "Lando Goodwyn",   "url": "/portraits/lando.jpg" },
+  { "slug": "ogila",         "label": "Ogila",           "url": "/portraits/ogila.jpg" },
+  { "slug": "goliath-warrior","label": "Goliath Warrior","url": "/portraits/goliath-warrior.jpg" },
+  { "slug": "wizard-tortle", "label": "Wizard Tortle",   "url": "/portraits/wizard-tortle.jpg" },
+  { "slug": "rogue-thief",   "label": "Rogue Thief",     "url": "/portraits/rogue-thief.jpg" },
+  { "slug": "paladin-knight","label": "Paladin Knight",  "url": "/portraits/paladin-knight.jpg" }
+]

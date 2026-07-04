@@ -122,6 +122,9 @@ export interface CharacterDocument {
   /** Action ids (derived.actions[].id) the player has pinned. The planner
    *  surfaces these at the top of the picker. */
   favoriteActionIds?: string[];
+  /** Portrait image URL — pre-generated gallery path (/portraits/*) or
+   *  uploaded portrait served via /api/portraits/[id]. */
+  portrait?: string;
   /** Currently-active polymorph form. Null/absent when in base form. The
    *  slug references a content row of kind 'monster' (the form's
    *  statblock). When present, derive() resolves the form via the
