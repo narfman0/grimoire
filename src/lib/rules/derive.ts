@@ -1892,6 +1892,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       if (typeof max !== 'number' || max <= 0) continue;
       const id = `${a.row.kind}/${a.row.slug}/${act.id as string}`;
       const applies = act.appliesCondition;
+      const actDesc = act.description;
       resources.push({
         id,
         name: (act.name as string | undefined) ?? (act.id as string),
@@ -1899,7 +1900,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         used: Math.min(max, spent[id] ?? 0),
         per: uses.per,
         sourceContent: { kind: a.row.kind, slug: a.row.slug },
-        ...(typeof applies === 'string' ? { appliesCondition: applies } : {})
+        ...(typeof applies === 'string' ? { appliesCondition: applies } : {}),
+        ...(typeof actDesc === 'string' ? { description: actDesc } : {})
       });
     }
     // Triggers with a `limit` are functionally resources too — Relentless
@@ -1912,13 +1914,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       const max = typeof maxRaw === 'number' ? maxRaw : 0;
       if (max <= 0) continue;
       const id = `trigger/${a.row.slug}/${(t.id as string) ?? 'unnamed'}`;
+      const trigDesc = t.description;
       resources.push({
         id,
         name: (t.name as string | undefined) ?? (t.id as string) ?? id,
         max,
         used: Math.min(max, spent[id] ?? 0),
         per: limit.per,
-        sourceContent: { kind: a.row.kind, slug: a.row.slug }
+        sourceContent: { kind: a.row.kind, slug: a.row.slug },
+        ...(typeof trigDesc === 'string' ? { description: trigDesc } : {})
       });
     }
   }
@@ -2657,6 +2661,8 @@ function slotsFor(
       return thirdCasterSlots(level);
     case 'pact':
       return pactCasterSlots(level);
+    case 'artificer':
+      return artificerCasterSlots(level);
     default:
       return {};
   }
@@ -2687,6 +2693,34 @@ function thirdCasterSlots(level: number): Record<number, { max: number; used: nu
     18: [4, 3, 3],
     19: [4, 3, 3, 1],
     20: [4, 3, 3, 1]
+  };
+  return rowToSlots(table[level] ?? []);
+}
+
+/** Artificer (Tasha's). Same slot count as half-caster but gains 1st-level slots at L1.
+ *  Progression: 1st slots start at L1; reaches 5th-level slots at L17. */
+function artificerCasterSlots(level: number): Record<number, { max: number; used: number }> {
+  const table: Record<number, number[]> = {
+    1:  [2],
+    2:  [2],
+    3:  [3],
+    4:  [3],
+    5:  [4, 2],
+    6:  [4, 2],
+    7:  [4, 3],
+    8:  [4, 3],
+    9:  [4, 3, 2],
+    10: [4, 3, 2],
+    11: [4, 3, 3],
+    12: [4, 3, 3],
+    13: [4, 3, 3, 1],
+    14: [4, 3, 3, 1],
+    15: [4, 3, 3, 2],
+    16: [4, 3, 3, 2],
+    17: [4, 3, 3, 3, 1],
+    18: [4, 3, 3, 3, 1],
+    19: [4, 3, 3, 3, 2],
+    20: [4, 3, 3, 3, 2]
   };
   return rowToSlots(table[level] ?? []);
 }
