@@ -714,6 +714,7 @@ export const KNOWN_TRIGGER_EVENTS = [
   'attack.targets-self.hit',
   // Spell lifecycle
   'spell.cast',
+  'spell.cast.within-5ft',
   'spell.slot-spent',
   // Turn / round lifecycle
   'turn.start',
@@ -779,6 +780,8 @@ export interface Resource {
   sourceContent: { kind: string; slug: string };
   /** Condition slug auto-applied when the player consumes this resource. */
   appliesCondition?: string;
+  /** Description prose shown on hover in the UI. */
+  description?: string;
 }
 
 /** Per-class spendable pool (Bardic Inspiration, Ki / Focus, Sorcery Points,
