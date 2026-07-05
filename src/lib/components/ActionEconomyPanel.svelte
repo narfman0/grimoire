@@ -14,6 +14,7 @@
     isFavorite?: boolean;
     targetMode?: 'self' | 'single' | 'multi';
     targetCount?: number;
+    description?: string;
   };
   type Participant = { id: string; name: string; kind?: string };
 
@@ -87,6 +88,9 @@
           <option value={a.id}>{a.name}{a.isFavorite ? ' ★' : ''}</option>
         {/each}
       </select>
+      {#if plannedAction?.description}
+        <p class="mb-1.5 text-[10px] leading-relaxed text-slate-400">{plannedAction.description}</p>
+      {/if}
       {#if plannedAction && pickableTargets.length > 0}
         <div class="mb-1.5 flex flex-wrap gap-1">
           {#each pickableTargets as p}
@@ -127,6 +131,9 @@
           <option value={a.id}>{a.name}{a.isFavorite ? ' ★' : ''}</option>
         {/each}
       </select>
+      {#if plannedBonus?.description}
+        <p class="mb-1.5 text-[10px] leading-relaxed text-slate-400">{plannedBonus.description}</p>
+      {/if}
       {#if plannedBonus && pickableTargets.length > 0}
         <div class="mb-1.5 flex flex-wrap gap-1">
           {#each pickableTargets as p}

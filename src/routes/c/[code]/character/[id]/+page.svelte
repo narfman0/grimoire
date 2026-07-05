@@ -272,7 +272,8 @@
             isFavorite: favorites.has(a.id),
             recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY,
             slot,
-            unavailable: !!unavailable
+            unavailable: !!unavailable,
+            description: a.description
           };
         })
         .sort((a, b) => {
@@ -1507,8 +1508,12 @@
   <title>{data.character.name} — {data.campaign.name}</title>
 </svelte:head>
 
-<header class="mb-6 flex items-baseline justify-between">
-  <div>
+<header class="mb-6 flex items-start justify-between">
+  <div class="flex items-start gap-3">
+    {#if document?.portrait}
+      <img src={document.portrait} alt={data.character.name} class="h-16 w-11 rounded object-cover object-top" />
+    {/if}
+    <div>
     <h1 class="flex items-baseline gap-2 text-2xl font-semibold">
       <span>{data.character.name}</span>
       <span
@@ -1545,6 +1550,7 @@
         no document yet
       {/if}
     </p>
+    </div>
   </div>
   <a class="text-xs text-slate-400 hover:text-slate-200" href={`/c/${data.campaign.code}`}>
     ← back to {data.campaign.name}
@@ -1846,7 +1852,7 @@
       <ul class="space-y-1 text-sm">
         {#each derived.resources as r}
           {@const remaining = r.max - r.used}
-          <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1">
+          <li class="flex items-center justify-between gap-2 rounded border border-slate-700 px-2 py-1" title={r.description ?? r.name}>
             <span>
               <span class="font-semibold">{r.name}</span>
               <span class="ml-1 font-mono text-xs">{remaining} / {r.max}</span>
@@ -2758,15 +2764,17 @@
               />
               equipped
             </label>
-            <label class="flex items-center gap-1 text-xs text-slate-400" class:opacity-40={!meta?.requiresAttunement}>
+            {#if meta?.requiresAttunement}
+            <label class="flex items-center gap-1 text-xs text-slate-400">
               <input
                 type="checkbox"
                 checked={slot.attuned}
-                disabled={busy || !meta?.requiresAttunement}
+                disabled={busy}
                 on:change={(e) => setInventoryFlag(i, 'attuned', checkboxChecked(e))}
               />
               attuned
             </label>
+            {/if}
             <button
               class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:bg-red-950/30 hover:text-red-300 disabled:opacity-40"
               disabled={busy}

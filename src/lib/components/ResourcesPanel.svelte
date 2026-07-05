@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { Resource } from '$lib/rules/types';
+  import HoverPopup from './HoverPopup.svelte';
 
   export let resources: Resource[] = [];
   export let busy = false;
@@ -12,7 +13,14 @@
   <div class="space-y-2">
     {#each resources as res}
       <div class="flex items-center gap-2">
-        <span class="min-w-[120px] text-xs text-slate-300">{res.name}</span>
+        {#if res.description}
+          <HoverPopup width="w-64">
+            <span class="min-w-[120px] text-xs text-slate-300">{res.name}</span>
+            <svelte:fragment slot="popup">{res.description}</svelte:fragment>
+          </HoverPopup>
+        {:else}
+          <span class="min-w-[120px] text-xs text-slate-300">{res.name}</span>
+        {/if}
         <div class="flex gap-1">
           {#each Array(res.max) as _, i}
             {@const spent = i < res.used}
