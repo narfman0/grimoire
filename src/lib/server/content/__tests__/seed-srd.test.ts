@@ -29,12 +29,13 @@ describe('seedSrdIfMissing', () => {
     expect(contentRows.length).toBe(result.loaded);
   });
 
-  it('second call short-circuits when SRD pack is already present', async () => {
+  it('second call re-seeds idempotently (upserts, never skips)', async () => {
     const first = await seedSrdIfMissing();
     expect(first.skipped).toBe(false);
 
     const second = await seedSrdIfMissing();
-    expect(second).toEqual({ loaded: 0, skipped: true });
+    expect(second.skipped).toBe(false);
+    expect(second.loaded).toBe(first.loaded);
   });
 
   it('does not walk grimoire-packs / any external dir (no env override)', async () => {

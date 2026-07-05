@@ -58,27 +58,20 @@ export async function loadAllPacks(): Promise<LoaderResult> {
 }
 
 /**
- * Seed the in-repo SRD pack on first boot. Idempotent — if any SRD pack
- * row (e.g. `srd-5.2`) already exists in the `packs` table the loader
- * returns `{loaded: 0, skipped: true}` without touching disk.
+ * Seed the in-repo SRD pack on boot. Always runs the full load so that
+ * pack JSON edits propagate to the DB without manual surgery. Per-row
+ * upserts make repeated calls safe.
  *
  * This is the replacement for `loadAllPacks` at server boot. Non-SRD
  * content (the old GRIMOIRE_PACKS_DIR path) now flows through
  * `/api/homebrew/import` — see docs/content-distribution.md.
  */
 export async function seedSrdIfMissing(): Promise<{ loaded: number; skipped: boolean }> {
-  // Probe the packs table for any SRD-flavored slug; if even one is
-  // present we treat the seed as done. Avoids the per-row reconciliation
-  // cost (and the orphan-warn noise) on every boot of an existing DB.
-  const seeded = await db
-    .select({ slug: schema.packs.slug })
-    .from(schema.packs)
-    .where(inArray(schema.packs.slug, ['srd-5.2', 'srd-5.1']))
-    .limit(1);
-  if (seeded.length > 0) {
-    logger.info({ slug: seeded[0].slug }, 'srd pack already seeded — skipping load');
-    return { loaded: 0, skipped: true };
-  }
+  // Always run the full load — the per-row upsert logic in loadPack is
+  // idempotent for unchanged rows and updates data/name when the JSON
+  // on disk differs from what's in the DB. This lets pack JSON edits
+  // (trigger event renames, stat corrections, etc.) propagate to prod
+  // without manual DB surgery.
   const result = await loadFromRoots([DEFAULT_REPO_PACKS_DIR]);
   return { loaded: result.rowsLoaded, skipped: false };
 }
