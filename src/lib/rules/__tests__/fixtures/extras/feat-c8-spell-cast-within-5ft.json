@@ -1,0 +1,19 @@
+{
+  "kind": "feat",
+  "slug": "c8-spell-cast-within-5ft",
+  "version": 1,
+  "name": "C.8 spell.cast.within-5ft (test fixture — mage-slayer regression)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-spell-cast-within-5ft",
+        "name": "C.8 Spell Cast Within 5ft",
+        "on": ["spell.cast.within-5ft"],
+        "grants": { "type": "reaction-weapon-attack" }
+      }
+    ]
+  }
+}

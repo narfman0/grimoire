@@ -561,6 +561,21 @@ describe('C.8 — damage-taken trigger events + soft validation', () => {
 		expect(t).toBeDefined();
 		expect(t!.on).toContain('self.hit-by-attack');
 	});
+
+	// Regression: mage-slayer uses 'spell.cast.within-5ft' (PHB 2014). It was
+	// registered in KNOWN_TRIGGER_EVENTS without a test; this locks it in.
+	it('does not emit a warning for spell.cast.within-5ft (mage-slayer regression)', () => {
+		const d = derive(charWithFeat('c8-spell-cast-within-5ft'), lookup());
+		const warns = d.validations.filter((v) => v.code === 'unknown-trigger-event');
+		expect(warns).toEqual([]);
+	});
+
+	it('flows spell.cast.within-5ft through to TriggerDeclaration.on', () => {
+		const d = derive(charWithFeat('c8-spell-cast-within-5ft'), lookup());
+		const t = d.triggers.find((t) => t.id === 'c8-spell-cast-within-5ft');
+		expect(t).toBeDefined();
+		expect(t!.on).toContain('spell.cast.within-5ft');
+	});
 });
 
 // --- C.3: action-modifier effect targets + predicates + limit ----------------
@@ -806,5 +821,63 @@ describe('C.1 — armor + weapon proficiency targets', () => {
 	it('populates stats.armorProficiencies from proficiency.armor.<slug> modifiers', () => {
 		const d = derive(WIZARD_WITH_WEAPON_MASTER, lookup());
 		expect(d.stats.armorProficiencies).toContain('heavy');
+	});
+});
+
+// --- GWM: choices.asi not hardcoded STR ----------------------------------------
+// Regression for fba06fa: GWM previously emitted a hardcoded ability.str +1
+// modifier, giving every GWM user automatic +1 STR regardless of their pick.
+// The fix changed it to choices.asi so the player chooses STR or DEX.
+// Feat ASI picks are synthesized lazily — no pick = no bonus. They don't
+// surface in pendingFeatureChoices (that's feature/subclass/species only);
+// the pick lives on character.feats[i].choices.asi.ability.
+
+describe('Great Weapon Master — choices.asi regression', () => {
+	const FIGHTER_WITH_GWM: CharacterDocument = {
+		id: 'test-gwm-regression',
+		name: 'GWM Fighter',
+		classes: [{ slug: 'fighter', level: 4, hpRolledPerLevel: [10, 6, 6, 6] }],
+		species: { kind: 'species', slug: 'human' },
+		feats: [{ kind: 'feat', slug: 'great-weapon-master' }],
+		abilityScores: { str: 16, dex: 10, con: 14, int: 10, wis: 10, cha: 10 },
+		proficienciesChosen: { skills: [] },
+		inventory: [],
+		spells: { known: [], prepared: [] },
+		currentHp: 34,
+		tempHp: 0,
+		hitDiceSpent: {},
+		conditions: [],
+		modifierToggles: {}
+	};
+
+	it('does not automatically apply +1 STR when no ASI pick is recorded', () => {
+		const d = derive(FIGHTER_WITH_GWM, lookup());
+		// Base STR is 16. With no choices.asi pick recorded, GWM must not
+		// auto-apply +1 STR. The old bug always applied +1 regardless.
+		expect(d.stats.abilities.str.score).toBe(16);
+	});
+
+	it('does not apply +1 DEX either when no pick is recorded', () => {
+		const d = derive(FIGHTER_WITH_GWM, lookup());
+		expect(d.stats.abilities.dex.score).toBe(10);
+	});
+
+	it('applies +1 STR when the player picks STR', () => {
+		const char: CharacterDocument = {
+			...FIGHTER_WITH_GWM,
+			feats: [{ kind: 'feat', slug: 'great-weapon-master', choices: { asi: { ability: 'str' } } }]
+		};
+		const d = derive(char, lookup());
+		expect(d.stats.abilities.str.score).toBe(17);
+	});
+
+	it('applies +1 DEX (not STR) when the player picks DEX', () => {
+		const char: CharacterDocument = {
+			...FIGHTER_WITH_GWM,
+			feats: [{ kind: 'feat', slug: 'great-weapon-master', choices: { asi: { ability: 'dex' } } }]
+		};
+		const d = derive(char, lookup());
+		expect(d.stats.abilities.str.score).toBe(16);
+		expect(d.stats.abilities.dex.score).toBe(11);
 	});
 });

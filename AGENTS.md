@@ -27,6 +27,22 @@ Subject ≤ 72 chars, imperative mood. Body only if the *why* isn't in the diff.
 
 Do **not** include Claude / agent attribution trailers in commits for this repo.
 
+## Regression tests for bug fixes
+
+Every `fix:` commit that touches rules engine logic, `derive()`, content pack data, or server-side handlers **must include a regression test** that would have caught the bug. No exceptions for "obvious" one-liners.
+
+What counts:
+- A new `it(...)` in the appropriate `src/lib/rules/__tests__/` test file that fails before the fix and passes after.
+- For new trigger events added to `KNOWN_TRIGGER_EVENTS`: a fixture feat in `fixtures/extras/` using that event + a C.8-style test asserting no `unknown-trigger-event` warning fires.
+- For derive() numeric fixes (AC, damage, spell slots, ASI): a character fixture that asserts the correct output value.
+
+What's exempt:
+- Pure UI/Svelte component fixes (layout, CSS, click handlers) — no rules engine surface.
+- Type-only fixes (`as`, return-type annotations, non-null assertions) where the bug was TS inference, not runtime logic.
+- Schema migration fixes (no engine logic changed).
+
+If you're unsure whether a test is needed, write one. A test that never fails is cheap; a regression that ships to prod is not.
+
 ## Verification before pushing
 
 Run before each push:
