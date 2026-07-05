@@ -123,6 +123,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const characters = charRows.map((c) => {
     let descLine = '';
     let totalLevel = 0;
+    let portrait: string | undefined;
     if (c.document) {
       try {
         const doc = JSON.parse(c.document) as CharacterDocument;
@@ -131,6 +132,7 @@ export const load: PageServerLoad = async ({ locals }) => {
           .join(', ');
         descLine = `${doc.species?.slug ?? 'unknown'} — ${cls}`;
         totalLevel = doc.classes.reduce((s, k) => s + k.level, 0);
+        portrait = doc.portrait;
       } catch {
         // ignore
       }
@@ -139,9 +141,10 @@ export const load: PageServerLoad = async ({ locals }) => {
       id: c.id,
       name: c.name,
       slug: c.slug,
-      ownerUsername: locals.user.username,
+      ownerUsername: locals.user!.username,
       descLine,
       totalLevel,
+      portrait,
       campaigns: linksByChar.get(c.id) ?? []
     };
   });
