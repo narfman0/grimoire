@@ -10,9 +10,9 @@ const _publicSources = [...PUBLIC_SOURCES]; // referenced indirectly via content
 const EMPTY_PAGE = {
   grants: [] as { id: string; grantType: 'pack' | 'author'; grantKey: string; label: string }[],
   availablePacks: [] as { slug: string; name: string }[],
-  campaignMembers: [] as { id: string; username: string }[],
+  campaignMembers: [] as { id: string; username: string; role: string }[],
   notes: [] as { id: string; title: string; body: string; updatedAt: number }[],
-  characters: [] as { id: string; campaignId: string | null; ownerUserId: string | null; name: string; hasDocument: boolean; descLine: string; totalLevel: number; updatedAt: number }[],
+  characters: [] as { id: string; campaignId: string | null; ownerUserId: string | null; name: string; hasDocument: boolean; descLine: string; totalLevel: number; portrait: string | undefined; updatedAt: number }[],
   linkableCharacters: [] as { id: string; name: string; descLine: string }[],
   speciesOptions: [] as { slug: string; name: string; source: string }[],
   classOptions: [] as { slug: string; name: string; source: string; hitDie: number }[],
@@ -129,7 +129,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
   // All approved campaign members with usernames — feeds both the author grant
   // dropdown and the username resolution for existing grants.
-  const memberUserRows = await db
+  const memberUserRows: { id: string; username: string; role: string }[] = await db
     .select({
       id: schema.users.id,
       username: schema.users.username,
@@ -241,7 +241,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         updatedAt: n.updatedAt.getTime()
       }))
       .sort((a, b) => b.updatedAt - a.updatedAt),
-    characters: characterRows.map((r) => {
+    characters: characterRows.map((r): { id: string; campaignId: string | null; ownerUserId: string | null; name: string; hasDocument: boolean; descLine: string; totalLevel: number; portrait: string | undefined; updatedAt: number } => {
       let descLine = '';
       let totalLevel = 0;
       let portrait: string | undefined;
