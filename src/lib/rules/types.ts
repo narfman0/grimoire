@@ -712,6 +712,8 @@ export const KNOWN_TRIGGER_EVENTS = [
   'damage.reduce-to-zero',
   'attack.targets-self.declare',
   'attack.targets-self.hit',
+  // Alias used by rogue uncanny-dodge / monk deflect-attacks in some pack versions
+  'self.hit-by-attack',
   // Spell lifecycle
   'spell.cast',
   'spell.cast.within-5ft',

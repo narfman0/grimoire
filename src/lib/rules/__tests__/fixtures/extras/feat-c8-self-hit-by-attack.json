@@ -1,0 +1,19 @@
+{
+  "kind": "feat",
+  "slug": "c8-self-hit-by-attack",
+  "version": 1,
+  "name": "C.8 self.hit-by-attack (test fixture — uncanny-dodge regression)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-self-hit-by-attack",
+        "name": "C.8 Self Hit By Attack",
+        "on": ["self.hit-by-attack"],
+        "grants": { "type": "damage.halve-incoming", "cost": "reaction" }
+      }
+    ]
+  }
+}

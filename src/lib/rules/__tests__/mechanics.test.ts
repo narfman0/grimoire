@@ -545,6 +545,22 @@ describe('C.8 — damage-taken trigger events + soft validation', () => {
 		const warns = d.validations.filter((v) => v.code === 'unknown-trigger-event');
 		expect(warns).toEqual([]);
 	});
+
+	// Regression: uncanny-dodge (Rogue 5) used 'self.hit-by-attack' in earlier
+	// pack versions. Adding it to KNOWN_TRIGGER_EVENTS ensures no warning fires
+	// regardless of which event name a pack version uses.
+	it('does not emit a warning for self.hit-by-attack (uncanny-dodge regression)', () => {
+		const d = derive(charWithFeat('c8-self-hit-by-attack'), lookup());
+		const warns = d.validations.filter((v) => v.code === 'unknown-trigger-event');
+		expect(warns).toEqual([]);
+	});
+
+	it('flows self.hit-by-attack through to TriggerDeclaration.on', () => {
+		const d = derive(charWithFeat('c8-self-hit-by-attack'), lookup());
+		const t = d.triggers.find((t) => t.id === 'c8-self-hit-by-attack');
+		expect(t).toBeDefined();
+		expect(t!.on).toContain('self.hit-by-attack');
+	});
 });
 
 // --- C.3: action-modifier effect targets + predicates + limit ----------------
