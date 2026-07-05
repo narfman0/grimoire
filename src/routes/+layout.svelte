@@ -38,17 +38,17 @@
 <div class="flex min-h-screen flex-col">
   <header class="border-b border-slate-800 bg-slate-900/50">
     <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 text-sm">
-      <div class="flex items-baseline gap-2">
-        <a href="/" class="flex items-center gap-2 text-lg font-semibold tracking-wide">
+      <div class="flex min-w-0 items-center gap-2">
+        <a href="/" class="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-wide">
           <img src="/grimoire-icon-32.png" alt="" class="h-7 w-7 rounded" aria-hidden="true" />
           Grimoire
         </a>
         {#if campaign}
-          <span class="text-slate-600">·</span>
+          <span class="shrink-0 text-slate-600">·</span>
           <a
-            class="text-sm text-slate-300 hover:text-emerald-300"
+            class="truncate text-sm text-slate-300 hover:text-emerald-300"
             href={`/c/${campaign.code}`}
-            title="Back to campaign overview"
+            title={campaign.name}
           >
             {campaign.name}
           </a>
