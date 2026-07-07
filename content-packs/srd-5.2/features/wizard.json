@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Spellcasting (Wizard)",
     "data": {
+      "description": "You prepare a list of Wizard spells from your spellbook, using Intelligence as your spellcasting ability. You cast prepared spells by expending spell slots of the appropriate level.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 1,
@@ -19,6 +20,7 @@
     "version": 1,
     "name": "Ritual Adept",
     "data": {
+      "description": "You can cast any spell as a Ritual if it has the Ritual tag and it is in your spellbook, even if it is not currently prepared.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 1,
@@ -33,6 +35,7 @@
     "version": 1,
     "name": "Arcane Recovery",
     "data": {
+      "description": "Once per day when you finish a Short Rest, you can recover expended spell slots with a combined level equal to half your Wizard level (rounded up). No recovered slot can be 6th level or higher.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 1,
@@ -55,6 +58,7 @@
     "version": 1,
     "name": "Scholar",
     "data": {
+      "description": "Choose one skill from Arcana, History, Investigation, Medicine, Nature, or Religion in which you are proficient. You gain Expertise in that skill, doubling your proficiency bonus for ability checks using it.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 2,
@@ -72,6 +76,7 @@
     "version": 1,
     "name": "Arcane Tradition",
     "data": {
+      "description": "Choose an Arcane Tradition — a school of magic that defines your approach to wizardry. Your choice grants you features at 3rd level and again at higher levels.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 3,
@@ -89,6 +94,7 @@
     "version": 1,
     "name": "Memorize Spell",
     "data": {
+      "description": "Whenever you finish a Long Rest, you can replace one of your prepared Wizard spells with another Wizard spell from your spellbook of a level for which you have spell slots.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 5,
@@ -109,6 +115,7 @@
     "version": 1,
     "name": "Spell Mastery",
     "data": {
+      "description": "Choose one 1st-level and one 2nd-level Wizard spell from your spellbook. While you have those spells prepared, you can cast each at its lowest level without expending a spell slot. You can swap your choices when you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 18,
@@ -136,6 +143,7 @@
     "version": 1,
     "name": "Signature Spells",
     "data": {
+      "description": "Choose two 3rd-level Wizard spells from your spellbook as your signature spells. They are always prepared and don't count against your prepared spell limit. Once per Short Rest, you can cast each of them without expending a spell slot.",
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 20,

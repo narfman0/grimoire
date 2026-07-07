@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Martial Arts",
     "data": {
+      "description": "You can use DEX instead of STR for attack and damage rolls with Unarmed Strikes and Monk Weapons, and your Unarmed Strikes deal a Martial Arts die of damage (1d6 at level 1, scaling to 1d12 at level 17). When you take the Attack action, you can make one Unarmed Strike as a Bonus Action.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 1,
@@ -65,6 +66,7 @@
     "version": 1,
     "name": "Unarmored Defense (Monk)",
     "data": {
+      "description": "While you are not wearing armor or wielding a shield, your AC equals 10 + your Dexterity modifier + your Wisdom modifier.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 1,
@@ -91,6 +93,7 @@
     "version": 1,
     "name": "Monk's Focus",
     "data": {
+      "description": "You have a pool of Focus Points equal to your Monk level, which you spend to fuel features like Flurry of Blows, Patient Defense, Step of the Wind, and Stunning Strike. You regain all spent Focus Points when you finish a Short or Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 1,
@@ -139,6 +142,7 @@
     "version": 1,
     "name": "Step of the Wind",
     "data": {
+      "description": "Spend 1 Focus Point as a Bonus Action to take the Disengage or Dash action; your jump distance is also doubled for the turn.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 2,
@@ -159,6 +163,7 @@
     "version": 1,
     "name": "Patient Defense",
     "data": {
+      "description": "Take the Disengage action as a Bonus Action for free, or spend 1 Focus Point to take both the Disengage and Dodge actions as a single Bonus Action.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 2,
@@ -179,6 +184,7 @@
     "version": 1,
     "name": "Flurry of Blows",
     "data": {
+      "description": "Immediately after taking the Attack action, spend 1 Focus Point to make two Unarmed Strikes as a Bonus Action (three strikes at level 10). Each strike deals your Martial Arts die in damage.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 2,
@@ -213,6 +219,7 @@
     "version": 1,
     "name": "Unarmored Movement",
     "data": {
+      "description": "Your speed increases by 10 feet while you are not wearing armor or wielding a shield. This bonus grows as you gain Monk levels, reaching +30 feet at level 18.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 2,
@@ -257,6 +264,7 @@
     "version": 1,
     "name": "Monk Subclass",
     "data": {
+      "description": "Choose a Monk subclass — your Warrior tradition that grants you additional features at levels 3, 6, 11, and 17.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 3,
@@ -274,6 +282,7 @@
     "version": 1,
     "name": "Deflect Attacks",
     "data": {
+      "description": "Reaction: when a melee or ranged weapon attack hits you, reduce the damage by 1d10 + your Dexterity modifier + your Monk level. If you reduce the damage to 0, you can spend 1 Focus Point to redirect the force as a ranged attack against the original attacker.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 3,
@@ -283,7 +292,7 @@
           "id": "deflect-attacks-reaction",
           "name": "Deflect Attacks",
           "on": [
-            "self.hit-by-attack"
+            "attack.targets-self.hit"
           ],
           "scope": {
             "predicates": [
@@ -314,6 +323,7 @@
     "version": 1,
     "name": "Stunning Strike",
     "data": {
+      "description": "Once per turn, when you hit a creature with a Monk Weapon or Unarmed Strike, spend 1 Focus Point to force the target to make a CON saving throw against your Monk spell save DC. On a failure, the target has the Stunned condition until the end of your next turn.",
       "ownerKind": "class",
       "ownerSlug": "monk",
       "minLevel": 5,

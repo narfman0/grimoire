@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Fighting Style",
     "data": {
+      "description": "You adopt a particular style of fighting as your specialty. Choose one Fighting Style from the options below. You can't take the same Fighting Style option more than once, even if you get to choose again.",
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 1,
@@ -33,6 +34,7 @@
     "version": 1,
     "name": "Fighting Style: Defense",
     "data": {
+      "description": "While you are wearing armor, you gain a +1 bonus to AC.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -52,6 +54,7 @@
     "version": 1,
     "name": "Fighting Style: Dueling",
     "data": {
+      "description": "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -78,6 +81,7 @@
     "version": 1,
     "name": "Fighting Style: Great Weapon Fighting",
     "data": {
+      "description": "When you roll damage for an attack you make with a melee weapon that you are holding with two hands, you can reroll any 1 or 2 on a damage die and must use the new roll. The weapon must have the Two-Handed or Versatile property.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -117,6 +121,7 @@
     "version": 1,
     "name": "Fighting Style: Archery",
     "data": {
+      "description": "You gain a +2 bonus to attack rolls you make with ranged weapons.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -146,6 +151,7 @@
     "version": 1,
     "name": "Fighting Style: Two-Weapon Fighting",
     "data": {
+      "description": "When you make the extra attack of the Light weapon property, you can add your ability modifier to the damage of that attack.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -165,6 +171,7 @@
     "version": 1,
     "name": "Fighting Style: Protection",
     "data": {
+      "description": "Reaction: when a creature you can see attacks a target other than you that is within 5 feet of you and you are wielding a shield, impose Disadvantage on the attack roll.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "triggers": [
@@ -198,6 +205,7 @@
     "version": 1,
     "name": "Fighting Style: Blind Fighting",
     "data": {
+      "description": "You have Blindsight with a range of 10 feet. Within that range, you can effectively see anything that isn't behind Total Cover, even if you have the Blinded condition or are in Darkness.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -217,6 +225,7 @@
     "version": 1,
     "name": "Fighting Style: Interception",
     "data": {
+      "description": "Reaction: when a creature you can see hits another target within 5 feet of you with an attack, reduce the damage dealt to that target by 1d10 + your Proficiency Bonus (minimum 0). You must be wielding a shield or a simple or martial weapon.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "triggers": [
@@ -254,6 +263,7 @@
     "version": 1,
     "name": "Fighting Style: Thrown Weapon Fighting",
     "data": {
+      "description": "You can draw a weapon that has the Thrown property as part of the attack you make with it, and you gain a +2 bonus to damage rolls with such weapons.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -290,6 +300,7 @@
     "version": 1,
     "name": "Fighting Style: Unarmed Fighting",
     "data": {
+      "description": "Your unarmed strikes deal 1d6 bludgeoning damage. If you aren't wielding any weapons or a shield when you make the attack, that die becomes a 1d8. At the start of each of your turns, you can deal 1d4 bludgeoning damage to one creature you are grappling.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-fighter",
       "modifiers": [
@@ -316,6 +327,7 @@
     "version": 1,
     "name": "Second Wind",
     "data": {
+      "description": "Bonus Action: regain hit points equal to 1d10 + your Fighter level. You can use this feature a number of times equal to your uses per Short Rest (2 at level 1, increasing at higher levels).",
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 1,
@@ -377,6 +389,7 @@
     "version": 1,
     "name": "Weapon Mastery",
     "data": {
+      "description": "Choose 3 weapons you are proficient with. You gain access to the mastery property of each chosen weapon. You may swap one chosen weapon for another whenever you finish a Long Rest. The number of weapons you can master increases as you gain Fighter levels.",
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 1,
@@ -402,6 +415,7 @@
     "version": 1,
     "name": "Action Surge",
     "data": {
+      "description": "On your turn, you can take one additional action. Once you use this feature, you must finish a Short or Long Rest before you can use it again (twice per rest at level 17).",
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 2,
@@ -450,6 +464,7 @@
     "version": 1,
     "name": "Tactical Mind",
     "data": {
+      "description": "When you fail an ability check, you can expend a use of your Second Wind to roll 1d10 and add it to the check, potentially turning a failure into a success. If the check still fails, you don't expend the use.",
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 2,
@@ -474,6 +489,7 @@
     "version": 1,
     "name": "Fighter Subclass",
     "data": {
+      "description": "At 3rd level, you choose a subclass that you specialize in. Your choice grants you features at 3rd level and again at 7th, 10th, 15th, and 18th level.",
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 3,

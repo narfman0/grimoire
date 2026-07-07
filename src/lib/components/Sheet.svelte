@@ -45,6 +45,7 @@
       };
       grants?: { tempHp?: number | string };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
+      description?: string;
     }>;
     triggers: Array<{
       id: string;
@@ -52,8 +53,9 @@
       name: string;
       on: string[];
       limit?: { per: string; uses: number };
+      description?: string;
     }>;
-    resources: Array<{ id: string; name: string; max: number; used: number; per: string }>;
+    resources: Array<{ id: string; name: string; max: number; used: number; per: string; description?: string }>;
     validations: Array<{ severity: string; code: string; message: string }>;
   };
 
@@ -136,7 +138,7 @@
   {:else}
     <ul class="space-y-3">
       {#each nonSpellActions as action}
-        <li class="rounded border border-slate-700 bg-slate-950/40 p-3">
+        <li class="rounded border border-slate-700 bg-slate-950/40 p-3" title={action.description ?? ''}>
           <div class="flex items-baseline justify-between">
             <div>
               <span class="font-semibold">{action.name}</span>
@@ -206,6 +208,9 @@
               {/each}
             </div>
           {/if}
+          {#if action.description}
+            <p class="mt-2 border-t border-slate-800 pt-2 text-xs leading-relaxed text-slate-400">{action.description}</p>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -217,7 +222,7 @@
     <h2 class="mb-3 text-lg font-semibold">Reactions / Triggers</h2>
     <ul class="space-y-2 text-sm">
       {#each triggers as t}
-        <li class="rounded border border-slate-700 bg-slate-950/40 p-2">
+        <li class="rounded border border-slate-700 bg-slate-950/40 p-2" title={t.description ?? ''}>
           <div class="flex items-baseline justify-between">
             <span class="font-semibold">{t.name}</span>
             <span class="text-xs text-slate-500">{t.sourceContent.kind}/{t.sourceContent.slug}</span>
@@ -227,6 +232,9 @@
             <div class="text-xs text-slate-400">
               uses: <span class="font-mono">{t.limit.uses} / {t.limit.per}</span>
             </div>
+          {/if}
+          {#if t.description}
+            <p class="mt-1 border-t border-slate-800 pt-1 text-xs leading-relaxed text-slate-400">{t.description}</p>
           {/if}
         </li>
       {/each}

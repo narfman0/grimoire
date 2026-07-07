@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Spellcasting (Paladin)",
     "data": {
+      "description": "You can cast Paladin spells using Charisma as your spellcasting ability. You are a half-caster: spell slots progress at half rate, with your first slot at level 2. You prepare a number of spells equal to your Charisma modifier plus half your Paladin level (rounded up), minimum 1.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 1,
@@ -25,6 +26,7 @@
     "version": 1,
     "name": "Lay on Hands",
     "data": {
+      "description": "You have a healing pool of hit points equal to 5 × your Paladin level, replenished on a Long Rest. As a Bonus Action, touch a creature to restore any number of HP from the pool, or spend 5 points to end one disease or the Poisoned condition on the target.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 1,
@@ -77,6 +79,7 @@
     "version": 1,
     "name": "Weapon Mastery",
     "data": {
+      "description": "Choose 2 weapons you are proficient with; you gain access to their Mastery properties. You may swap one chosen weapon's mastery for another eligible weapon whenever you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 1,
@@ -102,6 +105,7 @@
     "version": 1,
     "name": "Fighting Style",
     "data": {
+      "description": "Choose one Fighting Style to adopt as a specialty. Available options for Paladins include Blessed Warrior, Blind Fighting, Defense, Dueling, Great Weapon Fighting, Interception, and Protection.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 2,
@@ -127,6 +131,7 @@
     "version": 1,
     "name": "Fighting Style: Blessed Warrior",
     "data": {
+      "description": "You learn two Cleric cantrips of your choice. They count as Paladin spells for you, and Charisma is your spellcasting ability for them.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-paladin",
       "choices": {
@@ -141,6 +146,7 @@
     "version": 1,
     "name": "Divine Smite",
     "data": {
+      "description": "When you hit a creature with a melee weapon or Unarmed Strike, you can expend a Paladin spell slot to deal extra Radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (maximum 5d8). The damage increases by 1d8 if the target is an Undead or a Fiend.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 2,
@@ -180,6 +186,7 @@
     "version": 1,
     "name": "Channel Oath",
     "data": {
+      "description": "You can channel divine power through your Sacred Oath, using Channel Oath features granted by your subclass. You have 2 uses, regained on a Short or Long Rest; this increases to 3 uses at level 9.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 2,
@@ -228,6 +235,7 @@
     "version": 1,
     "name": "Sacred Oath",
     "data": {
+      "description": "You swear a Sacred Oath that binds you to a specific creed, granting you additional Channel Oath options, bonus spells, and other features as you advance in level.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 3,
@@ -245,6 +253,7 @@
     "version": 1,
     "name": "Faithful Steed",
     "data": {
+      "description": "You can cast Find Steed once per Long Rest without expending a spell slot. You may also cast it normally using a Paladin spell slot.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 5,
@@ -269,6 +278,7 @@
     "version": 1,
     "name": "Aura of Protection",
     "data": {
+      "description": "While you are conscious, you and friendly creatures within 10 feet of you add your Charisma modifier (minimum +1) to all saving throws.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 6,
@@ -306,6 +316,7 @@
     "version": 1,
     "name": "Aura of Courage",
     "data": {
+      "description": "While you are conscious, you and friendly creatures within 10 feet of you are immune to the Frightened condition.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 7,
@@ -343,6 +354,7 @@
     "version": 1,
     "name": "Divine Health",
     "data": {
+      "description": "You are immune to disease.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 10,
@@ -362,6 +374,7 @@
     "version": 1,
     "name": "Radiant Strikes",
     "data": {
+      "description": "Your melee weapon attacks and Unarmed Strikes deal an extra 1d8 Radiant damage on a hit. If you also use Divine Smite on the same attack, you may roll the Divine Smite's bonus dice twice and use either total.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 11,
@@ -401,6 +414,7 @@
     "version": 1,
     "name": "Restoring Touch",
     "data": {
+      "description": "When you use Lay on Hands to restore hit points to a creature, you can also end one of the following conditions on that creature at no extra cost from your pool: Blinded, Charmed, Deafened, Frightened, Paralyzed, or Stunned.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 14,
@@ -422,6 +436,7 @@
     "version": 1,
     "name": "Aura Expansion",
     "data": {
+      "description": "The radius of your Aura of Protection and Aura of Courage expands from 10 feet to 30 feet.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 17,
@@ -442,6 +457,7 @@
     "version": 1,
     "name": "Holy Nimbus",
     "data": {
+      "description": "Bonus Action: emit an aura of sunlight for 1 minute (once per Long Rest). Bright light fills a 30-foot radius; dim light extends 60 feet beyond that. Enemies in the bright light have Disadvantage on saving throws against your spells and Channel Oath features, and take 10 Radiant damage when they first enter the bright light on a turn or start their turn there.",
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 20,

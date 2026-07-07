@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Spellcasting (Cleric)",
     "data": {
+      "description": "You cast cleric spells using Wisdom as your spellcasting ability. You know all cleric spells of levels for which you have spell slots and can prepare a number of them equal to your Wisdom modifier + your cleric level each day.",
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 1,
@@ -24,6 +25,7 @@
     "version": 1,
     "name": "Divine Order",
     "data": {
+      "description": "Choose one of two divine callings — Protector or Thaumaturge — that shapes your martial or mystical focus as a cleric.",
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 1,
@@ -44,6 +46,7 @@
     "version": 1,
     "name": "Divine Order: Protector",
     "data": {
+      "description": "You gain proficiency with Heavy Armor and Martial weapons, allowing you to serve on the front lines as a warrior of your deity.",
       "ownerKind": "feature",
       "ownerSlug": "divine-order",
       "note": "SRD 5.2 Protector: Proficiency with Heavy Armor and Martial weapons.",
@@ -59,6 +62,7 @@
     "version": 1,
     "name": "Divine Order: Thaumaturge",
     "data": {
+      "description": "You learn one additional cleric cantrip and gain proficiency in one of the following skills: Arcana, History, Nature, or Religion.",
       "ownerKind": "feature",
       "ownerSlug": "divine-order",
       "note": "SRD 5.2 Thaumaturge: Extra cleric cantrip (pick from SRD cantrips) + proficiency in one of Arcana/History/Nature/Religion. WisMod bonus to the chosen skill cannot be gated on the skill pick — engine limitation; omitted.",
@@ -74,6 +78,7 @@
     "version": 1,
     "name": "Channel Divinity",
     "data": {
+      "description": "You can channel divine energy to fuel magical effects. You start with Turn Undead and gain additional Channel Divinity options from your subclass. You can use Channel Divinity a number of times per Short Rest that increases as you gain cleric levels.",
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 2,
@@ -98,6 +103,7 @@
     "version": 1,
     "name": "Channel Divinity: Turn Undead",
     "data": {
+      "description": "As an Action, expend a Channel Divinity use to present your holy symbol. Each undead within 30 feet must make a Wisdom saving throw against your spell save DC or be turned for 1 minute. A turned creature must spend its turns moving away from you and can't willingly move closer.",
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 2,
@@ -128,6 +134,7 @@
     "version": 1,
     "name": "Cleric Subclass",
     "data": {
+      "description": "Choose a Divine Domain that defines your sacred calling, granting you domain spells and special abilities at 3rd level and again as you advance.",
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 3,
@@ -145,6 +152,7 @@
     "version": 1,
     "name": "Sear Undead",
     "data": {
+      "description": "When you use Turn Undead, you can deal Radiant damage to each undead that fails its saving throw. The damage equals your Wisdom modifier times a d8 (minimum 1 die), though this damage doesn't force the creature to move away.",
       "ownerKind": "class",
       "ownerSlug": "cleric",
       "minLevel": 5,

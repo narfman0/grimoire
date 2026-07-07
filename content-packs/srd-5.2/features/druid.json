@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Druidic",
     "data": {
+      "description": "You know Druidic, the secret language of druids. You can speak it and use it to leave hidden messages; a creature that knows Druidic can automatically spot such a message.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 1,
@@ -25,6 +26,7 @@
     "version": 1,
     "name": "Spellcasting (Druid)",
     "data": {
+      "description": "You cast druid spells using Wisdom as your spellcasting ability. You can prepare a number of druid spells equal to your Wisdom modifier + your druid level after each Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 1,
@@ -44,6 +46,7 @@
     "version": 1,
     "name": "Primal Order",
     "data": {
+      "description": "Choose one of two callings that shaped your druidic training: Magician or Warden. Each grants a different set of additional proficiencies or abilities.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 1,
@@ -64,6 +67,7 @@
     "version": 1,
     "name": "Primal Order: Magician",
     "data": {
+      "description": "You learn one additional druid cantrip. You also add your Wisdom modifier to all Intelligence (Arcana) and Intelligence (Nature) checks.",
       "ownerKind": "feature",
       "ownerSlug": "primal-order",
       "note": "SRD 5.2 Magician: Extra druid cantrip (pick from SRD druid cantrips) + add Wisdom modifier to all Arcana and Nature checks. Wis bonus to both skills is wired directly.",
@@ -82,6 +86,7 @@
     "version": 1,
     "name": "Primal Order: Warden",
     "data": {
+      "description": "You gain proficiency with Martial weapons and training in Medium armor.",
       "ownerKind": "feature",
       "ownerSlug": "primal-order",
       "note": "SRD 5.2 Warden: Proficiency with Martial weapons and training in Medium armor.",
@@ -97,6 +102,7 @@
     "version": 1,
     "name": "Wild Companion",
     "data": {
+      "description": "You can expend a use of Wild Shape to cast Find Familiar without material components, summoning a Fey spirit familiar. The familiar disappears after a number of hours equal to half your druid level.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 2,
@@ -121,6 +127,7 @@
     "version": 1,
     "name": "Wild Shape",
     "data": {
+      "description": "As a Bonus Action, you magically transform into a Beast you have seen whose Challenge Rating is at or below a limit set by your druid level. You revert to your normal form when you drop to 0 Hit Points, when the form's Hit Points drop to 0, or when you choose to end it as a Bonus Action. You have 2 uses, which you regain after a Short or Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 2,
@@ -145,6 +152,7 @@
     "version": 1,
     "name": "Druid Subclass",
     "data": {
+      "description": "You choose a Druid Circle that reflects your connection to nature, granting you additional features at levels 3, 6, 10, and 14.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 3,
@@ -162,6 +170,7 @@
     "version": 1,
     "name": "Wild Resurgence",
     "data": {
+      "description": "Once per turn, if you have no Wild Shape uses remaining, you can expend a spell slot of any level to regain one use. Additionally, once per Long Rest, you can expend one Wild Shape use to regain one expended level-1 spell slot.",
       "ownerKind": "class",
       "ownerSlug": "druid",
       "minLevel": 5,

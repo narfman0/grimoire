@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Bardic Inspiration",
     "data": {
+      "description": "As a Bonus Action, give one creature within 60 feet (other than yourself) an Inspiration die. Once within the next 10 minutes, that creature can roll the die and add the result to one ability check, attack roll, or saving throw it makes. The die is a d6 at level 1, increasing to a d8 at level 5, d10 at level 10, and d12 at level 15. You have a number of uses equal to your Proficiency Bonus, regained on a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 1,
@@ -44,6 +45,7 @@
     "version": 1,
     "name": "Spellcasting (Bard)",
     "data": {
+      "description": "You cast Bard spells using Charisma as your spellcasting ability. You know a set number of Bard spells and can cast them using spell slots, which you regain on a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 1,
@@ -63,6 +65,7 @@
     "version": 1,
     "name": "Expertise",
     "data": {
+      "description": "Choose 2 skills you are proficient in. Your Proficiency Bonus is doubled for any ability check using those skills.",
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 2,
@@ -81,6 +84,7 @@
     "version": 1,
     "name": "Jack of All Trades",
     "data": {
+      "description": "You can add half your Proficiency Bonus (rounded down) to any ability check that doesn't already use your Proficiency Bonus.",
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 2,
@@ -100,6 +104,7 @@
     "version": 1,
     "name": "Bard Subclass",
     "data": {
+      "description": "Choose a Bard subclass (Bard College) that shapes your advanced techniques and grants additional features at levels 3, 6, and 14.",
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 3,
@@ -117,6 +122,7 @@
     "version": 1,
     "name": "Font of Inspiration",
     "data": {
+      "description": "You regain all expended Bardic Inspiration uses when you finish a Short Rest or a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "bard",
       "minLevel": 5,

@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Expertise (Rogue)",
     "data": {
+      "description": "Choose two skills you are proficient in. Your proficiency bonus is doubled for any ability check that uses either of those skills.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
@@ -23,6 +24,7 @@
     "version": 1,
     "name": "Sneak Attack",
     "data": {
+      "description": "Once per turn, when you hit with a Finesse or Ranged weapon attack and you have Advantage on the roll or an ally is within 5 feet of the target (and you don't have Disadvantage), deal extra damage. The bonus damage scales from 1d6 at level 1 to 10d6 at level 20.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
@@ -85,6 +87,7 @@
     "version": 1,
     "name": "Thieves' Cant",
     "data": {
+      "description": "You know Thieves' Cant, a secret mix of slang, jargon, and hand signs used among rogues. You also learn one additional language of your choice.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
@@ -105,6 +108,7 @@
     "version": 1,
     "name": "Weapon Mastery (Rogue)",
     "data": {
+      "description": "Choose two weapons you are proficient with. You can use the mastery property of each chosen weapon. You can swap one choice whenever you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
@@ -122,6 +126,7 @@
     "version": 1,
     "name": "Cunning Action",
     "data": {
+      "description": "Take a Bonus Action to Dash, Disengage, or Hide.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 2,
@@ -142,6 +147,7 @@
     "version": 1,
     "name": "Rogue Subclass",
     "data": {
+      "description": "Choose a Roguish Archetype that shapes your skills and techniques, such as Arcane Trickster, Assassin, Soulknife, or Thief. You gain features from your chosen subclass at levels 3, 9, 13, and 17.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 3,
@@ -159,6 +165,7 @@
     "version": 1,
     "name": "Steady Aim",
     "data": {
+      "description": "Bonus Action: give yourself Advantage on your next attack roll this turn. Your Speed becomes 0 until the end of the turn. Usable once per turn.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 3,
@@ -179,6 +186,7 @@
     "version": 1,
     "name": "Cunning Strike",
     "data": {
+      "description": "When you deal Sneak Attack damage, you can forgo some of those dice to apply a maneuver effect: Disarm (1d6), Poison (1d6), Trip (1d6), or Withdraw (1d6). The number of dice you spend is subtracted from your Sneak Attack damage.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 5,
@@ -289,6 +297,7 @@
     "version": 1,
     "name": "Uncanny Dodge",
     "data": {
+      "description": "Reaction: when an attacker you can see hits you with an attack roll, halve that attack's damage against you.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 5,
@@ -298,7 +307,7 @@
           "kind": "trigger",
           "id": "uncanny-dodge",
           "name": "Uncanny Dodge",
-          "on": ["self.hit-by-attack"],
+          "on": ["attack.targets-self.hit"],
           "scope": {
             "predicates": [
               { "attack.attacker.visible": true }
@@ -318,6 +327,7 @@
     "version": 1,
     "name": "Expertise (Rogue, Level 6)",
     "data": {
+      "description": "Choose two more skills you are proficient in. Your proficiency bonus is doubled for any ability check that uses either of those skills.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 6,
@@ -336,6 +346,7 @@
     "version": 1,
     "name": "Evasion",
     "data": {
+      "description": "When you are subjected to an effect that allows a Dexterity saving throw to take half damage, you take no damage on a successful save and only half damage on a failed save.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 7,
@@ -356,6 +367,7 @@
     "version": 1,
     "name": "Improved Cunning Strike",
     "data": {
+      "description": "You can apply up to two Cunning Strike effects when you deal Sneak Attack damage. You can also use Cunning Strike effects even if you choose not to deal Sneak Attack damage.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 9,
@@ -376,6 +388,7 @@
     "version": 1,
     "name": "Reliable Talent",
     "data": {
+      "description": "Whenever you make an ability check using a skill or tool proficiency, treat any d20 roll of 9 or lower as a 10.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 11,
@@ -396,6 +409,7 @@
     "version": 1,
     "name": "Subtle Strikes",
     "data": {
+      "description": "When you attack a creature, you don't need Advantage on the roll to use Sneak Attack if at least one of your allies is within 5 feet of the target, even if that ally has the Incapacitated condition.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 13,
@@ -434,6 +448,7 @@
     "version": 1,
     "name": "Devious Strikes",
     "data": {
+      "description": "You gain three additional Cunning Strike options: Daze (2d6) — the target is Dazed until the start of your next turn; Knock Out (6d6) — the target is Unconscious for 1 minute or until it takes damage; Obscure (3d6) — the target has the Blinded condition until the start of your next turn.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 14,
@@ -520,6 +535,7 @@
     "version": 1,
     "name": "Slippery Mind",
     "data": {
+      "description": "You gain proficiency in Wisdom and Charisma saving throws.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 15,
@@ -546,6 +562,7 @@
     "version": 1,
     "name": "Elusive",
     "data": {
+      "description": "No attack roll has Advantage against you while you are not Incapacitated.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 17,
@@ -566,6 +583,7 @@
     "version": 1,
     "name": "Stroke of Luck",
     "data": {
+      "description": "Once per Short Rest, when you fail an ability check or miss with an attack roll, you can turn that roll into a 20.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 18,
@@ -590,6 +608,7 @@
     "version": 1,
     "name": "Death Strike",
     "data": {
+      "description": "When you hit a Surprised creature with an attack that deals Sneak Attack damage, the target must succeed on a Constitution saving throw (DC 8 + your Dexterity modifier + your proficiency bonus) or take double the damage of your attack.",
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 20,

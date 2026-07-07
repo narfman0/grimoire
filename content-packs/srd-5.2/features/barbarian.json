@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Rage",
     "data": {
+      "description": "Bonus Action to enter a Rage that lasts 1 minute. While raging you have advantage on Strength checks and saves, resistance to Bludgeoning, Piercing, and Slashing damage, and a bonus to melee damage rolls using Strength. You can rage a limited number of times per Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 1,
@@ -91,6 +92,7 @@
     "version": 1,
     "name": "Unarmored Defense (Barbarian)",
     "data": {
+      "description": "While you are not wearing armor, your AC equals 10 + your Dexterity modifier + your Constitution modifier. You can use a shield and still gain this benefit.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 1,
@@ -117,6 +119,7 @@
     "version": 1,
     "name": "Weapon Mastery",
     "data": {
+      "description": "Choose 2 weapons you are proficient with; you may apply each weapon's Mastery property when you attack with it. You can swap one chosen weapon at the end of a Long Rest. The number of weapons you can master increases at higher levels.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 1,
@@ -142,6 +145,7 @@
     "version": 1,
     "name": "Danger Sense",
     "data": {
+      "description": "You have advantage on Dexterity saving throws against effects you can see, such as traps and spells.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 2,
@@ -162,6 +166,7 @@
     "version": 1,
     "name": "Reckless Attack",
     "data": {
+      "description": "When you make your first attack on your turn, you can choose to attack recklessly. Doing so gives you advantage on melee attack rolls using Strength during this turn, but attack rolls against you have advantage until the start of your next turn.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 2,
@@ -204,6 +209,7 @@
     "version": 1,
     "name": "Primal Path",
     "data": {
+      "description": "At 3rd level, choose a Primal Path that shapes the nature of your rage. Your choice grants you features at 3rd level and again at 6th, 10th, and 14th level.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 3,
@@ -221,6 +227,7 @@
     "version": 1,
     "name": "Primal Knowledge",
     "data": {
+      "description": "You gain proficiency in one skill of your choice from the Barbarian skill list: Animal Handling, Athletics, Intimidation, Nature, Perception, or Survival.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 3,
@@ -238,6 +245,7 @@
     "version": 1,
     "name": "Primal Knowledge (L10)",
     "data": {
+      "description": "At 10th level, you gain proficiency in a second skill of your choice from the Barbarian skill list: Animal Handling, Athletics, Intimidation, Nature, Perception, or Survival.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 10,
@@ -255,6 +263,7 @@
     "version": 1,
     "name": "Fast Movement",
     "data": {
+      "description": "Your speed increases by 10 feet while you are not wearing heavy armor.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 5,
@@ -275,6 +284,7 @@
     "version": 1,
     "name": "Feral Instinct",
     "data": {
+      "description": "You have advantage on Initiative rolls. Additionally, if you are Surprised at the start of combat, you can act normally on your first turn as long as you enter your Rage before doing anything else.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 7,
@@ -301,6 +311,7 @@
     "version": 1,
     "name": "Brutal Strike",
     "data": {
+      "description": "When you use Reckless Attack, you can forgo the advantage on one melee attack. If that attack hits, it deals an extra 1d10 damage and you apply one Brutal Strike effect: Forceful Blow (push the target 15 feet; it must succeed on a Constitution save or fall Prone) or Hamstring Blow (the target's speed is halved until the start of your next turn). The extra damage and number of effects you can apply increase at higher levels.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 9,
@@ -330,6 +341,7 @@
     "version": 1,
     "name": "Relentless Rage",
     "data": {
+      "description": "If you drop to 0 hit points while raging, you can make a DC 10 Constitution saving throw. On a success, you drop to 1 hit point instead. Each time you use this feature, the DC increases by 5. The DC resets to 10 after a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 11,

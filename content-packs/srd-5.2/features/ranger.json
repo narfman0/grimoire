@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Spellcasting (Ranger)",
     "data": {
+      "description": "You can cast Ranger spells using Wisdom as your spellcasting ability. You are a half-caster: you gain spell slots starting at Ranger level 2, progressing on the half-caster table.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 1,
@@ -25,6 +26,7 @@
     "version": 1,
     "name": "Favored Enemy",
     "data": {
+      "description": "Hunter's Mark is always prepared for you and doesn't count against your prepared-spell limit. You can cast it without expending a spell slot a number of times equal to your Proficiency Bonus per long rest.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 1,
@@ -49,6 +51,7 @@
     "version": 1,
     "name": "Weapon Mastery (Ranger)",
     "data": {
+      "description": "Choose 2 weapons you are proficient with to apply their Mastery property when you attack with them. You can swap one chosen weapon each time you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 1,
@@ -66,6 +69,7 @@
     "version": 1,
     "name": "Deft Explorer",
     "data": {
+      "description": "Gain Expertise in one skill you are already proficient with, learn one additional language, and ignore movement penalties from nonmagical plants and undergrowth.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 2,
@@ -92,6 +96,7 @@
     "version": 1,
     "name": "Fighting Style (Ranger)",
     "data": {
+      "description": "Choose one Fighting Style feat from the Ranger list: Archery, Blind Fighting, Defense, Druidic Warrior, Thrown Weapon Fighting, or Two-Weapon Fighting.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 2,
@@ -116,6 +121,7 @@
     "version": 1,
     "name": "Fighting Style: Druidic Warrior",
     "data": {
+      "description": "Learn two Druid cantrips of your choice. These cantrips count as Ranger spells for you, and you use Wisdom as your spellcasting ability for them.",
       "ownerKind": "feature",
       "ownerSlug": "fighting-style-ranger",
       "choices": {
@@ -130,6 +136,7 @@
     "version": 1,
     "name": "Ranger Subclass",
     "data": {
+      "description": "Choose a Ranger subclass (Conclave) that grants you features at levels 3, 7, 11, and 15.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 3,
@@ -147,6 +154,7 @@
     "version": 1,
     "name": "Roving",
     "data": {
+      "description": "Your walking speed increases by 10 feet. You also gain a climbing speed and a swimming speed equal to your walking speed.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 3,
@@ -179,6 +187,7 @@
     "version": 1,
     "name": "Extra Attack (Ranger)",
     "data": {
+      "description": "You can attack twice, instead of once, when you take the Attack action on your turn.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 5,
@@ -191,6 +200,7 @@
     "version": 1,
     "name": "Tireless",
     "data": {
+      "description": "As an Action, gain Temporary HP equal to 1d8 + your Wisdom modifier; you can do this a number of times per Long Rest equal to your Proficiency Bonus. Additionally, whenever you finish a Short Rest, your Exhaustion level decreases by 1.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 6,
@@ -224,6 +234,7 @@
     "version": 1,
     "name": "Expertise (Ranger)",
     "data": {
+      "description": "Choose 2 skills you are proficient with. Your Proficiency Bonus is doubled for any ability check that uses either of those skills.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 9,
@@ -242,6 +253,7 @@
     "version": 1,
     "name": "Nature's Veil",
     "data": {
+      "description": "As a Bonus Action, become Invisible until the start of your next turn. You can use this feature a number of times per Long Rest equal to your Proficiency Bonus.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 10,
@@ -266,6 +278,7 @@
     "version": 1,
     "name": "Relentless Hunter",
     "data": {
+      "description": "Taking damage can no longer break your Concentration on Hunter's Mark.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 13,
@@ -286,6 +299,7 @@
     "version": 1,
     "name": "Land's Stride",
     "data": {
+      "description": "Moving through nonmagical Difficult Terrain costs you no extra movement. You can also move through nonmagical plants without being slowed or taking damage from them.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 14,
@@ -312,6 +326,7 @@
     "version": 1,
     "name": "Precise Hunter",
     "data": {
+      "description": "You have Advantage on attack rolls against the creature currently marked by your Hunter's Mark.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 17,
@@ -332,6 +347,7 @@
     "version": 1,
     "name": "Feral Senses",
     "data": {
+      "description": "When you are Hidden or take the Hide action, you gain Preternatural Awareness until the start of your next turn: no attack roll against you can have Advantage, and you can't have Disadvantage on your attack rolls.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 18,
@@ -352,6 +368,7 @@
     "version": 1,
     "name": "Foe Slayer",
     "data": {
+      "description": "The first time each turn that you hit a creature marked by your Hunter's Mark, you deal extra damage equal to your Wisdom modifier.",
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 20,

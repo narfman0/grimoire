@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Pact Magic",
     "data": {
+      "description": "You cast Warlock spells using a small number of Pact Magic spell slots that recharge on a Short or Long Rest. Your spellcasting ability is Charisma, and you know a fixed list of spells rather than preparing them each day.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 1,
@@ -25,6 +26,7 @@
     "version": 1,
     "name": "Eldritch Invocations",
     "data": {
+      "description": "You learn occult invocations that grant you permanent magical abilities. You gain a number of invocations based on your Warlock level, and you can replace one invocation with another each time you gain a Warlock level.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 1,
@@ -47,6 +49,7 @@
     "version": 1,
     "name": "Eldritch Invocation: Agonizing Blast",
     "data": {
+      "description": "When you cast Eldritch Blast, add your Charisma modifier to the damage dealt by each beam.",
       "ownerKind": "feature",
       "ownerSlug": "eldritch-invocations",
       "minLevel": 1,
@@ -83,6 +86,7 @@
     "version": 1,
     "name": "Eldritch Invocation: Armor of Shadows",
     "data": {
+      "description": "You can cast Mage Armor on yourself at will, without expending a spell slot.",
       "ownerKind": "feature",
       "ownerSlug": "eldritch-invocations",
       "minLevel": 1,
@@ -103,6 +107,7 @@
     "version": 1,
     "name": "Eldritch Invocation: Devil's Sight",
     "data": {
+      "description": "You can see normally in both nonmagical and magical Darkness within 120 feet of you.",
       "ownerKind": "feature",
       "ownerSlug": "eldritch-invocations",
       "minLevel": 1,
@@ -123,6 +128,7 @@
     "version": 1,
     "name": "Eldritch Invocation: Repelling Blast",
     "data": {
+      "description": "When you hit a creature with Eldritch Blast, you can push that creature up to 10 feet straight away from you.",
       "ownerKind": "feature",
       "ownerSlug": "eldritch-invocations",
       "minLevel": 1,
@@ -146,6 +152,7 @@
     "version": 1,
     "name": "Magical Cunning",
     "data": {
+      "description": "Once per Long Rest, you can spend 1 minute performing an esoteric rite to regain up to half your maximum number of Pact Magic spell slots (rounded up).",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 2,
@@ -175,6 +182,7 @@
     "version": 1,
     "name": "Pact Boon",
     "data": {
+      "description": "Your patron grants you a gift that shapes your power. Choose one of four Pact Boons: Blade, Chain, Tome, or Talisman. Each boon grants a unique magical ability.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 1,
@@ -197,6 +205,7 @@
     "version": 1,
     "name": "Pact of the Blade",
     "data": {
+      "description": "You can perform a 1-hour ritual to create a magical melee weapon in your hand. You use your Charisma modifier for attack and damage rolls with this pact weapon, and it counts as magical for the purpose of overcoming resistance.",
       "ownerKind": "feature",
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: Perform the Pact of the Blade ritual (1 hour) to create a melee pact weapon. The weapon counts as magical; its damage type is chosen at creation. When attacking with the pact weapon, use your spellcasting ability modifier instead of STR or DEX for attack and damage rolls. Weapon creation and modifier override are encounter-layer; surfaced as a trait flag.",
@@ -211,6 +220,7 @@
     "version": 1,
     "name": "Pact of the Chain",
     "data": {
+      "description": "You can cast Find Familiar as a ritual, and your familiar can take the form of special creatures such as an Imp, Pseudodragon, Quasit, or Sprite. You can communicate with your familiar telepathically at any range.",
       "ownerKind": "feature",
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: You can cast Find Familiar as a ritual, choosing from special familiar forms (Imp, Pseudodragon, Quasit, Skeleton, Slaad Tadpole, Sphinx of Wonder, Sprite, Venomous Snake). You can communicate with the familiar telepathically at any range. Familiar summoning is encounter-layer; surfaced as a ritual activity.",
@@ -234,6 +244,7 @@
     "version": 1,
     "name": "Pact of the Tome",
     "data": {
+      "description": "Your patron gives you a Book of Shadows containing 3 cantrips of your choice from any spell list, which you can cast using Charisma. If the book is lost, you can recreate it during a Long Rest.",
       "ownerKind": "feature",
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: Your Book of Shadows contains 3 cantrips from any spell list. You can cast them using CHA. If you lose the book, you can recreate it during a long rest.",
@@ -248,6 +259,7 @@
     "version": 1,
     "name": "Pact of the Talisman",
     "data": {
+      "description": "Your patron gives you an amulet. When the wearer fails an ability check, they can add 1d4 to the roll. You can use this benefit a number of times equal to your Proficiency Bonus, and you regain all uses on a Long Rest.",
       "ownerKind": "feature",
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: When the wearer fails an ability check, they can add 1d4 to the roll. PB uses per long rest. The +1d4 rider on failed checks is encounter-layer; surfaced as a trait flag and resource.",
@@ -272,6 +284,7 @@
     "version": 1,
     "name": "Warlock Subclass",
     "data": {
+      "description": "You choose a Patron subclass that shapes your abilities and grants you additional spells and features as you gain Warlock levels.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 3,
@@ -289,6 +302,7 @@
     "version": 1,
     "name": "Mystic Arcanum (6th Level)",
     "data": {
+      "description": "Choose one 6th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 11,
@@ -317,6 +331,7 @@
     "version": 1,
     "name": "Mystic Arcanum (7th Level)",
     "data": {
+      "description": "Choose one 7th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 13,
@@ -345,6 +360,7 @@
     "version": 1,
     "name": "Mystic Arcanum (8th Level)",
     "data": {
+      "description": "Choose one 8th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 15,
@@ -373,6 +389,7 @@
     "version": 1,
     "name": "Mystic Arcanum (9th Level)",
     "data": {
+      "description": "Choose one 9th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 17,
@@ -401,6 +418,7 @@
     "version": 1,
     "name": "Eldritch Master",
     "data": {
+      "description": "When you finish a Short Rest, you can recover all expended Pact Magic spell slots. Once you use this feature, you must finish a Long Rest before you can use it again.",
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 20,

@@ -5,6 +5,7 @@
     "version": 1,
     "name": "Spellcasting (Sorcerer)",
     "data": {
+      "description": "You cast Sorcerer spells using Charisma as your spellcasting ability. You know a set number of spells and can cast them using spell slots, which you regain on a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 1,
@@ -24,6 +25,7 @@
     "version": 1,
     "name": "Innate Sorcery",
     "data": {
+      "description": "As a Bonus Action, you can unleash the sorcerous power within you. For 1 minute, your Spell Save DC increases by 1 and you have Advantage on spell attack rolls. You can use this feature twice, regaining all expended uses on a Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 1,
@@ -67,6 +69,7 @@
     "version": 1,
     "name": "Sorcerous Origin",
     "data": {
+      "description": "Choose a Sorcerous Origin that reflects the source of your innate magic. Your choice grants you features at 3rd level and again at higher Sorcerer levels.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 1,
@@ -84,6 +87,7 @@
     "version": 1,
     "name": "Font of Magic",
     "data": {
+      "description": "You have a pool of Sorcery Points equal to your Sorcerer level, which you regain on a Long Rest. These points fuel your Metamagic options and can be converted to or from spell slots using Flexible Casting.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 2,
@@ -132,6 +136,7 @@
     "version": 1,
     "name": "Metamagic",
     "data": {
+      "description": "You can twist your spells to suit your needs. Choose 2 Metamagic options (gaining more at higher levels); each option costs Sorcery Points and modifies a spell as you cast it — changing its range, targets, damage type, or other properties.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 2,
@@ -324,6 +329,7 @@
     "version": 1,
     "name": "Sorcerer Subclass",
     "data": {
+      "description": "At 3rd level, your chosen Sorcerous Origin manifests fully, granting you subclass features that define the nature and expression of your innate magic.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 3,
@@ -341,6 +347,7 @@
     "version": 1,
     "name": "Sorcerous Restoration",
     "data": {
+      "description": "When you finish a Short Rest, you regain a number of expended Sorcery Points equal to half your Sorcerer level (rounded down). You can use this feature once per Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 5,
