@@ -79,6 +79,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     if (patch.status === 'ended') updates.endedAt = new Date();
     if (patch.status !== 'ended') updates.endedAt = null;
   }
+  if (patch.notesJson !== undefined) {
+    if (role !== 'dm') throw error(403, 'only the DM can update encounter notes');
+    updates.notesJson = patch.notesJson;
+  }
 
   await db.update(schema.encounters).set(updates).where(eq(schema.encounters.id, id));
   const next = await loadEncounter(id);

@@ -52,7 +52,8 @@ export const UpdateEncounterRequest = z
     name: z.string().min(1).max(120).optional(),
     status: EncounterStatus.optional(),
     round: z.number().int().nonnegative().optional(),
-    activeParticipantId: Uuid.nullable().optional()
+    activeParticipantId: Uuid.nullable().optional(),
+    notesJson: z.string().max(4000).nullable().optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateEncounterRequest');

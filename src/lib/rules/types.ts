@@ -67,6 +67,9 @@ export interface CharacterDocument {
   currentHp: number;
   tempHp: number;
   hitDiceSpent: Record<string, number>;
+  /** Death saving throw state. Only meaningful when currentHp === 0.
+   *  3 successes → stable; 3 failures → dead. Cleared on any heal above 0. */
+  deathSaves?: { successes: number; failures: number };
   conditions: string[];
   /** Stacking level for conditions that accumulate (e.g. exhaustion 1–10).
    *  Key is the condition slug; value is the current stack count (≥ 1).

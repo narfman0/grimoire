@@ -393,6 +393,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       status: enc.status,
       round: enc.round,
       activeParticipantId: enc.activeParticipantId,
+      notesJson: enc.notesJson ?? null,
       createdAt: enc.createdAt.getTime(),
       endedAt: enc.endedAt ? enc.endedAt.getTime() : null
     },

@@ -669,8 +669,16 @@
     await patchDocument((d) => {
       const next = applyHealDelta({ currentHp: d.currentHp, tempHp: d.tempHp }, amount, max);
       d.currentHp = next.currentHp ?? 0;
+      if (d.currentHp > 0) d.deathSaves = undefined;
     });
     healInput = 0;
+  }
+
+  async function adjustDeathSave(kind: 'successes' | 'failures', delta: 1 | -1) {
+    await patchDocument((d) => {
+      if (!d.deathSaves) d.deathSaves = { successes: 0, failures: 0 };
+      d.deathSaves[kind] = Math.max(0, Math.min(3, d.deathSaves[kind] + delta));
+    });
   }
 
   async function setTempHp() {
@@ -1836,6 +1844,44 @@
           Set
         </button>
       </div>
+
+      {#if document.currentHp === 0}
+        {@const ds = document.deathSaves ?? { successes: 0, failures: 0 }}
+        <div class="mt-3 rounded border border-slate-700 bg-slate-950/40 p-2 text-xs">
+          <div class="mb-1 flex items-center gap-2">
+            <span class="font-semibold text-slate-300">Death saves</span>
+            {#if ds.successes >= 3}
+              <span class="rounded bg-emerald-800/60 px-1.5 py-0.5 text-[10px] text-emerald-300">Stable</span>
+            {:else if ds.failures >= 3}
+              <span class="rounded bg-red-900/60 px-1.5 py-0.5 text-[10px] text-red-300">Dead</span>
+            {/if}
+          </div>
+          <div class="flex gap-4">
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400">Success</span>
+              {#each [0, 1, 2] as i}
+                <button
+                  class="h-5 w-5 rounded border text-center text-[11px] {i < ds.successes ? 'border-emerald-500 bg-emerald-800/50 text-emerald-300' : 'border-slate-600 text-slate-600 hover:border-slate-400'}"
+                  disabled={busy}
+                  title={i < ds.successes ? 'Remove success' : 'Add success'}
+                  on:click={() => adjustDeathSave('successes', i < ds.successes ? -1 : 1)}
+                >✓</button>
+              {/each}
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400">Failure</span>
+              {#each [0, 1, 2] as i}
+                <button
+                  class="h-5 w-5 rounded border text-center text-[11px] {i < ds.failures ? 'border-red-500 bg-red-900/50 text-red-300' : 'border-slate-600 text-slate-600 hover:border-slate-400'}"
+                  disabled={busy}
+                  title={i < ds.failures ? 'Remove failure' : 'Add failure'}
+                  on:click={() => adjustDeathSave('failures', i < ds.failures ? -1 : 1)}
+                >✗</button>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/if}
     </div>
 
     <!-- Rests (hit dice surfaces inline when short-resting) -->
@@ -1897,58 +1943,6 @@
     </div>
   </section>
 
-
-  <!-- Spellcasting: header + slots -->
-  {#if spellSlotRows.length > 0}
-    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-      <h2 class="mb-2 text-sm font-semibold text-slate-200">Spellcasting</h2>
-      {#if derived.stats.spellcastingAbility}
-        <SpellcastingSummary
-          ability={derived.stats.spellcastingAbility}
-          attackBonus={derived.stats.spellAttackBonus}
-          saveDC={derived.stats.spellSaveDC}
-          prepared={preparedCount}
-          known={document.spells.known.length}
-          on:manage={() => (spellManagerOpen = true)}
-        />
-      {/if}
-      <SpellSlotsPanel
-        slots={spellSlotRows}
-        {busy}
-        on:use={(e) => spendSlot(e.detail)}
-        on:restore={(e) => restoreSlot(e.detail)}
-      />
-    </section>
-  {/if}
-  {#if derived.resources.length > 0}
-    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-      <ResourcesPanel
-        resources={derived.resources}
-        {busy}
-        on:use={(e) => adjustResourceById(e.detail, 1)}
-        on:restore={(e) => adjustResourceById(e.detail, -1)}
-      />
-    </section>
-  {/if}
-
-  {#if derived.availableActivations.length > 0}
-    <ActivationsPanel
-      activations={derived.availableActivations}
-      {busy}
-      concentratingLabel={document.concentrating?.label ?? null}
-      on:toggle={handleActivationToggle}
-      on:restPick={handleActivationRestPick}
-    />
-  {/if}
-
-  <ReceivedBuffsPanel
-    buffs={document.receivedBuffs ?? []}
-    spellOptions={data.spellOptions}
-    {busy}
-    on:add={handleAddReceivedBuff}
-    on:remove={handleRemoveReceivedBuff}
-    on:update={handleUpdateReceivedBuff}
-  />
 
   <!-- Conditions + toggles -->
   <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">
@@ -2027,6 +2021,59 @@
       on:toggle={(e) => toggleModifier(e.detail.id, e.detail.enabled)}
     />
   </section>
+
+  {#if derived.availableActivations.length > 0}
+    <ActivationsPanel
+      activations={derived.availableActivations}
+      {busy}
+      concentratingLabel={document.concentrating?.label ?? null}
+      on:toggle={handleActivationToggle}
+      on:restPick={handleActivationRestPick}
+    />
+  {/if}
+
+  {#if derived.resources.length > 0}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <ResourcesPanel
+        resources={derived.resources}
+        {busy}
+        on:use={(e) => adjustResourceById(e.detail, 1)}
+        on:restore={(e) => adjustResourceById(e.detail, -1)}
+      />
+    </section>
+  {/if}
+
+  <!-- Spellcasting: header + slots -->
+  {#if spellSlotRows.length > 0}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <h2 class="mb-2 text-sm font-semibold text-slate-200">Spellcasting</h2>
+      {#if derived.stats.spellcastingAbility}
+        <SpellcastingSummary
+          ability={derived.stats.spellcastingAbility}
+          attackBonus={derived.stats.spellAttackBonus}
+          saveDC={derived.stats.spellSaveDC}
+          prepared={preparedCount}
+          known={document.spells.known.length}
+          on:manage={() => (spellManagerOpen = true)}
+        />
+      {/if}
+      <SpellSlotsPanel
+        slots={spellSlotRows}
+        {busy}
+        on:use={(e) => spendSlot(e.detail)}
+        on:restore={(e) => restoreSlot(e.detail)}
+      />
+    </section>
+  {/if}
+
+  <ReceivedBuffsPanel
+    buffs={document.receivedBuffs ?? []}
+    spellOptions={data.spellOptions}
+    {busy}
+    on:add={handleAddReceivedBuff}
+    on:remove={handleRemoveReceivedBuff}
+    on:update={handleUpdateReceivedBuff}
+  />
 
   <!-- Retroactive subclass pickers for any L3+ class missing one -->
   {#each document.classes.filter((c) => c.level >= 3 && !c.subclass) as cls (cls.slug)}

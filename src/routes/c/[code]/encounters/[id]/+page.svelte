@@ -1033,12 +1033,14 @@
     if (ordered.length === 0) return;
     const idx = ordered.findIndex((p) => p.id === liveActive);
     let nextIdx = idx + direction;
-    if (nextIdx < 0) nextIdx = ordered.length - 1;
-    if (nextIdx >= ordered.length) nextIdx = 0;
+    let roundDelta = 0;
+    if (nextIdx < 0) { nextIdx = ordered.length - 1; roundDelta = -1; }
+    if (nextIdx >= ordered.length) { nextIdx = 0; roundDelta = 1; }
     const nextActive = ordered[nextIdx].id;
+    const nextRound = roundDelta !== 0 ? Math.max(1, liveRound + roundDelta) : undefined;
 
     if (conn) {
-      await conn.setTurn({ activeParticipantId: nextActive });
+      await conn.setTurn({ activeParticipantId: nextActive, ...(nextRound !== undefined ? { round: nextRound } : {}) });
       return;
     }
 
@@ -1048,13 +1050,73 @@
       await fetch(`/api/encounters/${data.encounter.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ activeParticipantId: nextActive })
+        body: JSON.stringify({ activeParticipantId: nextActive, ...(nextRound !== undefined ? { round: nextRound } : {}) })
       });
       await invalidateAll();
     } finally {
       busy = false;
     }
   }
+
+  // Dice roller state (client-only, no persistence)
+  const DICE = [4, 6, 8, 10, 12, 20, 100] as const;
+  let diceResult: { die: number; roll: number } | null = null;
+  function rollDie(sides: number) {
+    diceResult = { die: sides, roll: Math.floor(Math.random() * sides) + 1 };
+  }
+
+  // Encounter notes (DM only, persisted to encounters.notesJson)
+  let encounterNotesDraft = data.encounter.notesJson ?? '';
+  let notesSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  function scheduleNotesSave() {
+    if (notesSaveTimer) clearTimeout(notesSaveTimer);
+    notesSaveTimer = setTimeout(async () => {
+      await fetch(`/api/encounters/${data.encounter.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ notesJson: encounterNotesDraft || null })
+      });
+    }, 800);
+  }
+
+  // Legendary action tracker (client-only, per participant per round)
+  // Map<participantId, usedCount>. Resets when liveRound changes.
+  let legendaryUsed: Record<string, number> = {};
+  let trackedRound = -1;
+  $: if (liveRound !== trackedRound) {
+    legendaryUsed = {};
+    trackedRound = liveRound;
+  }
+  function toggleLegendaryAction(pid: string, max: number) {
+    const used = legendaryUsed[pid] ?? 0;
+    legendaryUsed[pid] = used >= max ? 0 : used + 1;
+    legendaryUsed = legendaryUsed;
+  }
+
+  // NPC spell slot tracker (client-only, per participant)
+  // Map<participantId, Record<level, { max: number; used: number }>>
+  let npcSpellSlots: Record<string, Record<number, { max: number; used: number }>> = {};
+  function initSlots(pid: string) {
+    if (!npcSpellSlots[pid]) {
+      npcSpellSlots[pid] = {};
+      npcSpellSlots = npcSpellSlots;
+    }
+  }
+  function setSlotMax(pid: string, level: number, max: number) {
+    initSlots(pid);
+    const cur = npcSpellSlots[pid][level] ?? { max: 0, used: 0 };
+    npcSpellSlots[pid][level] = { max, used: Math.min(cur.used, max) };
+    npcSpellSlots = npcSpellSlots;
+  }
+  function toggleSlotUsed(pid: string, level: number, slotIdx: number) {
+    initSlots(pid);
+    const cur = npcSpellSlots[pid][level] ?? { max: 0, used: 0 };
+    const used = slotIdx < cur.used ? slotIdx : slotIdx + 1;
+    npcSpellSlots[pid][level] = { ...cur, used: Math.max(0, Math.min(cur.max, used)) };
+    npcSpellSlots = npcSpellSlots;
+  }
+  const SPELL_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+  let showSlotEditor: Record<string, boolean> = {};
 </script>
 
 <svelte:head>
@@ -1134,21 +1196,56 @@
 </header>
 
 {#if data.encounter.status === 'live' && data.role === 'dm'}
-  <section class="mb-6 flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm">
-    <span class="text-emerald-200">Turn controls:</span>
-    <button class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={() => advanceTurn(-1)} disabled={busy} title="Previous turn">
-      ←
-    </button>
-    <button class="rounded border border-emerald-700 px-2 py-0.5 hover:bg-emerald-900/40" on:click={() => advanceTurn(1)} disabled={busy}>
-      Next turn →
-    </button>
-    <button
-      class="ml-auto rounded border border-slate-600 px-2 py-0.5 hover:bg-slate-800 disabled:opacity-40"
-      disabled={busy}
-      on:click={() => setEncounterStatus('ended')}
-    >
-      End
-    </button>
+  <section class="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm">
+    <div class="flex items-center gap-2">
+      <span class="text-emerald-200">Turn controls:</span>
+      <button class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={() => advanceTurn(-1)} disabled={busy} title="Previous turn">
+        ←
+      </button>
+      <span class="min-w-[5rem] text-center font-mono text-slate-300">Round {liveRound}</span>
+      <button class="rounded border border-emerald-700 px-2 py-0.5 hover:bg-emerald-900/40" on:click={() => advanceTurn(1)} disabled={busy}>
+        Next turn →
+      </button>
+      <button
+        class="ml-auto rounded border border-slate-600 px-2 py-0.5 hover:bg-slate-800 disabled:opacity-40"
+        disabled={busy}
+        on:click={() => setEncounterStatus('ended')}
+      >
+        End
+      </button>
+    </div>
+  </section>
+  <!-- Dice roller -->
+  <section class="mb-4 rounded-lg border border-slate-700 bg-slate-900/30 p-3 text-sm">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-slate-400">Dice:</span>
+      {#each DICE as sides}
+        <button
+          class="rounded border border-slate-600 px-2 py-0.5 font-mono text-xs hover:border-slate-400 hover:bg-slate-800"
+          on:click={() => rollDie(sides)}
+        >d{sides}</button>
+      {/each}
+      {#if diceResult}
+        <span class="ml-2 font-mono text-slate-200">
+          d{diceResult.die} → <span class="text-lg font-bold {diceResult.roll === diceResult.die ? 'text-emerald-300' : diceResult.roll === 1 ? 'text-red-400' : 'text-white'}">{diceResult.roll}</span>
+        </span>
+      {/if}
+    </div>
+  </section>
+{/if}
+
+{#if data.role === 'dm'}
+  <!-- Encounter notes -->
+  <section class="mb-6 rounded-lg border border-slate-700 bg-slate-900/30 p-3">
+    <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">DM Notes</div>
+    <textarea
+      class="w-full resize-y rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-slate-500 focus:outline-none"
+      rows="3"
+      maxlength="4000"
+      placeholder="Encounter notes, lore, secret triggers…"
+      bind:value={encounterNotesDraft}
+      on:input={scheduleNotesSave}
+    ></textarea>
   </section>
 {/if}
 
@@ -1365,6 +1462,87 @@
                 on:click={() => { const label = concDraft.trim(); if (label) { startConcentrating(p, label); concDraft = ''; } }}
               >start</button>
             </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Legendary actions tracker (DM only, non-PC with legendary actions) -->
+      {#if data.role === 'dm' && !isPc && (p.statblock?.legendaryActions?.length ?? 0) > 0}
+        {@const legMax = 3}
+        {@const legUsed = legendaryUsed[p.id] ?? 0}
+        <div class="mb-3">
+          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Legendary Actions</div>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="flex gap-1">
+              {#each Array(legMax) as _, i}
+                <button
+                  class="h-5 w-5 rounded border text-center text-[11px] {i < legUsed ? 'border-amber-500 bg-amber-900/50 text-amber-300' : 'border-slate-600 text-slate-600 hover:border-slate-400'}"
+                  title={i < legUsed ? 'Mark unused' : 'Mark used'}
+                  on:click={() => toggleLegendaryAction(p.id, legMax)}
+                >★</button>
+              {/each}
+            </div>
+            <span class="text-slate-400">{legUsed}/{legMax} used</span>
+            {#if legUsed > 0}
+              <button class="text-[11px] text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline" on:click={() => { legendaryUsed[p.id] = 0; legendaryUsed = legendaryUsed; }}>reset</button>
+            {/if}
+          </div>
+          {#if p.statblock.legendaryActions.length > 0}
+            <ul class="mt-1 space-y-0.5 text-[11px] text-slate-400">
+              {#each p.statblock.legendaryActions as la}
+                <li><span class="text-slate-300">{la.name}</span>{#if la.description} — {la.description.slice(0, 80)}{la.description.length > 80 ? '…' : ''}{/if}</li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- NPC spell slot tracker (DM only, non-PC) -->
+      {#if data.role === 'dm' && !isPc}
+        {@const slots = npcSpellSlots[p.id] ?? {}}
+        {@const usedLevels = SPELL_LEVELS.filter((l) => (slots[l]?.max ?? 0) > 0)}
+        <div class="mb-3">
+          <div class="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
+            <span>Spell Slots</span>
+            <button
+              class="normal-case text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+              on:click={() => { showSlotEditor[p.id] = !showSlotEditor[p.id]; showSlotEditor = showSlotEditor; }}
+            >{showSlotEditor[p.id] ? 'done' : 'edit'}</button>
+          </div>
+          {#if showSlotEditor[p.id]}
+            <div class="flex flex-wrap gap-2 text-xs">
+              {#each SPELL_LEVELS as level}
+                <label class="flex items-center gap-1">
+                  <span class="text-slate-500">L{level}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="9"
+                    class="w-10 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[11px]"
+                    value={slots[level]?.max ?? 0}
+                    on:change={(e) => setSlotMax(p.id, level, Math.max(0, Math.min(9, parseInt((e.target as HTMLInputElement).value) || 0)))}
+                  />
+                </label>
+              {/each}
+            </div>
+          {:else if usedLevels.length > 0}
+            <div class="flex flex-wrap gap-3 text-xs">
+              {#each usedLevels as level}
+                {@const s = slots[level]}
+                <div class="flex items-center gap-1">
+                  <span class="text-slate-500">L{level}</span>
+                  {#each Array(s.max) as _, i}
+                    <button
+                      class="h-4 w-4 rounded border text-center text-[9px] {i < s.used ? 'border-violet-500 bg-violet-900/50 text-violet-300' : 'border-slate-600 text-slate-600 hover:border-slate-400'}"
+                      title={i < s.used ? 'Restore slot' : 'Expend slot'}
+                      on:click={() => toggleSlotUsed(p.id, level, i)}
+                    >◆</button>
+                  {/each}
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <span class="text-[11px] text-slate-600">None set — click edit to add</span>
           {/if}
         </div>
       {/if}
