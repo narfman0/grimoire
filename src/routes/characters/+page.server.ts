@@ -63,11 +63,13 @@ export const load: PageServerLoad = async ({ locals }) => {
     characters: charRows.map((c) => {
       let descLine = '';
       let totalLevel = 0;
+      let portrait: string | undefined;
       if (c.document) {
         try {
           const doc = JSON.parse(c.document) as CharacterDocument;
           descLine = describe(doc);
           totalLevel = doc.classes.reduce((s, k) => s + k.level, 0);
+          portrait = doc.portrait;
         } catch {
           // ignore — leave fields blank
         }
@@ -80,6 +82,7 @@ export const load: PageServerLoad = async ({ locals }) => {
         homeCampaignId: c.campaignId,
         descLine,
         totalLevel,
+        portrait,
         updatedAt: c.updatedAt.getTime(),
         campaigns: linksByChar.get(c.id) ?? []
       };

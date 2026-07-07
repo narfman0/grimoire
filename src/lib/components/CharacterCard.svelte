@@ -5,9 +5,14 @@
   export let descLine: string = '';
   export let isStub: boolean = false;
   export let isRetired: boolean = false;
+  export let portrait: string | undefined = undefined;
 </script>
 
-<div class="min-w-0">
+<div class="flex min-w-0 items-center gap-2">
+  {#if portrait}
+    <img src={portrait} alt={name} class="h-10 w-7 shrink-0 rounded object-cover object-top" />
+  {/if}
+  <div class="min-w-0">
   <div class="flex flex-wrap items-baseline gap-1">
     {#if href}
       <a class="font-medium hover:text-emerald-300" {href} {title}>{name}</a>
@@ -24,4 +29,5 @@
   {#if descLine}
     <p class="text-xs text-slate-500">{descLine}</p>
   {/if}
+  </div>
 </div>

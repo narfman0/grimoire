@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CharacterRow from '$lib/components/CharacterRow.svelte';
   import type { PageData } from './$types';
   export let data: PageData;
 </script>
@@ -23,45 +24,16 @@
 {:else}
   <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900/40">
     {#each data.characters as c (c.id)}
-      <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-        <div class="min-w-0 flex-1">
-          {#if c.campaigns.length > 0}
-            <a
-              class="font-medium hover:text-emerald-300"
-              href={`/c/${c.campaigns[0].code}/character/${c.id}`}
-              title={`Open in ${c.campaigns[0].name}`}
-            >
-              {c.name}
-            </a>
-          {:else if c.slug}
-            <a class="font-medium hover:text-emerald-300" href={`/characters/${c.ownerUsername}/${c.slug}`}>
-              {c.name}
-            </a>
-          {:else}
-            <span class="font-medium text-slate-300">{c.name}</span>
-          {/if}
-          {#if c.descLine}
-            <p class="text-xs text-slate-500">{c.descLine}</p>
-          {/if}
-        </div>
-        <div class="flex flex-wrap items-center gap-1 text-xs text-slate-400">
-          {#if c.campaigns.length === 0}
-            <span class="text-slate-600">— not linked to any campaign</span>
-          {:else}
-            {#each c.campaigns as link}
-              <a
-                class="rounded border border-slate-700 px-2 py-0.5 hover:border-emerald-600 hover:text-emerald-200"
-                href={`/c/${link.code}/character/${c.id}`}
-              >
-                {link.name}
-              </a>
-            {/each}
-          {/if}
-          {#if c.totalLevel > 0}
-            <span class="ml-1 font-mono text-[10px] text-slate-600">L{c.totalLevel}</span>
-          {/if}
-        </div>
-      </li>
+      <CharacterRow
+        id={c.id}
+        name={c.name}
+        slug={c.slug}
+        ownerUsername={c.ownerUsername}
+        descLine={c.descLine}
+        totalLevel={c.totalLevel}
+        portrait={c.portrait}
+        campaigns={c.campaigns}
+      />
     {/each}
   </ul>
 {/if}

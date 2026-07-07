@@ -465,56 +465,28 @@
 </div>
 {:else}
 
-{#if data.role === 'dm' && data.pendingMembers.length > 0}
-<section class="mb-6 rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-sm">
-  <h2 class="mb-3 text-sm font-semibold text-amber-300">
-    Join requests <span class="ml-1 text-xs font-normal text-amber-600">({data.pendingMembers.length})</span>
-  </h2>
-  <ul class="divide-y divide-amber-900/60">
-    {#each data.pendingMembers as member (member.userId)}
-      <li class="flex items-center justify-between py-2">
-        <span class="font-mono text-slate-300">{member.username}</span>
-        <div class="flex gap-2">
-          <button
-            class="rounded bg-emerald-600 px-3 py-1 text-xs hover:bg-emerald-500 disabled:opacity-40"
-            disabled={busy}
-            on:click={() => resolveMember(member.userId, 'approved')}
-          >Approve</button>
-          <button
-            class="rounded border border-red-800 px-3 py-1 text-xs text-red-300 hover:bg-red-900/60 disabled:opacity-40"
-            disabled={busy}
-            on:click={() => resolveMember(member.userId, 'rejected')}
-          >Reject</button>
-        </div>
-      </li>
-    {/each}
-  </ul>
-</section>
-{/if}
-
 <!-- ── Party members ──────────────────────────────────────────────── -->
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
   <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
     Party
     <span class="ml-1 text-xs font-normal text-slate-600">({data.campaignMembers.length})</span>
+    {#if data.role === 'dm' && data.pendingMembers.length > 0}
+      <span class="ml-2 rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+        {data.pendingMembers.length} pending
+      </span>
+    {/if}
   </h2>
   <div class="flex flex-wrap gap-3">
     {#each data.campaignMembers as member (member.id)}
       {@const chars = data.characters.filter((c) => c.ownerUserId === member.id)}
       <div class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-        <!-- Portrait (first character's portrait, or fallback) -->
         {#if chars[0]?.portrait}
-          <img
-            src={chars[0].portrait}
-            alt={chars[0].name}
-            class="h-10 w-7 rounded object-cover object-top"
-          />
+          <img src={chars[0].portrait} alt={chars[0].name} class="h-10 w-7 rounded object-cover object-top" />
         {:else}
           <div class="flex h-10 w-7 items-center justify-center rounded bg-slate-800 text-lg">
             {member.role === 'dm' ? '🎲' : '🧙'}
           </div>
         {/if}
-        <!-- Info -->
         <div class="min-w-0">
           <p class="text-sm font-medium text-slate-200">{member.username}</p>
           {#if chars.length > 0}
@@ -523,13 +495,36 @@
             <p class="text-xs text-slate-600">no character</p>
           {/if}
         </div>
-        <!-- Role badge -->
         <span class="ml-1 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide
           {member.role === 'dm' ? 'bg-amber-900/60 text-amber-300' : 'bg-slate-800 text-slate-400'}">
           {member.role}
         </span>
       </div>
     {/each}
+
+    {#if data.role === 'dm'}
+      {#each data.pendingMembers as member (member.userId)}
+        <div class="flex items-center gap-2 rounded-lg border border-amber-800/60 bg-amber-950/30 px-3 py-2">
+          <div class="flex h-10 w-7 items-center justify-center rounded bg-amber-900/40 text-lg">⏳</div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-300">{member.username}</p>
+            <p class="text-xs text-amber-600">wants to join</p>
+          </div>
+          <div class="ml-1 flex flex-col gap-1">
+            <button
+              class="rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold hover:bg-emerald-500 disabled:opacity-40"
+              disabled={busy}
+              on:click={() => resolveMember(member.userId, 'approved')}
+            >✓ Approve</button>
+            <button
+              class="rounded border border-red-800 px-2 py-0.5 text-[10px] text-red-400 hover:bg-red-900/40 disabled:opacity-40"
+              disabled={busy}
+              on:click={() => resolveMember(member.userId, 'rejected')}
+            >✕ Reject</button>
+          </div>
+        </div>
+      {/each}
+    {/if}
   </div>
 </section>
 
@@ -579,6 +574,7 @@
             href={`/c/${data.campaign.code}/character/${character.id}`}
             descLine={character.descLine}
             isStub={!character.hasDocument}
+            portrait={character.portrait}
           />
           <div class="flex shrink-0 items-center gap-2">
             {#if character.totalLevel > 0}

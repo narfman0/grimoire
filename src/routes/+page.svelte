@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import CharacterCard from '$lib/components/CharacterCard.svelte';
+  import CharacterRow from '$lib/components/CharacterRow.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -314,32 +314,16 @@
   {:else}
     <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900/40">
       {#each data.characters as c (c.id)}
-        <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-          <CharacterCard
-            name={c.name}
-            href={c.campaigns.length > 0
-              ? `/c/${c.campaigns[0].code}/character/${c.id}`
-              : c.slug
-                ? `/characters/${c.ownerUsername}/${c.slug}`
-                : undefined}
-            title={c.campaigns.length > 0 ? `Open in ${c.campaigns[0].name}` : undefined}
-            descLine={c.descLine}
-            isRetired={false}
-          />
-          <div class="flex flex-wrap items-center gap-1 text-xs text-slate-400">
-            {#each c.campaigns as link}
-              <a
-                class="rounded border border-slate-700 px-2 py-0.5 hover:border-emerald-600 hover:text-emerald-200"
-                href={`/c/${link.code}/character/${c.id}`}
-              >
-                {link.name}
-              </a>
-            {/each}
-            {#if c.totalLevel > 0}
-              <span class="ml-1 font-mono text-[10px] text-slate-600">L{c.totalLevel}</span>
-            {/if}
-          </div>
-        </li>
+        <CharacterRow
+          id={c.id}
+          name={c.name}
+          slug={c.slug}
+          ownerUsername={c.ownerUsername}
+          descLine={c.descLine}
+          totalLevel={c.totalLevel}
+          portrait={c.portrait}
+          campaigns={c.campaigns}
+        />
       {/each}
     </ul>
     <p class="mt-2 text-xs text-slate-500">
