@@ -1487,7 +1487,7 @@
               <button class="text-[11px] text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline" on:click={() => { legendaryUsed[p.id] = 0; legendaryUsed = legendaryUsed; }}>reset</button>
             {/if}
           </div>
-          {#if p.statblock.legendaryActions.length > 0}
+          {#if p.statblock?.legendaryActions && p.statblock.legendaryActions.length > 0}
             <ul class="mt-1 space-y-0.5 text-[11px] text-slate-400">
               {#each p.statblock.legendaryActions as la}
                 <li><span class="text-slate-300">{la.name}</span>{#if la.description} — {la.description.slice(0, 80)}{la.description.length > 80 ? '…' : ''}{/if}</li>
@@ -1520,7 +1520,7 @@
                     max="9"
                     class="w-10 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[11px]"
                     value={slots[level]?.max ?? 0}
-                    on:change={(e) => setSlotMax(p.id, level, Math.max(0, Math.min(9, parseInt((e.target as HTMLInputElement).value) || 0)))}
+                    on:change={(e) => setSlotMax(p.id, level, Math.max(0, Math.min(9, +(e.currentTarget.value) || 0)))}
                   />
                 </label>
               {/each}
