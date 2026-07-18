@@ -223,9 +223,17 @@ export const CreateCharacterRequest = z
   })
   .openapi('CreateCharacterRequest');
 
+export const CharacterSlug = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9-]+$/, 'lowercase letters, digits, and hyphens only');
+
 export const UpdateCharacterRequest = z
   .object({
     name: CharacterName.optional(),
+    slug: CharacterSlug.optional(),
     document: CharacterDocument.optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })

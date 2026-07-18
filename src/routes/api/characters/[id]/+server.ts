@@ -93,7 +93,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     .set({
       name: nextName,
       document: nextDocument,
-      updatedAt: now
+      updatedAt: now,
+      ...(patch.slug !== undefined ? { slug: patch.slug } : {})
     })
     .where(eq(schema.characters.id, id));
 
