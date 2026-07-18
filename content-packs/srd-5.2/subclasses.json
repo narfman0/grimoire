@@ -6,7 +6,12 @@
     "name": "Path of the Berserker",
     "data": {
       "parentClass": "barbarian",
-      "features": ["frenzy", "mindless-rage", "intimidating-presence", "retaliation"]
+      "features": [
+        "frenzy",
+        "mindless-rage",
+        "intimidating-presence",
+        "retaliation"
+      ]
     }
   },
   {
@@ -16,7 +21,12 @@
     "name": "College of Lore",
     "data": {
       "parentClass": "bard",
-      "features": ["bonus-proficiencies-lore", "cutting-words", "magical-secrets-lore", "peerless-skill"]
+      "features": [
+        "bonus-proficiencies-lore",
+        "cutting-words",
+        "magical-secrets-lore",
+        "peerless-skill"
+      ]
     }
   },
   {
@@ -43,7 +53,13 @@
     "name": "Circle of the Land",
     "data": {
       "parentClass": "druid",
-      "features": ["circle-of-the-land-spells", "lands-aid", "natural-recovery", "natures-ward", "natures-sanctuary"]
+      "features": [
+        "circle-of-the-land-spells",
+        "lands-aid",
+        "natural-recovery",
+        "natures-ward",
+        "natures-sanctuary"
+      ]
     }
   },
   {
@@ -53,7 +69,12 @@
     "name": "Champion",
     "data": {
       "parentClass": "fighter",
-      "features": ["improved-critical", "remarkable-athlete", "additional-fighting-style", "superior-critical"]
+      "features": [
+        "improved-critical",
+        "remarkable-athlete",
+        "additional-fighting-style",
+        "superior-critical"
+      ]
     }
   },
   {
@@ -63,7 +84,12 @@
     "name": "Way of the Open Hand",
     "data": {
       "parentClass": "monk",
-      "features": ["open-hand-technique", "wholeness-of-body", "tranquility", "quivering-palm"]
+      "features": [
+        "open-hand-technique",
+        "wholeness-of-body",
+        "tranquility",
+        "quivering-palm"
+      ]
     }
   },
   {
@@ -88,7 +114,13 @@
     "name": "Hunter",
     "data": {
       "parentClass": "ranger",
-      "features": ["hunters-lore", "hunters-prey", "defensive-tactics", "hunter-multiattack", "superior-hunters-defense"]
+      "features": [
+        "hunters-lore",
+        "hunters-prey",
+        "defensive-tactics",
+        "hunter-multiattack",
+        "superior-hunters-defense"
+      ]
     }
   },
   {
@@ -98,7 +130,13 @@
     "name": "Thief",
     "data": {
       "parentClass": "rogue",
-      "features": ["fast-hands", "second-story-work", "supreme-sneak", "use-magic-device", "thiefs-reflexes"]
+      "features": [
+        "fast-hands",
+        "second-story-work",
+        "supreme-sneak",
+        "use-magic-device",
+        "thiefs-reflexes"
+      ]
     }
   },
   {
@@ -140,7 +178,31 @@
     "name": "Evocation",
     "data": {
       "parentClass": "wizard",
-      "features": ["evocation-savant", "sculpt-spells", "potent-cantrip", "empowered-evocation", "overchannel"]
+      "features": [
+        "evocation-savant",
+        "sculpt-spells",
+        "potent-cantrip",
+        "empowered-evocation",
+        "overchannel"
+      ]
+    }
+  },
+  {
+    "kind": "subclass",
+    "slug": "divine-soul",
+    "version": 1,
+    "name": "Divine Soul",
+    "data": {
+      "parentClass": "sorcerer",
+      "features": [
+        "divine-magic",
+        "favored-by-the-gods",
+        "empowered-healing",
+        "otherworldly-wings",
+        "unearthly-recovery"
+      ],
+      "description": "Sometimes the spark of magic that fuels a sorcerer comes from a divine source. Having such a blessed soul is a sign that your innate magic might come from a distant but powerful familial connection to a divine being.",
+      "note": "XGtE p.50. Sorcerous Origin that lets you draw on cleric spell lists and grants divine-flavored abilities. Features unlocked at subclass pick (L3 in 2024 framework), L6, L14, L18."
     }
   }
 ]

@@ -146,7 +146,12 @@
           "kind": "stat-modifier",
           "target": "hp.max",
           "mode": "ADD",
-          "value": { "sum": ["totalLevel", "totalLevel"] }
+          "value": {
+            "sum": [
+              "totalLevel",
+              "totalLevel"
+            ]
+          }
         }
       ],
       "note": "2024 Tough grants +2 HP per character level. Modeled as a single hp.max ADD { sum: [totalLevel, totalLevel] } = 2 * totalLevel."
@@ -168,7 +173,10 @@
       "choices": {
         "asi": {
           "bonus": 1,
-          "allowedAbilities": ["str", "dex"]
+          "allowedAbilities": [
+            "str",
+            "dex"
+          ]
         }
       },
       "modifiers": [
@@ -716,7 +724,14 @@
         "level": 4
       },
       "repeatable": true,
-      "abilityChoices": ["str", "dex", "con", "int", "wis", "cha"],
+      "abilityChoices": [
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
+      ],
       "asiBudget": 2,
       "note": "2024 SRD 5.2 Ability Score Improvement. Increase one ability score by 2, or two ability scores by 1 each (max 20 per ability). Player picks stored as feat.choices.asis: Array<{ability,bonus}>. Engine synthesizes ADD stat-modifiers from each entry, capped at asiBudget total.",
       "modifiers": []
@@ -840,7 +855,11 @@
           "name": "Ignore Resistance",
           "defaultEnabled": false,
           "appliesTo": {
-            "activityType": ["cast", "save", "attack"]
+            "activityType": [
+              "cast",
+              "save",
+              "attack"
+            ]
           },
           "effects": [
             {
@@ -856,7 +875,11 @@
           "name": "Damage Floor",
           "defaultEnabled": false,
           "appliesTo": {
-            "activityType": ["cast", "save", "attack"]
+            "activityType": [
+              "cast",
+              "save",
+              "attack"
+            ]
           },
           "effects": [
             {
@@ -1034,8 +1057,12 @@
         "level": 4,
         "ability": {
           "or": [
-            { "str": 13 },
-            { "dex": 13 }
+            {
+              "str": 13
+            },
+            {
+              "dex": 13
+            }
           ]
         }
       },
@@ -1062,8 +1089,12 @@
           "scope": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.kind": "unarmed" },
-              { "attack.as-part-of": "Attack action" }
+              {
+                "weapon.kind": "unarmed"
+              },
+              {
+                "attack.as-part-of": "Attack action"
+              }
             ]
           },
           "grants": {
@@ -1073,7 +1104,7 @@
           }
         }
       ],
-      "note": "SRD 5.2 Grappler. +1 STR or DEX. Punch and Grab: on hit with Unarmed Strike as part of Attack action, free Grapple option simultaneously. Attack Advantage: Advantage on attacks against a creature Grappled by you (trait.grappler-advantage-vs-grappled — engine cannot check target's grapple state, surfaced as trait tag for UI tracking). Fast Wrestler: no extra movement to move a Grappled creature of your size or smaller (Out of Scope — encounter-layer movement rule)."
+      "note": "SRD 5.2 Grappler. +1 STR or DEX. Punch and Grab: on hit with Unarmed Strike as part of Attack action, free Grapple option simultaneously. Attack Advantage: Advantage on attacks against a creature Grappled by you (trait.grappler-advantage-vs-grappled \u2014 engine cannot check target's grapple state, surfaced as trait tag for UI tracking). Fast Wrestler: no extra movement to move a Grappled creature of your size or smaller (Out of Scope \u2014 encounter-layer movement rule)."
     }
   },
   {
@@ -1095,8 +1126,12 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "ranged" },
-              { "attack.classification": "weapon" }
+              {
+                "attack.range": "ranged"
+              },
+              {
+                "attack.classification": "weapon"
+              }
             ]
           },
           "effects": [
@@ -1151,8 +1186,15 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" },
-              { "weapon.property": ["two-handed", "versatile"] }
+              {
+                "attack.range": "melee"
+              },
+              {
+                "weapon.property": [
+                  "two-handed",
+                  "versatile"
+                ]
+              }
             ]
           },
           "effects": [
@@ -1164,7 +1206,7 @@
           ]
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat. Modeled as damage.die.min UPGRADE 3 (minimum 3 on each damage die, equivalent to SRD reroll-1s-and-2s; weapon.held: two-hands predicate removed — engine cannot detect hand state)."
+      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat. Modeled as damage.die.min UPGRADE 3 (minimum 3 on each damage die, equivalent to SRD reroll-1s-and-2s; weapon.held: two-hands predicate removed \u2014 engine cannot detect hand state)."
     }
   },
   {
@@ -1195,9 +1237,16 @@
     "name": "Blind Fighting",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.blindsight", "mode": "OVERRIDE", "value": 10 }
+        {
+          "kind": "stat-modifier",
+          "target": "sense.blindsight",
+          "mode": "OVERRIDE",
+          "value": 10
+        }
       ],
       "note": "SRD 5.2 Fighting Style: Blind Fighting. You gain Blindsight to a range of 10 feet."
     }
@@ -1209,7 +1258,9 @@
     "name": "Dueling",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -1219,13 +1270,19 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "attack.range": "melee" }
+              {
+                "attack.range": "melee"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": 2
+            }
           ],
-          "note": "+2 damage with melee attacks. SRD: only when wielding in one hand with no other weapons — engine cannot check weapon-hold state (weapon.held was invalid context key). Fixed: now applies to all melee attacks unconditionally."
+          "note": "+2 damage with melee attacks. SRD: only when wielding in one hand with no other weapons \u2014 engine cannot check weapon-hold state (weapon.held was invalid context key). Fixed: now applies to all melee attacks unconditionally."
         }
       ],
       "note": "SRD 5.2 Fighting Style: Dueling. +2 damage when wielding a Melee weapon in one hand and no other weapons."
@@ -1238,11 +1295,18 @@
     "name": "Interception",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.fighting-style-interception", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.fighting-style-interception",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "note": "SRD 5.2 Fighting Style: Interception. Reaction to reduce damage to an ally within 5 ft by 1d10 + Proficiency Bonus. Reaction trigger and damage reduction are encounter-layer mechanics not supported by the engine — surfaced as a trait flag."
+      "note": "SRD 5.2 Fighting Style: Interception. Reaction to reduce damage to an ally within 5 ft by 1d10 + Proficiency Bonus. Reaction trigger and damage reduction are encounter-layer mechanics not supported by the engine \u2014 surfaced as a trait flag."
     }
   },
   {
@@ -1252,11 +1316,18 @@
     "name": "Protection",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.fighting-style-protection", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.fighting-style-protection",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "note": "SRD 5.2 Fighting Style: Protection. Reaction to impose disadvantage on an attack against an ally within 5 ft (requires shield). Reaction and disadvantage imposition are encounter-layer mechanics not supported by the engine — surfaced as a trait flag."
+      "note": "SRD 5.2 Fighting Style: Protection. Reaction to impose disadvantage on an attack against an ally within 5 ft (requires shield). Reaction and disadvantage imposition are encounter-layer mechanics not supported by the engine \u2014 surfaced as a trait flag."
     }
   },
   {
@@ -1266,7 +1337,9 @@
     "name": "Thrown Weapon Fighting",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -1276,11 +1349,17 @@
           "appliesTo": {
             "activityType": "attack",
             "predicates": [
-              { "weapon.property": "thrown" }
+              {
+                "weapon.property": "thrown"
+              }
             ]
           },
           "effects": [
-            { "target": "damage.bonus", "mode": "ADD", "value": 2 }
+            {
+              "target": "damage.bonus",
+              "mode": "ADD",
+              "value": 2
+            }
           ]
         }
       ],
@@ -1294,9 +1373,19 @@
     "name": "Blessed Warrior",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "choices": {
-        "spell": { "allowedSpells": ["sacred-flame","toll-the-dead","guidance","light"], "pick": 2 }
+        "spell": {
+          "allowedSpells": [
+            "sacred-flame",
+            "toll-the-dead",
+            "guidance",
+            "light"
+          ],
+          "pick": 2
+        }
       },
       "note": "SRD 5.2 Fighting Style: Blessed Warrior (Paladin). Learn two Cleric cantrips. CHA is your spellcasting ability for them. SRD cleric cantrips: sacred-flame, toll-the-dead, guidance, light."
     }
@@ -1308,9 +1397,17 @@
     "name": "Druidic Warrior",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "choices": {
-        "spell": { "allowedSpells": ["guidance","shillelagh"], "pick": 2 }
+        "spell": {
+          "allowedSpells": [
+            "guidance",
+            "shillelagh"
+          ],
+          "pick": 2
+        }
       },
       "note": "SRD 5.2 Fighting Style: Druidic Warrior (Ranger). Learn two Druid cantrips. WIS is your spellcasting ability for them. SRD druid cantrips: guidance, shillelagh."
     }
@@ -1322,7 +1419,9 @@
     "name": "Unarmed Fighting",
     "data": {
       "category": "fighting-style",
-      "prerequisite": { "feature": "fighting-style" },
+      "prerequisite": {
+        "feature": "fighting-style"
+      },
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -1331,14 +1430,22 @@
           "defaultEnabled": true,
           "appliesTo": {
             "activityType": "attack",
-            "predicates": [{ "weapon.kind": "unarmed" }]
+            "predicates": [
+              {
+                "weapon.kind": "unarmed"
+              }
+            ]
           },
           "effects": [
-            { "target": "damage.dice", "mode": "OVERRIDE", "value": "1d6" }
+            {
+              "target": "damage.dice",
+              "mode": "OVERRIDE",
+              "value": "1d6"
+            }
           ]
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Unarmed Fighting. Unarmed strikes deal 1d6 + STR bludgeoning damage (1d8 if two free hands — engine cannot detect free-hand status; 1d6 applied unconditionally). Start of each turn: deal 1d4 to one creature you are grappling (Out of Scope — no turn-start grapple-damage evaluator target)."
+      "note": "SRD 5.2 Fighting Style: Unarmed Fighting. Unarmed strikes deal 1d6 + STR bludgeoning damage (1d8 if two free hands \u2014 engine cannot detect free-hand status; 1d6 applied unconditionally). Start of each turn: deal 1d4 to one creature you are grappling (Out of Scope \u2014 no turn-start grapple-damage evaluator target)."
     }
   },
   {
@@ -1352,7 +1459,12 @@
         "level": 19
       },
       "abilityChoices": [
-        "str", "dex", "con", "int", "wis", "cha"
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
       ],
       "activities": [
         {
@@ -1382,7 +1494,12 @@
         "level": 19
       },
       "abilityChoices": [
-        "str", "dex", "con", "int", "wis", "cha"
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
       ],
       "triggers": [
         {
@@ -1418,7 +1535,12 @@
         "level": 19
       },
       "abilityChoices": [
-        "str", "dex", "con", "int", "wis", "cha"
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
       ],
       "activities": [
         {
@@ -1448,7 +1570,8 @@
         "level": 19
       },
       "abilityChoices": [
-        "str", "dex"
+        "str",
+        "dex"
       ],
       "modifiers": [
         {
@@ -1467,7 +1590,7 @@
               "value": true
             }
           ],
-          "note": "Bludgeoning, Piercing, and Slashing damage you deal always ignores Resistance. v0 evaluator does not implement damage.ignore-resistance — surfaces as a tagged modifier only."
+          "note": "Bludgeoning, Piercing, and Slashing damage you deal always ignores Resistance. v0 evaluator does not implement damage.ignore-resistance \u2014 surfaces as a tagged modifier only."
         }
       ],
       "triggers": [
@@ -1502,7 +1625,9 @@
         "feature": "spellcasting"
       },
       "abilityChoices": [
-        "int", "wis", "cha"
+        "int",
+        "wis",
+        "cha"
       ],
       "triggers": [
         {
@@ -1514,7 +1639,11 @@
           ],
           "scope": {
             "predicates": [
-              { "spell.slot-level": { "lte": 4 } }
+              {
+                "spell.slot-level": {
+                  "lte": 4
+                }
+              }
             ]
           },
           "grants": {
@@ -1538,7 +1667,12 @@
         "level": 19
       },
       "abilityChoices": [
-        "str", "dex", "con", "int", "wis", "cha"
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
       ],
       "modifiers": [
         {
@@ -1557,7 +1691,7 @@
           "note": "While within Dim Light or Darkness, give yourself the Invisible condition as a Bonus Action. The condition ends immediately after you take an Action, Bonus Action, or Reaction."
         }
       ],
-      "note": "SRD 5.2 Epic Boon of the Night Spirit. +1 to any ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, bonus action to become Invisible (ends on Action/Bonus Action/Reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant — engine cannot gate resistances on lighting state; surfaced as trait.shadowy-form-resistance-in-dim-light for GM/UI tracking. Radiant non-resistance is also conditional (Out of Scope)."
+      "note": "SRD 5.2 Epic Boon of the Night Spirit. +1 to any ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, bonus action to become Invisible (ends on Action/Bonus Action/Reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant \u2014 engine cannot gate resistances on lighting state; surfaced as trait.shadowy-form-resistance-in-dim-light for GM/UI tracking. Radiant non-resistance is also conditional (Out of Scope)."
     }
   },
   {
@@ -1571,7 +1705,12 @@
         "level": 19
       },
       "abilityChoices": [
-        "str", "dex", "con", "int", "wis", "cha"
+        "str",
+        "dex",
+        "con",
+        "int",
+        "wis",
+        "cha"
       ],
       "modifiers": [
         {
@@ -1581,7 +1720,75 @@
           "value": 60
         }
       ],
-      "note": "SRD 5.2 Epic Boon of Truesight. Ability Score Increase: +1 to one ability score (max 30). Truesight: you have Truesight with a range of 60 feet. The sense.truesight target is modeled analogously to sense.darkvision — v0 evaluator may need a matching evaluator path added if truesight is not yet wired."
+      "note": "SRD 5.2 Epic Boon of Truesight. Ability Score Increase: +1 to one ability score (max 30). Truesight: you have Truesight with a range of 60 feet. The sense.truesight target is modeled analogously to sense.darkvision \u2014 v0 evaluator may need a matching evaluator path added if truesight is not yet wired."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "moderately-armored",
+    "version": 1,
+    "name": "Moderately Armored",
+    "data": {
+      "category": "general",
+      "description": "You have trained to master the use of medium armor and shields, gaining the following benefits: +1 to Strength or Dexterity (max 20), proficiency with medium armor, and proficiency with shields.",
+      "prerequisite": {
+        "feature": "light-armor-proficiency"
+      },
+      "abilityChoices": [
+        "str",
+        "dex"
+      ],
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.armor.medium",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "proficiency.armor.shield",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "note": "PHB 2014 / PHB 2024. Grants medium armor and shield proficiency plus +1 STR or DEX. Prerequisite: light armor proficiency. Kribwynn uses this to wear Solar Dragon Half-Plate + shield for AC 20."
+    }
+  },
+  {
+    "kind": "feat",
+    "slug": "metamagic-adept",
+    "version": 1,
+    "name": "Metamagic Adept",
+    "data": {
+      "category": "general",
+      "description": "You have learned how to twist your spells to suit your needs. You gain the following benefits: learn 2 Metamagic options, gain 2 Sorcery Points (which can only be used for Metamagic), and if you have the Spellcasting or Pact Magic feature you can use those Metamagic options.",
+      "prerequisite": {
+        "feature": "spellcasting-or-pact-magic"
+      },
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "resource.sorcery-points",
+          "mode": "ADD",
+          "value": 2
+        }
+      ],
+      "choice": {
+        "kind": "metamagic",
+        "pick": 2,
+        "from": [
+          "careful-spell",
+          "distant-spell",
+          "empowered-spell",
+          "extended-spell",
+          "heightened-spell",
+          "quickened-spell",
+          "subtle-spell",
+          "twinned-spell"
+        ]
+      },
+      "note": "TCoE p.80. For characters who don't have Sorcerous Origin, Metamagic Adept gives access to 2 metamagic options. For sorcerers, it adds 2 extra sorcery points and 2 more metamagic picks (beyond the base 2). The resource.sorcery-points ADD modifier stacks with Font of Magic's activity-based pool."
     }
   }
 ]

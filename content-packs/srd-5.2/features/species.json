@@ -14,9 +14,14 @@
           "type": "utility",
           "name": "Adrenaline Rush",
           "cost": "bonus",
-          "effect": { "type": "dash" },
+          "effect": {
+            "type": "dash"
+          },
           "grantsTempHp": "proficiencyBonus",
-          "uses": { "max": "proficiencyBonus", "per": "short-rest" }
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "short-rest"
+          }
         }
       ]
     }
@@ -35,10 +40,24 @@
           "kind": "trigger",
           "id": "relentless-endurance",
           "name": "Relentless Endurance",
-          "on": ["damage.reduce-to-zero"],
-          "scope": { "predicates": [{ "self": true }] },
-          "grants": { "type": "set-hp", "value": 1 },
-          "limit": { "per": "long-rest", "uses": 1 }
+          "on": [
+            "damage.reduce-to-zero"
+          ],
+          "scope": {
+            "predicates": [
+              {
+                "self": true
+              }
+            ]
+          },
+          "grants": {
+            "type": "set-hp",
+            "value": 1
+          },
+          "limit": {
+            "per": "long-rest",
+            "uses": 1
+          }
         }
       ]
     }
@@ -53,7 +72,12 @@
       "ownerSlug": "orc",
       "note": "SRD 5.2: You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.powerful-build",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -67,16 +91,31 @@
       "ownerSlug": "human",
       "note": "SRD 5.2: You gain Heroic Inspiration whenever you finish a Long Rest.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.resourceful", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.resourceful",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "triggers": [
         {
           "kind": "trigger",
           "id": "resourceful-inspiration",
           "name": "Resourceful",
-          "on": ["rest.long-rest.end"],
-          "scope": { "predicates": [{ "self": true }] },
-          "grants": { "type": "heroic-inspiration" }
+          "on": [
+            "rest.long-rest.end"
+          ],
+          "scope": {
+            "predicates": [
+              {
+                "self": true
+              }
+            ]
+          },
+          "grants": {
+            "type": "heroic-inspiration"
+          }
         }
       ]
     }
@@ -91,7 +130,12 @@
       "ownerSlug": "human",
       "note": "SRD 5.2: You gain proficiency in one skill of your choice. Modeled as a choice slot; the chosen skill proficiency is applied at character creation.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "tag.skillful-skill-choice", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "tag.skillful-skill-choice",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -105,7 +149,12 @@
       "ownerSlug": "human",
       "note": "SRD 5.2: You gain an Origin feat of your choice. This is in addition to the Origin feat granted by your background. The choice is made at character creation and cannot be changed.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "tag.versatile-origin-feat-choice", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "tag.versatile-origin-feat-choice",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -119,8 +168,18 @@
       "ownerSlug": "dwarf",
       "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Poisoned condition. You also have Resistance to Poison damage.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.poisoned", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.poison",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.vs-condition.poisoned",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -134,7 +193,12 @@
       "ownerSlug": "dwarf",
       "note": "SRD 5.2: Your hit point maximum increases by 1, and it increases by 1 again whenever you gain a level.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "hp.max", "mode": "ADD", "value": "totalLevel" }
+        {
+          "kind": "stat-modifier",
+          "target": "hp.max",
+          "mode": "ADD",
+          "value": "totalLevel"
+        }
       ]
     }
   },
@@ -148,7 +212,12 @@
       "ownerSlug": "dwarf",
       "note": "SRD 5.2: As a Bonus Action, you gain Tremorsense with a range of 60 feet for 10 minutes; you must be on a stone surface or touching such a surface to use this sense. Usable PB times per long rest.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.stonecunning", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.stonecunning",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "activities": [
         {
@@ -156,8 +225,17 @@
           "type": "utility",
           "name": "Stonecunning",
           "cost": "bonus",
-          "effect": { "type": "grant-sense", "sense": "tremorsense", "range": 60, "duration": "10-minutes", "requires": "touching-stone" },
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+          "effect": {
+            "type": "grant-sense",
+            "sense": "tremorsense",
+            "range": 60,
+            "duration": "10-minutes",
+            "requires": "touching-stone"
+          },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -173,7 +251,12 @@
       "note": "Gain proficiency with Jeweler's Tools, Mason's Tools, Smith's Tools, or Tinker's Tools (choice at creation). Engine emits proficiency.tool.<slug> from choices.toolProficiency pick.",
       "choices": {
         "toolProficiency": {
-          "allowedTools": ["jewelers-tools", "masons-tools", "smiths-tools", "tinkers-tools"]
+          "allowedTools": [
+            "jewelers-tools",
+            "masons-tools",
+            "smiths-tools",
+            "tinkers-tools"
+          ]
         }
       }
     }
@@ -215,8 +298,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Black dragon ancestry: Acid damage type. Breath weapon: 30-ft line, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "black" },
-        { "kind": "stat-modifier", "target": "resistance.acid", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "black"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.acid",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -230,8 +323,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Blue dragon ancestry: Lightning damage type. Breath weapon: 30-ft line, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "blue" },
-        { "kind": "stat-modifier", "target": "resistance.lightning", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "blue"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.lightning",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -245,8 +348,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Brass dragon ancestry: Fire damage type. Breath weapon: 30-ft line, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "brass" },
-        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "brass"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.fire",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -260,8 +373,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Bronze dragon ancestry: Lightning damage type. Breath weapon: 30-ft line, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "bronze" },
-        { "kind": "stat-modifier", "target": "resistance.lightning", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "bronze"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.lightning",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -275,8 +398,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Copper dragon ancestry: Acid damage type. Breath weapon: 30-ft line, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "copper" },
-        { "kind": "stat-modifier", "target": "resistance.acid", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "copper"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.acid",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -290,8 +423,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Gold dragon ancestry: Fire damage type. Breath weapon: 15-ft cone, CON save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "gold" },
-        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "gold"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.fire",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -305,8 +448,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Green dragon ancestry: Poison damage type. Breath weapon: 15-ft cone, CON save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "green" },
-        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "green"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.poison",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -320,8 +473,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Red dragon ancestry: Fire damage type. Breath weapon: 15-ft cone, DEX save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "red" },
-        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "red"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.fire",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -335,8 +498,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "Silver dragon ancestry: Cold damage type. Breath weapon: 15-ft cone, CON save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "silver" },
-        { "kind": "stat-modifier", "target": "resistance.cold", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "silver"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.cold",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -350,8 +523,18 @@
       "ownerSlug": "draconic-ancestry",
       "note": "White dragon ancestry: Cold damage type. Breath weapon: 15-ft cone, CON save.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": "white" },
-        { "kind": "stat-modifier", "target": "resistance.cold", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": "white"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.cold",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -370,15 +553,57 @@
           "type": "save",
           "name": "Breath Weapon",
           "cost": "action",
-          "range": { "value": 15, "units": "ft" },
-          "save": { "ability": "dex", "dc": { "calc": "custom", "base": 8, "bonus": ["conMod", "proficiencyBonus"] } },
-          "damage": {
-            "parts": [{
-              "dice": { "perTotalLevel": true, "table": ["1d10","1d10","1d10","1d10","2d10","2d10","2d10","2d10","2d10","2d10","3d10","3d10","3d10","3d10","3d10","3d10","4d10","4d10","4d10","4d10"] },
-              "type": "varies"
-            }]
+          "range": {
+            "value": 15,
+            "units": "ft"
           },
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "custom",
+              "base": 8,
+              "bonus": [
+                "conMod",
+                "proficiencyBonus"
+              ]
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": {
+                  "perTotalLevel": true,
+                  "table": [
+                    "1d10",
+                    "1d10",
+                    "1d10",
+                    "1d10",
+                    "2d10",
+                    "2d10",
+                    "2d10",
+                    "2d10",
+                    "2d10",
+                    "2d10",
+                    "3d10",
+                    "3d10",
+                    "3d10",
+                    "3d10",
+                    "3d10",
+                    "3d10",
+                    "4d10",
+                    "4d10",
+                    "4d10",
+                    "4d10"
+                  ]
+                },
+                "type": "varies"
+              }
+            ]
+          },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -411,8 +636,16 @@
           "name": "Draconic Flight",
           "cost": "bonus",
           "minLevel": 5,
-          "effect": { "type": "grant-speed", "speed": "fly", "value": "walk", "duration": "10-minutes" },
-          "uses": { "max": 1, "per": "long-rest" }
+          "effect": {
+            "type": "grant-speed",
+            "speed": "fly",
+            "value": "walk",
+            "duration": "10-minutes"
+          },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -427,7 +660,12 @@
       "ownerSlug": "elf",
       "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Charmed condition.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.charmed", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.vs-condition.charmed",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -442,7 +680,11 @@
       "note": "Gain proficiency in Insight, Perception, or Survival. Engine emits proficiency.skill.<slug> from choices.skillProficiency pick stored in species.choices.",
       "choices": {
         "skillProficiency": {
-          "allowedSkills": ["insight", "perception", "survival"]
+          "allowedSkills": [
+            "insight",
+            "perception",
+            "survival"
+          ]
         }
       }
     }
@@ -455,9 +697,14 @@
     "data": {
       "ownerKind": "species",
       "ownerSlug": "elf",
-      "note": "SRD 5.2: You don't need to sleep. Instead, you meditate deeply for 4 hours a day (the game terms this a semiconscious state), after which you gain the same benefit as a human from 8 hours of sleep. While meditating you can dream after a fashion; such dreams are actually mental exercises that have become reflexive through years of practice. You also gain proficiency with one weapon or tool of your choice at the end of each trance. Informational flag only — rest mechanics and bonus proficiency require engine support.",
+      "note": "SRD 5.2: You don't need to sleep. Instead, you meditate deeply for 4 hours a day (the game terms this a semiconscious state), after which you gain the same benefit as a human from 8 hours of sleep. While meditating you can dream after a fashion; such dreams are actually mental exercises that have become reflexive through years of practice. You also gain proficiency with one weapon or tool of your choice at the end of each trance. Informational flag only \u2014 rest mechanics and bonus proficiency require engine support.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.trance", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.trance",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -491,9 +738,16 @@
       "ownerSlug": "elven-lineage",
       "note": "SRD 5.2 Drow lineage: Superior Darkvision (120 ft), Dancing Lights cantrip (not in SRD pack), Faerie Fire at L3 (1/long-rest), Darkness at L5 (1/long-rest, not in SRD pack). Provides 120-ft darkvision override and Faerie Fire via spellListAdditions.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "OVERRIDE", "value": 120 }
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "OVERRIDE",
+          "value": 120
+        }
       ],
-      "spellListAdditions": ["faerie-fire"]
+      "spellListAdditions": [
+        "faerie-fire"
+      ]
     }
   },
   {
@@ -505,7 +759,11 @@
       "ownerKind": "feature",
       "ownerSlug": "elven-lineage",
       "note": "SRD 5.2 High Elf lineage: Prestidigitation cantrip, Detect Magic at L3 (1/long-rest), Misty Step at L5 (1/long-rest). All three spells are in the SRD pack.",
-      "spellListAdditions": ["prestidigitation", "detect-magic", "misty-step"]
+      "spellListAdditions": [
+        "prestidigitation",
+        "detect-magic",
+        "misty-step"
+      ]
     }
   },
   {
@@ -518,7 +776,12 @@
       "ownerSlug": "elven-lineage",
       "note": "SRD 5.2 Wood Elf lineage: Walking speed +5 ft, Druidcraft cantrip (not in SRD pack), Longstrider at L3 and Pass Without Trace at L5 (neither in SRD pack). Only the speed bonus is applied.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 5 }
+        {
+          "kind": "stat-modifier",
+          "target": "speed.walk",
+          "mode": "ADD",
+          "value": 5
+        }
       ]
     }
   },
@@ -532,9 +795,24 @@
       "ownerSlug": "gnome",
       "note": "SRD 5.2: You have advantage on Intelligence, Wisdom, and Charisma saving throws against spells and other magical effects.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.int", "mode": "OVERRIDE", "value": "magic" },
-        { "kind": "stat-modifier", "target": "save.advantage.wis", "mode": "OVERRIDE", "value": "magic" },
-        { "kind": "stat-modifier", "target": "save.advantage.cha", "mode": "OVERRIDE", "value": "magic" }
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.int",
+          "mode": "OVERRIDE",
+          "value": "magic"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.wis",
+          "mode": "OVERRIDE",
+          "value": "magic"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.cha",
+          "mode": "OVERRIDE",
+          "value": "magic"
+        }
       ]
     }
   },
@@ -567,7 +845,12 @@
       "ownerSlug": "gnomish-lineage",
       "note": "SRD 5.2 Forest Gnome: Minor Illusion cantrip (not in SRD pack) and Speak with Small Beasts (not evaluatable). Surfaced as a trait flag.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.gnomish-lineage-forest", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.gnomish-lineage-forest",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -579,10 +862,17 @@
     "data": {
       "ownerKind": "feature",
       "ownerSlug": "gnomish-lineage",
-      "note": "SRD 5.2 Rock Gnome: Mending cantrip (not in SRD pack), Prestidigitation cantrip, and Tinker ability (craft Tiny Clockwork Devices — not evaluatable). Prestidigitation added to spell list.",
-      "spellListAdditions": ["prestidigitation"],
+      "note": "SRD 5.2 Rock Gnome: Mending cantrip (not in SRD pack), Prestidigitation cantrip, and Tinker ability (craft Tiny Clockwork Devices \u2014 not evaluatable). Prestidigitation added to spell list.",
+      "spellListAdditions": [
+        "prestidigitation"
+      ],
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.gnomish-lineage-rock-tinker", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.gnomish-lineage-rock-tinker",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -624,8 +914,14 @@
           "type": "utility",
           "name": "Cloud's Jaunt (Teleport 30 ft)",
           "cost": "bonus",
-          "range": { "value": 30, "units": "ft" },
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+          "range": {
+            "value": 30,
+            "units": "ft"
+          },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -646,9 +942,17 @@
           "name": "Fire's Burn (1d10 Fire)",
           "cost": "free",
           "damage": {
-            "parts": [{ "dice": "1d10", "type": "fire" }]
+            "parts": [
+              {
+                "dice": "1d10",
+                "type": "fire"
+              }
+            ]
           },
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" }
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -666,9 +970,17 @@
         {
           "id": "giant-ancestry-frost",
           "name": "Frost's Chill (Reduce Damage)",
-          "on": ["attack.targets-self.hit"],
-          "grants": { "type": "damage.reduce", "amount": "1d12+strMod" },
-          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+          "on": [
+            "attack.targets-self.hit"
+          ],
+          "grants": {
+            "type": "damage.reduce",
+            "amount": "1d12+strMod"
+          },
+          "limit": {
+            "per": "long-rest",
+            "uses": "proficiencyBonus"
+          }
         }
       ]
     }
@@ -686,9 +998,24 @@
         {
           "id": "giant-ancestry-hill",
           "name": "Hill's Tumble (Knock Prone on Hit)",
-          "on": ["attack.hit"],
-          "grants": { "type": "knock-prone", "dc": { "calc": "custom", "base": 8, "bonus": ["strMod", "proficiencyBonus"] } },
-          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+          "on": [
+            "attack.hit"
+          ],
+          "grants": {
+            "type": "knock-prone",
+            "dc": {
+              "calc": "custom",
+              "base": 8,
+              "bonus": [
+                "strMod",
+                "proficiencyBonus"
+              ]
+            }
+          },
+          "limit": {
+            "per": "long-rest",
+            "uses": "proficiencyBonus"
+          }
         }
       ]
     }
@@ -706,9 +1033,17 @@
         {
           "id": "giant-ancestry-stone",
           "name": "Stone's Endurance (Reduce Damage)",
-          "on": ["damage.taken"],
-          "grants": { "type": "damage.reduce", "amount": "1d12+conMod" },
-          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+          "on": [
+            "damage.taken"
+          ],
+          "grants": {
+            "type": "damage.reduce",
+            "amount": "1d12+conMod"
+          },
+          "limit": {
+            "per": "long-rest",
+            "uses": "proficiencyBonus"
+          }
         }
       ]
     }
@@ -726,9 +1061,25 @@
         {
           "id": "giant-ancestry-storm",
           "name": "Storm's Thunder (Push & Stun on Hit)",
-          "on": ["attack.hit"],
-          "grants": { "type": "push-and-lose-reactions", "distance": 10, "dc": { "calc": "custom", "base": 8, "bonus": ["strMod", "proficiencyBonus"] } },
-          "limit": { "per": "long-rest", "uses": "proficiencyBonus" }
+          "on": [
+            "attack.hit"
+          ],
+          "grants": {
+            "type": "push-and-lose-reactions",
+            "distance": 10,
+            "dc": {
+              "calc": "custom",
+              "base": 8,
+              "bonus": [
+                "strMod",
+                "proficiencyBonus"
+              ]
+            }
+          },
+          "limit": {
+            "per": "long-rest",
+            "uses": "proficiencyBonus"
+          }
         }
       ]
     }
@@ -754,11 +1105,24 @@
             "type": "grow-large",
             "duration": "10-minutes",
             "grants": [
-              { "kind": "stat-modifier", "target": "ability.str.check.advantage", "mode": "OVERRIDE", "value": true },
-              { "kind": "stat-modifier", "target": "speed.walk", "mode": "ADD", "value": 10 }
+              {
+                "kind": "stat-modifier",
+                "target": "ability.str.check.advantage",
+                "mode": "OVERRIDE",
+                "value": true
+              },
+              {
+                "kind": "stat-modifier",
+                "target": "speed.walk",
+                "mode": "ADD",
+                "value": 10
+              }
             ]
           },
-          "uses": { "max": 1, "per": "long-rest" }
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -773,7 +1137,12 @@
       "ownerSlug": "goliath",
       "note": "SRD 5.2: You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.powerful-build",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -787,7 +1156,12 @@
       "ownerSlug": "halfling",
       "note": "SRD 5.2: You have advantage on saving throws you make to avoid or end the Frightened condition.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.frightened", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.vs-condition.frightened",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -801,7 +1175,12 @@
       "ownerSlug": "halfling",
       "note": "SRD 5.2: You can move through the space of any creature of a size larger than yours, but you can't stop in the same space as that creature. Informational flag.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.halfling-nimbleness", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.halfling-nimbleness",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -819,9 +1198,20 @@
           "kind": "trigger",
           "id": "halfling-luck",
           "name": "Lucky",
-          "on": ["d20.roll-natural-one"],
-          "scope": { "predicates": [{ "self": true }] },
-          "grants": { "type": "reroll-d20", "useNewRoll": true }
+          "on": [
+            "d20.roll-natural-one"
+          ],
+          "scope": {
+            "predicates": [
+              {
+                "self": true
+              }
+            ]
+          },
+          "grants": {
+            "type": "reroll-d20",
+            "useNewRoll": true
+          }
         }
       ]
     }
@@ -856,9 +1246,16 @@
       "ownerSlug": "fiendish-legacy",
       "note": "SRD 5.2 Abyssal legacy: Poison resistance; Poison Spray cantrip (not in SRD pack); Ray of Sickness at L3 (not in SRD pack); Hold Person at L5 (1/long-rest). Hold Person added via spellListAdditions.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "resistance.poison", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.poison",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "spellListAdditions": ["hold-person"]
+      "spellListAdditions": [
+        "hold-person"
+      ]
     }
   },
   {
@@ -871,7 +1268,12 @@
       "ownerSlug": "fiendish-legacy",
       "note": "SRD 5.2 Chthonic legacy: Necrotic resistance; Chill Touch cantrip (not in SRD pack); False Life at L3 (not in SRD pack); Ray of Enfeeblement at L5 (not in SRD pack). Only resistance is applied.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "resistance.necrotic", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.necrotic",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -885,9 +1287,16 @@
       "ownerSlug": "fiendish-legacy",
       "note": "SRD 5.2 Infernal legacy: Fire resistance; Fire Bolt cantrip; Hellish Rebuke at L3 (not in SRD pack); Darkness at L5 (not in SRD pack). Fire Bolt added via spellListAdditions.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "resistance.fire", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.fire",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "spellListAdditions": ["fire-bolt"]
+      "spellListAdditions": [
+        "fire-bolt"
+      ]
     }
   },
   {
@@ -900,8 +1309,40 @@
       "ownerSlug": "tiefling",
       "note": "SRD 5.2: You know the Thaumaturgy cantrip (not in SRD pack). Spellcasting ability is determined by Fiendish Legacy choice (Abyssal: Wis; Chthonic: Int; Infernal: Cha). Surfaced as a trait flag; Thaumaturgy not available in SRD pack.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.otherworldly-presence", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.otherworldly-presence",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
+    }
+  },
+  {
+    "kind": "feature",
+    "slug": "celestial-revelation",
+    "version": 1,
+    "name": "Celestial Revelation",
+    "data": {
+      "ownerKind": "species",
+      "ownerSlug": "aasimar",
+      "minLevel": 3,
+      "description": "When you reach 3rd level, you can transform using your Angelic (Healing Hands), Necrotic Shroud, or Radiant Consumption form as a Bonus Action. The transformation lasts for 1 minute or until you end it as a Bonus Action. It can be used a number of times equal to your Proficiency Bonus per Long Rest.",
+      "activities": [
+        {
+          "id": "celestial-revelation",
+          "type": "utility",
+          "name": "Celestial Revelation",
+          "cost": "bonus-action",
+          "uses": {
+            "max": {
+              "formula": "proficiencyBonus"
+            },
+            "per": "long-rest"
+          }
+        }
+      ],
+      "note": "Mordenkainen Presents / 2024 PHB Aasimar. At L3 choose one of three revelation forms (Angelic, Necrotic Shroud, Radiant Consumption). Each form provides unique effects for 1 minute. PB uses per long rest. v0 surfaces the activity; the specific revelation form effects are tracked via character notes until engine supports form choices."
     }
   }
 ]

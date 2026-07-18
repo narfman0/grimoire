@@ -6,13 +6,31 @@
     "name": "Orc",
     "data": {
       "size": "medium",
-      "speed": { "walk": 30 },
-      "languages": ["common"],
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 120 },
-        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true }
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common"
       ],
-      "features": ["adrenaline-rush", "relentless-endurance", "powerful-build-orc"]
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "UPGRADE",
+          "value": 120
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.powerful-build",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "features": [
+        "adrenaline-rush",
+        "relentless-endurance",
+        "powerful-build-orc"
+      ]
     }
   },
   {
@@ -22,11 +40,19 @@
     "name": "Human",
     "data": {
       "size": "medium",
-      "speed": { "walk": 30 },
-      "languages": ["common"],
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common"
+      ],
       "note": "SRD 5.2: Humans know Common plus one additional language of their choice.",
       "modifiers": [],
-      "features": ["resourceful", "skillful", "versatile"]
+      "features": [
+        "resourceful",
+        "skillful",
+        "versatile"
+      ]
     }
   },
   {
@@ -36,12 +62,27 @@
     "name": "Dwarf",
     "data": {
       "size": "medium",
-      "speed": { "walk": 30 },
-      "languages": ["common", "dwarvish"],
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 }
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common",
+        "dwarvish"
       ],
-      "features": ["dwarven-resilience", "dwarven-toughness", "stonecunning", "dwarven-tool-proficiency"]
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "UPGRADE",
+          "value": 60
+        }
+      ],
+      "features": [
+        "dwarven-resilience",
+        "dwarven-toughness",
+        "stonecunning",
+        "dwarven-tool-proficiency"
+      ]
     }
   },
   {
@@ -51,13 +92,28 @@
     "name": "Dragonborn",
     "data": {
       "size": "medium",
-      "speed": { "walk": 30 },
-      "languages": ["common", "draconic"],
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common",
+        "draconic"
+      ],
       "note": "Draconic ancestry choice is folded into a single species row. Player picks via trait.draconic-ancestry flag at character creation (black|blue|brass|bronze|copper|gold|green|red|silver|white); damage type follows from that choice. Subspecies model intentionally skipped for v0. SRD 5.2: Dragonborn do NOT have darkvision.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.draconic-ancestry", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.draconic-ancestry",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "features": ["draconic-ancestry", "breath-weapon", "damage-resistance-draconic", "draconic-flight"]
+      "features": [
+        "draconic-ancestry",
+        "breath-weapon",
+        "damage-resistance-draconic",
+        "draconic-flight"
+      ]
     }
   },
   {
@@ -67,16 +123,46 @@
     "name": "Elf",
     "data": {
       "size": "medium",
-      "speed": { "walk": 30 },
-      "languages": ["common", "elvish"],
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common",
+        "elvish"
+      ],
       "note": "Elven Lineage (Drow/High/Wood) folded into informational trait.elven-lineage flag and a single elven-lineage feature for v0; lineage-specific spell/speed bumps not modeled here.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
-        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.charmed", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "trait.fey-ancestry", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "trait.trance", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "UPGRADE",
+          "value": 60
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.vs-condition.charmed",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.fey-ancestry",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.trance",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "features": ["fey-ancestry", "keen-senses", "trance", "elven-lineage"]
+      "features": [
+        "fey-ancestry",
+        "keen-senses",
+        "trance",
+        "elven-lineage"
+      ]
     }
   },
   {
@@ -86,16 +172,44 @@
     "name": "Gnome",
     "data": {
       "size": "small",
-      "speed": { "walk": 30 },
-      "languages": ["common", "gnomish"],
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common",
+        "gnomish"
+      ],
       "note": "Gnomish Lineage (Forest/Rock) folded into informational trait.gnomish-lineage flag and a single gnomish-lineage feature for v0; lineage-specific cantrips/tool proficiencies not modeled.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
-        { "kind": "stat-modifier", "target": "save.advantage.int", "mode": "OVERRIDE", "value": "magic" },
-        { "kind": "stat-modifier", "target": "save.advantage.wis", "mode": "OVERRIDE", "value": "magic" },
-        { "kind": "stat-modifier", "target": "save.advantage.cha", "mode": "OVERRIDE", "value": "magic" }
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "UPGRADE",
+          "value": 60
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.int",
+          "mode": "OVERRIDE",
+          "value": "magic"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.wis",
+          "mode": "OVERRIDE",
+          "value": "magic"
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.cha",
+          "mode": "OVERRIDE",
+          "value": "magic"
+        }
       ],
-      "features": ["gnomish-cunning", "gnomish-lineage"]
+      "features": [
+        "gnomish-cunning",
+        "gnomish-lineage"
+      ]
     }
   },
   {
@@ -105,14 +219,33 @@
     "name": "Goliath",
     "data": {
       "size": "medium",
-      "speed": { "walk": 35 },
-      "languages": ["common", "giant"],
+      "speed": {
+        "walk": 35
+      },
+      "languages": [
+        "common",
+        "giant"
+      ],
       "note": "Giant Ancestry choice (Cloud/Fire/Frost/Hill/Stone/Storm) folded into trait.giant-ancestry flag for v0; ancestry-specific bonus actions modeled as a single giant-ancestry feature.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.powerful-build", "mode": "OVERRIDE", "value": true },
-        { "kind": "stat-modifier", "target": "trait.large-form", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.powerful-build",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.large-form",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "features": ["giant-ancestry", "large-form", "powerful-build-goliath"]
+      "features": [
+        "giant-ancestry",
+        "large-form",
+        "powerful-build-goliath"
+      ]
     }
   },
   {
@@ -122,12 +255,25 @@
     "name": "Halfling",
     "data": {
       "size": "small",
-      "speed": { "walk": 30 },
-      "languages": ["common"],
-      "modifiers": [
-        { "kind": "stat-modifier", "target": "save.advantage.vs-condition.frightened", "mode": "OVERRIDE", "value": true }
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common"
       ],
-      "features": ["brave", "halfling-nimbleness", "luck"]
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "save.advantage.vs-condition.frightened",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "features": [
+        "brave",
+        "halfling-nimbleness",
+        "luck"
+      ]
     }
   },
   {
@@ -137,14 +283,73 @@
     "name": "Tiefling",
     "data": {
       "size": "medium",
-      "speed": { "walk": 30 },
-      "languages": ["common", "infernal"],
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "common",
+        "infernal"
+      ],
       "note": "Fiendish Legacy (Abyssal/Chthonic/Infernal) folded into trait.fiendish-legacy flag for v0; legacy-specific resistance and per-tier spell list collapsed into one fiendish-legacy feature with a generic save activity at L3/L5.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "sense.darkvision", "mode": "UPGRADE", "value": 60 },
-        { "kind": "stat-modifier", "target": "trait.fiendish-legacy", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "UPGRADE",
+          "value": 60
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "trait.fiendish-legacy",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
-      "features": ["fiendish-legacy", "otherworldly-presence"]
+      "features": [
+        "fiendish-legacy",
+        "otherworldly-presence"
+      ]
+    }
+  },
+  {
+    "kind": "species",
+    "slug": "aasimar",
+    "version": 1,
+    "name": "Aasimar",
+    "data": {
+      "size": "medium",
+      "speed": {
+        "walk": 30
+      },
+      "languages": [
+        "celestial",
+        "common"
+      ],
+      "description": "Aasimar are mortals who carry a spark of the Upper Planes within their souls. They are descended from celestial beings, blessed by a deity, or touched by divine energy at a formative moment. Their celestial heritage grants them supernatural gifts.",
+      "modifiers": [
+        {
+          "kind": "stat-modifier",
+          "target": "sense.darkvision",
+          "mode": "UPGRADE",
+          "value": 60
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.necrotic",
+          "mode": "OVERRIDE",
+          "value": true
+        },
+        {
+          "kind": "stat-modifier",
+          "target": "resistance.radiant",
+          "mode": "OVERRIDE",
+          "value": true
+        }
+      ],
+      "features": [
+        "celestial-revelation"
+      ],
+      "note": "2024 SRD / Mordenkainen's Multiverse: Aasimar. Darkvision 60 ft, necrotic and radiant resistance (Celestial Resistance), plus the Celestial Revelation transformative feature at L3."
     }
   }
 ]
