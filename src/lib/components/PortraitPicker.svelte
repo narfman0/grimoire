@@ -6,8 +6,18 @@
 
   const dispatch = createEventDispatcher<{ select: string }>();
 
-  type GalleryEntry = { slug: string; label: string; url: string };
-  let gallery: GalleryEntry[] = [];
+  type GalleryEntry = { slug: string; label: string; url: string; group?: string };
+  type Group = { key: string; label: string; entries: GalleryEntry[] };
+
+  const GROUP_LABELS: Record<string, string> = {
+    party: 'Party',
+    aasimar: 'Aasimar', dragonborn: 'Dragonborn', dwarf: 'Dwarf',
+    elf: 'Elf', gnome: 'Gnome', goliath: 'Goliath', 'half-orc': 'Half-Orc',
+    halfling: 'Halfling', human: 'Human', tabaxi: 'Tabaxi',
+    tiefling: 'Tiefling', tortle: 'Tortle', generic: 'Other',
+  };
+
+  let groups: Group[] = [];
   let loading = true;
   let uploadBusy = false;
   let uploadError: string | null = null;
@@ -16,9 +26,20 @@
   async function loadGallery() {
     try {
       const res = await fetch('/portraits/gallery.json');
-      gallery = await res.json();
+      const entries: GalleryEntry[] = await res.json();
+      const map = new Map<string, GalleryEntry[]>();
+      for (const e of entries) {
+        const key = e.group ?? 'generic';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(e);
+      }
+      groups = [...map.entries()].map(([key, entries]) => ({
+        key,
+        label: GROUP_LABELS[key] ?? key,
+        entries,
+      }));
     } catch {
-      gallery = [];
+      groups = [];
     } finally {
       loading = false;
     }
@@ -44,7 +65,7 @@
       }
       const { url } = await res.json();
       dispatch('select', url);
-    } catch (err) {
+    } catch {
       uploadError = 'Upload failed';
     } finally {
       uploadBusy = false;
@@ -58,27 +79,36 @@
     <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Gallery</p>
     {#if loading}
       <p class="text-xs text-slate-500">Loading…</p>
+    {:else if groups.length === 0}
+      <p class="text-xs text-slate-500">No portraits available.</p>
     {:else}
-      <div class="grid grid-cols-4 gap-2">
-        {#each gallery as entry}
-          <button
-            class="group relative overflow-hidden rounded border-2 transition-all
-              {currentPortrait === entry.url
-                ? 'border-emerald-400'
-                : 'border-slate-700 hover:border-slate-500'}"
-            on:click={() => dispatch('select', entry.url)}
-            title={entry.label}
-          >
-            <img
-              src={entry.url}
-              alt={entry.label}
-              class="aspect-[2/3] w-full object-cover object-top"
-              loading="lazy"
-            />
-            <span class="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-center text-[9px] text-slate-300 opacity-0 transition-opacity group-hover:opacity-100">
-              {entry.label}
-            </span>
-          </button>
+      <div class="space-y-3">
+        {#each groups as group}
+          <div>
+            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{group.label}</p>
+            <div class="grid grid-cols-4 gap-2">
+              {#each group.entries as entry}
+                <button
+                  class="group relative overflow-hidden rounded border-2 transition-all
+                    {currentPortrait === entry.url
+                      ? 'border-emerald-400'
+                      : 'border-slate-700 hover:border-slate-500'}"
+                  on:click={() => dispatch('select', entry.url)}
+                  title={entry.label}
+                >
+                  <img
+                    src={entry.url}
+                    alt={entry.label}
+                    class="aspect-[2/3] w-full object-cover object-top"
+                    loading="lazy"
+                  />
+                  <span class="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-center text-[9px] text-slate-300 opacity-0 transition-opacity group-hover:opacity-100">
+                    {entry.label}
+                  </span>
+                </button>
+              {/each}
+            </div>
+          </div>
         {/each}
       </div>
     {/if}
