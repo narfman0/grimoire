@@ -1,10 +1,11 @@
 import { json, error } from '@sveltejs/kit';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, like } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { CampaignCode, CreateCharacterRequest } from '$lib/server/api/schemas';
 import { parseJson, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCode } from '$lib/server/auth/membership';
+import { slugify } from '$lib/rules/slug';
 import type { RequestHandler } from './$types';
 
 const ListQuery = z.object({ campaign: CampaignCode.optional() });
@@ -85,8 +86,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const id = crypto.randomUUID();
   const now = new Date();
+
+  const baseSlug = slugify(name);
+  const existing = await db
+    .select({ slug: schema.characters.slug })
+    .from(schema.characters)
+    .where(and(eq(schema.characters.ownerUserId, locals.user.id), like(schema.characters.slug, `${baseSlug}%`)));
+  const taken = new Set(existing.map((r) => r.slug));
+  let slug = baseSlug;
+  for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
+
   await db.insert(schema.characters).values({
     id,
+    slug,
     campaignId,
     ownerUserId: locals.user.id,
     name,

@@ -2,7 +2,7 @@
 // call requireMembership(); page loads can call getMembership() to vary the
 // UI based on role (dm vs player).
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 import { db, schema } from '$lib/server/db';
 
@@ -154,7 +154,10 @@ export async function resolveCharacterByOwnerAndSlug(
     .from(schema.characters)
     .innerJoin(schema.users, eq(schema.users.id, schema.characters.ownerUserId))
     .where(
-      and(eq(schema.users.username, username), eq(schema.characters.slug, slug))
+      and(
+        eq(schema.users.username, username),
+        or(eq(schema.characters.slug, slug), eq(schema.characters.id, slug))
+      )
     )
     .limit(1);
   if (rows.length === 0) return null;

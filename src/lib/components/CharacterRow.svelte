@@ -11,9 +11,7 @@
   $: href =
     campaigns.length > 0
       ? `/c/${campaigns[0].code}/character/${id}`
-      : slug
-        ? `/characters/${ownerUsername}/${slug}`
-        : undefined;
+      : `/characters/${ownerUsername}/${slug ?? id}`;
   $: linkTitle = campaigns.length > 0 ? `Open in ${campaigns[0].name}` : undefined;
 </script>
 
@@ -23,11 +21,7 @@
       <img src={portrait} alt={name} class="h-10 w-7 shrink-0 rounded object-cover object-top" />
     {/if}
     <div class="min-w-0">
-      {#if href}
-        <a class="font-medium hover:text-emerald-300" {href} title={linkTitle}>{name}</a>
-      {:else}
-        <span class="font-medium text-slate-300">{name}</span>
-      {/if}
+      <a class="font-medium hover:text-emerald-300" {href} title={linkTitle}>{name}</a>
       {#if descLine}
         <p class="text-xs text-slate-500">{descLine}</p>
       {/if}
