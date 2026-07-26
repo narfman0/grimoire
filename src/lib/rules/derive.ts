@@ -216,6 +216,12 @@ interface DerivePhaseState {
   stats: StatBlock;
   actions: Action[];
   triggers: TriggerDeclaration[];
+  /** Merged (base weapon + item) row data per synthesized bound-weapon
+   *  action id (see resolveBoundWeaponSynthesis). Phase 4 consults this
+   *  before the item's own row so predicate matching (`weapon.kind` etc.)
+   *  sees the bound base's weaponType/properties instead of the enspelled
+   *  item's bare row. */
+  boundWeaponData: Map<string, Record<string, unknown>>;
 }
 
 /** Specs for the six feat-choice kinds that synthesize a stat-modifier from a
@@ -1909,7 +1915,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     resolvedConditions,
     stats,
     actions: [],
-    triggers: []
+    triggers: [],
+    boundWeaponData: new Map()
   };
 
   // -------------------------------------------------------------------------
@@ -1987,12 +1994,30 @@ function assembleActivities(s: DerivePhaseState): void {
     // attunement weapon falls back to the synthesized plain weapon
     // attack below (it still swings as a mundane weapon).
     let activities = gatedActivities(a);
+    let realizeSource = a;
     if (activities.length === 0 && a.row.kind === 'item') {
-      const synth = synthesizeWeaponActivity(a.row.slug, a.row.name, a.data);
-      if (synth) activities = [synth];
+      if (a.data.baseWeaponFromChoice === true) {
+        // Generic-variant weapon (Flame Tongue "any sword"): the item's
+        // attack is synthesized FROM the picked base weapon's row. An
+        // explicit activities[] on the item wins over synthesis (we're
+        // in the empty branch); without a pick the item contributes no
+        // attack — pendingItemChoices surfaces the gap.
+        const bound = resolveBoundWeaponSynthesis(a, content);
+        if (bound) {
+          activities = [bound.activity];
+          realizeSource = bound.source;
+          s.boundWeaponData.set(
+            `item/${a.row.slug}/${bound.activity.id as string}`,
+            bound.source.data
+          );
+        }
+      } else {
+        const synth = synthesizeWeaponActivity(a.row.slug, a.row.name, a.data);
+        if (synth) activities = [synth];
+      }
     }
     for (const act of activities) {
-      const action = realizeActivity(act, a, character, stats, content, ctx);
+      const action = realizeActivity(act, realizeSource, character, stats, content, ctx);
       if (!action) continue;
       // Crit fields only land on weapon attacks. Spell attacks crit on 20
       // and don't roll extra weapon dice.
@@ -2036,7 +2061,10 @@ function applyActionModifiers(s: DerivePhaseState): void {
 
   for (const action of actions) {
     const sourceRow = content(action.sourceContent);
-    const actionCtx = buildActionContext(action, sourceRow?.data);
+    // Bound base weapons: predicate matching sees the merged (base +
+    // item) data recorded at synthesis time, not the item's bare row.
+    const sourceData = s.boundWeaponData.get(action.id) ?? sourceRow?.data;
+    const actionCtx = buildActionContext(action, sourceData);
     for (const m of allMods) {
       if (m.kind !== 'action-modifier') continue;
       const enabled =
@@ -3878,6 +3906,43 @@ function synthesizeWeaponActivity(
       damage: [{ dice: damage, type: damageType }]
     }
   };
+}
+
+/** Base-weapon binding for generic-variant weapons (`data.
+ *  baseWeaponFromChoice: true` + a `baseWeapon` choice slot). Resolves
+ *  the picked base weapon row and produces the attack activity this
+ *  item should realize, against a source whose data is the base row's
+ *  fields overlaid with the item's own (item fields win — an item that
+ *  authors its own damage/properties keeps them; everything it omits
+ *  flows from the base, so a bound greatsword is a martial greatsword
+ *  for proficiency, finesse, and predicate purposes).
+ *
+ *  Activity selection: the base row's authored `type: 'attack'`
+ *  activity when present (SRD weapons author full activities), renamed
+ *  onto the item; else flat-damage synthesis via
+ *  synthesizeWeaponActivity against the merged data. Returns null when
+ *  no pick is recorded or the base row / attack shape can't be
+ *  resolved — the item then contributes no attack action. */
+function resolveBoundWeaponSynthesis(
+  a: ActiveContent,
+  content: ContentLookup
+): { activity: Record<string, unknown>; source: ActiveContent } | null {
+  const pick = a.inventorySlot?.choices?.baseWeapon;
+  if (typeof pick !== 'string' || pick.length === 0) return null;
+  const baseRow = content({ kind: 'item', slug: pick });
+  if (!baseRow) return null;
+  const merged: Record<string, unknown> = { ...baseRow.data, ...a.data };
+  const source: ActiveContent = { ...a, data: merged };
+  const baseActs = (baseRow.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+  const attackAct = baseActs.find((x) => x && x.type === 'attack');
+  if (attackAct) {
+    return {
+      activity: { ...attackAct, id: `${a.row.slug}-attack`, name: `${a.row.name} Attack` },
+      source
+    };
+  }
+  const synth = synthesizeWeaponActivity(a.row.slug, a.row.name, merged);
+  return synth ? { activity: synth, source } : null;
 }
 
 function buildActionContext(
