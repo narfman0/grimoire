@@ -110,4 +110,37 @@ describe('GET /api/encounters/[id]/state', () => {
     expect(pc.currentHp).toBeNull();
     expect(pc.tempHp).toBe(0);
   });
+
+  // Regression: the poll used to include hidden participants for players —
+  // an open devtools tab revealed the ambush (id, HP, plan) that the SSR
+  // page data carefully filters out.
+  it('excludes hidden participants for players but not for the DM', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const playerId = await seedUser(db, { username: 'player' });
+    const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const ambushId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Hidden Assassin'
+    });
+    await db
+      .update(schema.participants)
+      .set({
+        currentHp: 40,
+        revealsJson: JSON.stringify({ identity: false, vitals: false, combat: false, hidden: true })
+      })
+      .where(eq(schema.participants.id, ambushId));
+
+    const dmRes = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const dmBody = await dmRes.json();
+    expect(dmBody.participantHp[ambushId]).toBeDefined();
+
+    const playerRes = await GET(
+      makeEvent({ user: userOf(playerId, 'player'), params: { id: encounterId } })
+    );
+    const playerBody = await playerRes.json();
+    expect(playerBody.participantHp[ambushId]).toBeUndefined();
+    expect(playerBody.plans[ambushId]).toBeUndefined();
+  });
 });

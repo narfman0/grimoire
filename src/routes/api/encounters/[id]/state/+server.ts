@@ -6,6 +6,7 @@ import { Uuid } from '$lib/server/api/schemas';
 import { PlanJson } from '$lib/server/api/encounter-schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { parseReveals } from '$lib/realtime/reveals';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -53,7 +54,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   const role = await getMembershipByCampaignId(locals.user.id, enc.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
 
-  const partRows = await db
+  const allRows = await db
     .select({
       id: schema.participants.id,
       kind: schema.participants.kind,
@@ -63,10 +64,19 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       tempHp: schema.participants.tempHp,
       conditionsJson: schema.participants.conditionsJson,
       planJson: schema.participants.planJson,
-      concentratingJson: schema.participants.concentratingJson
+      concentratingJson: schema.participants.concentratingJson,
+      revealsJson: schema.participants.revealsJson
     })
     .from(schema.participants)
     .where(eq(schema.participants.encounterId, id));
+
+  // Players never receive hidden participants — the SSR loader filters them
+  // out of the page data, and this poll endpoint must apply the same
+  // redaction or an open devtools tab reveals the ambush (id, HP, plan).
+  const partRows =
+    role === 'dm'
+      ? allRows
+      : allRows.filter((p) => p.kind === 'pc' || !parseReveals(p.revealsJson).hidden);
 
   // PC HP / temp / conditions / concentration live on the character document,
   // not on the participants row. Loading them per-poll keeps the poll
