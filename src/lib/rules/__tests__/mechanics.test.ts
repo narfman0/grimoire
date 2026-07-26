@@ -576,6 +576,35 @@ describe('C.8 — damage-taken trigger events + soft validation', () => {
 		expect(t).toBeDefined();
 		expect(t!.on).toContain('spell.cast.within-5ft');
 	});
+
+	// Predicate DSL soft-validation — mirrors the unknown-trigger-event
+	// pattern. An operator typo like {gt: 5} for {gte: 5} silently never
+	// matches in matchValue; derive() must surface it as a warning instead
+	// of letting the modifier vanish.
+	it('emits a soft validation warning for an unknown predicate operator', () => {
+		const d = derive(charWithFeat('c8-unknown-predicate-op'), lookup());
+		const w = d.validations.find(
+			(v) => v.code === 'unknown-predicate-operator' && v.message.includes("'gt'")
+		);
+		expect(w).toBeDefined();
+		expect(w!.severity).toBe('warning');
+		expect(w!.message).toContain('weapon.damage.diceCount');
+	});
+
+	it('does not warn for known predicate operators (gte / lte / or / scalar) on the same fixture', () => {
+		// The fixture mixes known operators (gte, lte, or-branch, scalar)
+		// with exactly one bad operator — the warning count locking at 1
+		// proves no false positives fire for the valid shapes.
+		const d = derive(charWithFeat('c8-unknown-predicate-op'), lookup());
+		const warns = d.validations.filter((v) => v.code === 'unknown-predicate-operator');
+		expect(warns).toHaveLength(1);
+	});
+
+	it('does not emit unknown-predicate-operator warnings for clean characters', () => {
+		const d = derive(charWithFeat('heavy-armor-master'), lookup());
+		const warns = d.validations.filter((v) => v.code === 'unknown-predicate-operator');
+		expect(warns).toEqual([]);
+	});
 });
 
 // --- C.3: action-modifier effect targets + predicates + limit ----------------

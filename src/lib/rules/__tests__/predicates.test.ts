@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { predicateMatches } from '../predicates';
+import { KNOWN_PREDICATE_OPERATORS, predicateMatches, validatePredicateBlock } from '../predicates';
 
 describe('predicateMatches', () => {
   // Empty / undefined block → vacuous match. The check `if (!block) return
@@ -152,5 +152,59 @@ describe('predicateMatches', () => {
         ]
       })
     ).toBe(false);
+  });
+});
+
+// validatePredicateBlock — soft-validation companion to matchValue. Every
+// operator object matchValue silently rejects must be reported here so
+// derive() can warn instead of the modifier vanishing.
+describe('validatePredicateBlock', () => {
+  it('returns [] for undefined / non-object / predicate-less blocks', () => {
+    expect(validatePredicateBlock(undefined)).toEqual([]);
+    expect(validatePredicateBlock(null)).toEqual([]);
+    expect(validatePredicateBlock('nope')).toEqual([]);
+    expect(validatePredicateBlock({})).toEqual([]);
+    expect(validatePredicateBlock({ activityType: 'attack' })).toEqual([]);
+  });
+
+  it('accepts every known operator without complaint', () => {
+    const block = {
+      predicates: [
+        { a: { eq: 1 } },
+        { b: { neq: 2 } },
+        { c: { gte: 1, lte: 5 } },
+        { d: { in: ['x', 'y'] } },
+        { e: 'scalar' },
+        { f: ['any', 'of'] }
+      ]
+    };
+    expect(validatePredicateBlock(block)).toEqual([]);
+    // Sanity: the exported list matches what the block above exercises.
+    expect([...KNOWN_PREDICATE_OPERATORS].sort()).toEqual(['eq', 'gte', 'in', 'lte', 'neq']);
+  });
+
+  it('reports an unknown operator with its predicate path', () => {
+    const problems = validatePredicateBlock({ predicates: [{ level: { gt: 5 } }] });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("'level'");
+    expect(problems[0]).toContain("'gt'");
+  });
+
+  it('reports unknown operators mixed into an otherwise-known object', () => {
+    const problems = validatePredicateBlock({ predicates: [{ level: { gte: 1, gt: 5 } }] });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("'gt'");
+  });
+
+  it('walks or-branches and array-of-expected values', () => {
+    const problems = validatePredicateBlock({
+      predicates: [
+        { or: [{ 'weapon.property': 'finesse' }, { level: { gt: 3 } }] },
+        { count: [{ gte: 1 }, { lt: 9 }] }
+      ]
+    });
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain("'gt'");
+    expect(problems[1]).toContain("'lt'");
   });
 });

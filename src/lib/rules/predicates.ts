@@ -21,6 +21,58 @@ function getPath(ctx: PredicateContext, path: string): unknown {
   return ctx[path];
 }
 
+/** The operator keys `matchValue` understands inside an object-shaped
+ *  expected value. Anything else (a `{gt: 5}` typo for `{gte: 5}`, say)
+ *  silently never matches — `validatePredicateBlock` surfaces those so
+ *  derive() can emit a soft validation warning. */
+export const KNOWN_PREDICATE_OPERATORS = ['eq', 'neq', 'gte', 'lte', 'in'] as const;
+
+const KNOWN_OPERATOR_SET: ReadonlySet<string> = new Set(KNOWN_PREDICATE_OPERATORS);
+
+/** Soft-validate a predicate block (`appliesTo`-shaped: `{ activityType?,
+ *  predicates? }`). Walks every expected value the same way `matchValue`
+ *  will — array elements, `or` sub-predicates — and reports each operator
+ *  key that `matchValue` would not recognize. Returns human-readable
+ *  problem strings; empty array when clean. Accepts `unknown` because
+ *  callers hand it raw pack data. */
+export function validatePredicateBlock(block: unknown): string[] {
+  const problems: string[] = [];
+  if (block == null || typeof block !== 'object') return problems;
+  const preds = (block as { predicates?: unknown }).predicates;
+  if (!Array.isArray(preds)) return problems;
+
+  const checkExpected = (path: string, expected: unknown): void => {
+    if (Array.isArray(expected)) {
+      for (const v of expected) checkExpected(path, v);
+      return;
+    }
+    if (expected != null && typeof expected === 'object') {
+      for (const op of Object.keys(expected)) {
+        if (!KNOWN_OPERATOR_SET.has(op)) {
+          problems.push(`predicate '${path}' uses unknown operator '${op}'`);
+        }
+      }
+    }
+  };
+
+  for (const p of preds) {
+    if (p == null || typeof p !== 'object') continue;
+    for (const [key, expected] of Object.entries(p as Record<string, unknown>)) {
+      if (key === 'or' && Array.isArray(expected)) {
+        for (const sub of expected) {
+          if (sub == null || typeof sub !== 'object') continue;
+          for (const [k, v] of Object.entries(sub as Record<string, unknown>)) {
+            checkExpected(k, v);
+          }
+        }
+        continue;
+      }
+      checkExpected(key, expected);
+    }
+  }
+  return problems;
+}
+
 function matchValue(value: unknown, expected: unknown): boolean {
   if (Array.isArray(expected)) {
     return expected.some((v) => matchValue(value, v));

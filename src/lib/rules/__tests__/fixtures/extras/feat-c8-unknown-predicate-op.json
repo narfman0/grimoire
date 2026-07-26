@@ -1,0 +1,25 @@
+{
+  "kind": "feat",
+  "slug": "c8-unknown-predicate-op",
+  "version": 1,
+  "name": "C.8 Unknown-Predicate-Operator (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [
+      {
+        "kind": "action-modifier",
+        "id": "c8-bad-op-mod",
+        "name": "C.8 Bad Operator",
+        "appliesTo": {
+          "activityType": "attack",
+          "predicates": [
+            { "attack.range": "melee", "level": { "gte": 1 } },
+            { "or": [{ "weapon.property": "finesse" }, { "level": { "lte": 20 } }] },
+            { "weapon.damage.diceCount": { "gt": 1 } }
+          ]
+        },
+        "effects": [{ "target": "damage.bonus", "mode": "ADD", "value": 1 }]
+      }
+    ]
+  }
+}

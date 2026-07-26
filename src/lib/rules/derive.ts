@@ -15,7 +15,7 @@ import {
 import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor, type EvalContext } from './evaluate';
 import { applyNumericMode, defaultPriority, type Mode } from './modes';
 import { monsterDerive } from './monster-derive';
-import { predicateMatches, type PredicateContext } from './predicates';
+import { predicateMatches, validatePredicateBlock, type PredicateContext } from './predicates';
 import { SKILLS, SKILL_ABILITY } from './skills';
 import { slugify } from './slug';
 import type {
@@ -47,6 +47,7 @@ import type {
   SkillCell,
   StatBlock,
   TriggerDeclaration,
+  TriggerGrant,
   ValidationIssue
 } from './types';
 import { ABILITIES, KNOWN_TRIGGER_EVENTS } from './types';
@@ -74,11 +75,71 @@ function coerceSourcePredicate(raw: unknown): DamageSourcePredicate | undefined 
   return undefined;
 }
 
+/** Narrow a raw trigger `grants` payload to the TriggerGrant union. Any
+ *  object carrying a string `type` passes through — the union's catch-all
+ *  arm keeps unknown grant shapes forward-compatible. Shapes without a
+ *  `type` discriminant are dropped (they were already inert downstream —
+ *  every consumer switches on `grants.type`). */
+function coerceTriggerGrant(raw: unknown): TriggerGrant | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  if (typeof (raw as { type?: unknown }).type !== 'string') return undefined;
+  return raw as TriggerGrant;
+}
+
 interface ActiveModifier {
   id: string; // for action modifiers; auto-generated for stat modifiers
   kind: 'stat-modifier' | 'action-modifier' | 'trigger' | 'overlay-hp-pool';
   source: ActiveContent;
   raw: Record<string, unknown>;
+}
+
+/** Route one raw `modifiers[]` entry into the allMods sink under its
+ *  declared kind (stat-modifier / action-modifier / overlay-hp-pool;
+ *  unknown kinds are dropped). The three id strings preserve each call
+ *  site's exact id template: `stat` always wins for stat-modifiers
+ *  (authored `m.id` is ignored there), while action / overlay honor an
+ *  authored `m.id` and fall back to their template. */
+function classifyModifier(
+  m: Record<string, unknown>,
+  ids: { stat: string; action: string; overlay: string },
+  source: ActiveContent,
+  sink: ActiveModifier[]
+): void {
+  const kind = (m.kind as string | undefined) ?? 'stat-modifier';
+  if (kind === 'stat-modifier') {
+    sink.push({ id: ids.stat, kind: 'stat-modifier', source, raw: m });
+  } else if (kind === 'action-modifier') {
+    sink.push({
+      id: (m.id as string | undefined) ?? ids.action,
+      kind: 'action-modifier',
+      source,
+      raw: m
+    });
+  } else if (kind === 'overlay-hp-pool') {
+    sink.push({
+      id: (m.id as string | undefined) ?? ids.overlay,
+      kind: 'overlay-hp-pool',
+      source,
+      raw: m
+    });
+  }
+}
+
+/** Mutable state threaded through the phase 3-6 helpers below derive().
+ *  Phases 1-2 build these locals inside derive() (they are mutation-heavy
+ *  and stay inline for now); phases 3-6 read and extend them via this
+ *  explicit context so derive() reads as a sequence of phase calls. */
+interface DerivePhaseState {
+  character: CharacterDocument;
+  content: ContentLookup;
+  active: ActiveContent[];
+  allMods: ActiveModifier[];
+  ctx: EvalContext;
+  validations: ValidationIssue[];
+  resolvedConditions: Set<string>;
+  stats: StatBlock;
+  actions: Action[];
+  triggers: TriggerDeclaration[];
 }
 
 /** Specs for the six feat-choice kinds that synthesize a stat-modifier from a
@@ -556,30 +617,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   for (const a of active) {
     const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
     for (let i = 0; i < mods.length; i++) {
-      const m = mods[i];
-      const kind = (m.kind as string) ?? 'stat-modifier';
-      if (kind === 'stat-modifier') {
-        allMods.push({
-          id: `${a.row.kind}/${a.row.slug}/mod/${i}`,
-          kind: 'stat-modifier',
-          source: a,
-          raw: m
-        });
-      } else if (kind === 'action-modifier') {
-        allMods.push({
-          id: (m.id as string) ?? `${a.row.kind}/${a.row.slug}/amod/${i}`,
-          kind: 'action-modifier',
-          source: a,
-          raw: m
-        });
-      } else if (kind === 'overlay-hp-pool') {
-        allMods.push({
-          id: (m.id as string) ?? `${a.row.kind}/${a.row.slug}/overlay/${i}`,
-          kind: 'overlay-hp-pool',
-          source: a,
-          raw: m
-        });
-      }
+      classifyModifier(
+        mods[i],
+        {
+          stat: `${a.row.kind}/${a.row.slug}/mod/${i}`,
+          action: `${a.row.kind}/${a.row.slug}/amod/${i}`,
+          overlay: `${a.row.kind}/${a.row.slug}/overlay/${i}`
+        },
+        a,
+        allMods
+      );
     }
     const triggers = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
     for (let i = 0; i < triggers.length; i++) {
@@ -830,30 +877,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         const chosen = mfcDecl.options.find((o) => o?.id === mfcPick);
         if (chosen && Array.isArray(chosen.modifiers)) {
           for (let i = 0; i < chosen.modifiers.length; i++) {
-            const m = chosen.modifiers[i];
-            const kind = (m.kind as string | undefined) ?? 'stat-modifier';
-            if (kind === 'stat-modifier') {
-              allMods.push({
-                id: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/${i}`,
-                kind: 'stat-modifier',
-                source: a,
-                raw: m
-              });
-            } else if (kind === 'action-modifier') {
-              allMods.push({
-                id: (m.id as string | undefined) ?? `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/amod/${i}`,
-                kind: 'action-modifier',
-                source: a,
-                raw: m
-              });
-            } else if (kind === 'overlay-hp-pool') {
-              allMods.push({
-                id: (m.id as string | undefined) ?? `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/overlay/${i}`,
-                kind: 'overlay-hp-pool',
-                source: a,
-                raw: m
-              });
-            }
+            classifyModifier(
+              chosen.modifiers[i],
+              {
+                stat: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/${i}`,
+                action: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/amod/${i}`,
+                overlay: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/overlay/${i}`
+              },
+              a,
+              allMods
+            );
             // trigger / outbound shapes inside an option aren't synthesized
             // in v0 — only modifier-kind effects. Add if/when needed.
           }
@@ -908,25 +941,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     active.push(entry);
     const mods = (data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
     for (let i = 0; i < mods.length; i++) {
-      const m = mods[i];
-      const kind = (m.kind as string) ?? 'stat-modifier';
-      if (kind === 'stat-modifier') {
-        allMods.push({ id: `${row.kind}/${row.slug}/mod/${i}`, kind: 'stat-modifier', source: entry, raw: m });
-      } else if (kind === 'action-modifier') {
-        allMods.push({
-          id: (m.id as string) ?? `${row.kind}/${row.slug}/amod/${i}`,
-          kind: 'action-modifier',
-          source: entry,
-          raw: m
-        });
-      } else if (kind === 'overlay-hp-pool') {
-        allMods.push({
-          id: (m.id as string) ?? `${row.kind}/${row.slug}/overlay/${i}`,
-          kind: 'overlay-hp-pool',
-          source: entry,
-          raw: m
-        });
-      }
+      classifyModifier(
+        mods[i],
+        {
+          stat: `${row.kind}/${row.slug}/mod/${i}`,
+          action: `${row.kind}/${row.slug}/amod/${i}`,
+          overlay: `${row.kind}/${row.slug}/overlay/${i}`
+        },
+        entry,
+        allMods
+      );
     }
     const triggers = (data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
     for (let i = 0; i < triggers.length; i++) {
@@ -1161,25 +1185,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             const m = (
               activeSlot !== undefined ? substituteScalingByCastSlot(tmpl, activeSlot) : tmpl
             ) as Record<string, unknown>;
-            const kind = (m.kind as string | undefined) ?? 'stat-modifier';
             const baseId = `${a.row.kind}/${a.row.slug}/activation/${decl.id}/${state.variant}/${i}`;
-            if (kind === 'stat-modifier') {
-              allMods.push({ id: baseId, kind: 'stat-modifier', source: a, raw: m });
-            } else if (kind === 'action-modifier') {
-              allMods.push({
-                id: (m.id as string | undefined) ?? baseId,
-                kind: 'action-modifier',
-                source: a,
-                raw: m
-              });
-            } else if (kind === 'overlay-hp-pool') {
-              allMods.push({
-                id: (m.id as string | undefined) ?? baseId,
-                kind: 'overlay-hp-pool',
-                source: a,
-                raw: m
-              });
-            }
+            classifyModifier(m, { stat: baseId, action: baseId, overlay: baseId }, a, allMods);
           }
         }
       }
@@ -1207,25 +1214,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
           if (activeSlot !== undefined) {
             m = substituteScalingByCastSlot(m, activeSlot) as Record<string, unknown>;
           }
-          const kind = (m.kind as string | undefined) ?? 'stat-modifier';
           const baseId = `${a.row.kind}/${a.row.slug}/activation/${decl.id}/${state.variant}/${i}`;
-          if (kind === 'stat-modifier') {
-            allMods.push({ id: baseId, kind: 'stat-modifier', source: a, raw: m });
-          } else if (kind === 'action-modifier') {
-            allMods.push({
-              id: (m.id as string | undefined) ?? baseId,
-              kind: 'action-modifier',
-              source: a,
-              raw: m
-            });
-          } else if (kind === 'overlay-hp-pool') {
-            allMods.push({
-              id: (m.id as string | undefined) ?? baseId,
-              kind: 'overlay-hp-pool',
-              source: a,
-              raw: m
-            });
-          }
+          classifyModifier(m, { stat: baseId, action: baseId, overlay: baseId }, a, allMods);
         }
       }
     }
@@ -1699,9 +1689,79 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     )
   };
 
+  const phase: DerivePhaseState = {
+    character,
+    content,
+    active,
+    allMods,
+    ctx,
+    validations,
+    resolvedConditions,
+    stats,
+    actions: [],
+    triggers: []
+  };
+
   // -------------------------------------------------------------------------
   // PHASE 3 — assemble activities (as concrete Actions)
   // -------------------------------------------------------------------------
+  assembleActivities(phase);
+  const { actions, triggers } = phase;
+
+  // -------------------------------------------------------------------------
+  // PHASE 4 — apply action modifiers
+  // -------------------------------------------------------------------------
+  applyActionModifiers(phase);
+
+  // -------------------------------------------------------------------------
+  // PHASE 5 — register triggers
+  // -------------------------------------------------------------------------
+  registerTriggers(phase);
+
+  // -------------------------------------------------------------------------
+  // PHASE 6 — validate (soft)
+  // -------------------------------------------------------------------------
+
+  runSoftValidations(phase);
+
+  // -------------------------------------------------------------------------
+  // Remaining Derived manifests, each assembled by its own helper.
+  // -------------------------------------------------------------------------
+  const resources = collectResources(phase, freeCastEntries);
+  const toggles = collectToggles(phase);
+  const outboundEffects = collectOutboundEffects(phase);
+  synthesizePickedManeuvers(phase, outboundEffects);
+  const pendingFeatureChoices = collectPendingFeatureChoices(phase);
+  const overlayHpPools = collectOverlayHpPools(phase);
+  const equipped = computeEquippedState(active);
+  const activeForm = resolveActiveForm(phase);
+  const companions = resolveCompanions(phase);
+  const classResources = resolveClassResources(phase);
+
+  return {
+    stats,
+    actions,
+    triggers,
+    resources,
+    validations,
+    toggles,
+    alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort(),
+    outboundEffects,
+    overlayHpPools,
+    pendingFeatureChoices,
+    availableActivations,
+    equipped,
+    ...(activeForm !== undefined ? { activeForm } : {}),
+    ...(companions !== undefined ? { companions } : {}),
+    ...(classResources !== undefined ? { classResources } : {})
+  };
+}
+
+/** PHASE 3 — realize every active row's activities[] into concrete Actions:
+ *  weapon-activity synthesis for bare items, character-wide crit defaults,
+ *  and extra-attack aggregation. Pushes onto s.actions. */
+function assembleActivities(s: DerivePhaseState): void {
+  const { character, content, active, allMods, ctx, stats, actions } = s;
 
   // Character-wide crit defaults composed from modifier targets:
   //   crit.threshold        — natural roll required to crit (DOWNGRADE to 19/18)
@@ -1710,7 +1770,6 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const charCritThreshold = applyTarget(allMods, character, 'crit.threshold', 20, ctx);
   const charCritExtraDie = applyTarget(allMods, character, 'crit.extra-weapon-die', 0, ctx);
 
-  const actions: Action[] = [];
   for (const a of active) {
     let activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
     if (activities.length === 0 && a.row.kind === 'item') {
@@ -1753,10 +1812,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       }
     }
   }
+}
 
-  // -------------------------------------------------------------------------
-  // PHASE 4 — apply action modifiers
-  // -------------------------------------------------------------------------
+/** PHASE 4 — run every enabled action-modifier whose appliesTo block
+ *  matches against each assembled Action, mutating the Action in place. */
+function applyActionModifiers(s: DerivePhaseState): void {
+  const { character, content, allMods, ctx, actions } = s;
 
   for (const action of actions) {
     const sourceRow = content(action.sourceContent);
@@ -1786,12 +1847,14 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
     }
   }
+}
 
-  // -------------------------------------------------------------------------
-  // PHASE 5 — register triggers
-  // -------------------------------------------------------------------------
+/** PHASE 5 — collect trigger declarations (with unknown-event soft
+ *  warnings) and synthesize gated weapon-attack actions for grants that
+ *  request one. Pushes onto s.triggers and s.actions. */
+function registerTriggers(s: DerivePhaseState): void {
+  const { allMods, validations, actions, triggers } = s;
 
-  const triggers: TriggerDeclaration[] = [];
   const knownEvents = new Set<string>(KNOWN_TRIGGER_EVENTS);
   for (const m of allMods) {
     if (m.kind !== 'trigger') continue;
@@ -1811,7 +1874,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       name: (m.raw.name as string | undefined) ?? m.id,
       on,
       scope: m.raw.scope,
-      grants: m.raw.grants,
+      grants: coerceTriggerGrant(m.raw.grants),
       limit: m.raw.limit as { per: string; uses: number } | undefined
     });
   }
@@ -1826,8 +1889,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   );
   if (primaryWeaponAttack) {
     for (const t of triggers) {
-      const grants = t.grants as { type?: string } | undefined;
-      if (!grants?.type) continue;
+      const grants = t.grants;
+      if (!grants) continue;
       let cost: Action['cost'] | undefined;
       if (grants.type === 'bonus-action-weapon-attack') cost = 'bonus';
       else if (grants.type === 'reaction-weapon-attack') cost = 'reaction';
@@ -1843,10 +1906,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
     }
   }
+}
 
-  // -------------------------------------------------------------------------
-  // PHASE 6 — validate (soft)
-  // -------------------------------------------------------------------------
+/** PHASE 6 (validate) — attunement / prepared-spell-count / predicate-DSL
+ *  soft warnings. Pushes onto s.validations. */
+function runSoftValidations(s: DerivePhaseState): void {
+  const { character, content, allMods, stats, validations } = s;
 
   // Attunement
   const attunedCount = character.inventory.filter((i) => i.attuned).length;
@@ -1867,7 +1932,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       | null
       | undefined;
     if (!spellcasting || spellcasting.progression !== 'full') continue;
-    const limit = Math.max(1, abilities[spellcasting.ability].mod + c.level);
+    const limit = Math.max(1, stats.abilities[spellcasting.ability].mod + c.level);
     if (character.spells.prepared.length > limit) {
       validations.push({
         severity: 'warning',
@@ -1876,6 +1941,36 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
     }
   }
+
+  // Predicate DSL operators — an unrecognized operator object (a `{gt: 5}`
+  // typo for `{gte: 5}`, say) silently never matches in matchValue, so the
+  // modifier would just never apply. Mirror the unknown-trigger-event
+  // pattern: walk every action-modifier's appliesTo block and surface each
+  // unknown operator as a soft warning.
+  for (const m of allMods) {
+    if (m.kind !== 'action-modifier') continue;
+    for (const problem of validatePredicateBlock(m.raw.appliesTo)) {
+      validations.push({
+        severity: 'warning',
+        code: 'unknown-predicate-operator',
+        message: `Action modifier '${m.id}' ${problem}.`
+      });
+    }
+  }
+}
+
+/** Collect spendable resources: activities with `uses` blocks, limited
+ *  triggers, and C.4 free-cast budgets. */
+function collectResources(
+  s: DerivePhaseState,
+  freeCastEntries: Array<{
+    slug: string;
+    per: string;
+    uses: number;
+    sourceContent: { kind: string; slug: string };
+  }>
+): Resource[] {
+  const { character, active, ctx } = s;
 
   // -------------------------------------------------------------------------
   // Resources — collect activities with `uses` blocks
@@ -1941,6 +2036,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       sourceContent: fc.sourceContent
     });
   }
+  return resources;
+}
+
+/** Surface user-toggleable action modifiers for the edit UI. */
+function collectToggles(s: DerivePhaseState): AvailableToggle[] {
+  const { character, allMods } = s;
 
   // -------------------------------------------------------------------------
   // Surface user-toggleable action modifiers for the edit UI. Only modifiers
@@ -1964,6 +2065,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug }
     });
   }
+  return toggles;
+}
+
+/** C.6 — outbound effects (aura) manifest from active content. */
+function collectOutboundEffects(s: DerivePhaseState): OutboundEffect[] {
+  const { active, resolvedConditions } = s;
 
   // C.6 — outbound effects manifest. Walks active content for
   // `data.outboundEffects[]` entries and emits them gated on appliesWhen
@@ -1994,6 +2101,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
     }
   }
+  return outboundEffects;
+}
+
+/** Synthesize picked Battle Master maneuvers into actions / triggers /
+ *  outbound effects. */
+function synthesizePickedManeuvers(s: DerivePhaseState, outboundEffects: OutboundEffect[]): void {
+  const { character, active, stats, actions, triggers, validations } = s;
 
   // ---------------------------------------------------------------------
   // Maneuvers (Battle Master maneuver content model)
@@ -2056,6 +2170,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
     }
   }
+}
+
+/** Declarative manifest of `data.choices` slots + recorded picks. */
+function collectPendingFeatureChoices(s: DerivePhaseState): PendingFeatureChoice[] {
+  const { character, active, ctx } = s;
 
   // Pending feature choices — declarative manifest of `data.choices`
   // entries on active feature / subclass rows + whatever picks the
@@ -2100,6 +2219,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       unresolved: slotKeys.some((k) => isSlotUnresolved(k, declarations[k], picks[k], ctx))
     });
   }
+  return pendingFeatureChoices;
+}
+
+/** Overlay HP pools (Arcane Ward etc.) from overlay-hp-pool modifier rows. */
+function collectOverlayHpPools(s: DerivePhaseState): OverlayHpPool[] {
+  const { allMods, ctx, validations } = s;
 
   // Overlay HP pools — independent HP buckets that absorb damage before
   // the character's main HP. Emitted from `overlay-hp-pool` modifier rows
@@ -2136,7 +2261,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       refreshOn
     });
   }
+  return overlayHpPools;
+}
 
+/** Denormalized equipped armor + shield state shared with the sheet. */
+function computeEquippedState(active: ActiveContent[]): Derived['equipped'] {
   // Denormalize equipped armor + shield state once, shared between the AC
   // formula (above) and the activation auto-cancel walk. Mirrors the
   // armor lookup in computeAC: any active item with category=armor whose
@@ -2156,6 +2285,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         at === 'medium' || at === 'heavy' ? at : 'light';
     }
   }
+  return { armorType: equippedArmorType, shield: equippedShield };
+}
+
+/** Polymorph / Wild Shape form snapshot via monsterDerive. */
+function resolveActiveForm(s: DerivePhaseState): ActiveForm | undefined {
+  const { character, content, active, validations } = s;
 
   // Polymorph form snapshot. When the character has stepped into a
   // beast / aberration / angel via Wild Shape, Polymorph spell, Form
@@ -2199,6 +2334,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       };
     }
   }
+  return activeForm;
+}
+
+/** Summoned-companion snapshots via monsterDerive. */
+function resolveCompanions(s: DerivePhaseState): DerivedCompanion[] | undefined {
+  const { character, content, validations } = s;
 
   // Companion snapshots. Walk character.companions[], filter to
   // status='summoned' (dismissed entries stay in the document but
@@ -2234,6 +2375,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
     if (out.length > 0) companions = out;
   }
+  return companions;
+}
+
+/** Per-class spendable pools resolved from class / subclass rows. */
+function resolveClassResources(s: DerivePhaseState): ResolvedClassResource[] | undefined {
+  const { character, active, ctx, validations } = s;
 
   // Class-resource pools. Walk each active class row's `data.resources`
   // array (an array of ClassResourceDecl) and resolve each pool against
@@ -2307,24 +2454,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       (classResources ??= []).push(entry);
     }
   }
-
-  return {
-    stats,
-    actions,
-    triggers,
-    resources,
-    validations,
-    toggles,
-    alwaysPreparedFromContent: [...alwaysPreparedFromContent].sort(),
-    outboundEffects,
-    overlayHpPools,
-    pendingFeatureChoices,
-    availableActivations,
-    equipped: { armorType: equippedArmorType, shield: equippedShield },
-    ...(activeForm !== undefined ? { activeForm } : {}),
-    ...(companions !== undefined ? { companions } : {}),
-    ...(classResources !== undefined ? { classResources } : {})
-  };
+  return classResources;
 }
 
 function formatActivationDuration(

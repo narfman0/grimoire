@@ -760,7 +760,7 @@ export interface TriggerDeclaration {
   name: string;
   on: string[];
   scope?: unknown;
-  grants?: TriggerGrant | unknown;
+  grants?: TriggerGrant;
   limit?: { per: string; uses: number };
   /** Class-resource id whose pool funds invocation of this trigger
    *  (e.g. `'superiority'` for Battle Master Riposte / Parry). The

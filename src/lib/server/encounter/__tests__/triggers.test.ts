@@ -13,7 +13,7 @@ function relentlessEndurance(participantId: string): ParticipantTriggers {
     name: 'Relentless Endurance',
     on: ['damage.reduce-to-zero'],
     scope: { predicates: [{ self: true }] },
-    grants: { type: 'set-hp', value: 1 } as unknown,
+    grants: { type: 'set-hp', value: 1 },
     limit: { per: 'long-rest', uses: 1 }
   };
   return { participantId, declarations: [trig] };
@@ -26,7 +26,7 @@ function heavyArmorMaster(participantId: string): ParticipantTriggers {
     name: 'Heavy Armor Master',
     on: ['damage.taken'],
     scope: { predicates: [{ self: true }] },
-    grants: { type: 'damage.reduce', amount: 3 } as unknown
+    grants: { type: 'damage.reduce', amount: 3 }
   };
   return { participantId, declarations: [trig] };
 }
@@ -198,7 +198,7 @@ describe('matchTriggers — edge cases', () => {
           name: 'Armor of Agathys (cold retaliate)',
           on: ['attack.targets-self.hit'],
           scope: { predicates: [{ self: true }, { 'attack.range': 'melee' }] },
-          grants: { type: 'damage.reflect', amount: 5, damageType: 'cold' } as unknown
+          grants: { type: 'damage.reflect', amount: 5, damageType: 'cold' }
         }
       ]
     };
