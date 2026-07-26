@@ -31,9 +31,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   const role = await getMembershipByCampaignId(locals.user.id, row.enc.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
-  // Players can patch their own participant (initiative suggestion); DM can patch anyone.
-  // v0: keep it permissive — any campaign member can update any participant.
-  // Tighten in M3.4 when player turn-planner permissions matter.
+  // DM only, matching the nested /api/encounters/[id]/participants/[pid]
+  // route — every client call site is already gated on role === 'dm'.
+  // Player-owned mutations go through the dedicated /plan sub-route.
+  if (role !== 'dm') throw error(403, 'only the DM can update participants');
 
   const patch = await parseJson(request, UpdateParticipantRequest);
   const updates: Partial<typeof schema.participants.$inferInsert> = {};

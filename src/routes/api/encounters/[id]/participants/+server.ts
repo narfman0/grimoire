@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { AddParticipantRequest } from '$lib/server/api/encounter-schemas';
@@ -29,15 +29,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const body = await parseJson(request, AddParticipantRequest);
 
-  // If linking to a character, verify it belongs to the same campaign.
+  // If linking to a character, verify it is linked to the same campaign
+  // (via campaign_characters — never the campaignId soft pointer).
   if (body.characterId) {
-    const cs = await db
-      .select({ campaignId: schema.characters.campaignId })
-      .from(schema.characters)
-      .where(eq(schema.characters.id, body.characterId))
+    const links = await db
+      .select({ characterId: schema.campaignCharacters.characterId })
+      .from(schema.campaignCharacters)
+      .where(
+        and(
+          eq(schema.campaignCharacters.characterId, body.characterId),
+          eq(schema.campaignCharacters.campaignId, enc.campaignId)
+        )
+      )
       .limit(1);
-    if (!cs[0] || cs[0].campaignId !== enc.campaignId)
-      throw error(400, 'character is not in this campaign');
+    if (!links[0]) throw error(400, 'character is not in this campaign');
   }
 
   const partId = crypto.randomUUID();
