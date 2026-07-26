@@ -164,7 +164,29 @@ describe('PATCH /api/characters/[id]', () => {
       reactionUsedThisRound: true,
       movementUsedThisRound: 15,
       concentrating: { label: 'Bless', sinceRound: 2 },
-      favoriteActionIds: ['longsword']
+      favoriteActionIds: ['longsword'],
+      // Regression: these three were missing from the Zod schema and silently
+      // stripped on every PATCH/PUT round-trip.
+      deathSaves: { successes: 1, failures: 2 },
+      polymorphForm: {
+        slug: 'brown-bear',
+        sourceContent: { kind: 'feature', slug: 'wild-shape' },
+        currentHp: 12,
+        maxHp: 34,
+        roundsRemaining: 5,
+        formSaveSource: 'base'
+      },
+      companions: [
+        {
+          slug: 'owl',
+          name: 'Archimedes',
+          sourceContent: { kind: 'spell', slug: 'find-familiar' },
+          currentHp: 1,
+          maxHp: 1,
+          status: 'summoned',
+          sharesInitiative: false
+        }
+      ]
     };
     const res = await PATCH(
       makeEvent({
@@ -184,11 +206,17 @@ describe('PATCH /api/characters/[id]', () => {
     expect(body.document.movementUsedThisRound).toBe(15);
     expect(body.document.concentrating).toEqual({ label: 'Bless', sinceRound: 2 });
     expect(body.document.favoriteActionIds).toEqual(['longsword']);
+    expect(body.document.deathSaves).toEqual({ successes: 1, failures: 2 });
+    expect(body.document.polymorphForm).toEqual(docIn.polymorphForm);
+    expect(body.document.companions).toEqual(docIn.companions);
 
     // And the same survives a re-fetch (no DB-side stripping).
     const reread = await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }));
     const reBody = await reread.json();
     expect(reBody.document.favoriteActionIds).toEqual(['longsword']);
+    expect(reBody.document.deathSaves).toEqual({ successes: 1, failures: 2 });
+    expect(reBody.document.polymorphForm).toEqual(docIn.polymorphForm);
+    expect(reBody.document.companions).toEqual(docIn.companions);
   });
 
   it('rewrites document.id to match the row id (no spoofing)', async () => {

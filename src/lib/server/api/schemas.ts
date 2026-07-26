@@ -151,6 +151,13 @@ export const CharacterDocument = z
     currentHp: z.number().int().nonnegative(),
     tempHp: z.number().int().nonnegative(),
     hitDiceSpent: z.record(z.string(), z.number().int().nonnegative()),
+    /** Death saving throw state — only meaningful when currentHp === 0. */
+    deathSaves: z
+      .object({
+        successes: z.number().int().min(0).max(3),
+        failures: z.number().int().min(0).max(3)
+      })
+      .optional(),
     conditions: z.array(z.string()),
     /** Stacking level for conditions that accumulate (e.g. exhaustion 1–10). */
     conditionStacks: z.record(z.string(), z.number().int().positive()).optional(),
@@ -205,6 +212,34 @@ export const CharacterDocument = z
       .optional(),
     /** Action ids the player has pinned in the planner picker. */
     favoriteActionIds: z.array(z.string()).optional(),
+    /** Currently-active polymorph form (Wild Shape, Polymorph, …). Mirrors
+     *  PolymorphFormState in src/lib/rules/types.ts. Null/absent = base form. */
+    polymorphForm: z
+      .object({
+        slug: z.string(),
+        sourceContent: z.object({ kind: z.string(), slug: z.string() }),
+        currentHp: z.number().int().nonnegative(),
+        maxHp: z.number().int().nonnegative(),
+        roundsRemaining: z.number().int().nonnegative().optional(),
+        formSaveSource: z.enum(['base', 'form']).optional()
+      })
+      .nullable()
+      .optional(),
+    /** Companions the PC controls (familiar, Beast Master beast, drake, …).
+     *  Mirrors CompanionState in src/lib/rules/types.ts. */
+    companions: z
+      .array(
+        z.object({
+          slug: z.string(),
+          name: z.string(),
+          sourceContent: z.object({ kind: z.string(), slug: z.string() }),
+          currentHp: z.number().int().nonnegative(),
+          maxHp: z.number().int().nonnegative(),
+          status: z.enum(['summoned', 'dismissed']),
+          sharesInitiative: z.boolean().optional()
+        })
+      )
+      .optional(),
     /** Portrait image URL — either a pre-generated gallery path (/portraits/*)
      *  or an uploaded portrait served via /api/portraits/[id]. */
     portrait: z.string().url().or(z.string().startsWith('/')).optional()
