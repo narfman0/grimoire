@@ -1973,10 +1973,32 @@ function registerTriggers(s: DerivePhaseState): void {
   }
 }
 
+/** Activity `type` strings realizeActivity understands (plus reserved /
+ *  legacy synonyms). Anything else falls through to the 'utility'
+ *  default at realization time, so a typo silently degrades — the
+ *  unknown-activity-type soft warning below surfaces it to authors.
+ *    - 'summon' is reserved for the summons batch (packs may author it
+ *      ahead of engine support without warning).
+ *    - 'cast' is a legacy synonym used by SRD faithful-steed (cast
+ *      without a slot); 'heal' marks healing activities whose dice the
+ *      generic damage.parts path already surfaces.
+ *    - 'maneuver-rider' is the synthesized maneuver action type. */
+const KNOWN_ACTIVITY_TYPES: ReadonlySet<string> = new Set([
+  'attack',
+  'save',
+  'damage',
+  'heal',
+  'cast',
+  'cast-spell',
+  'utility',
+  'summon',
+  'maneuver-rider'
+]);
+
 /** PHASE 6 (validate) — attunement / prepared-spell-count / predicate-DSL
- *  soft warnings. Pushes onto s.validations. */
+ *  / activity-type soft warnings. Pushes onto s.validations. */
 function runSoftValidations(s: DerivePhaseState): void {
-  const { character, content, allMods, stats, validations } = s;
+  const { character, content, active, allMods, stats, validations } = s;
 
   // Attunement
   const attunedCount = character.inventory.filter((i) => i.attuned).length;
@@ -2004,6 +2026,25 @@ function runSoftValidations(s: DerivePhaseState): void {
         code: 'prepared-spells-over-limit',
         message: `${character.spells.prepared.length} prepared (limit ${limit})`
       });
+    }
+  }
+
+  // Unknown activity types — realizeActivity defaults unrecognized
+  // types to 'utility', so a typo ('atack') silently drops the attack
+  // math. Mirror the unknown-trigger-event pattern: warn per authored
+  // activity whose `type` string isn't in the known set. Absent types
+  // are legal (they intentionally default to utility).
+  for (const a of active) {
+    const acts = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const act of acts) {
+      const t = act.type;
+      if (typeof t === 'string' && !KNOWN_ACTIVITY_TYPES.has(t)) {
+        validations.push({
+          severity: 'warning',
+          code: 'unknown-activity-type',
+          message: `Activity '${(act.id as string | undefined) ?? '?'}' on ${a.row.kind}/${a.row.slug} has unknown type '${t}'.`
+        });
+      }
     }
   }
 

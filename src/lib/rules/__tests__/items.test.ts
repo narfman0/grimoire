@@ -399,6 +399,59 @@ describe('cast-spell activity with missing spell row', () => {
   });
 });
 
+describe('unknown-activity-type soft validation', () => {
+  function itemWithActivityType(type: string | undefined): ContentRow {
+    return {
+      kind: 'item',
+      slug: 'test-typed-item',
+      version: 1,
+      name: 'Test Typed Item',
+      source: 'test',
+      data: {
+        category: 'wondrous',
+        activities: [{ id: 'typed-act', ...(type !== undefined ? { type } : {}), name: 'Act' }]
+      }
+    };
+  }
+
+  function deriveWith(type: string | undefined) {
+    const base = chronurgy.makeLookup(PACKS);
+    const row = itemWithActivityType(type);
+    const lookup = (ref: { kind: string; slug: string }) =>
+      ref.kind === 'item' && ref.slug === 'test-typed-item' ? row : base(ref);
+    return derive(
+      withInventory([
+        { contentKind: 'item', contentSlug: 'test-typed-item', version: 1, equipped: true, attuned: false }
+      ]),
+      lookup
+    );
+  }
+
+  it('warns on an unrecognized activity type string', () => {
+    const d = deriveWith('atack');
+    const warning = d.validations.find((v) => v.code === 'unknown-activity-type');
+    expect(warning).toBeDefined();
+    expect(warning!.severity).toBe('warning');
+    expect(warning!.message).toContain("'atack'");
+    expect(warning!.message).toContain('item/test-typed-item');
+  });
+
+  it('does not warn on known types (including reserved summon and legacy heal/cast)', () => {
+    for (const type of ['attack', 'save', 'damage', 'heal', 'cast', 'cast-spell', 'utility', 'summon', 'maneuver-rider']) {
+      const d = deriveWith(type);
+      expect(
+        d.validations.some((v) => v.code === 'unknown-activity-type'),
+        `type '${type}' should not warn`
+      ).toBe(false);
+    }
+  });
+
+  it('does not warn when type is absent (defaults to utility)', () => {
+    const d = deriveWith(undefined);
+    expect(d.validations.some((v) => v.code === 'unknown-activity-type')).toBe(false);
+  });
+});
+
 describe('Shield AC bonus', () => {
   it('adds +2 AC exactly once when a shield is equipped alongside armor', () => {
     // Regression: shield +2 was applied twice — once via direct shield block

@@ -252,6 +252,35 @@ export type SpellData = z.infer<typeof SpellDataSchema>;
 const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary', 'artifact', 'varies', 'unknown', 'none'] as const;
 export const Rarity = z.enum(RARITIES);
 
+/** Item charge-pool declaration. Three accepted shapes (normalized by
+ *  the rules engine — see derive.ts normalizeItemCharges):
+ *    - engine-native: `{ max, recharge: { amount?, per } | 'never' }`
+ *    - legacy display: `{ max, per }` (per 'day'/'dawn' → dawn recharge)
+ *    - 5etools flat: a bare number/string with the cadence on the
+ *      sibling `data.recharge` string field.
+ *  `max` accepts the evaluateValue shapes (number or formula string). */
+export const ItemChargesSchema = z.union([
+  z.number(),
+  z.string(),
+  z
+    .object({
+      max: z.union([z.number(), z.string()]),
+      per: z.string().max(32).optional(),
+      recharge: z
+        .union([
+          z.literal('never'),
+          z
+            .object({
+              amount: z.string().max(64).optional(),
+              per: z.enum(['dawn', 'long-rest', 'short-rest']).optional()
+            })
+            .passthrough()
+        ])
+        .optional()
+    })
+    .passthrough()
+]);
+
 export const ItemDataSchema = z
   .object({
     category: z.string().max(64).optional(),
@@ -261,7 +290,24 @@ export const ItemDataSchema = z
     slot: z.string().max(64).optional(),
     description: z.string().max(16000).optional(),
     note: z.string().max(2000).optional(),
-    modifiers: z.array(StatModifierSchema).optional()
+    /** Full modifier union — parity with feats: items may carry
+     *  action-modifiers (weapon riders) and overlay-hp-pools, not just
+     *  stat-modifiers. */
+    modifiers: z.array(AnyModifierSchema).optional(),
+    /** Nested activities (attack / save / cast-spell / …). Edited via a
+     *  JSON sub-textarea; the rules engine validates individual rows. */
+    activities: z.array(z.record(z.string(), z.unknown())).optional(),
+    /** Charge pool (see ItemChargesSchema). Null tolerated — 5etools
+     *  imports stamp `charges: null` on chargeless items. */
+    charges: ItemChargesSchema.nullable().optional(),
+    /** 5etools sibling recharge cadence for the flat `charges: N` shape. */
+    recharge: z.string().max(32).nullable().optional(),
+    /** Toggleable activation declarations (rules engine shape). */
+    activations: z.array(z.record(z.string(), z.unknown())).optional(),
+    /** Trigger declarations (rules engine shape). */
+    triggers: z.array(z.record(z.string(), z.unknown())).optional(),
+    /** Aura / outbound-effect declarations (rules engine shape). */
+    outboundEffects: z.array(z.record(z.string(), z.unknown())).optional()
   })
   .passthrough();
 export type ItemData = z.infer<typeof ItemDataSchema>;

@@ -62,6 +62,49 @@ describe('ItemDataSchema', () => {
   it('accepts the SRD "common" rarity', () => {
     expect(ItemDataSchema.safeParse({ rarity: 'common' }).success).toBe(true);
   });
+
+  it('accepts action-modifier entries in modifiers (parity with feats)', () => {
+    const data = {
+      category: 'weapon',
+      modifiers: [
+        { kind: 'stat-modifier' as const, target: 'ac', mode: 'ADD' as const, value: 1 },
+        {
+          kind: 'action-modifier' as const,
+          id: 'flametongue-rider',
+          appliesTo: { activityType: 'attack' },
+          effects: [{ target: 'damage.extra', value: '2d6', damageType: 'fire' }]
+        },
+        { kind: 'overlay-hp-pool' as const, name: 'Ward', max: 10 }
+      ]
+    };
+    expect(ItemDataSchema.safeParse(data).success).toBe(true);
+  });
+
+  it('accepts every charge-pool authoring shape', () => {
+    // engine-native
+    expect(
+      ItemDataSchema.safeParse({
+        charges: { max: 7, recharge: { amount: '1d6+1', per: 'dawn' } }
+      }).success
+    ).toBe(true);
+    expect(ItemDataSchema.safeParse({ charges: { max: 3, recharge: 'never' } }).success).toBe(true);
+    // legacy display shape
+    expect(ItemDataSchema.safeParse({ charges: { max: 3, per: 'day' } }).success).toBe(true);
+    // 5etools flat shape + sibling recharge
+    expect(ItemDataSchema.safeParse({ charges: 6, recharge: 'dawn' }).success).toBe(true);
+    // 5etools null stamps
+    expect(ItemDataSchema.safeParse({ charges: null, recharge: null }).success).toBe(true);
+  });
+
+  it('accepts declared activities / activations / triggers / outboundEffects arrays', () => {
+    const data = {
+      activities: [{ id: 'zap', type: 'attack', chargeCost: 1 }],
+      activations: [{ id: 'shroud', name: 'Shroud', condition: 'shroud-active' }],
+      triggers: [{ id: 't', on: ['damage.taken'] }],
+      outboundEffects: [{ id: 'aura', rangeFt: 10, targets: 'ally' }]
+    };
+    expect(ItemDataSchema.safeParse(data).success).toBe(true);
+  });
 });
 
 describe('MonsterDataSchema', () => {
