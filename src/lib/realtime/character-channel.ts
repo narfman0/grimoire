@@ -3,7 +3,9 @@
 // Read-only by design: mutations go through PATCH /api/characters/<id>
 // (see patchDocument in character/[id]/+page.svelte). The poll channel
 // fetches the latest document blob every 2 seconds — typically the owner
-// editing on one tab and the DM watching on another.
+// editing on one tab and the DM watching on another. Pages that PATCH
+// locally should call `noteMutation(patchPromise)` so stale poll
+// responses issued before/during the PATCH don't clobber the local edit.
 
 import { writable, type Readable } from 'svelte/store';
 import type { CharacterDocument } from '$lib/rules/types';
@@ -13,6 +15,14 @@ export interface ConnectedDoc {
    *  updates each time another tab PATCHes. */
   document: Readable<CharacterDocument | null>;
   status: Readable<'connecting' | 'open' | 'closed'>;
+  /** Signal that a local mutation (PATCH /api/characters/<id>) is starting.
+   *  Call this right before issuing the PATCH so poll responses fetched
+   *  earlier — which may carry a pre-mutation snapshot — are dropped
+   *  instead of clobbering the locally-updated document. Pass the PATCH's
+   *  promise (`settled`) so polls in flight *during* the request are also
+   *  dropped; polls issued after the promise settles apply normally, so
+   *  the channel re-syncs from the server once mutations go quiescent. */
+  noteMutation(settled?: Promise<unknown>): void;
   destroy(): void;
 }
 
@@ -34,8 +44,31 @@ export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
   let destroyed = false;
   let consecutiveErrors = 0;
 
+  // --- stale-poll guard ---------------------------------------------------
+  // A poll response fetched BEFORE a local PATCH can land AFTER it and
+  // overwrite the store with a pre-mutation document until the next poll.
+  // Same pattern as encounter-channel: a monotonic `mutationSeq` bumped
+  // when a mutation starts and again when it settles, plus an in-flight
+  // count. A poll snapshot only applies when no mutation started, settled,
+  // or is in flight between the poll being issued and its response
+  // arriving. Once mutations go quiescent the seq stops moving, so the
+  // next poll applies — polls can never starve forever.
+  let mutationSeq = 0;
+  let mutationsInFlight = 0;
+
+  function noteMutation(settled?: Promise<unknown>) {
+    mutationSeq++;
+    if (!settled) return;
+    mutationsInFlight++;
+    void settled.finally(() => {
+      mutationsInFlight--;
+      mutationSeq++;
+    });
+  }
+
   async function poll() {
     if (destroyed) return;
+    const seqAtPollStart = mutationSeq;
     try {
       const res = await fetch(`/api/characters/${opts.characterId}`);
       if (!res.ok) {
@@ -47,6 +80,13 @@ export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
       }
       const data = (await res.json()) as { document: CharacterDocument | null };
       consecutiveErrors = 0;
+      if (mutationsInFlight > 0 || mutationSeq !== seqAtPollStart) {
+        // Stale snapshot: a local mutation raced this poll. Drop the
+        // payload — the connection itself is healthy, so still report
+        // 'open'; the next post-quiescence poll re-syncs from the server.
+        status.set('open');
+        return;
+      }
       document.set(data.document);
       status.set('open');
     } catch {
@@ -66,6 +106,7 @@ export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
   return {
     document: { subscribe: document.subscribe },
     status: { subscribe: status.subscribe },
+    noteMutation,
     destroy() {
       destroyed = true;
       if (timer !== null) {

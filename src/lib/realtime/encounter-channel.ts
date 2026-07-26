@@ -140,8 +140,35 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
   let destroyed = false;
   let consecutiveErrors = 0;
 
+  // --- stale-poll guard ---------------------------------------------------
+  // A poll response fetched BEFORE a mutation can land AFTER it and erase
+  // the optimistic value until the next poll. Guard with a monotonic
+  // mutation counter: `mutationSeq` is bumped when a mutation starts AND
+  // when it settles (success or failure), and `mutationsInFlight` counts
+  // unsettled mutations. A poll snapshot only applies when no mutation
+  // started, settled, or is in flight between the poll being issued and
+  // its response arriving. Polls cannot starve: once mutations go
+  // quiescent the seq stops moving, so the next poll issued afterwards
+  // applies normally.
+  let mutationSeq = 0;
+  let mutationsInFlight = 0;
+
+  /** Marks a mutation as started; returns a settle callback for `finally`. */
+  function beginMutation(): () => void {
+    mutationSeq++;
+    mutationsInFlight++;
+    let settled = false;
+    return () => {
+      if (settled) return;
+      settled = true;
+      mutationsInFlight--;
+      mutationSeq++;
+    };
+  }
+
   async function poll() {
     if (destroyed) return;
+    const seqAtPollStart = mutationSeq;
     try {
       const res = await fetch(`/api/encounters/${opts.encounterId}/state`);
       if (!res.ok) {
@@ -153,6 +180,13 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       }
       const data = (await res.json()) as EncounterSnapshot;
       consecutiveErrors = 0;
+      if (mutationsInFlight > 0 || mutationSeq !== seqAtPollStart) {
+        // Stale snapshot: a mutation raced this poll. Drop the payload —
+        // the connection itself is healthy, so still report 'open'; the
+        // next post-quiescence poll re-syncs from the server.
+        status.set('open');
+        return;
+      }
       state.set({
         round: data.round,
         activeParticipantId: data.activeParticipantId,
@@ -195,6 +229,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     status: { subscribe: status.subscribe },
 
     async setPlan(participantId, plan) {
+      const endMutation = beginMutation();
       const prev = readPlan(state, participantId);
       state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: plan } }));
       try {
@@ -210,10 +245,13 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           return { ...s, plans };
         });
         throw err;
+      } finally {
+        endMutation();
       }
     },
 
     async clearPlan(participantId) {
+      const endMutation = beginMutation();
       const prev = readPlan(state, participantId);
       state.update((s) => {
         const plans = { ...s.plans };
@@ -230,10 +268,13 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: prev } }));
         }
         throw err;
+      } finally {
+        endMutation();
       }
     },
 
     async setHp(participantId, hp) {
+      const endMutation = beginMutation();
       const prev = readHp(state, participantId);
       state.update((s) => {
         const participantHp = {
@@ -260,10 +301,13 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           return { ...s, participantHp };
         });
         throw err;
+      } finally {
+        endMutation();
       }
     },
 
     async setConditions(participantId, conditions) {
+      const endMutation = beginMutation();
       const prev = readHp(state, participantId);
       state.update((s) => {
         const participantHp = {
@@ -290,6 +334,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           return { ...s, participantHp };
         });
         throw err;
+      } finally {
+        endMutation();
       }
     },
 
@@ -316,6 +362,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     },
 
     async setConcentration(participantId, concentrating) {
+      const endMutation = beginMutation();
       const prev = readHp(state, participantId);
       state.update((s) => {
         const cur = s.participantHp[participantId];
@@ -345,6 +392,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           return { ...s, participantHp };
         });
         throw err;
+      } finally {
+        endMutation();
       }
     },
 
@@ -356,6 +405,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     },
 
     async setTurn(next) {
+      const endMutation = beginMutation();
       const snap = readSnap(state);
       state.update((s) => ({
         ...s,
@@ -371,6 +421,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       } catch (err) {
         state.update((s) => ({ ...s, round: snap.round, activeParticipantId: snap.activeParticipantId }));
         throw err;
+      } finally {
+        endMutation();
       }
     },
 

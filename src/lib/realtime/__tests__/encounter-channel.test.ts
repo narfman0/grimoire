@@ -304,4 +304,141 @@ describe('connectEncounter (polling)', () => {
     conn.destroy();
     expect(get(conn.status)).toBe('closed');
   });
+
+  // --- stale-poll guard: poll/mutation interleaving ------------------------
+  describe('stale-poll guard', () => {
+    const plan: TurnPlan = {
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: [],
+      notes: '',
+      updatedAt: 1
+    };
+
+    // The core race: a poll is issued (fetch in flight), then a mutation
+    // writes optimistically and its POST succeeds, and only THEN the poll
+    // resolves with a pre-mutation snapshot. Applying it would erase the
+    // plan until the next poll. The guard must drop that snapshot.
+    it('drops a pre-mutation poll snapshot that resolves after setPlan succeeded', async () => {
+      let resolveStalePoll!: (r: Response) => void;
+      const stalePoll = new Promise<Response>((r) => { resolveStalePoll = r; });
+      let stateCalls = 0;
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/state')) {
+          stateCalls++;
+          // First poll (fired on connect) hangs until we release it.
+          if (stateCalls === 1) return stalePoll;
+          return jsonResponse(stateSnapshot());
+        }
+        return jsonResponse({ ok: true });
+      }) as typeof fetch;
+
+      conn = connectEncounter({ encounterId: 'enc-1' });
+      // Poll #1 is now in flight. Mutate: optimistic write + successful POST.
+      await conn.setPlan('mob-7', plan);
+      expect(get(conn.state).plans['mob-7']).toEqual(plan);
+
+      // Now the stale poll resolves with the pre-mutation (empty) snapshot.
+      resolveStalePoll(jsonResponse(stateSnapshot()));
+      await new Promise((r) => setTimeout(r, 0));
+
+      // The optimistic plan must NOT be clobbered.
+      expect(get(conn.state).plans['mob-7']).toEqual(plan);
+      // The connection is still healthy — dropping a stale payload is not an error.
+      expect(get(conn.status)).toBe('open');
+    });
+
+    it('drops a poll snapshot that resolves while a mutation is still in flight', async () => {
+      let resolvePost!: (r: Response) => void;
+      const postGate = new Promise<Response>((r) => { resolvePost = r; });
+      let resolveStalePoll!: (r: Response) => void;
+      const stalePoll = new Promise<Response>((r) => { resolveStalePoll = r; });
+      let stateCalls = 0;
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/state')) {
+          stateCalls++;
+          if (stateCalls === 1) return stalePoll;
+          return jsonResponse(stateSnapshot());
+        }
+        return postGate; // POST hangs until released
+      }) as typeof fetch;
+
+      conn = connectEncounter({ encounterId: 'enc-1' });
+      const pending = conn.setPlan('mob-7', plan); // optimistic write, POST in flight
+      expect(get(conn.state).plans['mob-7']).toEqual(plan);
+
+      // Stale poll resolves while the POST is still unresolved.
+      resolveStalePoll(jsonResponse(stateSnapshot()));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(get(conn.state).plans['mob-7']).toEqual(plan);
+
+      resolvePost(jsonResponse({ ok: true }));
+      await pending;
+      expect(get(conn.state).plans['mob-7']).toEqual(plan);
+    });
+
+    // Polls must not starve: once mutations are quiescent, the next poll's
+    // snapshot (now reflecting the committed mutation, or any newer server
+    // state) must apply.
+    it('applies the next poll after quiescence (fresh server state wins)', async () => {
+      vi.useFakeTimers();
+      try {
+        const serverPlans: Record<string, TurnPlan> = {};
+        let serverRound = 1;
+        globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+          const url = typeof input === 'string' ? input : input.toString();
+          if (url.includes('/state')) {
+            return jsonResponse(stateSnapshot({ round: serverRound, plans: { ...serverPlans } }));
+          }
+          return jsonResponse({ ok: true });
+        }) as typeof fetch;
+
+        conn = connectEncounter({ encounterId: 'enc-1' });
+        await vi.advanceTimersByTimeAsync(0); // flush the first poll
+
+        const mutation = conn.setPlan('mob-7', plan);
+        await vi.advanceTimersByTimeAsync(0);
+        await mutation;
+
+        // Server has committed the plan and advanced the round elsewhere.
+        serverPlans['mob-7'] = plan;
+        serverRound = 4;
+
+        // Next interval poll fires after quiescence — it must apply.
+        await vi.advanceTimersByTimeAsync(2000);
+        const snap = get(conn.state);
+        expect(snap.round).toBe(4);
+        expect(snap.plans['mob-7']).toEqual(plan);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('a failed mutation still lets subsequent polls apply (guard resets on settle)', async () => {
+      let serverRound = 1;
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/state')) return jsonResponse(stateSnapshot({ round: serverRound }));
+        return jsonResponse({ error: 'nope' }, 500);
+      }) as typeof fetch;
+
+      vi.useFakeTimers();
+      try {
+        conn = connectEncounter({ encounterId: 'enc-1' });
+        await vi.advanceTimersByTimeAsync(0);
+
+        await expect(conn.setPlan('mob-7', plan)).rejects.toThrow(/500/);
+        // Rollback still happened.
+        expect(get(conn.state).plans['mob-7']).toBeUndefined();
+
+        serverRound = 9;
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(get(conn.state).round).toBe(9);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });
