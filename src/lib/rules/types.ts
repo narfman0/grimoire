@@ -862,7 +862,13 @@ export type TriggerEvent = (typeof KNOWN_TRIGGER_EVENTS)[number];
 
 /** Grant payload on a TriggerDeclaration. Discriminated by `type`. The
  *  encounter runtime maps each grant to a player choice (e.g. "do you want
- *  to use Heavy Armor Master to reduce this damage?"). */
+ *  to use Heavy Armor Master to reduce this damage?").
+ *
+ *  The three `*.rider` / `hp.max-reduce` shapes are the canonical on-hit
+ *  rider contracts for magic weapons (Flame Tongue's fire rider, a Sword
+ *  of Wounding's max-HP drain, a venomous blade's poison save). Runtime
+ *  stays DM-adjudicated — these are structured display contracts so the
+ *  planner / sheet can render the rider without parsing prose. */
 export type TriggerGrant =
   | { type: 'force-reroll' }
   | { type: 'damage.reduce'; amount: number | string }
@@ -871,6 +877,26 @@ export type TriggerGrant =
   | { type: 'convert-hit-to-miss' }
   | { type: 'bonus-action-weapon-attack' }
   | { type: 'reaction-weapon-attack' }
+  /** Extra damage added to the triggering hit ("+2d6 fire on hit"). The
+   *  optional save halves (`half: true`) or negates the rider damage. */
+  | {
+      type: 'damage.rider';
+      amount: string;
+      damageType: string;
+      save?: { ability: AbilityKey; dc: number; half?: boolean };
+    }
+  /** Condition imposed on the target of the triggering hit ("target is
+   *  poisoned for 1 minute, CON 15 negates"). */
+  | {
+      type: 'condition.rider';
+      condition: string;
+      save?: { ability: AbilityKey; dc: number };
+      duration?: { value: number; units: string };
+    }
+  /** The target's HP maximum is reduced (Sword of Life Stealing /
+   *  Wounding patterns). `amount` is a dice formula or flat number
+   *  string; restoration timing is the DM's business. */
+  | { type: 'hp.max-reduce'; amount: string }
   | { type: string; [k: string]: unknown }; // forward-compat: unknown grant shapes still pass through
 
 export interface TriggerDeclaration {

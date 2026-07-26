@@ -67,6 +67,7 @@
       on: string[];
       limit?: { per: string; uses: number };
       description?: string;
+      grants?: { type: string; [k: string]: unknown };
     }>;
     resources: Array<{ id: string; name: string; max: number; used: number; per: string; description?: string }>;
     validations: Array<{ severity: string; code: string; message: string }>;
@@ -87,6 +88,31 @@
 
   function fmt(n: number): string {
     return n >= 0 ? `+${n}` : `${n}`;
+  }
+
+  /** One-line summary for the canonical structured trigger-grant shapes
+   *  (damage.rider / condition.rider / hp.max-reduce). Other grant types
+   *  render nothing here — they're runtime contracts, not display riders. */
+  function grantSummary(grants: { type: string; [k: string]: unknown } | undefined): string | null {
+    if (!grants) return null;
+    if (grants.type === 'damage.rider') {
+      const g = grants as { amount?: string; damageType?: string; save?: { ability?: string; dc?: number; half?: boolean } };
+      let s = `+${g.amount ?? '?'} ${g.damageType ?? ''} on hit`.trim();
+      if (g.save) s += ` (${(g.save.ability ?? '?').toUpperCase()} DC ${g.save.dc ?? '?'} ${g.save.half ? 'half' : 'negates'})`;
+      return s;
+    }
+    if (grants.type === 'condition.rider') {
+      const g = grants as { condition?: string; save?: { ability?: string; dc?: number }; duration?: { value?: number; units?: string } };
+      let s = `target ${(g.condition ?? '?').replace(/-/g, ' ')} on hit`;
+      if (g.save) s += ` (${(g.save.ability ?? '?').toUpperCase()} DC ${g.save.dc ?? '?'} negates)`;
+      if (g.duration?.value != null) s += `, ${g.duration.value} ${g.duration.units ?? ''}`;
+      return s;
+    }
+    if (grants.type === 'hp.max-reduce') {
+      const g = grants as { amount?: string };
+      return `target's HP maximum reduced by ${g.amount ?? '?'}`;
+    }
+    return null;
   }
 </script>
 
@@ -260,6 +286,9 @@
             <span class="text-xs text-slate-500">{t.sourceContent.kind}/{t.sourceContent.slug}</span>
           </div>
           <div class="mt-1 text-xs text-slate-400">on: <span class="font-mono">{t.on.join(', ')}</span></div>
+          {#if grantSummary(t.grants)}
+            <div class="text-xs text-amber-200/90">{grantSummary(t.grants)}</div>
+          {/if}
           {#if t.limit}
             <div class="text-xs text-slate-400">
               uses: <span class="font-mono">{t.limit.uses} / {t.limit.per}</span>
