@@ -41,6 +41,7 @@ import type {
   OutboundEffect,
   OverlayHpPool,
   PendingFeatureChoice,
+  PendingItemChoice,
   Resource,
   ResolvedClassResource,
   SaveAdvantageSourceQualified,
@@ -59,9 +60,17 @@ interface ActiveContent {
   data: Record<string, unknown>;
   /** For item-sourced entries: the originating inventory slot's state.
    *  Carried so appliesWhen.requires gates ('equipped:attuned') and the
-   *  requiresAttunement wholesale rule can be evaluated per entry.
-   *  Absent for every non-item source. */
-  inventorySlot?: { equipped: boolean; attuned: boolean };
+   *  requiresAttunement wholesale rule can be evaluated per entry, and
+   *  so per-slot player picks (`choices`) resolve at realize time.
+   *  `index` is the slot's position in character.inventory — the key
+   *  under which the sheet writes picks back. Absent for every non-item
+   *  source. */
+  inventorySlot?: {
+    equipped: boolean;
+    attuned: boolean;
+    index: number;
+    choices?: Record<string, unknown>;
+  };
 }
 
 /** Gate for item-sourced content entries (modifiers, triggers,
@@ -433,7 +442,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     ref: ContentRef;
     sourceKind: string;
     /** Originating inventory slot state, for item refs only. */
-    slot?: { equipped: boolean; attuned: boolean };
+    slot?: ActiveContent['inventorySlot'];
   }> = [];
   refs.push({ ref: character.species, sourceKind: 'species' });
   if (character.subspecies) refs.push({ ref: character.subspecies, sourceKind: 'subspecies' });
@@ -448,12 +457,18 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // Items (each inventory slot points to a content row by (kind, slug)).
   // The slot's equipped/attuned state rides along so attunement gates
   // (appliesWhen.requires) can be evaluated per active entry.
-  for (const slot of character.inventory) {
+  for (let slotIndex = 0; slotIndex < character.inventory.length; slotIndex++) {
+    const slot = character.inventory[slotIndex];
     if (!slot.equipped) continue;
     refs.push({
       ref: { kind: slot.contentKind, slug: slot.contentSlug, version: slot.version },
       sourceKind: 'item',
-      slot: { equipped: slot.equipped, attuned: slot.attuned === true }
+      slot: {
+        equipped: slot.equipped,
+        attuned: slot.attuned === true,
+        index: slotIndex,
+        ...(slot.choices && typeof slot.choices === 'object' ? { choices: slot.choices } : {})
+      }
     });
   }
 
@@ -1927,6 +1942,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const outboundEffects = collectOutboundEffects(phase);
   synthesizePickedManeuvers(phase, outboundEffects);
   const pendingFeatureChoices = collectPendingFeatureChoices(phase);
+  const pendingItemChoices = collectPendingItemChoices(phase);
   const overlayHpPools = collectOverlayHpPools(phase);
   const equipped = computeEquippedState(active);
   const activeForm = resolveActiveForm(phase);
@@ -1944,6 +1960,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     outboundEffects,
     overlayHpPools,
     pendingFeatureChoices,
+    pendingItemChoices,
     availableActivations,
     equipped,
     ...(activeForm !== undefined ? { activeForm } : {}),
@@ -2508,6 +2525,37 @@ function collectPendingFeatureChoices(s: DerivePhaseState): PendingFeatureChoice
     });
   }
   return pendingFeatureChoices;
+}
+
+/** Declarative manifest of item `data.choices` slots + recorded picks.
+ *  One entry per (inventory slot, choice slot) pair on every equipped
+ *  item that declares `data.choices` — surfaced regardless of the
+ *  attunement gate so the player can record picks before attuning (the
+ *  pick has no mechanical effect until the item's entries pass
+ *  itemRequirementMet). Unequipped items surface nothing (they aren't
+ *  active content at all). */
+function collectPendingItemChoices(s: DerivePhaseState): PendingItemChoice[] {
+  const { active } = s;
+  const out: PendingItemChoice[] = [];
+  for (const a of active) {
+    if (a.row.kind !== 'item' || !a.inventorySlot) continue;
+    const decl = a.data.choices as Record<string, Record<string, unknown> | undefined> | undefined;
+    if (!decl || typeof decl !== 'object') continue;
+    for (const key of Object.keys(decl)) {
+      const declaration = decl[key];
+      if (declaration == null || typeof declaration !== 'object') continue;
+      const picked = a.inventorySlot.choices?.[key];
+      out.push({
+        slotIndex: a.inventorySlot.index,
+        itemSlug: a.row.slug,
+        itemName: a.row.name,
+        choice: key,
+        declaration,
+        ...(picked !== undefined ? { picked } : {})
+      });
+    }
+  }
+  return out;
 }
 
 /** Overlay HP pools (Arcane Ward etc.) from overlay-hp-pool modifier rows. */
@@ -3327,6 +3375,42 @@ function fullCasterSlots(level: number): Record<number, { max: number; used: num
   return slots;
 }
 
+/** Resolve a cast-spell activity's `spell` reference. Two authored
+ *  shapes:
+ *    - literal:    `spell: { slug, version? }`
+ *    - parametric: `spell: { fromChoice: '<choice slot>' }` — reads the
+ *      picked spell slug from the originating inventory slot's
+ *      `choices[<choice slot>]` (a Spell Scroll whose spell the player
+ *      picks). Composes with spellOverrides / chargeCost like a literal
+ *      ref.
+ *  Returns the resolved ref, or the unresolved choice-slot name when
+ *  the parametric shape has no recorded pick. */
+function resolveCastSpellRef(
+  act: Record<string, unknown>,
+  source: ActiveContent
+): { ref?: { slug: string; version?: number }; needsChoice?: string } {
+  const spec = act.spell as
+    | { slug?: unknown; version?: unknown; fromChoice?: unknown }
+    | undefined;
+  if (!spec) return {};
+  if (typeof spec.slug === 'string' && spec.slug.length > 0) {
+    return {
+      ref: {
+        slug: spec.slug,
+        ...(typeof spec.version === 'number' ? { version: spec.version } : {})
+      }
+    };
+  }
+  if (typeof spec.fromChoice === 'string' && spec.fromChoice.length > 0) {
+    const picked = source.inventorySlot?.choices?.[spec.fromChoice];
+    if (typeof picked === 'string' && picked.length > 0) {
+      return { ref: { slug: picked } };
+    }
+    return { needsChoice: spec.fromChoice };
+  }
+  return {};
+}
+
 function realizeActivity(
   act: Record<string, unknown>,
   source: ActiveContent,
@@ -3549,7 +3633,13 @@ function realizeActivity(
     // slug. Inline the referenced spell's primary activity so attack/save/
     // damage details flow into this Action. The action's sourceContent stays
     // on the item — the caller can still trace it back to the driftglobe.
-    const ref = act.spell as { slug: string; version?: number } | undefined;
+    // Parametric shape: `spell: { fromChoice: '<choice slot>' }` resolves
+    // the slug from the originating inventory slot's recorded pick; with
+    // no pick the action realizes as a stub tagged `needsChoice` (no
+    // inline, no warning — pendingItemChoices surfaces the gap).
+    const resolved = resolveCastSpellRef(act, source);
+    if (resolved.needsChoice) action.needsChoice = resolved.needsChoice;
+    const ref = resolved.ref;
     if (ref?.slug) {
       const spellRow = content({ kind: 'spell', slug: ref.slug, version: ref.version });
       if (spellRow) {
@@ -3670,7 +3760,7 @@ function realizeActivity(
   const rowTarget = (source.data as { target?: { mode?: string; count?: number } }).target;
   let inlinedTarget: { mode?: string; count?: number } | undefined;
   if (type === 'cast-spell') {
-    const ref = act.spell as { slug: string; version?: number } | undefined;
+    const ref = resolveCastSpellRef(act, source).ref;
     if (ref?.slug) {
       const spellRow = content({ kind: 'spell', slug: ref.slug, version: ref.version });
       inlinedTarget = (spellRow?.data as { target?: { mode?: string; count?: number } } | undefined)?.target;

@@ -41,6 +41,14 @@ export interface InventorySlot {
   attuned: boolean;
   charges?: number;
   slot?: string;
+  /** Player picks for choice slots the item row declares via
+   *  `data.choices` (see docs/rules-engine.md § Item choice slots).
+   *  Per-inventory-slot state — two copies of a Spell Scroll can hold
+   *  different spells. Keyed by choice-slot name; the v1 engine-read
+   *  slots store a plain slug string:
+   *    choices.spell      = '<spell slug>'   (parametric cast-spell)
+   *    choices.baseWeapon = '<item slug>'    (generic-variant weapons) */
+  choices?: Record<string, unknown>;
 }
 
 export interface CharacterDocument {
@@ -524,6 +532,13 @@ export interface Action {
   /** Ranged attacks made with this action don't suffer disadvantage from
    *  long range (Sharpshooter). */
   attackNoDisadvantageLongRange?: boolean;
+  /** Set when the action references an item choice slot (e.g. a
+   *  cast-spell activity with `spell: { fromChoice: 'spell' }`) whose
+   *  pick hasn't been recorded on the inventory slot yet. The value is
+   *  the choice-slot name. The action realizes as a stub (no inlined
+   *  attack/save/damage) and the gap is surfaced on
+   *  `Derived.pendingItemChoices` — no validation warning fires. */
+  needsChoice?: string;
   /** Trigger id this action is gated on. When set, the action is only
    *  available *after* the named trigger has fired this turn/round (e.g.
    *  War Magic grants a bonus-action weapon attack after casting a
@@ -1021,6 +1036,13 @@ export interface Derived {
    *  and writes selections back into `character.featureChoices[slug]`
    *  (or `character.subclassChoices[slug]` for subclass-row picks). */
   pendingFeatureChoices: PendingFeatureChoice[];
+  /** Per-inventory-slot choice manifest — one entry per choice slot
+   *  declared by an equipped item's `data.choices`. Mirrors the intent
+   *  of pendingFeatureChoices but keyed by inventory position, since
+   *  the pick lives on the InventorySlot (two copies of a Spell Scroll
+   *  hold different spells). The sheet walks this to render pickers and
+   *  writes selections into `character.inventory[slotIndex].choices`. */
+  pendingItemChoices: PendingItemChoice[];
   /** Player-toggleable activations declared on active feature / spell rows
    *  (Bladesong, Rage, Form of Dread, Magic Weapon, etc.). The sheet
    *  renders a toggle per entry; toggling on writes
@@ -1276,6 +1298,27 @@ export interface PendingFeatureChoice {
   picks: Record<string, unknown>;
   /** True when at least one declared slot has no pick recorded. */
   unresolved: boolean;
+}
+
+/** One declared item choice slot + the player's current pick (if any).
+ *  Emitted for every choice slot on every equipped item that declares
+ *  `data.choices` — resolved and unresolved alike (`picked` is absent
+ *  when the slot has no recorded pick). */
+export interface PendingItemChoice {
+  /** Index into `character.inventory` — where the pick is written. */
+  slotIndex: number;
+  itemSlug: string;
+  itemName: string;
+  /** Choice-slot name from the item's `data.choices` (e.g. 'spell',
+   *  'baseWeapon', or any homebrew-defined generic slot). */
+  choice: string;
+  /** The slot's declaration object as authored (label, maxLevel,
+   *  allowedLevels, allowedClasses, allowedSchools, allowedCategories,
+   *  …). Opaque to the engine beyond the v1 slots it interprets. */
+  declaration: Record<string, unknown>;
+  /** The recorded pick, when present (v1 engine-read slots: a slug
+   *  string). Absent → unresolved. */
+  picked?: unknown;
 }
 
 export interface OverlayHpPool {

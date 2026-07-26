@@ -124,7 +124,11 @@ const InventorySlotSchema = z.object({
   equipped: z.boolean(),
   attuned: z.boolean(),
   charges: z.number().int().nonnegative().optional(),
-  slot: z.string().optional()
+  slot: z.string().optional(),
+  /** Player picks for the item row's `data.choices` slots — per-inventory-
+   *  slot state (two copies of a Spell Scroll hold different spells).
+   *  Mirrors InventorySlot.choices in src/lib/rules/types.ts. */
+  choices: z.record(z.string(), z.unknown()).optional()
 });
 
 export const CharacterDocument = z

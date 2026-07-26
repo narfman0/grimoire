@@ -158,6 +158,19 @@ describe('PATCH /api/characters/[id]', () => {
       hitDiceSpent: { fighter: 1 },
       conditions: ['frightened'],
       modifierToggles: { rage: true },
+      // Per-inventory-slot choice picks (parametric scroll / bound base
+      // weapon) — added with the item choice-slot model; the Zod schema
+      // must carry them or every PATCH silently wipes the picks.
+      inventory: [
+        {
+          contentKind: 'item',
+          contentSlug: 'test-parametric-scroll',
+          version: 1,
+          equipped: true,
+          attuned: false,
+          choices: { spell: 'fireball', baseWeapon: 'longsword' }
+        }
+      ],
       resourcesSpent: { 'rage:uses': 1 },
       actionUsedThisRound: true,
       bonusActionUsedThisRound: false,
@@ -209,6 +222,7 @@ describe('PATCH /api/characters/[id]', () => {
     expect(body.document.deathSaves).toEqual({ successes: 1, failures: 2 });
     expect(body.document.polymorphForm).toEqual(docIn.polymorphForm);
     expect(body.document.companions).toEqual(docIn.companions);
+    expect(body.document.inventory).toEqual(docIn.inventory);
 
     // And the same survives a re-fetch (no DB-side stripping).
     const reread = await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }));
@@ -217,6 +231,7 @@ describe('PATCH /api/characters/[id]', () => {
     expect(reBody.document.deathSaves).toEqual({ successes: 1, failures: 2 });
     expect(reBody.document.polymorphForm).toEqual(docIn.polymorphForm);
     expect(reBody.document.companions).toEqual(docIn.companions);
+    expect(reBody.document.inventory).toEqual(docIn.inventory);
   });
 
   it('rewrites document.id to match the row id (no spoofing)', async () => {
