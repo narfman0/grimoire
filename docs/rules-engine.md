@@ -97,6 +97,65 @@ Resolution: the Action carries `summons: { creatures: [{ slug, count, name?, res
 
 Warning semantics: an unresolvable creature slug emits a `summon-missing-content` soft warning. This is deliberately **not** an `unknown-*` code — the packs QC gate hard-fails T3 rows on `unknown-*`, and a summon may legitimately reference a monster shipped in another pack or in operator homebrew that a partial lookup can't see. The action still realizes either way.
 
+## Modifier-side capability targets
+
+Boolean targets take `value: true`; anything else is ignored. All feed `derive()` phase 2 and land on `Derived.stats`.
+
+### Skill / ability-check advantage
+
+| target | effect |
+| --- | --- |
+| `skill.advantage.<slug>` / `skill.disadvantage.<slug>` | flags that skill's `SkillCell.advantage` / `.disadvantage` |
+| `skill.advantage.all` / `skill.disadvantage.all` | flags every skill |
+| `check.advantage.<ab>` / `check.disadvantage.<ab>` | flags every skill of that ability AND records `stats.abilityCheckAdvantage[<ab>]` (`'advantage' \| 'disadvantage' \| 'both'`) for raw checks |
+| `check.bonus.<ab>` (numeric) | adds to every skill of that ability. Initiative deliberately stays separate — it has its own `initiative` target |
+
+Both flags can be true at once; derive reports both and the roll-time consumer cancels them. **Passive Perception** applies RAW: advantage on the check → +5, disadvantage → −5, both → ±0.
+
+### Curated trait flags
+
+`trait.<slug>` (boolean) appends the slug to `stats.traits` (sorted, deduped). Any slug is allowed — no validation gate. Canonical slugs:
+
+`water-breathing`, `x-ray-vision`, `surprise-immune`, `disease-immune`, `mind-shielding`, `no-fall-damage`, `ignore-difficult-terrain`, `attacks-count-as-magical`, `auto-stabilize`, `magic-detection-immune`
+
+The sheet renders traits as chips beside senses; the encounter runtime interprets slugs it knows.
+
+### Incoming-crit immunity
+
+`tag.incoming-crit-immune` (boolean) → `stats.incomingCritImmune` — critical hits against the wearer become normal hits (adamantine armor). Derive + type only for now; encounter-runtime consumption at incoming-attack adjudication is a follow-on.
+
+### Death-save advantage
+
+`deathsave.advantage` (boolean) → `stats.deathSaveAdvantage`. The sheet/runtime chooses how to surface it on death-save rolls.
+
+### Armor property consumers
+
+Equipped armor rows (category `armor`, non-shield) now have engine consumers for two pack-data fields:
+
+- `stealthDisadvantage: true` → `stats.skills.stealth.disadvantage` via the skill advantage channel. Waived by an active `armor.ignore-stealth-disadvantage` (boolean) modifier.
+- numeric `strRequired` > the character's STR **score** → every speed −10 ft (RAW), applied after all other speed math, floored at 0. Waived by `armor.ignore-str-requirement`.
+
+Mithral-style items author the ignore targets on themselves; a mithral row can also simply omit the base flags — both shapes work.
+
+### Condition-removal grants
+
+Activities may declare `grants.removeConditions` (Lesser Restoration shape); `realizeActivity` passes it onto `Action.grants.removeConditions`:
+
+```jsonc
+"grants": {
+  "removeConditions": [
+    "poisoned",                              // remove entirely
+    { "condition": "exhaustion", "stacks": 2 } // decrement conditionStacks by 2; remove at 0
+  ]
+}
+```
+
+`stacks` is numeric-only (no evaluateValue formulas). Like `grants.tempHp`, this is **display-only** today — the sheet renders a "removes:" line; there is no auto-apply path for action grants yet.
+
+### Source-qualified save advantage from items
+
+A `save.advantage.*` stat-modifier with a `sourcePredicate` (see `src/lib/rules/damage-source.ts`) works identically on items as on feats/features — the entry lands on `stats.savesAdvantageSourceQualified` with item attribution, and the attunement gate (`appliesWhen.requires: "equipped:attuned"`) keeps unattuned entries out. Mantle of Spell Resistance is `save.advantage.all` + `sourcePredicate: { "kind": "spell" }`.
+
 ## API schema parity
 
 Every `CharacterDocument` field must appear in the Zod `CharacterDocument` schema in `src/lib/server/api/schemas.ts` — Zod strips unknown keys, and the character PATCH/PUT handlers persist the parsed body, so a missing schema entry silently deletes the field on every client round-trip. 2026-07: `companions`, `polymorphForm`, and `deathSaves` were missing and got stripped this way; the round-trip regression test in `src/routes/api/characters/[id]/__tests__/server.test.ts` now covers all three (add new optional fields to that test when extending the document).
