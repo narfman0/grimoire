@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
@@ -8,6 +8,8 @@ import { PlanJson } from '$lib/server/api/encounter-schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
+import { buildLiveParticipantList } from '$lib/realtime/participants';
+import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
@@ -32,9 +34,34 @@ const ParticipantHpSchema = z.object({
     .optional()
 });
 
+const RevealsSchema = z.object({
+  identity: z.boolean(),
+  vitals: z.boolean(),
+  combat: z.boolean(),
+  hidden: z.boolean()
+});
+
+// Wire shape of LiveParticipant (src/lib/realtime/participants.ts): the
+// role-redacted membership/order/name/reveals slice of the participant
+// list. Heavy derived data (statblocks, PC stats) stays on SSR page data;
+// the client re-fetches page data when this list names a participant it
+// has no heavy row for.
+const LiveParticipantSchema = z.object({
+  id: Uuid,
+  kind: z.string(),
+  characterId: Uuid.nullable(),
+  name: z.string(),
+  placeholderName: z.string(),
+  initiative: z.number().int().nullable(),
+  sortOrder: z.number().int(),
+  reveals: RevealsSchema
+});
+
 const EncounterStateResponse = z.object({
   round: z.number().int().nonnegative(),
+  status: z.enum(['staging', 'live', 'ended']),
   activeParticipantId: Uuid.nullable(),
+  participants: z.array(LiveParticipantSchema),
   plans: z.record(z.string(), PlanJson.nullable()),
   participantHp: z.record(z.string(), ParticipantHpSchema)
 });
@@ -46,7 +73,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   const { id } = parseParams(params, Params);
 
   const encRows = await db
-    .select({ campaignId: schema.encounters.campaignId, round: schema.encounters.round, activeParticipantId: schema.encounters.activeParticipantId })
+    .select({ campaignId: schema.encounters.campaignId, round: schema.encounters.round, status: schema.encounters.status, activeParticipantId: schema.encounters.activeParticipantId })
     .from(schema.encounters)
     .where(eq(schema.encounters.id, id))
     .limit(1);
@@ -61,6 +88,11 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       id: schema.participants.id,
       kind: schema.participants.kind,
       characterId: schema.participants.characterId,
+      name: schema.participants.name,
+      initiative: schema.participants.initiative,
+      sortOrder: schema.participants.sortOrder,
+      statblockSlug: schema.participants.statblockSlug,
+      statblockJson: schema.participants.statblockJson,
       currentHp: schema.participants.currentHp,
       maxHp: schema.participants.maxHp,
       tempHp: schema.participants.tempHp,
@@ -119,6 +151,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       JSON.stringify([
         role,
         enc.round,
+        enc.status,
         enc.activeParticipantId ?? null,
         pcDocsUpdatedMax,
         // Sort for a deterministic hash — SQLite row order is unspecified.
@@ -132,12 +165,17 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   }
 
   const charDocs = new Map<string, Record<string, unknown>>();
+  /** Live character name by character.id — PC rows in the wire list track
+   *  sheet renames without a participants-table re-sync (same rule as the
+   *  SSR loader's charNameById). */
+  const charNames = new Map<string, string>();
   if (pcCharIds.length > 0) {
     const rows = await db
-      .select({ id: schema.characters.id, document: schema.characters.document })
+      .select({ id: schema.characters.id, name: schema.characters.name, document: schema.characters.document })
       .from(schema.characters)
       .where(inArray(schema.characters.id, pcCharIds));
     for (const r of rows) {
+      charNames.set(r.id, r.name);
       if (!r.document) continue;
       try {
         charDocs.set(r.id, JSON.parse(r.document) as Record<string, unknown>);
@@ -147,6 +185,61 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       }
     }
   }
+
+  // Dex per participant for the initiative tiebreaker — mirrors the SSR
+  // loader's dexForParticipant so both surfaces sort identically. Runs
+  // post-304 only; the token already covers every input (rows incl.
+  // statblock columns, char docs via updated_at, static monster content).
+  const monsterSlugs = Array.from(
+    new Set(partRows.map((p) => p.statblockSlug).filter((s): s is string => !!s))
+  );
+  const monsterDex = new Map<string, number>();
+  if (monsterSlugs.length > 0) {
+    const rows = await db
+      .select({ slug: schema.content.slug, data: schema.content.data })
+      .from(schema.content)
+      .where(and(eq(schema.content.kind, 'monster'), inArray(schema.content.slug, monsterSlugs)));
+    for (const r of rows) {
+      try {
+        const derived = monsterDerive(JSON.parse(r.data as string) as Record<string, unknown>);
+        monsterDex.set(r.slug, derived.abilityScores.dex);
+      } catch (err) {
+        logger.warn({ err, encounterId: id, slug: r.slug }, 'state poll: malformed monster content');
+      }
+    }
+  }
+  function dexForParticipant(p: (typeof partRows)[number]): number {
+    if (p.characterId) {
+      const dex = (charDocs.get(p.characterId)?.abilityScores as { dex?: number } | undefined)?.dex;
+      if (typeof dex === 'number') return dex;
+      return 10;
+    }
+    if (p.statblockSlug) return monsterDex.get(p.statblockSlug) ?? 10;
+    if (p.statblockJson) {
+      try {
+        const d = JSON.parse(p.statblockJson) as { abilityScores?: { dex?: number } };
+        return d.abilityScores?.dex ?? 10;
+      } catch {
+        // fall through
+      }
+    }
+    return 10;
+  }
+
+  const participants = buildLiveParticipantList(
+    partRows.map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      characterId: p.characterId,
+      name:
+        p.kind === 'pc' && p.characterId ? charNames.get(p.characterId) ?? p.name : p.name,
+      initiative: p.initiative,
+      dexScore: dexForParticipant(p),
+      sortOrder: p.sortOrder,
+      reveals: parseReveals(p.revealsJson)
+    })),
+    role === 'dm'
+  );
 
   const plans: Record<string, z.infer<typeof PlanJson> | null> = {};
   const participantHp: Record<string, z.infer<typeof ParticipantHpSchema>> = {};
@@ -219,7 +312,9 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
   const body: TEncounterStateResponse = {
     round: enc.round,
+    status: enc.status as TEncounterStateResponse['status'],
     activeParticipantId: enc.activeParticipantId ?? null,
+    participants,
     plans,
     participantHp
   };
@@ -229,7 +324,8 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
 export const _openapi = {
   GET: {
-    summary: 'Fetch the live encounter snapshot (round, turn, HP, plans) for polling',
+    summary:
+      'Fetch the live encounter snapshot (round, status, turn, redacted participant list, HP, plans) for polling',
     description:
       'The 200 response carries an `ETag` header derived from the encounter state. ' +
       'Pollers should echo it back via `If-None-Match`; when nothing changed the server ' +

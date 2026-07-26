@@ -4,10 +4,13 @@
 //
 // Realtime model under test (see AGENTS.md): clients short-poll
 // GET /api/encounters/[id]/state every 2s. The poll carries HP / plans /
-// round — those must converge on the player's open page without a reload.
-// The participant *list* and reveal flags are SSR page data, refreshed on
-// navigation/invalidate — reveal assertions therefore go through a fresh
-// SSR pass (page.reload()), which is where the redaction contract lives.
+// round / encounter status AND the role-redacted participant list (names,
+// reveal flags, membership, order) — all of it must converge on the
+// player's open page without a reload. Heavy per-participant data
+// (statblocks, PC stats) stays on SSR page data; when the poll surfaces a
+// row the page has no heavy data for, the client re-runs the load
+// functions itself. Reveal/membership assertions here are therefore
+// live-first, with one reload pass to pin the SSR redaction contract too.
 
 import { test, expect } from '@playwright/test';
 import {
@@ -79,15 +82,19 @@ test('DM and player share a live encounter: realtime HP, reveals, hidden redacti
 
   // ---- DM reveals the monster through the UI ------------------------------
   // Select the row, then "reveal all" (identity/vitals/combat on, hidden
-  // off in one PATCH). Reveal flags ride on SSR page data, so the player
-  // picks them up on the next navigation — assert on a fresh SSR pass.
+  // off in one PATCH). Reveals ride the 2s poll: the player's OPEN page
+  // must show the real name and exact vitals with no reload — the core
+  // demo moment.
   await dmGoblinRow.click();
   await dmPage.getByRole('button', { name: 'reveal all' }).click();
   await expect(dmPage.getByRole('button', { name: 'reveal all' })).toBeVisible();
-  await playerPage.reload();
   const playerGoblinRow = playerPage.locator('li').filter({ hasText: 'Goblin' }).first();
-  await expect(playerGoblinRow).toBeVisible();
+  await expect(playerGoblinRow).toBeVisible(SYNC_TIMEOUT);
   // vitals revealed → exact numbers replace the bucket badge.
+  await expect(playerGoblinRow).toContainText('3 / 7', SYNC_TIMEOUT);
+  // …and the same redaction contract holds on a fresh SSR pass.
+  await playerPage.reload();
+  await expect(playerGoblinRow).toBeVisible();
   await expect(playerGoblinRow).toContainText('3 / 7');
 
   // …and live HP keeps flowing after the reveal: heal 3 → 6, the player's
@@ -98,6 +105,23 @@ test('DM and player share a live encounter: realtime HP, reveals, hidden redacti
   );
   expect(healRes.ok()).toBe(true);
   await expect(playerGoblinRow).toContainText('6 / 7', SYNC_TIMEOUT);
+
+  // ---- participant list is live: a new monster appears without reload -----
+  // The wolf is unrevealed, so the player's open page gains an "Enemy 1"
+  // slot (the goblin, identity-revealed, no longer consumes a number).
+  // Both open pages must converge through the poll alone — the DM page via
+  // its poll-triggered page-data refresh.
+  await addNpc(dm, encounterId, {
+    name: 'Wolf',
+    initiative: 3,
+    currentHp: 11,
+    maxHp: 11
+  });
+  const playerWolfRow = playerPage.locator('li').filter({ hasText: 'Enemy 1' }).first();
+  await expect(playerWolfRow).toBeVisible(SYNC_TIMEOUT);
+  await expect(playerPage.getByText('Participants (2)')).toBeVisible(SYNC_TIMEOUT);
+  await expect(playerPage.getByText('Wolf')).toHaveCount(0);
+  await expect(dmPage.locator('li').filter({ hasText: 'Wolf' }).first()).toBeVisible(SYNC_TIMEOUT);
 
   // ---- hidden participant never reaches the player ------------------------
   const lurkerId = await addNpc(dm, encounterId, {
@@ -114,13 +138,13 @@ test('DM and player share a live encounter: realtime HP, reveals, hidden redacti
   // "Enemy 2" slot, participant count still excludes it.
   await playerPage.reload();
   await expect(playerGoblinRow).toBeVisible();
-  await expect(playerPage.getByText('Participants (1)')).toBeVisible();
+  await expect(playerPage.getByText('Participants (2)')).toBeVisible();
   await expect(playerPage.getByText('Shadow Lurker')).toHaveCount(0);
   await expect(playerPage.getByText('Enemy 2')).toHaveCount(0);
   // …while the DM does see it.
   await dmPage.reload();
   await expect(dmPage.getByText('Shadow Lurker')).toBeVisible();
-  await expect(dmPage.getByText('Participants (2)')).toBeVisible();
+  await expect(dmPage.getByText('Participants (3)')).toBeVisible();
 
   await dmPage.context().close();
   await playerPage.context().close();

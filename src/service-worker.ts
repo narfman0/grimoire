@@ -30,6 +30,10 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Pre-cached build output is content-hashed (or versioned by CACHE) — safe
+// to serve cache-first forever.
+const PRECACHED = new Set(ASSETS.map((p) => new URL(p, self.location.origin).pathname));
+
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests; skip cross-origin and API/auth routes
   if (event.request.method !== 'GET') return;
@@ -38,6 +42,40 @@ self.addEventListener('fetch', (event) => {
   // Don't cache API calls — always go to network for fresh data
   if (url.pathname.startsWith('/api/')) return;
 
+  // Page documents and SvelteKit data requests must be network-first: an
+  // encounter page served stale renders old participants/reveals until the
+  // poll corrects part of it, and load-function data (__data.json) is as
+  // dynamic as the API. Cache is an offline fallback only.
+  const isDocument = event.request.mode === 'navigate';
+  const isDataRequest = url.pathname.endsWith('__data.json');
+  if (isDocument || isDataRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          throw new Error('offline and not cached');
+        })
+    );
+    return;
+  }
+
+  // Hashed build assets: cache-first (immutable within a CACHE version).
+  if (PRECACHED.has(url.pathname)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached ?? fetch(event.request))
+    );
+    return;
+  }
+
+  // Everything else static-ish (portraits, uploads): stale-while-revalidate.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request).then((response) => {

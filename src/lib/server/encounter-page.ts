@@ -14,6 +14,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
+import { initiativeCompare, makePlaceholderNamer } from '$lib/realtime/participants';
 import { derive } from '$lib/rules';
 import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
@@ -472,12 +473,7 @@ export async function buildEncounterPageData(
             placeholderName: p.name
           };
         })
-        .sort(
-          (a, b) =>
-            (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) ||
-            b.dexScore - a.dexScore ||
-            a.sortOrder - b.sortOrder
-        );
+        .sort(initiativeCompare);
 
       if (isDM) {
         // DM sees everything. placeholderName mirrors the real name — the
@@ -490,12 +486,12 @@ export async function buildEncounterPageData(
       // Player branch: drop `hidden`; redact per-flag; PC participants
       // (party members) always render fully.
       const visible = fullRows.filter((r) => r.kind === 'pc' || !r.reveals.hidden);
-      let idx = 0;
+      const nameFor = makePlaceholderNamer();
       return visible.map((r) => {
         if (r.kind === 'pc') {
           return r;
         }
-        const placeholder = r.reveals.identity ? r.name : `Enemy ${++idx}`;
+        const placeholder = nameFor(r);
         return {
           ...r,
           name: r.reveals.identity ? r.name : placeholder,

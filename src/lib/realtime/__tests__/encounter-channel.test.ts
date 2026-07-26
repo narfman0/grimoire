@@ -97,6 +97,38 @@ describe('connectEncounter (polling)', () => {
     expect(snap.activeParticipantId).toBe('mob-7');
   });
 
+  it('updates status and the participant list from poll response', async () => {
+    const wireParticipant = {
+      id: 'mob-1',
+      kind: 'monster',
+      characterId: null,
+      name: 'Enemy 1',
+      placeholderName: 'Enemy 1',
+      initiative: 14,
+      sortOrder: 0,
+      reveals: { identity: false, vitals: false, combat: false, hidden: false }
+    };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) {
+        return jsonResponse(
+          stateSnapshot({ status: 'live', participants: [wireParticipant] } as never)
+        );
+      }
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    // Seed defaults: unknown until the first poll answers.
+    expect(get(conn.state).status).toBeNull();
+    expect(get(conn.state).participants).toBeNull();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const snap = get(conn.state);
+    expect(snap.status).toBe('live');
+    expect(snap.participants).toEqual([wireParticipant]);
+  });
+
   it('updates plans from poll response', async () => {
     const plan: TurnPlan = {
       actionId: 'bite',

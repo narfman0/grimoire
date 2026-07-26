@@ -14,6 +14,7 @@
 // consumers need no changes.
 
 import { writable, type Readable } from 'svelte/store';
+import type { LiveParticipant } from './participants';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
 import { computeIncomingDamage, type DamageResolutionStats } from '../rules/incoming-damage';
 import type { DamageSourceContext } from '../rules/damage-source';
@@ -57,7 +58,14 @@ export interface ParticipantHp {
 
 export interface EncounterSnapshot {
   round: number;
+  /** Encounter lifecycle status. Null until the first poll response (the
+   *  SSR seed provides it) — consumers fall back to page data. */
+  status: 'staging' | 'live' | 'ended' | null;
   activeParticipantId: string | null;
+  /** Role-redacted membership/order/name/reveals list from the poll. Null
+   *  until the first poll response; consumers fall back to SSR page data.
+   *  Array order is the authoritative initiative order. */
+  participants: LiveParticipant[] | null;
   plans: Record<string, TurnPlan>;
   participantHp: Record<string, ParticipantHp>;
 }
@@ -101,9 +109,16 @@ export interface ConnectedEncounter {
     participantId: string,
     concentrating: { label: string; sinceRound?: number } | null
   ): Promise<void>;
-  /** Update encounter-level round / active participant. DM-only at the
-   *  server; UI gates the call. */
-  setTurn(next: { round?: number; activeParticipantId?: string | null }): Promise<void>;
+  /** Update encounter-level round / active participant / lifecycle status.
+   *  DM-only at the server; UI gates the call. Routing status flips through
+   *  here (rather than a bare PATCH) keeps them optimistic AND tracked by
+   *  the stale-poll guard, so a poll issued pre-mutation can't briefly
+   *  revert the header to the old status. */
+  setTurn(next: {
+    round?: number;
+    activeParticipantId?: string | null;
+    status?: 'staging' | 'live' | 'ended';
+  }): Promise<void>;
   destroy(): void;
 }
 
@@ -120,7 +135,9 @@ const MAX_ERRORS_BEFORE_ERROR_STATUS = 3;
 
 const EMPTY: EncounterSnapshot = {
   round: 0,
+  status: null,
   activeParticipantId: null,
+  participants: null,
   plans: {},
   participantHp: {}
 };
@@ -128,7 +145,9 @@ const EMPTY: EncounterSnapshot = {
 export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncounter {
   const initial: EncounterSnapshot = {
     round: opts.seed?.round ?? EMPTY.round,
+    status: opts.seed?.status ?? EMPTY.status,
     activeParticipantId: opts.seed?.activeParticipantId ?? EMPTY.activeParticipantId,
+    participants: opts.seed?.participants ?? EMPTY.participants,
     plans: opts.seed?.plans ?? {},
     participantHp: opts.seed?.participantHp ?? {}
   };
@@ -207,7 +226,9 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       }
       state.set({
         round: data.round,
+        status: data.status ?? null,
         activeParticipantId: data.activeParticipantId,
+        participants: data.participants ?? null,
         plans: (data.plans ?? {}) as Record<string, TurnPlan>,
         participantHp: (data.participantHp ?? {}) as Record<string, ParticipantHp>
       });
@@ -429,6 +450,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       state.update((s) => ({
         ...s,
         round: next.round !== undefined ? next.round : s.round,
+        status: next.status !== undefined ? next.status : s.status,
         activeParticipantId:
           next.activeParticipantId !== undefined ? next.activeParticipantId : s.activeParticipantId
       }));
@@ -438,7 +460,12 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           body: JSON.stringify(next)
         });
       } catch (err) {
-        state.update((s) => ({ ...s, round: snap.round, activeParticipantId: snap.activeParticipantId }));
+        state.update((s) => ({
+          ...s,
+          round: snap.round,
+          status: snap.status,
+          activeParticipantId: snap.activeParticipantId
+        }));
         throw err;
       } finally {
         endMutation();

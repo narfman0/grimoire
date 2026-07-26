@@ -17,6 +17,7 @@
     patchPcWithMirror
   } from '$lib/encounter/conditions';
   import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
+  import type { LiveParticipant } from '$lib/realtime/participants';
   import {
     connectEncounter,
     type ConnectedEncounter,
@@ -75,6 +76,7 @@
       encounterId: data.encounter.id,
       seed: {
         round: data.encounter.round,
+        status: data.encounter.status as EncounterSnapshot['status'],
         activeParticipantId: data.encounter.activeParticipantId,
         plans: seedPlans,
         participantHp: seedHp
@@ -101,8 +103,100 @@
   // Effective values: SSE snapshot when available, fall back to SSR seed.
   $: liveRound = liveState?.round ?? data.encounter.round;
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
+  $: liveStatus = liveState?.status ?? data.encounter.status;
   $: livePlans = liveState?.plans ?? {};
   $: liveHpMap = liveState?.participantHp ?? {};
+
+  // --- live participant list ----------------------------------------------
+  // For players, the poll snapshot is authoritative for membership, order,
+  // names, and reveal flags; the SSR rows are authoritative for heavy
+  // per-participant data (statblocks, derived PC stats). Merge: walk the
+  // poll list in its (server-sorted) order, graft each entry's lightweight
+  // fields onto its SSR row. A poll entry with no SSR row (a monster added
+  // or unhidden since page load) renders as a minimal row until the
+  // invalidate below refreshes page data. Rows the poll dropped (removed or
+  // freshly hidden) disappear immediately.
+  //
+  // The DM keeps rendering straight SSR data: every list mutation a DM can
+  // make flows through api() + invalidateAll on this page, and overlaying a
+  // ≤2s-stale poll list would briefly snap their own reveal/initiative
+  // edits back. Cross-tab DM freshness rides the invalidate trigger below.
+  type SsrParticipant = EncounterPageData['participants'][number];
+
+  function synthParticipant(e: LiveParticipant): SsrParticipant {
+    return {
+      id: e.id,
+      encounterId: data.encounter.id,
+      characterId: e.characterId,
+      name: e.name,
+      kind: e.kind,
+      statblockSlug: null,
+      statblockJson: null,
+      statblockActions: [],
+      statblock: null,
+      initiative: e.initiative,
+      dexScore: 10,
+      currentHp: null,
+      maxHp: null,
+      tempHp: 0,
+      conditions: [],
+      sortOrder: e.sortOrder,
+      reveals: e.reveals,
+      hpBucket: 'unknown',
+      placeholderName: e.placeholderName
+    } as SsrParticipant;
+  }
+
+  function mergeParticipants(
+    ssrRows: EncounterPageData['participants'],
+    live: LiveParticipant[] | null
+  ): EncounterPageData['participants'] {
+    if (!live) return ssrRows;
+    const ssrById = new Map(ssrRows.map((p) => [p.id, p]));
+    return live.map((e) => {
+      const ssr = ssrById.get(e.id);
+      return ssr
+        ? {
+            ...ssr,
+            name: e.name,
+            placeholderName: e.placeholderName,
+            initiative: e.initiative,
+            sortOrder: e.sortOrder,
+            reveals: e.reveals
+          }
+        : synthParticipant(e);
+    });
+  }
+
+  $: liveParticipants =
+    data.role === 'dm'
+      ? data.participants
+      : mergeParticipants(data.participants, liveState?.participants ?? null);
+
+  // Poll-driven page-data refresh: when the poll surfaces a row we have no
+  // heavy data for — a brand-new participant, an unhidden ambush, or (for
+  // players) a combat/vitals reveal flip that unlocks statblock data the
+  // SSR pass redacted away — re-run the load functions once. Signature-
+  // guarded so a transiently inconsistent server can't loop invalidateAll.
+  let lastRefreshSig = '';
+  $: if (liveState?.participants) {
+    const needsHeavyData = liveState.participants.filter((e) => {
+      const ssr = data.participants.find((p) => p.id === e.id);
+      if (!ssr) return true;
+      return (
+        data.role !== 'dm' &&
+        e.kind !== 'pc' &&
+        ((e.reveals.combat && !ssr.reveals.combat) || (e.reveals.vitals && !ssr.reveals.vitals))
+      );
+    });
+    const sig = needsHeavyData
+      .map((e) => `${e.id}:${e.reveals.combat ? 1 : 0}${e.reveals.vitals ? 1 : 0}`)
+      .join(',');
+    if (needsHeavyData.length > 0 && sig !== lastRefreshSig) {
+      lastRefreshSig = sig;
+      invalidateAll().catch(() => {});
+    }
+  }
 
   function clearPlan(participantId: string) {
     if (!conn) return;
@@ -178,7 +272,7 @@
     attackBonus?: number;
     damage?: Array<{ dice: string; type: string }>;
   }) {
-    const acting = data.participants.find((q) => q.id === resolveForParticipantId);
+    const acting = liveParticipants.find((q) => q.id === resolveForParticipantId);
     resolveActionLabel = acting ? `${acting.name} — ${a.name}` : a.name;
     // Leave roll inputs blank so DM types what they actually rolled.
     resolveAttack = null;
@@ -189,7 +283,7 @@
    *  pre-fills the label; no rolls or HP changes. */
   const COMMON_ACTIONS = ['Dodge', 'Dash', 'Disengage', 'Hide', 'Help', 'Ready', 'Use Object'];
   function pickCommonAction(label: string) {
-    const acting = data.participants.find((q) => q.id === resolveForParticipantId);
+    const acting = liveParticipants.find((q) => q.id === resolveForParticipantId);
     resolveActionLabel = acting ? `${acting.name} — ${label}` : label;
     resolveAttack = null;
     resolveDamage = null;
@@ -206,7 +300,7 @@
   ): Promise<boolean> {
     if (!conn || !resolveForParticipantId) return false;
     const target = (targetId
-      ? data.participants.find((p) => p.id === targetId) ?? null
+      ? liveParticipants.find((p) => p.id === targetId) ?? null
       : null) as ResolveTarget | null;
     const result = await applyHpAndLog({
       conn,
@@ -232,7 +326,7 @@
       if (resolveMultiTargetIds.length > 0 && resolveSaveDC != null) {
         // Multi-target save: per-target pass/fail from save roll vs DC.
         for (const tid of resolveMultiTargetIds) {
-          const t = data.participants.find((p) => p.id === tid);
+          const t = liveParticipants.find((p) => p.id === tid);
           if (!t) continue;
           const saveRoll = resolveTargetSaveRolls[tid];
           const perTargetOutcome: HitOutcome =
@@ -262,7 +356,7 @@
         ) {
           const targetHpEntry = liveHpMap[resolveTargetId];
           if (targetHpEntry?.concentrating) {
-            const targetParticipant = data.participants.find((p) => p.id === resolveTargetId);
+            const targetParticipant = liveParticipants.find((p) => p.id === resolveTargetId);
             const effective = effectiveDamage(resolveHit, resolveDamage);
             concSavePrompt = {
               participantName: targetParticipant?.name ?? 'Target',
@@ -289,7 +383,7 @@
       }
       const newPrompts = reactionPromptsForResolution({
         firedEvents,
-        participants: data.participants,
+        participants: liveParticipants,
         triggersByParticipantId: data.participantPcTriggers ?? {},
         reactionUsedByParticipantId
       });
@@ -307,7 +401,7 @@
 
   /** Drop concentration for a participant (called from the CON save callout). */
   function dropConcentration(participantId: string) {
-    const p = data.participants.find((q) => q.id === participantId);
+    const p = liveParticipants.find((q) => q.id === participantId);
     if (!p || !conn || connStatus !== 'open') return;
     conn.setConcentration(participantId, null).catch(() => {});
     concSavePrompt = null;
@@ -337,7 +431,7 @@
   let logFilterParticipantId: string | 'all' = 'all';
   /** Sum XP across all non-PC participants whose monster statblock carries
    *  an xp value. Surfaced in the encounter header as a rough budget gauge. */
-  $: encounterTotalXp = data.participants
+  $: encounterTotalXp = liveParticipants
     .filter((p) => p.kind !== 'pc' && p.statblock?.xp != null)
     .reduce((s, p) => s + (p.statblock?.xp ?? 0), 0);
   $: xpPerChar =
@@ -372,12 +466,12 @@
     // between.
     const prior = data.actionLog.find((e) => e.id === amendingLogId);
     if (prior) {
-      const priorTarget = (data.participants.find((p) => p.id === prior.targetParticipantId) ?? null) as ResolveTarget | null;
+      const priorTarget = (liveParticipants.find((p) => p.id === prior.targetParticipantId) ?? null) as ResolveTarget | null;
       revertPriorHpChange(conn, prior, priorTarget);
     }
 
     const target = (resolveTargetId
-      ? data.participants.find((p) => p.id === resolveTargetId) ?? null
+      ? liveParticipants.find((p) => p.id === resolveTargetId) ?? null
       : null) as ResolveTarget | null;
     // Re-read live HP *after* the revert so the new damage starts from the
     // corrected baseline.
@@ -611,7 +705,7 @@
     if (data.role !== 'dm') return;
     busy = true;
     try {
-      for (const p of data.participants) {
+      for (const p of liveParticipants) {
         if (p.kind === 'pc') continue;
         if (p.initiative != null) continue;
         const dexMod = Math.floor(((p.dexScore ?? 10) - 10) / 2);
@@ -647,10 +741,13 @@
     if (status === 'ended' && !confirm('End this encounter? It becomes read-only history.')) return;
     busy = true;
     try {
-      await api.patch(`/api/encounters/${data.encounter.id}`, { status });
+      // Through the channel when connected: optimistic + stale-poll-guarded,
+      // so the header flips instantly and a racing poll can't revert it.
+      if (conn) await conn.setTurn({ status });
+      else await api.patch(`/api/encounters/${data.encounter.id}`, { status });
       await invalidateAll();
     } catch {
-      // api() already toasted
+      // api()/channel already toasted
     } finally {
       busy = false;
     }
@@ -1022,7 +1119,7 @@
 
   async function advanceTurn(direction: 1 | -1) {
     if (data.role !== 'dm') return;
-    const ordered = [...data.participants];
+    const ordered = [...liveParticipants];
     if (ordered.length === 0) return;
     const idx = ordered.findIndex((p) => p.id === liveActive);
     let nextIdx = idx + direction;
@@ -1152,8 +1249,8 @@
               ? 'bg-amber-500'
               : 'bg-slate-600'}"
           title={connStatus === 'open'
-            ? `${data.encounter.status} · live sync connected`
-            : `${data.encounter.status} · sync: ${connStatus}`}
+            ? `${liveStatus} · live sync connected`
+            : `${liveStatus} · sync: ${connStatus}`}
         ></span>
       {/if}
       {#if encounterTotalXp > 0}
@@ -1170,11 +1267,11 @@
   </div>
   <div class="flex items-center gap-3">
     {#if data.role === 'dm'}
-      {#if data.encounter.status === 'staging'}
+      {#if liveStatus === 'staging'}
         <button
           class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-          disabled={busy || data.participants.length === 0}
-          title={data.participants.length === 0
+          disabled={busy || liveParticipants.length === 0}
+          title={liveParticipants.length === 0
             ? 'Add at least one participant first'
             : 'Flip to live combat'}
           on:click={() => setEncounterStatus('live')}
@@ -1189,7 +1286,7 @@
   </div>
 </header>
 
-{#if data.encounter.status === 'live' && data.role === 'dm'}
+{#if liveStatus === 'live' && data.role === 'dm'}
   <section class="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm">
     <div class="flex items-center gap-2">
       <span class="text-emerald-200">Turn controls:</span>
@@ -1246,7 +1343,7 @@
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
   <div class="mb-3 flex items-baseline justify-between gap-2">
     <div class="flex items-baseline gap-2">
-      <h2 class="text-sm font-semibold text-slate-200">Participants ({data.participants.length})</h2>
+      <h2 class="text-sm font-semibold text-slate-200">Participants ({liveParticipants.length})</h2>
       {#if data.role === 'dm'}
         <button
           class="rounded border border-emerald-700 bg-emerald-950/30 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/40 disabled:opacity-40"
@@ -1257,7 +1354,7 @@
         </button>
       {/if}
     </div>
-    {#if data.role === 'dm' && data.participants.some((p) => p.kind !== 'pc' && p.initiative == null)}
+    {#if data.role === 'dm' && liveParticipants.some((p) => p.kind !== 'pc' && p.initiative == null)}
       <button
         class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
         disabled={busy}
@@ -1269,11 +1366,11 @@
     {/if}
   </div>
 
-  {#if data.participants.length === 0}
+  {#if liveParticipants.length === 0}
     <p class="mb-3 text-sm text-slate-400">No participants yet.</p>
   {:else}
     <ul class="mb-3 divide-y divide-slate-800">
-      {#each data.participants as p (p.id)}
+      {#each liveParticipants as p (p.id)}
         {@const isSelected = p.id === selectedId}
         {@const concRaw = liveHpMap[p.id]?.concentrating}
         {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
@@ -1313,7 +1410,7 @@
 
 <!-- Detail panel: shown when a participant is selected -->
 {#if selectedId}
-  {@const p = data.participants.find((x) => x.id === selectedId)}
+  {@const p = liveParticipants.find((x) => x.id === selectedId)}
   {#if p}
     {@const plan = livePlans[p.id]}
     {@const activeConds = conditionsForParticipant(p, data.participantPcConditions, liveHpMap[p.id]?.conditions)}
@@ -1627,7 +1724,7 @@
             participant={p}
             plan={plan ?? null}
             role={data.role}
-            participants={data.participants}
+            participants={liveParticipants}
             actionChoices={actionChoicesFor(p)}
             bonusChoices={bonusChoicesFor(p)}
             {walkSpeed}
@@ -1808,7 +1905,7 @@
 {/if}
 
 {#if resolveForParticipantId && data.role === 'dm'}
-  {@const acting = data.participants.find((q) => q.id === resolveForParticipantId)}
+  {@const acting = liveParticipants.find((q) => q.id === resolveForParticipantId)}
   <section
     class="mb-6 rounded-lg border p-4 {amendingLogId
       ? 'border-amber-700 bg-amber-950/30'
@@ -1876,7 +1973,7 @@
         </div>
         {#if resolveSaveDC != null}
           <ul class="grid grid-cols-2 gap-1 text-xs">
-            {#each data.participants as q (q.id)}
+            {#each liveParticipants as q (q.id)}
               {#if q.id !== resolveForParticipantId}
                 {@const checked = resolveMultiTargetIds.includes(q.id)}
                 {@const roll = resolveTargetSaveRolls[q.id]}
@@ -1939,7 +2036,7 @@
           bind:value={resolveTargetId}
         >
           <option value={null}>— none —</option>
-          {#each data.participants as q}
+          {#each liveParticipants as q}
             {#if q.id !== resolveForParticipantId}
               <option value={q.id}>{q.name} ({q.kind})</option>
             {/if}
@@ -2074,7 +2171,7 @@
             bind:value={logFilterParticipantId}
           >
             <option value="all">all</option>
-            {#each data.participants as p (p.id)}
+            {#each liveParticipants as p (p.id)}
               <option value={p.id}>{p.name}</option>
             {/each}
           </select>
@@ -2091,8 +2188,8 @@
     </div>
     <ol class="space-y-2 text-xs">
       {#each logEntries as entry (entry.id)}
-        {@const actor = data.participants.find((p) => p.id === entry.participantId)}
-        {@const target = data.participants.find((p) => p.id === entry.targetParticipantId)}
+        {@const actor = liveParticipants.find((p) => p.id === entry.participantId)}
+        {@const target = liveParticipants.find((p) => p.id === entry.targetParticipantId)}
         <li class="rounded border border-slate-800 bg-slate-950/50 p-2">
           <div class="flex flex-wrap items-baseline gap-2">
             <span class="font-semibold text-slate-200">{actor?.name ?? '—'}</span>

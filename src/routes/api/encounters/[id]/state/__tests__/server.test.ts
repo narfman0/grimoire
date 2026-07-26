@@ -144,6 +144,59 @@ describe('GET /api/encounters/[id]/state', () => {
     expect(playerBody.plans[ambushId]).toBeUndefined();
   });
 
+  // --- live participant list (WS2 phase 1) ---------------------------------
+  describe('participants wire list', () => {
+    it('DM gets the full list in initiative order with real names; player gets Enemy N redaction and no hidden rows', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const playerId = await seedUser(db, { username: 'player' });
+      const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+      const charId = await seedCharacter(db, {
+        campaignId,
+        ownerUserId: playerId,
+        name: 'Kribwynn',
+        document: { ...minCharDoc('hero-1'), currentHp: 20 },
+        linkToCampaign: true
+      });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const goblinId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+      const pcId = await seedParticipant(db, { encounterId, kind: 'pc', characterId: charId, name: 'Kribwynn' });
+      const lurkerId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Shadow Lurker' });
+      await db.update(schema.participants).set({ initiative: 18 }).where(eq(schema.participants.id, goblinId));
+      await db.update(schema.participants).set({ initiative: 12 }).where(eq(schema.participants.id, pcId));
+      await db
+        .update(schema.participants)
+        .set({
+          initiative: 5,
+          revealsJson: JSON.stringify({ identity: false, vitals: false, combat: false, hidden: true })
+        })
+        .where(eq(schema.participants.id, lurkerId));
+
+      const dmBody = await (
+        await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }))
+      ).json();
+      expect(dmBody.participants.map((p: { id: string }) => p.id)).toEqual([goblinId, pcId, lurkerId]);
+      expect(dmBody.participants.map((p: { name: string }) => p.name)).toEqual([
+        'Goblin',
+        'Kribwynn',
+        'Shadow Lurker'
+      ]);
+
+      const playerBody = await (
+        await GET(makeEvent({ user: userOf(playerId, 'player'), params: { id: encounterId } }))
+      ).json();
+      // Hidden lurker is absent entirely; the unrevealed goblin is "Enemy 1";
+      // the party PC renders by real (character) name.
+      expect(playerBody.participants.map((p: { id: string }) => p.id)).toEqual([goblinId, pcId]);
+      expect(playerBody.participants.map((p: { name: string }) => p.name)).toEqual([
+        'Enemy 1',
+        'Kribwynn'
+      ]);
+      const wire = JSON.stringify(playerBody);
+      expect(wire).not.toContain('Goblin');
+      expect(wire).not.toContain('Shadow Lurker');
+    });
+  });
+
   // --- change-token short-circuit (ETag / If-None-Match) -------------------
   describe('ETag short-circuit', () => {
     /** makeEvent has no headers option; swap in a request carrying
@@ -248,6 +301,62 @@ describe('GET /api/encounters/[id]/state', () => {
         withIfNoneMatch(makeEvent({ user: userOf(playerId, 'player'), params: { id: encounterId } }), dmEtag)
       );
       expect(cross.status).toBe(200);
+    });
+
+    it('encounter status change (live → ended) invalidates the token and rides the body', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const { campaignId } = await seedCampaign(db, { dmId });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+      const first = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+      const etag = first.headers.get('etag')!;
+      expect((await first.json()).status).toBe('live');
+
+      await db
+        .update(schema.encounters)
+        .set({ status: 'ended', endedAt: new Date() })
+        .where(eq(schema.encounters.id, encounterId));
+
+      const second = await GET(
+        withIfNoneMatch(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }), etag)
+      );
+      expect(second.status).toBe(200);
+      expect(second.headers.get('etag')).not.toBe(etag);
+      expect((await second.json()).status).toBe('ended');
+    });
+
+    it('adding a participant and flipping a reveal each invalidate the token', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const playerId = await seedUser(db, { username: 'player' });
+      const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const goblinId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+      const player = () => makeEvent({ user: userOf(playerId, 'player'), params: { id: encounterId } });
+      const first = await GET(player());
+      const etag1 = first.headers.get('etag')!;
+
+      // New membership → new token, and the wire list carries the new row.
+      const wolfId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Wolf' });
+      const second = await GET(withIfNoneMatch(player(), etag1));
+      expect(second.status).toBe(200);
+      const etag2 = second.headers.get('etag')!;
+      expect(etag2).not.toBe(etag1);
+      const body2 = await second.json();
+      expect(body2.participants.map((p: { id: string }) => p.id)).toContain(wolfId);
+
+      // Reveal flip → new token, and the player now sees the real name.
+      await db
+        .update(schema.participants)
+        .set({ revealsJson: JSON.stringify({ identity: true, vitals: false, combat: false, hidden: false }) })
+        .where(eq(schema.participants.id, goblinId));
+      const third = await GET(withIfNoneMatch(player(), etag2));
+      expect(third.status).toBe(200);
+      const body3 = await third.json();
+      const goblin = body3.participants.find((p: { id: string }) => p.id === goblinId);
+      expect(goblin.name).toBe('Goblin');
+      expect(goblin.reveals.identity).toBe(true);
     });
 
     it('round / active-participant changes invalidate the token', async () => {
