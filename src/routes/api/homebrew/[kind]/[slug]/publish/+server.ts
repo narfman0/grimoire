@@ -16,6 +16,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { PublishBody, homebrewSchemaFor } from '$lib/server/content/schemas';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
@@ -54,6 +55,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
       updatedAt: now
     })
     .where(eq(schema.content.id, latest.id));
+  invalidateContentCache();
 
   // Fan out to every subscriber whose pin is either tracking latest (NULL)
   // or pinned to an older version. Skip subscribers already at toVersion

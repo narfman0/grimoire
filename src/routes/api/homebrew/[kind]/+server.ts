@@ -10,6 +10,7 @@ import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { HomebrewCreate, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_SOURCE = 'homebrew';
@@ -101,6 +102,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     createdAt: now,
     updatedAt: now
   }).catch((err) => handleDbError(err, 'homebrew:insert-content'));
+  invalidateContentCache();
 
   const [row] = await db
     .select()

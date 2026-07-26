@@ -15,7 +15,7 @@
 import { eq, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { derive } from '$lib/rules';
-import type { CharacterDocument, TriggerDeclaration } from '$lib/rules/types';
+import type { CharacterDocument, ContentLookup, TriggerDeclaration } from '$lib/rules/types';
 import { buildContentLookup } from '$lib/server/content/lookup';
 import type { ParticipantTriggers } from './triggers';
 
@@ -63,16 +63,27 @@ export async function loadEncounterTriggerContext(
     .from(schema.characters)
     .where(inArray(schema.characters.id, pcParticipants.map((p) => p.characterId)));
 
+  // The content lookup varies only by character owner (owned + subscribed
+  // homebrew) and the fixed campaignId — build once per distinct owner
+  // instead of once per character.
+  const lookupByOwner = new Map<string, ContentLookup>();
+  async function lookupForOwner(ownerUserId: string | null): Promise<ContentLookup> {
+    const key = ownerUserId ?? '';
+    let cached = lookupByOwner.get(key);
+    if (!cached) {
+      cached = (await buildContentLookup(ownerUserId ?? undefined, campaignId)).lookup;
+      lookupByOwner.set(key, cached);
+    }
+    return cached;
+  }
+
   const triggers: ParticipantTriggers[] = [];
   for (const char of charRows) {
     const participant = pcParticipants.find((p) => p.characterId === char.id);
     if (!participant || !char.document) continue;
     try {
       const doc = JSON.parse(char.document) as CharacterDocument;
-      const { lookup } = await buildContentLookup(
-        char.ownerUserId ?? undefined,
-        campaignId
-      );
+      const lookup = await lookupForOwner(char.ownerUserId ?? null);
       const d = derive(doc, lookup);
       const decls = (d.triggers ?? []) as TriggerDeclaration[];
       if (decls.length > 0) {

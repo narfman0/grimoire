@@ -15,6 +15,7 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { PackSlug, Visibility } from '$lib/server/content/schemas';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import { _SYSTEM_PACK_SLUGS } from '../+server';
 import type { RequestHandler } from './$types';
 
@@ -161,6 +162,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     } catch (err) {
       handleDbError(err, 'packs:rename');
     }
+    invalidateContentCache();
 
     const [renamed] = await db
       .select()
@@ -183,6 +185,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     .set(setObj)
     .where(eq(schema.packs.slug, slug))
     .catch((err) => handleDbError(err, 'packs:patch'));
+  invalidateContentCache();
 
   const [updated] = await db.select().from(schema.packs).where(eq(schema.packs.slug, slug)).limit(1);
   return json(serialize(updated, 0, {}));
@@ -225,6 +228,7 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
   } catch (err) {
     handleDbError(err, 'packs:delete');
   }
+  invalidateContentCache();
 
   return json({ deleted: true, rowsDeleted: n });
 };

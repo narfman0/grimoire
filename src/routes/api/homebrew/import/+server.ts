@@ -37,6 +37,7 @@ import {
   HomebrewImportRequest,
   homebrewSchemaFor
 } from '$lib/server/content/schemas';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_PACK_SLUG = 'homebrew';
@@ -200,6 +201,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   } catch (err) {
     handleDbError(err, 'homebrew:import');
   }
+  invalidateContentCache();
 
   return json(result);
 };

@@ -8,7 +8,7 @@ import {
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import { derive } from '$lib/rules';
-import type { ActionCost, CharacterDocument } from '$lib/rules/types';
+import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import type { PageServerLoad } from './$types';
 
@@ -279,6 +279,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       .from(schema.characters)
       .where(inArray(schema.characters.id, pcParticipants.map(p => p.characterId!)));
 
+    // The content lookup varies only by character owner (owned + subscribed
+    // homebrew) and the fixed campaign — build once per distinct owner
+    // instead of once per character.
+    const lookupByOwner = new Map<string, ContentLookup>();
+    async function lookupForOwner(ownerUserId: string | null): Promise<ContentLookup> {
+      const key = ownerUserId ?? '';
+      let cached = lookupByOwner.get(key);
+      if (!cached) {
+        cached = (await buildContentLookup(ownerUserId ?? undefined, campaign.id)).lookup;
+        lookupByOwner.set(key, cached);
+      }
+      return cached;
+    }
+
     for (const char of spellCharRows) {
       const participant = pcParticipants.find(p => p.characterId === char.id);
       if (!participant || !char.document) continue;
@@ -293,7 +307,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         participantPcConcentrating[participant.id] = doc.concentrating ?? null;
         participantPcReceivedBuffs[participant.id] = [...(doc.receivedBuffs ?? [])];
         try {
-          const { lookup } = await buildContentLookup(char.ownerUserId ?? undefined, campaign.id);
+          const lookup = await lookupForOwner(char.ownerUserId ?? null);
           const d = serializeDerived(derive(doc, lookup));
           const s = d.stats;
           participantPcActions[participant.id] = (d.actions ?? []).map((a) => ({

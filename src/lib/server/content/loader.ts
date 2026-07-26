@@ -14,6 +14,7 @@ import { existsSync } from 'node:fs';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { logger } from '$lib/server/logger';
+import { invalidateContentCache } from './cache';
 import { ContentRowFileOrArray, PackMeta, type ContentRowFile } from './schemas';
 
 const DEFAULT_REPO_PACKS_DIR = './content-packs';
@@ -135,6 +136,9 @@ async function loadFromRoots(roots: string[]): Promise<LoaderResult> {
       logger.error({ err, pack: meta.slug }, 'pack load failed');
     }
   }
+
+  // Seeding/reloading packs rewrites content rows — flush the lookup cache.
+  invalidateContentCache();
 
   logger.info(
     { packsLoaded: result.packsLoaded, rowsLoaded: result.rowsLoaded, warnings: result.warnings, errors: result.errors },

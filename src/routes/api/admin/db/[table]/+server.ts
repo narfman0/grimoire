@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { z } from 'zod';
 import { sqlite } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
@@ -48,6 +49,12 @@ function assertColumnAllowed(table: string, column: string) {
   }
 }
 
+/** The raw editor can touch the content/packs tables — flush the pack
+ *  lookup cache when it does. */
+function maybeInvalidateContent(table: string) {
+  if (table === 'content' || table === 'packs') invalidateContentCache();
+}
+
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const admin = requireAdmin(locals);
   validateTable(params.table);
@@ -58,6 +65,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   sqlite
     .prepare(`UPDATE "${params.table}" SET "${column}" = ? WHERE rowid = ?`)
     .run(value as string | number | null, rowid);
+  maybeInvalidateContent(params.table);
   logger.info(
     { userId: admin.id, table: params.table, column, rowid },
     'admin raw table edit'
@@ -70,6 +78,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
   validateTable(params.table);
   const { rowid } = await parseJson(request, DeleteRequest);
   sqlite.prepare(`DELETE FROM "${params.table}" WHERE rowid = ?`).run(rowid);
+  maybeInvalidateContent(params.table);
   logger.info({ userId: admin.id, table: params.table, rowid }, 'admin raw table delete');
   return json({ ok: true });
 };
@@ -88,6 +97,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const result = sqlite
     .prepare(`INSERT INTO "${params.table}" (${keys}) VALUES (${placeholders})`)
     .run(...(vals as (string | number | null)[]));
+  maybeInvalidateContent(params.table);
   logger.info({ userId: admin.id, table: params.table }, 'admin raw table insert');
   return json({ rowid: Number(result.lastInsertRowid) });
 };

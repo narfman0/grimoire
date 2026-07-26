@@ -20,6 +20,7 @@ import { db, schema } from '$lib/server/db';
 import { ContentKind } from '$lib/server/api/schemas';
 import { Slug } from '$lib/server/content/schemas';
 import { parseJson } from '$lib/server/api/validate';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_PACK_SLUG = 'homebrew';
@@ -149,6 +150,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
   });
+  invalidateContentCache();
 
   return json({ inserted, updated, skipped, failed });
 };

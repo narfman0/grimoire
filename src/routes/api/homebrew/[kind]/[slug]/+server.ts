@@ -13,6 +13,7 @@ import { and, desc, eq, like } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { HomebrewPatch, homebrewSchemaFor } from '$lib/server/content/schemas';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 function serialize(r: typeof schema.content.$inferSelect) {
@@ -86,6 +87,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     if (body.name !== undefined) updates.name = body.name;
     if (body.data !== undefined) updates.data = JSON.stringify(body.data);
     await db.update(schema.content).set(updates).where(eq(schema.content.id, latest.id));
+    invalidateContentCache();
     const [fresh] = await db
       .select()
       .from(schema.content)
@@ -113,6 +115,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     createdAt: now,
     updatedAt: now
   });
+  invalidateContentCache();
   const [draft] = await db
     .select()
     .from(schema.content)
@@ -159,6 +162,7 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
         eq(schema.content.ownerUserId, latest.ownerUserId!)
       )
     );
+  invalidateContentCache();
   return json({ deleted: true, inUseBy: referencing.map((c) => ({ id: c.id, name: c.name })) });
 };
 

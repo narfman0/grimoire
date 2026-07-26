@@ -13,6 +13,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { VisibilityPut } from '$lib/server/content/schemas';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 export const PUT: RequestHandler = async ({ request, params, locals }) => {
@@ -46,6 +47,7 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
     updates.publishedAt = now;
   }
   await db.update(schema.content).set(updates).where(eq(schema.content.id, row.id));
+  invalidateContentCache();
   return json({ visibility: body.visibility });
 };
 

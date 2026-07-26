@@ -17,6 +17,7 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { PackSlug, Visibility } from '$lib/server/content/schemas';
+import { invalidateContentCache } from '$lib/server/content/cache';
 import type { RequestHandler } from './$types';
 
 /** Slugs the user can never create/delete; they're system-owned and the
@@ -84,6 +85,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       updatedAt: now
     })
     .catch((err) => handleDbError(err, 'packs:create'));
+  invalidateContentCache();
 
   const [row] = await db
     .select()

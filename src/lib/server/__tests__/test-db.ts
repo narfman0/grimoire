@@ -9,6 +9,7 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { resetContentCache } from '$lib/server/content/cache';
 
 let migrated = false;
 
@@ -47,6 +48,10 @@ export function setupTestDb(): typeof db {
     db.run(sql.raw(`DELETE FROM "${t}"`));
   }
   db.run(sql`PRAGMA foreign_keys = ON`);
+  // The raw DELETEs above bypass every route-level invalidation hook —
+  // reset the process-level content lookup cache so no stale pack map
+  // leaks from a previous test.
+  resetContentCache();
   return db;
 }
 
