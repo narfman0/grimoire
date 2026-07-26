@@ -57,6 +57,7 @@ function snapshotBeforeMigrate(sqlite) {
 const isFreshDb = !existsSync(DB_PATH);
 const sqlite = new Database(DB_PATH);
 sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('busy_timeout = 10000'); // wait out concurrent writers instead of failing mid-migration
 sqlite.pragma('foreign_keys = OFF');
 
 try {
