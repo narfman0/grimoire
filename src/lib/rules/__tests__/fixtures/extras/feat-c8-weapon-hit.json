@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-weapon-hit",
+  "version": 1,
+  "name": "C.8 weapon.hit (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-weapon-hit",
+        "name": "C.8 weapon.hit",
+        "on": [
+          "weapon.hit"
+        ],
+        "grants": {
+          "type": "reaction-weapon-attack"
+        }
+      }
+    ]
+  }
+}

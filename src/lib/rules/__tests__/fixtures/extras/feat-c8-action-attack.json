@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-action-attack",
+  "version": 1,
+  "name": "C.8 action.attack (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-action-attack",
+        "name": "C.8 action.attack",
+        "on": [
+          "action.attack"
+        ],
+        "grants": {
+          "type": "bonus-action-weapon-attack"
+        }
+      }
+    ]
+  }
+}

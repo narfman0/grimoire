@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-rest-long",
+  "version": 1,
+  "name": "C.8 rest.long (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-rest-long",
+        "name": "C.8 rest.long",
+        "on": [
+          "rest.long"
+        ],
+        "grants": {
+          "type": "force-reroll"
+        }
+      }
+    ]
+  }
+}

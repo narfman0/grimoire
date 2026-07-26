@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-creature-killed",
+  "version": 1,
+  "name": "C.8 creature.killed (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-creature-killed",
+        "name": "C.8 creature.killed",
+        "on": [
+          "creature.killed"
+        ],
+        "grants": {
+          "type": "force-reroll"
+        }
+      }
+    ]
+  }
+}

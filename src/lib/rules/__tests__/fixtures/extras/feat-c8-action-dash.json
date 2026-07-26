@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-action-dash",
+  "version": 1,
+  "name": "C.8 action.dash (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-action-dash",
+        "name": "C.8 action.dash",
+        "on": [
+          "action.dash"
+        ],
+        "grants": {
+          "type": "bonus-action-weapon-attack"
+        }
+      }
+    ]
+  }
+}

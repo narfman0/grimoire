@@ -1,0 +1,24 @@
+{
+  "kind": "feat",
+  "slug": "c8-enemy-attack-declare",
+  "version": 1,
+  "name": "C.8 enemy.attack.declare (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-enemy-attack-declare",
+        "name": "C.8 enemy.attack.declare",
+        "on": [
+          "enemy.attack.declare"
+        ],
+        "grants": {
+          "type": "impose-disadvantage",
+          "on": "attack"
+        }
+      }
+    ]
+  }
+}

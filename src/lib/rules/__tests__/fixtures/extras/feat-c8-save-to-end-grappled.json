@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-save-to-end-grappled",
+  "version": 1,
+  "name": "C.8 save.to-end-grappled (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-save-to-end-grappled",
+        "name": "C.8 save.to-end-grappled",
+        "on": [
+          "save.to-end-grappled"
+        ],
+        "grants": {
+          "type": "force-reroll"
+        }
+      }
+    ]
+  }
+}

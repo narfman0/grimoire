@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-creature-enters-reach",
+  "version": 1,
+  "name": "C.8 creature.enters-reach (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-creature-enters-reach",
+        "name": "C.8 creature.enters-reach",
+        "on": [
+          "creature.enters-reach"
+        ],
+        "grants": {
+          "type": "reaction-weapon-attack"
+        }
+      }
+    ]
+  }
+}

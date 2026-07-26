@@ -1,0 +1,24 @@
+{
+  "kind": "feat",
+  "slug": "c8-enemy-damage-dealt",
+  "version": 1,
+  "name": "C.8 enemy.damage.dealt (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-enemy-damage-dealt",
+        "name": "C.8 enemy.damage.dealt",
+        "on": [
+          "enemy.damage.dealt"
+        ],
+        "grants": {
+          "type": "impose-disadvantage",
+          "on": "attack"
+        }
+      }
+    ]
+  }
+}

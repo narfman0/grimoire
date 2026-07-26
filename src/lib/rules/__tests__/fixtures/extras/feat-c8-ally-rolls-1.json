@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-ally-rolls-1",
+  "version": 1,
+  "name": "C.8 ally.rolls.1 (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-ally-rolls-1",
+        "name": "C.8 ally.rolls.1",
+        "on": [
+          "ally.rolls.1"
+        ],
+        "grants": {
+          "type": "force-reroll"
+        }
+      }
+    ]
+  }
+}

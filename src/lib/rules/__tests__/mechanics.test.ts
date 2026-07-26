@@ -577,6 +577,41 @@ describe('C.8 — damage-taken trigger events + soft validation', () => {
 		expect(t!.on).toContain('spell.cast.within-5ft');
 	});
 
+	// Regression: grimoire-packs rows reference these event names
+	// (Crossbow Expert / Charger action lifecycle, Psychic Blades'
+	// weapon.hit, Goliath Powerful Build / Hill's Tumble, PHB-2024
+	// Resourceful, Hexblade's Curse, Bountiful Luck). Each was added to
+	// KNOWN_TRIGGER_EVENTS; these lock them in per the AGENTS.md rule.
+	const NEW_EVENT_FIXTURES: Array<[featSlug: string, event: string]> = [
+		['c8-action-attack', 'action.attack'],
+		['c8-action-dash', 'action.dash'],
+		['c8-weapon-hit', 'weapon.hit'],
+		['c8-save-to-end-grappled', 'save.to-end-grappled'],
+		['c8-condition-apply-prone', 'condition.apply.prone'],
+		['c8-rest-long', 'rest.long'],
+		['c8-creature-killed', 'creature.killed'],
+		['c8-ally-rolls-1', 'ally.rolls.1'],
+		// Battle Master maneuver `effect.triggerOn` variants
+		['c8-creature-enters-reach', 'creature.enters-reach'],
+		['c8-movement-start', 'movement.start'],
+		// SRD Cutting Words enemy-POV lifecycle
+		['c8-enemy-attack-declare', 'enemy.attack.declare'],
+		['c8-enemy-check-declare', 'enemy.check.declare'],
+		['c8-enemy-damage-dealt', 'enemy.damage.dealt']
+	];
+
+	it.each(NEW_EVENT_FIXTURES)(
+		'does not emit an unknown-trigger-event warning for %s (%s)',
+		(featSlug, event) => {
+			const d = derive(charWithFeat(featSlug), lookup());
+			const warns = d.validations.filter((v) => v.code === 'unknown-trigger-event');
+			expect(warns).toEqual([]);
+			const t = d.triggers.find((t) => t.id === featSlug);
+			expect(t).toBeDefined();
+			expect(t!.on).toContain(event);
+		}
+	);
+
 	// Predicate DSL soft-validation — mirrors the unknown-trigger-event
 	// pattern. An operator typo like {gt: 5} for {gte: 5} silently never
 	// matches in matchValue; derive() must surface it as a warning instead

@@ -706,10 +706,24 @@ export const KNOWN_TRIGGER_EVENTS = [
   'attack.crit',
   'attack.miss',
   'attack.reduce-to-zero',
+  // Alias of attack.hit used by weapon-scoped triggers in some pack versions
+  // (e.g. Soulknife Psychic Blades' sneak-attack rider)
+  'weapon.hit',
+  // Action-taken lifecycle: fires when a participant takes a whole action.
+  // The action log classifies rows by actionId ('attack:*' → the Attack
+  // action); Crossbow Expert / War Priest bonus-action attacks ride these.
+  'action.attack',
+  'action.dash',
   // Save / check / ability-check lifecycle
   'save.declare',
   'save.fail',
   'check.declare',
+  // Specialized save.declare: a save/check made to end the grappled
+  // condition (Goliath Powerful Build advantage rider)
+  'save.to-end-grappled',
+  // Condition lifecycle: fires when the named condition is applied to a
+  // participant (Goliath Hill's Tumble knock-prone rider)
+  'condition.apply.prone',
   // Damage taken (self-as-target)
   'damage.taken',
   'damage.reduce-to-zero',
@@ -728,8 +742,17 @@ export const KNOWN_TRIGGER_EVENTS = [
   // Rest lifecycle
   'rest.short-rest.end',
   'rest.long-rest.end',
+  // Alias of rest.long-rest.end used by some pack versions (PHB-2024
+  // Human Resourceful heroic-inspiration refresh)
+  'rest.long',
   // Ally / enemy lifecycle
   'creature.attack.hit',
+  // Enemy-POV declare/damage lifecycle: an enemy declares an attack roll /
+  // ability check, or deals damage — SRD Cutting Words rides all three
+  // (fireable from the enemy participant's action-log rows)
+  'enemy.attack.declare',
+  'enemy.check.declare',
+  'enemy.damage.dealt',
   'creature.takes-fall-damage',
   'creature.turn-start',
   'creature.reduce-to-zero',
@@ -737,7 +760,20 @@ export const KNOWN_TRIGGER_EVENTS = [
   'enemy.dies-within-range',
   'enemy.disengages-within-5ft',
   'enemy.enters-reach',
-  'ally.attacked-within-5ft'
+  // Alias of enemy.enters-reach used by Battle Master maneuver
+  // `effect.triggerOn` in some pack versions (Brace / opportunist riders)
+  'creature.enters-reach',
+  // A creature starts moving within the participant's threat range —
+  // Battle Master maneuver riders (e.g. Brace) declare this via
+  // `effect.triggerOn`; the DM raises it from the encounter log
+  'movement.start',
+  'ally.attacked-within-5ft',
+  // Alias of enemy.reduce-to-zero used by some pack versions (XGtE
+  // Hexblade's Curse kill-to-refresh rider)
+  'creature.killed',
+  // An ally rolls a natural 1 on a d20 test — fireable from action-log
+  // rows with hit='fumble' scoped to allies (XGtE Bountiful Luck)
+  'ally.rolls.1'
 ] as const;
 export type TriggerEvent = (typeof KNOWN_TRIGGER_EVENTS)[number];
 

@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-condition-apply-prone",
+  "version": 1,
+  "name": "C.8 condition.apply.prone (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-condition-apply-prone",
+        "name": "C.8 condition.apply.prone",
+        "on": [
+          "condition.apply.prone"
+        ],
+        "grants": {
+          "type": "convert-hit-to-miss"
+        }
+      }
+    ]
+  }
+}

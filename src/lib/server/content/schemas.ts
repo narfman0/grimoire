@@ -123,6 +123,15 @@ export const FeatChoicesSchema = z
     language: z
       .object({ allowedLanguages: z.array(z.string()).optional() })
       .optional(),
+    /** Plural multi-pick languages slot (derive.ts isSlotUnresolved PLURAL_SLOTS):
+     *  `{ picks: N, allowedLanguages?: [...] }`, picks recorded as
+     *  `[{ language: '...' }, ...]`. Used by e.g. PHB-2014 Linguist. */
+    languages: z
+      .object({
+        picks: z.number().int().min(1).max(20).optional(),
+        allowedLanguages: z.array(z.string()).optional()
+      })
+      .optional(),
     toolProficiency: z
       .object({ allowedTools: z.array(z.string()).optional() })
       .optional(),
@@ -138,6 +147,21 @@ export const FeatChoicesSchema = z
         picks: z.number().int().min(1).max(20).optional(),
         allowedFeatures: z.array(z.string()).optional(),
         category: z.string().optional()
+      })
+      .optional(),
+    /** Union-shape pick (derive.ts ~:859): the player picks one option and
+     *  that option's `modifiers[]` are synthesized as if declared on the row
+     *  directly (Aspect of the Wilds / Kobold Legacy / Dragonscarred). */
+    modifierFromChoice: z
+      .object({
+        label: z.string().optional(),
+        options: z.array(
+          z.object({
+            id: z.string().min(1),
+            label: z.string().optional(),
+            modifiers: z.array(AnyModifierSchema).optional()
+          })
+        )
       })
       .optional()
   })

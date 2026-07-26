@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-movement-start",
+  "version": 1,
+  "name": "C.8 movement.start (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-movement-start",
+        "name": "C.8 movement.start",
+        "on": [
+          "movement.start"
+        ],
+        "grants": {
+          "type": "reaction-weapon-attack"
+        }
+      }
+    ]
+  }
+}
