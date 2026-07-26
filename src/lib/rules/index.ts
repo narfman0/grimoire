@@ -21,4 +21,9 @@ export {
   refreshResourcesOnRest,
   type SpendResourceResult
 } from './class-resources';
+export {
+  restRefreshPeriods,
+  refreshSpentResourcesOnRest,
+  type RestKind
+} from './rest';
 export type * from './types';

@@ -1999,6 +1999,29 @@ function collectResources(
         ...(typeof actDesc === 'string' ? { description: actDesc } : {})
       });
     }
+    // Item charge pools — an equipped item with `data.charges` emits one
+    // shared resource that its chargeCost activities debit (see
+    // normalizeItemCharges for the accepted authoring shapes). The id is
+    // stable (`item/<slug>/charges`) so `resourcesSpent` round-trips
+    // through the existing PATCH path.
+    if (a.row.kind === 'item') {
+      const pool = normalizeItemCharges(a.data);
+      if (pool) {
+        const id = `item/${a.row.slug}/charges`;
+        const maxRaw = evaluateValue(pool.max, ctx);
+        const max = typeof maxRaw === 'number' ? Math.floor(maxRaw) : 0;
+        if (max > 0 && !resources.some((r) => r.id === id)) {
+          resources.push({
+            id,
+            name: `${a.row.name} Charges`,
+            max,
+            used: Math.min(max, spent[id] ?? 0),
+            per: pool.per,
+            sourceContent: { kind: a.row.kind, slug: a.row.slug }
+          });
+        }
+      }
+    }
     // Triggers with a `limit` are functionally resources too — Relentless
     // Endurance "1/long rest", Chronal Shift "2/long rest", etc.
     const triggerList = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
@@ -2561,6 +2584,78 @@ function findBaseSlotLevel(value: unknown): number | null {
 
 function classLevelFor(character: CharacterDocument, slug: string): number {
   return character.classes.find((c) => c.slug === slug)?.level ?? 0;
+}
+
+/** Normalized item charge-pool declaration (see normalizeItemCharges). */
+interface ItemChargePool {
+  /** Pool maximum — any evaluateValue-compatible shape. */
+  max: unknown;
+  /** Recharge cadence. 'dawn' pools reset on long rest (the sheet has no
+   *  clock — the long-rest button is the player's dawn); 'never' pools
+   *  are only restored manually. */
+  per: 'dawn' | 'long-rest' | 'short-rest' | 'never';
+  /** Partial-recharge formula ('1d6+1' for a wand regaining 1d6+1 at
+   *  dawn). Stored / displayed only — v1 resets the pool to max at the
+   *  cadence; rolling the partial recharge is a follow-up. */
+  rechargeAmount?: string;
+}
+
+/** Read an item row's `data.charges` into the canonical pool shape.
+ *  Accepted authoring shapes:
+ *    - engine-native: `charges: { max, recharge?: { amount?, per: 'dawn'
+ *      | 'long-rest' | 'short-rest' } | 'never' }`
+ *    - legacy display: `charges: { max, per }` — per 'day' | 'dawn'
+ *      normalize to a dawn recharge
+ *    - 5etools import: `charges: <number|string>` with a sibling
+ *      `data.recharge` string ('dawn', 'dusk', 'restLong', 'special', …);
+ *      no recharge sibling → 'never'
+ *  Returns null when the row has no usable charges declaration. */
+function normalizeItemCharges(data: Record<string, unknown>): ItemChargePool | null {
+  const raw = data.charges;
+  if (raw == null) return null;
+  // 5etools flat shape: max on `charges`, cadence on sibling `recharge`.
+  if (typeof raw === 'number' || typeof raw === 'string') {
+    return { max: raw, per: normalizeRechargePer(data.recharge, 'never') };
+  }
+  if (typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (o.max == null) return null;
+  if (o.recharge === 'never') return { max: o.max, per: 'never' };
+  if (o.recharge && typeof o.recharge === 'object') {
+    const r = o.recharge as { amount?: unknown; per?: unknown };
+    return {
+      max: o.max,
+      per: normalizeRechargePer(r.per, 'dawn'),
+      ...(typeof r.amount === 'string' ? { rechargeAmount: r.amount } : {})
+    };
+  }
+  // Legacy display shape { max, per }.
+  return { max: o.max, per: normalizeRechargePer(o.per, 'dawn') };
+}
+
+function normalizeRechargePer(
+  raw: unknown,
+  fallback: ItemChargePool['per']
+): ItemChargePool['per'] {
+  if (typeof raw !== 'string') return fallback;
+  switch (raw) {
+    case 'dawn':
+    case 'day':
+    case 'dusk':
+    case 'midnight':
+      return 'dawn';
+    case 'long-rest':
+    case 'restLong':
+      return 'long-rest';
+    case 'short-rest':
+    case 'restShort':
+      return 'short-rest';
+    case 'never':
+    case 'special':
+      return 'never';
+    default:
+      return fallback;
+  }
 }
 
 /** Resolve a string DC-bonus token against the current stat block.
@@ -3182,6 +3277,23 @@ function realizeActivity(
           action.range = spellRow.data.range as { value: number; units: string };
         }
       }
+    }
+  }
+
+  // Item charge-pool debit: an activity on a charged item that declares
+  // `chargeCost` debits the item's shared `item/<slug>/charges` pool
+  // (emitted by collectResources). Variable-cost items author sibling
+  // activities with different chargeCosts. Activities with their own
+  // `uses` block keep their independent per-activity counter instead —
+  // never both.
+  if (source.row.kind === 'item' && act.chargeCost != null && !act.uses) {
+    const pool = normalizeItemCharges(source.data);
+    if (pool) {
+      action.spendsResource = `item/${source.row.slug}/charges`;
+      action.resourceCost =
+        typeof act.chargeCost === 'number' && act.chargeCost > 0
+          ? Math.floor(act.chargeCost)
+          : 1;
     }
   }
 

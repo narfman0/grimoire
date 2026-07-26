@@ -7,6 +7,7 @@
 // The API layer (Phase C) wraps these for HTTP endpoints; the sheet
 // (Phase D) calls them through the existing patchDocument flow.
 
+import { restRefreshPeriods } from './rest';
 import type {
   ActivationState,
   AvailableActivation,
@@ -196,11 +197,12 @@ export function toggleActivation(
  *  Derived.availableActivations from the most recent derive() pass —
  *  carries the resolved usesMax we restore to.
  *
- *  Rest semantics:
+ *  Rest semantics come from the shared `restRefreshPeriods` helper:
  *  - short-rest: refreshes activations whose `uses.per === 'short-rest'`
  *  - long-rest: refreshes activations whose `uses.per` is one of
- *    'short-rest' | 'long-rest' | 'day' (long rest is also a short rest;
- *    "next dawn" abilities also refresh on long rest in practice).
+ *    'short-rest' | 'long-rest' | 'day' | 'dawn' (long rest is also a
+ *    short rest; "next dawn" abilities also refresh on long rest in
+ *    practice).
  *
  *  Also clears per-rest variant picks (Fiendish Resilience-style
  *  "choose one when you rest" activations): an activation whose
@@ -214,10 +216,7 @@ export function refreshActivations(
   available: AvailableActivation[],
   restType: 'short-rest' | 'long-rest'
 ): CharacterDocument {
-  const refreshSet =
-    restType === 'long-rest'
-      ? new Set(['short-rest', 'long-rest', 'day'])
-      : new Set(['short-rest']);
+  const refreshSet = restRefreshPeriods(restType);
   const next: Record<string, ActivationState> = { ...(character.activations ?? {}) };
   let mutated = false;
   for (const a of available) {

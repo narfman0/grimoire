@@ -18,9 +18,11 @@
   import {
     derive,
     refreshActivations,
+    refreshSpentResourcesOnRest,
     pickRestVariant,
     applyAutoCancelOnStateChange,
-    toggleActivation
+    toggleActivation,
+    type RestKind
   } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
@@ -1560,12 +1562,14 @@
     levelingUp = null;
   }
 
-  function resetResourcesByPer(d: NonNullable<typeof charDoc>, per: string) {
+  /** Reset spent counters for every derived resource refreshed by the
+   *  given rest kind. Cadence semantics live in $lib/rules/rest — the
+   *  same set used by refreshActivations / refreshResourcesOnRest, so
+   *  'day' / 'dawn' resources (item charge pools, 1/day item casts)
+   *  come back on a long rest. */
+  function resetResourcesByPer(d: NonNullable<typeof charDoc>, restKind: RestKind) {
     if (!derived) return;
-    d.resourcesSpent ??= {};
-    for (const r of derived.resources) {
-      if (r.per === per) d.resourcesSpent[r.id] = 0;
-    }
+    d.resourcesSpent = refreshSpentResourcesOnRest(d.resourcesSpent, derived.resources, restKind);
   }
 
   /** Clear all `spell-slot/L<n>` entries from resourcesSpent — used on long rest. */
@@ -1611,11 +1615,10 @@
         const recovered = Math.max(1, Math.floor(c.level / 2));
         d.hitDiceSpent[c.slug] = Math.max(0, spent - recovered);
       }
-      // Reset per-long-rest AND per-short-rest resources (long rest covers
-      // short-rest features too) AND spell slots. Drop concentration and
-      // restore reaction.
+      // Reset per-long-rest resources (covers short-rest / day / dawn
+      // cadences too — see restRefreshPeriods) AND spell slots. Drop
+      // concentration and restore reaction.
       resetResourcesByPer(d, 'long-rest');
-      resetResourcesByPer(d, 'short-rest');
       resetSpellSlots(d);
       d.actionUsedThisRound = false;
       d.bonusActionUsedThisRound = false;

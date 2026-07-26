@@ -450,6 +450,12 @@ export interface Action {
    *  `spendResource(character, derived.classResources, action.spendsResource)`
    *  on resolution. */
   spendsResource?: string;
+  /** How many units of `spendsResource` one use of this Action debits.
+   *  Set on item-activity actions that declare `chargeCost` against
+   *  their item's shared charge pool (Wand of Fireballs: 1 charge base,
+   *  sibling activities author higher chargeCosts for bigger effects).
+   *  Absent → the runtime debits 1 (legacy class-resource behavior). */
+  resourceCost?: number;
   /** Free-text label for an optional extra damage rider added to this
    *  Action by a maneuver / class-resource spend (e.g.
    *  `"+1 superiority die (d8)"`). Display-only; the runtime resolves the

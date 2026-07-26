@@ -10,6 +10,7 @@
 // `character.resourcesSpent[id]` counter that drives `current` on the
 // next derive() pass.
 
+import { restRefreshPeriods } from './rest';
 import type { CharacterDocument, ResolvedClassResource } from './types';
 
 export interface SpendResourceResult {
@@ -64,11 +65,14 @@ export function spendResource(
 /** Refresh per-rest class resource pools. Returns a new
  *  `resourcesSpent` record with the matching entries cleared.
  *
- *  Rest semantics (mirrors refreshActivations):
+ *  Rest semantics come from the shared `restRefreshPeriods` helper
+ *  (mirrors refreshActivations and the sheet's resource reset):
  *  - short-rest: clears entries whose `refresh === 'short-rest'`
- *  - long-rest:  clears entries whose `refresh` is one of
- *                'short-rest' | 'long-rest' (canonical D&D — a long rest
- *                also refreshes short-rest pools).
+ *  - long-rest:  clears 'short-rest' | 'long-rest' (canonical D&D — a
+ *                long rest also refreshes short-rest pools) plus the
+ *                'day' / 'dawn' cadences other resource kinds use
+ *                (class resources never declare them, so it's a no-op
+ *                superset here).
  *
  *  Per-turn / per-round pools are not affected by either rest kind;
  *  they're refreshed by encounter-runtime hooks that don't exist yet.
@@ -80,10 +84,7 @@ export function refreshResourcesOnRest(
   restKind: 'short-rest' | 'long-rest'
 ): Record<string, number> {
   const existing = character.resourcesSpent ?? {};
-  const refreshSet =
-    restKind === 'long-rest'
-      ? new Set<string>(['short-rest', 'long-rest'])
-      : new Set<string>(['short-rest']);
+  const refreshSet = restRefreshPeriods(restKind);
   let mutated = false;
   const next: Record<string, number> = { ...existing };
   for (const r of resources) {
