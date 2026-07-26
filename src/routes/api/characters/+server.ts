@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { and, eq, inArray, like } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { CampaignCode, CreateCharacterRequest } from '$lib/server/api/schemas';
@@ -32,26 +32,40 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { campaign } = parseSearch(url, ListQuery);
 
+  const characterColumns = {
+    id: schema.characters.id,
+    campaignId: schema.characters.campaignId,
+    ownerUserId: schema.characters.ownerUserId,
+    name: schema.characters.name,
+    document: schema.characters.document,
+    updatedAt: schema.characters.updatedAt
+  };
+
   if (!campaign) {
-    // No campaign filter — return characters across every campaign the user
-    // is a member of.
-    const memberships = await db
-      .select({ campaignId: schema.campaignMembers.campaignId })
-      .from(schema.campaignMembers)
-      .where(eq(schema.campaignMembers.userId, locals.user.id));
-    if (memberships.length === 0) return json({ characters: [] });
-    const ids = memberships.map((m) => m.campaignId);
-    const rows = await db
-      .select({
-        id: schema.characters.id,
-        campaignId: schema.characters.campaignId,
-        ownerUserId: schema.characters.ownerUserId,
-        name: schema.characters.name,
-        document: schema.characters.document,
-        updatedAt: schema.characters.updatedAt
-      })
+    // No campaign filter — the user's own characters, plus characters linked
+    // (via campaign_characters, never the campaignId soft pointer) to any
+    // campaign where the user is an *approved* member.
+    const own = await db
+      .select(characterColumns)
       .from(schema.characters)
-      .where(inArray(schema.characters.campaignId, ids));
+      .where(eq(schema.characters.ownerUserId, locals.user.id));
+    const shared = await db
+      .select(characterColumns)
+      .from(schema.characters)
+      .innerJoin(
+        schema.campaignCharacters,
+        eq(schema.campaignCharacters.characterId, schema.characters.id)
+      )
+      .innerJoin(
+        schema.campaignMembers,
+        and(
+          eq(schema.campaignMembers.campaignId, schema.campaignCharacters.campaignId),
+          eq(schema.campaignMembers.userId, locals.user.id),
+          eq(schema.campaignMembers.status, 'approved')
+        )
+      );
+    const seen = new Set<string>();
+    const rows = [...own, ...shared].filter((r) => !seen.has(r.id) && seen.add(r.id));
     return json({ characters: rows.map(serializeCharacter) });
   }
 
@@ -59,16 +73,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   if (!m) throw error(403, 'not a member of this campaign');
 
   const rows = await db
-    .select({
-      id: schema.characters.id,
-      campaignId: schema.characters.campaignId,
-      ownerUserId: schema.characters.ownerUserId,
-      name: schema.characters.name,
-      document: schema.characters.document,
-      updatedAt: schema.characters.updatedAt
-    })
+    .select(characterColumns)
     .from(schema.characters)
-    .where(eq(schema.characters.campaignId, m.campaignId));
+    .innerJoin(
+      schema.campaignCharacters,
+      eq(schema.campaignCharacters.characterId, schema.characters.id)
+    )
+    .where(eq(schema.campaignCharacters.campaignId, m.campaignId));
 
   return json({ characters: rows.map(serializeCharacter) });
 };
@@ -96,24 +107,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   let slug = baseSlug;
   for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
 
-  await db.insert(schema.characters).values({
-    id,
-    slug,
-    campaignId,
-    ownerUserId: locals.user.id,
-    name,
-    document: document ? JSON.stringify({ ...document, id }) : null,
-    updatedAt: now
+  const userId = locals.user.id;
+  await db.transaction((tx) => {
+    tx.insert(schema.characters)
+      .values({
+        id,
+        slug,
+        campaignId,
+        ownerUserId: userId,
+        name,
+        document: document ? JSON.stringify({ ...document, id }) : null,
+        updatedAt: now
+      })
+      .run();
+    if (campaignId) {
+      tx.insert(schema.campaignCharacters)
+        .values({
+          campaignId,
+          characterId: id,
+          role: 'player',
+          addedAt: now
+        })
+        .run();
+    }
   });
-
-  if (campaignId) {
-    await db.insert(schema.campaignCharacters).values({
-      campaignId,
-      characterId: id,
-      role: 'player',
-      addedAt: now
-    });
-  }
 
   return json({
     id,

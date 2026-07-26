@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
-import { seedUser, seedCampaign } from '$lib/server/__tests__/fixtures';
+import { seedUser, seedCampaign, seedCharacter } from '$lib/server/__tests__/fixtures';
 import { makeEvent, expectHttpError } from '$lib/server/__tests__/test-event';
-import { POST } from '../+server';
+import { GET, POST } from '../+server';
 
 type Db = ReturnType<typeof setupTestDb>;
 
@@ -25,6 +25,74 @@ function minDoc(id: string) {
     modifierToggles: {}
   };
 }
+
+const userOf = (id: string, username: string) =>
+  ({ id, username, isAdmin: false, email: null, emailVerified: false });
+
+describe('GET /api/characters', () => {
+  let db: Db;
+  beforeEach(() => { db = setupTestDb(); });
+
+  async function listFixture(db: Db) {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const playerId = await seedUser(db, { username: 'player' });
+    const { campaignId, code } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: playerId,
+      name: 'Hero',
+      linkToCampaign: true
+    });
+    return { dmId, playerId, campaignId, code, characterId };
+  }
+
+  it('lists campaign characters through the campaign_characters join', async () => {
+    const { dmId, characterId } = await listFixture(db);
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm') }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.characters.map((c: { id: string }) => c.id)).toContain(characterId);
+  });
+
+  it('includes the user own standalone characters', async () => {
+    const playerId = await seedUser(db, { username: 'solo' });
+    const characterId = await seedCharacter(db, {
+      campaignId: null,
+      ownerUserId: playerId,
+      name: 'Loner'
+    });
+    const res = await GET(makeEvent({ user: userOf(playerId, 'solo') }));
+    const body = await res.json();
+    expect(body.characters.map((c: { id: string }) => c.id)).toContain(characterId);
+  });
+
+  // Regression: a merely-pending member used to see every character in the
+  // campaign (the membership query lacked the approved-status filter).
+  it('shows nothing to a pending (unapproved) member', async () => {
+    const { campaignId, characterId } = await listFixture(db);
+    const pending = await seedUser(db, { username: 'pending' });
+    await db.insert(schema.campaignMembers).values({
+      campaignId,
+      userId: pending,
+      role: 'player',
+      status: 'pending',
+      joinedAt: new Date()
+    });
+    const res = await GET(makeEvent({ user: userOf(pending, 'pending') }));
+    const body = await res.json();
+    expect(body.characters.map((c: { id: string }) => c.id)).not.toContain(characterId);
+    expect(body.characters).toEqual([]);
+  });
+
+  it('rejects the ?campaign filter for a non-member (403)', async () => {
+    const { code } = await listFixture(db);
+    const stranger = await seedUser(db, { username: 'stranger' });
+    await expectHttpError(
+      GET(makeEvent({ user: userOf(stranger, 'stranger'), searchParams: { campaign: code } })),
+      403
+    );
+  });
+});
 
 describe('POST /api/characters — standalone (no campaignCode)', () => {
   let db: Db;

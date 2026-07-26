@@ -41,12 +41,15 @@ async function fixture(db: Db) {
     campaignId,
     ownerUserId: owner,
     name: 'Hero',
-    document: minDoc('seed') // id gets rewritten by PATCH path; seed is fine.
+    document: minDoc('seed'), // id gets rewritten by PATCH path; seed is fine.
+    linkToCampaign: true // access checks join through campaign_characters
   });
   return { dmId, owner, campaignId, characterId };
 }
 
 const ownerOf = (id: string) => ({ id, username: 'owner', isAdmin: false, email: null, emailVerified: false });
+const userOf = (id: string, username: string, isAdmin = false) =>
+  ({ id, username, isAdmin, email: null, emailVerified: false });
 
 describe('GET /api/characters/[id]', () => {
   let db: Db;
@@ -79,6 +82,28 @@ describe('GET /api/characters/[id]', () => {
           params: { id: characterId }
         })
       ),
+      403
+    );
+  });
+
+  it('returns the character to the DM of the linked campaign', async () => {
+    const { dmId, characterId } = await fixture(db);
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: characterId } }));
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 403 to a pending (unapproved) campaign member', async () => {
+    const { campaignId, characterId } = await fixture(db);
+    const pending = await seedUser(db, { username: 'pending' });
+    await db.insert(schema.campaignMembers).values({
+      campaignId,
+      userId: pending,
+      role: 'player',
+      status: 'pending',
+      joinedAt: new Date()
+    });
+    await expectHttpError(
+      GET(makeEvent({ user: userOf(pending, 'pending'), params: { id: characterId } })),
       403
     );
   });
@@ -195,6 +220,57 @@ describe('PATCH /api/characters/[id]', () => {
     );
   });
 
+  // The DM encounter screen applies damage to PCs by patching their document
+  // — the DM of a linked campaign must keep write access.
+  it('allows the DM of the linked campaign to patch a player sheet', async () => {
+    const { dmId, characterId } = await fixture(db);
+    const res = await PATCH(
+      makeEvent({
+        user: userOf(dmId, 'dm'),
+        params: { id: characterId },
+        body: { name: 'DM Adjusted' }
+      })
+    );
+    expect(res.status).toBe(200);
+  });
+
+  // Regression: any co-member used to be able to overwrite any character in
+  // the campaign. Player co-members are read-only.
+  it('rejects a player co-member writing another player sheet (403)', async () => {
+    const { campaignId, characterId } = await fixture(db);
+    const rival = await seedUser(db, { username: 'rival' });
+    await db.insert(schema.campaignMembers).values({
+      campaignId,
+      userId: rival,
+      role: 'player',
+      status: 'approved',
+      joinedAt: new Date()
+    });
+    await expectHttpError(
+      PATCH(
+        makeEvent({
+          user: userOf(rival, 'rival'),
+          params: { id: characterId },
+          body: { name: 'Pwned' }
+        })
+      ),
+      403
+    );
+  });
+
+  it('allows an admin to write any character', async () => {
+    const { characterId } = await fixture(db);
+    const admin = await seedUser(db, { username: 'admin' });
+    const res = await PATCH(
+      makeEvent({
+        user: userOf(admin, 'admin', true),
+        params: { id: characterId },
+        body: { name: 'Admin Edit' }
+      })
+    );
+    expect(res.status).toBe(200);
+  });
+
   // Locks Zod refinement: an empty patch body is rejected.
   it('rejects an empty body (400)', async () => {
     const { owner, characterId } = await fixture(db);
@@ -230,6 +306,24 @@ describe('DELETE /api/characters/[id]', () => {
       .from(schema.characters)
       .where(eq(schema.characters.id, characterId));
     expect(rows.length).toBe(0);
+  });
+
+  // Regression: any co-member used to be able to delete another player's
+  // character outright. Even the DM cannot delete — only owner/admin;
+  // the DM unlinks it from the campaign instead.
+  it('rejects a co-member DM deleting another player character (403)', async () => {
+    const { dmId, characterId } = await fixture(db);
+    await expectHttpError(
+      DELETE(
+        makeEvent({ user: userOf(dmId, 'dm'), params: { id: characterId }, method: 'DELETE' })
+      ),
+      403
+    );
+    const rows = await db
+      .select()
+      .from(schema.characters)
+      .where(eq(schema.characters.id, characterId));
+    expect(rows.length).toBe(1);
   });
 });
 

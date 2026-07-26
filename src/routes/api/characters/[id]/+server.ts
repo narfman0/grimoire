@@ -4,7 +4,10 @@ import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { UpdateCharacterRequest, PutCharacterRequest, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
-import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import {
+  requireCharacterViewAccess,
+  requireCharacterWriteAccess
+} from '$lib/server/auth/membership';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -43,24 +46,18 @@ function serialize(r: {
   };
 }
 
-/** Standalone characters (no campaign) are accessible only to their owner. */
-async function requireAccess(userId: string, r: { campaignId: string | null; ownerUserId: string | null }) {
-  if (!r.campaignId) {
-    if (r.ownerUserId !== userId) throw error(403, 'not the owner of this character');
-    return;
-  }
-  const role = await getMembershipByCampaignId(userId, r.campaignId);
-  if (!role) throw error(403, 'not a member of this campaign');
-}
-
-/** Write access: admins always; campaign members (any role) for campaign characters; owner for standalone. */
-async function requireWriteAccess(
-  userId: string,
-  isAdmin: boolean,
-  r: { campaignId: string | null; ownerUserId: string | null }
+/** Read: owner, admin, or an approved member of a campaign the character is
+ *  linked to (via campaign_characters — never the campaignId soft pointer).
+ *  Write (PATCH/PUT): owner, admin, or the DM of a linked campaign — the DM
+ *  encounter screen patches PC documents to apply damage. Player co-members
+ *  are read-only. DELETE is owner/admin only (see handler). */
+async function requireDeleteAccess(
+  user: { id: string; isAdmin: boolean },
+  r: { ownerUserId: string | null }
 ) {
-  if (isAdmin) return;
-  await requireAccess(userId, r);
+  if (r.ownerUserId !== user.id && !user.isAdmin) {
+    throw error(403, 'only the owner can delete this character');
+  }
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -68,7 +65,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   const { id } = parseParams(params, Params);
   const row = await load(id);
   if (!row) throw error(404, 'character not found');
-  await requireAccess(locals.user.id, row);
+  await requireCharacterViewAccess(locals.user, row);
   return json(serialize(row));
 };
 
@@ -79,7 +76,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireAccess(locals.user.id, existing);
+  await requireCharacterWriteAccess(locals.user, existing);
 
   const now = new Date();
   const nextName = patch.name ?? existing.name;
@@ -117,7 +114,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireWriteAccess(locals.user.id, locals.user.isAdmin, existing);
+  await requireCharacterWriteAccess(locals.user, existing);
 
   const now = new Date();
   const nextDocument = JSON.stringify({ ...body.document, id });
@@ -146,7 +143,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const { id } = parseParams(params, Params);
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireAccess(locals.user.id, existing);
+  await requireDeleteAccess(locals.user, existing);
 
   await db.delete(schema.characters).where(eq(schema.characters.id, id));
   return new Response(null, { status: 204 });

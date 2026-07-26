@@ -12,7 +12,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
 
   const row = await db
-    .select({ ownerUserId: schema.characters.ownerUserId, campaignId: schema.characters.campaignId })
+    .select({ ownerUserId: schema.characters.ownerUserId })
     .from(schema.characters)
     .where(eq(schema.characters.id, params.id))
     .limit(1)

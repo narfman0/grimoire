@@ -195,6 +195,34 @@ export async function requireCharacterViewAccess(
   };
 }
 
+/** Authorises writes to a character. Owner and admin always; the DM of a
+ *  campaign the character is linked to (via campaign_characters) may also
+ *  write — the encounter screen applies damage/conditions to PCs by patching
+ *  their document. Player co-members are read-only. Throws 401/403. */
+export async function requireCharacterWriteAccess(
+  user: { id: string; isAdmin: boolean },
+  character: { id: string; ownerUserId: string | null }
+): Promise<void> {
+  if (character.ownerUserId === user.id || user.isAdmin) return;
+  const dmRows = await db
+    .select({ campaignId: schema.campaignCharacters.campaignId })
+    .from(schema.campaignCharacters)
+    .innerJoin(
+      schema.campaignMembers,
+      and(
+        eq(schema.campaignMembers.campaignId, schema.campaignCharacters.campaignId),
+        eq(schema.campaignMembers.userId, user.id),
+        eq(schema.campaignMembers.role, 'dm'),
+        eq(schema.campaignMembers.status, 'approved')
+      )
+    )
+    .where(eq(schema.campaignCharacters.characterId, character.id))
+    .limit(1);
+  if (dmRows.length === 0) {
+    throw error(403, 'only the owner or the DM can modify this character');
+  }
+}
+
 export async function getMembershipByCampaignId(
   userId: string,
   campaignId: string
