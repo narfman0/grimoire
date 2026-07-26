@@ -1,11 +1,9 @@
 import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-// To deploy to Vercel later, replace the import above with:
-//   import adapter from '@sveltejs/adapter-vercel';
-// and `pnpm add -D @sveltejs/adapter-vercel`. Note: the sync-server
-// (Hocuspocus) cannot run on Vercel serverless — it needs a long-lived
-// connection. Keep it on srv (or another always-on host) regardless.
+// adapter-node because prod is a single always-on Fly machine: better-sqlite3
+// opens a local file, the session GC + graceful shutdown live in-process, and
+// migrations run at container boot — none of which fits serverless.
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

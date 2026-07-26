@@ -25,8 +25,8 @@ Status: **active table use**.
 | Frontend        | SvelteKit + TypeScript + Tailwind v4                         |
 | Web server      | `@sveltejs/adapter-node`                                     |
 | DB              | SQLite via Drizzle ORM (`better-sqlite3`)                    |
-| Realtime sync   | SSE pub/sub hub in-process (`src/lib/server/realtime/hub.ts`) |
-| Hosting (now)   | `srv` via docker compose                                     |
+| Realtime sync   | Short-polling (2s) via `src/lib/realtime/*-channel.ts`       |
+| Hosting         | Fly.io (`grimoire-wispy-fog-2051`), auto-deployed from `master` |
 
 Drizzle schema stays portable (`text` / `integer`) so the Postgres swap is
 mostly an import change.
@@ -52,14 +52,21 @@ If `better-sqlite3` fails to build, install a C++ toolchain. On Fedora:
 
 ## Deploy
 
+**Production is Fly.io, and every push to `master` deploys it.** CI
+(`.github/workflows/ci.yml`) runs `pnpm check` + `pnpm test` + `pnpm build`,
+and on success runs `flyctl deploy` against the app
+`grimoire-wispy-fog-2051` (single machine, one `grimoire_data` volume
+holding `grimoire.db`, migrations run on container startup). There is no
+staging environment — treat a green merge as shipped.
+
+Self-hosting via docker compose also works:
+
 ```bash
 ORIGIN=https://grimoire.example.com docker compose build && docker compose up -d
 ```
 
 The compose file exposes `${GRIMOIRE_PORT:-49300}` (web), with a
-`grimoire-data` volume holding `grimoire.db`. Migrations run on container
-startup. Behind a reverse proxy, make sure `text/event-stream`
-isn't buffered (nginx: `proxy_buffering off;`).
+`grimoire-data` volume holding `grimoire.db`.
 
 **Required env vars for production:**
 

@@ -1,9 +1,16 @@
 # Three remaining engine workstreams — design plan
 
 Research-only design plans for three engine + tooling workstreams that
-together unblock ~80+ T1-STUB pack rows. None of this is implemented yet —
-this document defines scope, schema shapes, and phase plans so the work can
-be picked up in order.
+together unblock ~80+ T1-STUB pack rows. This document defines scope,
+schema shapes, and phase plans so the work can be picked up in order.
+
+**Status (2026-07-26):** Workstream 1 (Battle Master maneuvers) has
+SHIPPED — `ManeuverDecl` + `ManeuverEffect` in `src/lib/rules/types.ts`,
+`synthesizeManeuver` in `derive.ts`, tests in
+`src/lib/rules/__tests__/maneuvers.test.ts` — along with its class-resource
+prereq (`src/lib/rules/class-resources.ts`). Workstreams 2 (OUT-FLUFF tier
+marker) and 3 (spell-pack expansion) remain open; both are engine-free and
+safe to run in parallel with other work.
 
 The three workstreams are independent and can be parallelized, but they
 have asymmetric risk and leverage. See the summary at the end for a
