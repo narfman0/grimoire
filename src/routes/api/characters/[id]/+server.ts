@@ -69,6 +69,14 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   return json(serialize(row));
 };
 
+/** updatedAt doubles as the optimistic-concurrency token, so it must
+ *  strictly increase on every write — two writes landing in the same
+ *  millisecond would otherwise reuse the token and let a stale client
+ *  pass the baseUpdatedAt check. */
+function nextUpdatedAt(existing: Date): Date {
+  return new Date(Math.max(Date.now(), existing.getTime() + 1));
+}
+
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { id } = parseParams(params, Params);
@@ -78,7 +86,17 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (!existing) throw error(404, 'character not found');
   await requireCharacterWriteAccess(locals.user, existing);
 
-  const now = new Date();
+  // Optimistic concurrency: when the client says which version it based its
+  // edit on and that version is no longer current, reject with the current
+  // serialized character so the client can rebase and retry.
+  if (
+    patch.baseUpdatedAt !== undefined &&
+    patch.baseUpdatedAt !== existing.updatedAt.getTime()
+  ) {
+    return json(serialize(existing), { status: 409 });
+  }
+
+  const now = nextUpdatedAt(existing.updatedAt);
   const nextName = patch.name ?? existing.name;
   const nextDocument =
     patch.document != null
@@ -116,7 +134,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   if (!existing) throw error(404, 'character not found');
   await requireCharacterWriteAccess(locals.user, existing);
 
-  const now = new Date();
+  const now = nextUpdatedAt(existing.updatedAt);
   const nextDocument = JSON.stringify({ ...body.document, id });
 
   await db
@@ -151,7 +169,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 export const _openapi = {
   GET: { summary: 'Fetch a character by ID' },
-  PATCH: { summary: 'Partially update a character name or document' },
+  PATCH: {
+    summary:
+      'Partially update a character name or document; optional baseUpdatedAt enables optimistic concurrency (409 with current character on mismatch)',
+    body: UpdateCharacterRequest
+  },
   PUT: { summary: 'Replace a character document (accepts GET response shape)', body: PutCharacterRequest },
   DELETE: { summary: 'Delete a character' }
 } as const;

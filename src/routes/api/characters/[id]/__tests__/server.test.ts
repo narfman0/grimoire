@@ -271,6 +271,148 @@ describe('PATCH /api/characters/[id]', () => {
     expect(res.status).toBe(200);
   });
 
+  // ---- optimistic concurrency (baseUpdatedAt) ----
+
+  it('PATCH without baseUpdatedAt stays last-write-wins (backward compat)', async () => {
+    const { owner, characterId } = await fixture(db);
+    const first = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: { document: { ...minDoc(characterId), currentHp: 3 } }
+      })
+    );
+    expect(first.status).toBe(200);
+    // Second write carries no token — must succeed and overwrite.
+    const second = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: { document: { ...minDoc(characterId), currentHp: 1 } }
+      })
+    );
+    expect(second.status).toBe(200);
+    const body = await second.json();
+    expect(body.document.currentHp).toBe(1);
+  });
+
+  it('PATCH with matching baseUpdatedAt succeeds and returns a newer updatedAt', async () => {
+    const { owner, characterId } = await fixture(db);
+    const before = await (
+      await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }))
+    ).json();
+    const res = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: { name: 'Fresh', baseUpdatedAt: before.updatedAt }
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.name).toBe('Fresh');
+    expect(body.updatedAt).toBeGreaterThan(before.updatedAt);
+  });
+
+  it('PATCH with stale baseUpdatedAt returns 409 carrying the current character', async () => {
+    const { owner, characterId } = await fixture(db);
+    const before = await (
+      await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }))
+    ).json();
+
+    // Another writer (e.g. the DM tab) lands first.
+    const first = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: { document: { ...minDoc(characterId), currentHp: 3 } }
+      })
+    );
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+
+    // Our write still carries the pre-first-write token → conflict.
+    const res = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: {
+          document: { ...minDoc(characterId), currentHp: 1 },
+          baseUpdatedAt: before.updatedAt
+        }
+      })
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    // The 409 body is the CURRENT serialized character, for client rebasing.
+    expect(body.id).toBe(characterId);
+    expect(body.updatedAt).toBe(firstBody.updatedAt);
+    expect(body.document.currentHp).toBe(3);
+
+    // And the conflicted write was NOT applied.
+    const reread = await (
+      await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }))
+    ).json();
+    expect(reread.document.currentHp).toBe(3);
+    expect(reread.updatedAt).toBe(firstBody.updatedAt);
+  });
+
+  // updatedAt doubles as the concurrency token, so it must strictly increase
+  // even when two writes land within the same millisecond.
+  it('updatedAt strictly increases across rapid consecutive writes', async () => {
+    const { owner, characterId } = await fixture(db);
+    const r1 = await PATCH(
+      makeEvent({ user: ownerOf(owner), params: { id: characterId }, body: { name: 'One' } })
+    );
+    const b1 = await r1.json();
+    const r2 = await PATCH(
+      makeEvent({ user: ownerOf(owner), params: { id: characterId }, body: { name: 'Two' } })
+    );
+    const b2 = await r2.json();
+    expect(b2.updatedAt).toBeGreaterThan(b1.updatedAt);
+  });
+
+  it('rebase flow: retrying with the 409 body token succeeds', async () => {
+    const { owner, characterId } = await fixture(db);
+    const before = await (
+      await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }))
+    ).json();
+    await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: { document: { ...minDoc(characterId), currentHp: 3 } }
+      })
+    );
+    const conflicted = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: {
+          document: { ...minDoc(characterId), currentHp: 1 },
+          baseUpdatedAt: before.updatedAt
+        }
+      })
+    );
+    expect(conflicted.status).toBe(409);
+    const current = await conflicted.json();
+    // Rebase: re-apply the edit on top of the current doc + fresh token.
+    const retry = await PATCH(
+      makeEvent({
+        user: ownerOf(owner),
+        params: { id: characterId },
+        body: {
+          document: { ...current.document, currentHp: 1 },
+          baseUpdatedAt: current.updatedAt
+        }
+      })
+    );
+    expect(retry.status).toBe(200);
+    const retried = await retry.json();
+    expect(retried.document.currentHp).toBe(1);
+    expect(retried.updatedAt).toBeGreaterThan(current.updatedAt);
+  });
+
   // Locks Zod refinement: an empty patch body is rejected.
   it('rejects an empty body (400)', async () => {
     const { owner, characterId } = await fixture(db);
@@ -280,6 +422,21 @@ describe('PATCH /api/characters/[id]', () => {
           user: ownerOf(owner),
           params: { id: characterId },
           body: {}
+        })
+      ),
+      400
+    );
+  });
+
+  // baseUpdatedAt is a token, not an update — alone it's still an empty patch.
+  it('rejects a body carrying only baseUpdatedAt (400)', async () => {
+    const { owner, characterId } = await fixture(db);
+    await expectHttpError(
+      PATCH(
+        makeEvent({
+          user: ownerOf(owner),
+          params: { id: characterId },
+          body: { baseUpdatedAt: Date.now() }
         })
       ),
       400

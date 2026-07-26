@@ -14,6 +14,12 @@ export interface ConnectedDoc {
   /** Live snapshot of the character document. Starts as the SSR seed and
    *  updates each time another tab PATCHes. */
   document: Readable<CharacterDocument | null>;
+  /** Server `updatedAt` (ms since epoch) accompanying the document snapshot —
+   *  the optimistic-concurrency token pages send back as `baseUpdatedAt` on
+   *  PATCH. Null until seeded or until the first poll that carries one.
+   *  Updated under the same stale-poll guard as `document` so the token and
+   *  the snapshot never diverge. */
+  updatedAt: Readable<number | null>;
   status: Readable<'connecting' | 'open' | 'closed'>;
   /** Signal that a local mutation (PATCH /api/characters/<id>) is starting.
    *  Call this right before issuing the PATCH so poll responses fetched
@@ -31,6 +37,8 @@ export interface ConnectOptions {
   /** SSR-loaded document to seed the store with, avoiding the null flash
    *  while the first poll resolves. */
   seed?: CharacterDocument | null;
+  /** Server `updatedAt` (ms) matching `seed`, seeding the updatedAt store. */
+  seedUpdatedAt?: number | null;
 }
 
 const POLL_INTERVAL_MS = 2000;
@@ -38,6 +46,7 @@ const MAX_ERRORS_BEFORE_RECONNECTING_STATUS = 3;
 
 export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
   const document = writable<CharacterDocument | null>(opts.seed ?? null);
+  const updatedAt = writable<number | null>(opts.seedUpdatedAt ?? null);
   const status = writable<'connecting' | 'open' | 'closed'>('connecting');
 
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -78,7 +87,10 @@ export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
         }
         return;
       }
-      const data = (await res.json()) as { document: CharacterDocument | null };
+      const data = (await res.json()) as {
+        document: CharacterDocument | null;
+        updatedAt?: number;
+      };
       consecutiveErrors = 0;
       if (mutationsInFlight > 0 || mutationSeq !== seqAtPollStart) {
         // Stale snapshot: a local mutation raced this poll. Drop the
@@ -88,6 +100,7 @@ export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
         return;
       }
       document.set(data.document);
+      if (typeof data.updatedAt === 'number') updatedAt.set(data.updatedAt);
       status.set('open');
     } catch {
       consecutiveErrors++;
@@ -105,6 +118,7 @@ export function connectCharacter(opts: ConnectOptions): ConnectedDoc {
 
   return {
     document: { subscribe: document.subscribe },
+    updatedAt: { subscribe: updatedAt.subscribe },
     status: { subscribe: status.subscribe },
     noteMutation,
     destroy() {

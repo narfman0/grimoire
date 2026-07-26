@@ -147,6 +147,59 @@ describe('connectCharacter (polling)', () => {
     }
   });
 
+  // --- updatedAt snapshot token --------------------------------------------
+  // The poll snapshot carries the server's updatedAt (ms) — the optimistic-
+  // concurrency token pages send back as baseUpdatedAt on PATCH. It must be
+  // seeded, follow applied polls, and honor the same stale-poll guard.
+  it('seeds updatedAt from opts.seedUpdatedAt and adopts it from polls', async () => {
+    globalThis.fetch = vi.fn(async () =>
+      jsonResponse({ document: doc('Polled', 10), updatedAt: 5000 })
+    ) as typeof fetch;
+    conn = connectCharacter({
+      characterId: 'chr-1',
+      seed: doc('Seeded', 12),
+      seedUpdatedAt: 1000
+    });
+    expect(get(conn.updatedAt)).toBe(1000);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(get(conn.updatedAt)).toBe(5000);
+  });
+
+  it('updatedAt defaults to null and tolerates poll responses without one', async () => {
+    // beforeEach fetch returns { document } with no updatedAt field.
+    conn = connectCharacter({ characterId: 'chr-1' });
+    expect(get(conn.updatedAt)).toBeNull();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(get(conn.document)).toEqual(doc('Polled', 10)); // poll applied…
+    expect(get(conn.updatedAt)).toBeNull(); // …without inventing a token
+  });
+
+  it('does not adopt updatedAt from a stale (mutation-raced) poll', async () => {
+    const seed = doc('Seeded', 12);
+    let resolveStalePoll!: (r: Response) => void;
+    const stalePoll = new Promise<Response>((r) => { resolveStalePoll = r; });
+    let calls = 0;
+    globalThis.fetch = vi.fn(async () => {
+      calls++;
+      if (calls === 1) return stalePoll;
+      return jsonResponse({ document: doc('Fresh', 5), updatedAt: 9000 });
+    }) as typeof fetch;
+
+    conn = connectCharacter({ characterId: 'chr-1', seed, seedUpdatedAt: 1000 });
+    const patch = Promise.resolve();
+    conn.noteMutation(patch);
+    await patch;
+    await new Promise((r) => setTimeout(r, 0));
+
+    resolveStalePoll(jsonResponse({ document: doc('Stale', 12), updatedAt: 8000 }));
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Dropped payload must not move the token either — a stale token would
+    // make the page send a wrong baseUpdatedAt and 409 spuriously.
+    expect(get(conn.updatedAt)).toBe(1000);
+    expect(get(conn.document)).toEqual(seed);
+  });
+
   it('noteMutation() without a promise still guards polls issued before it', async () => {
     const seed = doc('Seeded', 12);
     let resolveStalePoll!: (r: Response) => void;

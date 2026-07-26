@@ -234,9 +234,17 @@ export const UpdateCharacterRequest = z
   .object({
     name: CharacterName.optional(),
     slug: CharacterSlug.optional(),
-    document: CharacterDocument.optional()
+    document: CharacterDocument.optional(),
+    /** Optimistic-concurrency token: the character's `updatedAt` (ms since
+     *  epoch) the client based its edit on. When present and it no longer
+     *  matches the row, the server responds 409 with the current serialized
+     *  character so the client can rebase and retry. Omit for plain
+     *  last-write-wins (backward compatible). */
+    baseUpdatedAt: z.number().int().nonnegative().optional()
   })
-  .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
+  .refine((v) => v.name !== undefined || v.slug !== undefined || v.document !== undefined, {
+    message: 'at least one field required'
+  })
   .openapi('UpdateCharacterRequest');
 
 /** Accepts the exact shape returned by GET so callers can download → modify → PUT back. */

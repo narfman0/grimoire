@@ -28,6 +28,7 @@
   import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
   import { lookupFromMap, type CharacterDocument, type ContentLookup } from '$lib/rules/types';
   import { connectCharacter, type ConnectedDoc } from '$lib/realtime/character-channel';
+  import { toasts } from '$lib/client/errors';
   import { encounterUrl } from '$lib/urls';
   import {
     connectEncounter,
@@ -140,6 +141,7 @@
   let syncStatus: 'connecting' | 'open' | 'closed' = 'connecting';
   let unsubStatus: (() => void) | undefined;
   let unsubDoc: (() => void) | undefined;
+  let unsubUpdatedAt: (() => void) | undefined;
   /** Snapshot from the live SSE stream — null until first message arrives. */
   let liveDoc: CharacterDocument | null = null;
 
@@ -254,9 +256,14 @@
   let resolveError: string | null = null;
 
   onMount(() => {
-    conn = connectCharacter({ characterId: data.character.id, seed: data.document });
+    conn = connectCharacter({
+      characterId: data.character.id,
+      seed: data.document,
+      seedUpdatedAt: data.character.updatedAt
+    });
     unsubStatus = conn.status.subscribe((s) => (syncStatus = s));
     unsubDoc = conn.document.subscribe((d) => (liveDoc = d));
+    unsubUpdatedAt = conn.updatedAt.subscribe((ts) => noteServerUpdatedAt(ts));
 
     if (data.liveEncounter) {
       // Seed the channel with the SSR-loaded plan so the chooser pre-selects
@@ -300,6 +307,7 @@
   onDestroy(() => {
     unsubStatus?.();
     unsubDoc?.();
+    unsubUpdatedAt?.();
     conn?.destroy();
     unsubEncState?.();
     encConn?.destroy();
@@ -616,28 +624,115 @@
     return Math.floor(hitDie / 2) + 1;
   }
 
-  async function patchDocument(updater: (doc: NonNullable<typeof charDoc>) => void) {
-    if (!charDoc) return;
-    busy = true;
+  // --- optimistic document mutations ---------------------------------------
+  // patchDocument applies the edit to the local document immediately, PATCHes
+  // with an optimistic-concurrency token (baseUpdatedAt), and never awaits an
+  // invalidateAll — the local state plus the 2s poll keep everything fresh.
+  // On a 409 (another tab/DM wrote first) it rebases the updater onto the
+  // server's current document and retries once.
+
+  /** Freshest server updatedAt (ms) seen so far — the token sent as
+   *  baseUpdatedAt on every document PATCH. Sources: the SSR load, PATCH
+   *  responses, and the poll channel's snapshots. */
+  let lastKnownUpdatedAt: number = data.character.updatedAt;
+
+  function noteServerUpdatedAt(ts: number | null | undefined) {
+    if (typeof ts === 'number' && ts > lastKnownUpdatedAt) lastKnownUpdatedAt = ts;
+  }
+
+  type CharacterWriteResponse = {
+    document: NonNullable<typeof charDoc> | null;
+    updatedAt: number;
+  };
+
+  async function parseWriteResponse(res: Response): Promise<CharacterWriteResponse | null> {
     try {
-      const clone = structuredClone(charDoc);
-      updater(clone);
+      return (await res.json()) as CharacterWriteResponse;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Mutations serialize through this chain so each clone bases off the
+   *  previous mutation's result instead of an interleaved stale snapshot. */
+  let mutationChain: Promise<void> = Promise.resolve();
+  let mutationsPending = 0;
+
+  function patchDocument(updater: (doc: NonNullable<typeof charDoc>) => void): Promise<void> {
+    mutationsPending++;
+    busy = true;
+    const run = mutationChain.then(() => runPatch(updater));
+    mutationChain = run.catch(() => {});
+    return run.finally(() => {
+      mutationsPending--;
+      if (mutationsPending === 0) busy = false;
+    });
+  }
+
+  async function runPatch(updater: (doc: NonNullable<typeof charDoc>) => void): Promise<void> {
+    // Read the base synchronously from the raw variables — the reactive
+    // `charDoc` only recomputes on Svelte's flush, which may not have run
+    // yet when a queued mutation starts right after the previous one.
+    const prevDoc = liveDoc ?? data.document;
+    if (!prevDoc) return;
+    const clone = structuredClone(prevDoc);
+    updater(clone);
+    // Optimistic apply. The channel's stale-poll guard (noteMutation below)
+    // keeps in-flight polls from clobbering this while the PATCH runs.
+    liveDoc = clone;
+
+    const send = (doc: NonNullable<typeof charDoc>, base: number) => {
       const req = fetch(`/api/characters/${data.character.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ document: clone })
+        body: JSON.stringify({ document: doc, baseUpdatedAt: base })
       });
       // Tell the polling channel a mutation is in flight so a stale poll
       // snapshot issued before this PATCH can't clobber the result.
       conn?.noteMutation(req);
-      const res = await req;
+      return req;
+    };
+
+    try {
+      let res = await send(clone, lastKnownUpdatedAt);
+      if (res.status === 409) {
+        // Someone else wrote first. Rebase: re-apply the updater to the
+        // server's current document and retry once with its fresh token.
+        const current = await parseWriteResponse(res);
+        if (!current?.document) {
+          liveDoc = prevDoc;
+          toasts.add({ type: 'error', message: 'Edit conflicted with another update — not applied.' });
+          return;
+        }
+        const rebased = structuredClone(current.document);
+        updater(rebased);
+        noteServerUpdatedAt(current.updatedAt);
+        liveDoc = rebased;
+        res = await send(rebased, current.updatedAt);
+        if (res.status === 409) {
+          // Retry conflicted too — adopt the server's version and give up.
+          const latest = await parseWriteResponse(res);
+          liveDoc = latest?.document ?? prevDoc;
+          noteServerUpdatedAt(latest?.updatedAt);
+          toasts.add({ type: 'error', message: 'Edit conflicted with another update — not applied.' });
+          return;
+        }
+      }
       if (!res.ok) {
-        restNote = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
+        liveDoc = prevDoc;
+        toasts.add({
+          type: 'error',
+          message: `Failed to save change: ${res.status} ${(await res.text()).slice(0, 200)}`
+        });
         return;
       }
-      await invalidateAll();
-    } finally {
-      busy = false;
+      const body = await parseWriteResponse(res);
+      noteServerUpdatedAt(body?.updatedAt);
+      // Adopt the server's echo (it rewrites document.id) as the new base.
+      if (body?.document) liveDoc = body.document;
+    } catch (e) {
+      liveDoc = prevDoc;
+      toasts.add({ type: 'error', message: `Failed to save change: ${String(e)}` });
     }
   }
 
