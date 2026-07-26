@@ -9,6 +9,7 @@ import { createSession } from '$lib/server/auth/sessions';
 import { isRateLimited } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
 import { sendEmail, verificationEmail } from '$lib/server/email';
+import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
 const SignupRequest = z.object({
@@ -62,9 +63,16 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
     createdAt: new Date()
   }).catch((err) => handleDbError(err, 'signup:insert-user'));
 
+  // The account is already committed — an SMTP outage must not 500 the
+  // signup (the retry would hit the 409 above with no session). The user
+  // can request another link via resend-verify.
   const origin = new URL(request.url).origin;
   const link = `${origin}/verify-email?token=${verifyToken}`;
-  await sendEmail(email, 'Verify your Grimoire email', verificationEmail(username, link));
+  try {
+    await sendEmail(email, 'Verify your Grimoire email', verificationEmail(username, link));
+  } catch (err) {
+    logger.warn({ err, userId: id }, 'signup: verification email failed to send');
+  }
 
   await createSession(id, cookies);
   await logAuthEvent({ userId: id, action: 'signup', ip, userAgent: ua });

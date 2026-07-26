@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
+import { handleDbError } from '$lib/server/db/errors';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { CampaignCode } from '$lib/server/api/schemas';
@@ -100,7 +101,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       grantType: 'author',
       grantKey: resolvedKey,
       createdAt: new Date()
-    });
+    }).catch((err) => handleDbError(err, 'grants:insert-author'));
     const [user] = await db
       .select({ username: schema.users.username })
       .from(schema.users)
@@ -130,7 +131,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     grantType: 'pack',
     grantKey,
     createdAt: new Date()
-  });
+  }).catch((err) => handleDbError(err, 'grants:insert-pack'));
   return json({ id: packGrantId, grantType: 'pack', grantKey, label: grantKey }, { status: 201 });
 };
 

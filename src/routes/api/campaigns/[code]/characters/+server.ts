@@ -6,6 +6,7 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
+import { handleDbError } from '$lib/server/db/errors';
 import { CampaignCode, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
@@ -53,7 +54,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       characterId: body.characterId,
       role: body.role,
       addedAt: new Date()
-    });
+    }).catch((err) => handleDbError(err, 'campaign-characters:link'));
   }
 
   return json({ campaignId: m.campaignId, characterId: body.characterId, role: body.role });

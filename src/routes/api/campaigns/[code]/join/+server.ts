@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
+import { handleDbError } from '$lib/server/db/errors';
 import { CampaignCode } from '$lib/server/api/schemas';
 import { parseParams } from '$lib/server/api/validate';
 import type { RequestHandler } from './$types';
@@ -38,7 +39,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       role: 'player',
       status: 'pending',
       joinedAt: new Date()
-    });
+    }).catch((err) => handleDbError(err, 'join:insert-member'));
     return json({ campaignId, status: 'pending' });
   }
 

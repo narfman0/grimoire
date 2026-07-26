@@ -4,43 +4,54 @@
 
 import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { parseJson } from '$lib/server/api/validate';
+import { parseJson, parseParams } from '$lib/server/api/validate';
+import { Uuid } from '$lib/server/api/schemas';
 import { ReportResolve } from '$lib/server/content/schemas';
 import type { RequestHandler } from './$types';
+
+const Params = z.object({ id: Uuid });
 
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   if (!locals.user.isAdmin) throw error(403, 'admin only');
 
+  const { id } = parseParams(params, Params);
   const body = await parseJson(request, ReportResolve);
   const [report] = await db
     .select()
     .from(schema.contentReports)
-    .where(eq(schema.contentReports.id, params.id!))
+    .where(eq(schema.contentReports.id, id))
     .limit(1);
   if (!report) throw error(404, 'report not found');
   if (report.resolvedAt) throw error(409, 'report is already resolved');
 
   const now = new Date();
-  await db
-    .update(schema.contentReports)
-    .set({
-      resolvedAt: now,
-      resolverUserId: locals.user.id,
-      resolution: body.resolution
-    })
-    .where(eq(schema.contentReports.id, report.id));
+  const resolverUserId = locals.user.id;
+  // Resolve + takedown must land together — a resolved report whose
+  // takedown failed would leave reported content public with no open
+  // report pointing at it.
+  await db.transaction((tx) => {
+    tx.update(schema.contentReports)
+      .set({
+        resolvedAt: now,
+        resolverUserId,
+        resolution: body.resolution
+      })
+      .where(eq(schema.contentReports.id, report.id))
+      .run();
 
-  if (body.resolution === 'hidden') {
-    // Soft-takedown: flip visibility back to private. The content row
-    // (and any subscriptions to it) is left intact so subscribers see the
-    // last-good state on their characters until they unsubscribe.
-    await db
-      .update(schema.content)
-      .set({ visibility: 'private', updatedAt: now })
-      .where(eq(schema.content.id, report.contentId));
-  }
+    if (body.resolution === 'hidden') {
+      // Soft-takedown: flip visibility back to private. The content row
+      // (and any subscriptions to it) is left intact so subscribers see the
+      // last-good state on their characters until they unsubscribe.
+      tx.update(schema.content)
+        .set({ visibility: 'private', updatedAt: now })
+        .where(eq(schema.content.id, report.contentId))
+        .run();
+    }
+  });
 
   return json({ id: report.id, resolution: body.resolution });
 };
