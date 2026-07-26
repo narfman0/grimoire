@@ -8,14 +8,12 @@
 // reach for the old walk-everything semantics in places. New callers should
 // use `seedSrdIfMissing` instead.
 
-import { readdir, readFile } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
-import { existsSync } from 'node:fs';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { logger } from '$lib/server/logger';
 import { invalidateContentCache } from './cache';
-import { ContentRowFileOrArray, PackMeta, type ContentRowFile } from './schemas';
+import { type PackMeta, type ContentRowFile } from './schemas';
+import { enumeratePackRows, findPackDirs, readPackMeta } from './pack-walk';
 
 const DEFAULT_REPO_PACKS_DIR = './content-packs';
 
@@ -80,20 +78,14 @@ export async function seedSrdIfMissing(): Promise<{ loaded: number; skipped: boo
 async function loadFromRoots(roots: string[]): Promise<LoaderResult> {
   const packDirs: string[] = [];
   for (const root of roots) {
-    if (!existsSync(root)) continue;
-    for (const entry of await readdir(root, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const dir = join(root, entry.name);
-      if (existsSync(join(dir, 'meta.json'))) packDirs.push(dir);
-    }
+    packDirs.push(...(await findPackDirs(root)));
   }
 
   // Read all metas first so we can sort by slug deterministically.
   const metas: Array<{ dir: string; meta: PackMeta }> = [];
   for (const dir of packDirs) {
     try {
-      const raw = await readFile(join(dir, 'meta.json'), 'utf8');
-      const meta = PackMeta.parse(JSON.parse(raw));
+      const meta = await readPackMeta(dir);
       // 'homebrew' is reserved for the in-app user-authored content path
       // (see drizzle/0009 — synthetic pack row seeded at migration time).
       // Refuse any on-disk pack claiming that slug so user rows aren't
@@ -159,20 +151,12 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
   // Per-pack txn: a malformed file rolls back THIS pack only.
   // better-sqlite3's drizzle adapter exposes the sync transaction; since the
   // file walk is async we collect rows first, then commit synchronously.
-  const rows: Array<{ row: ContentRowFile; sourceFile: string }> = [];
-
-  for await (const file of walkJsonFiles(ctx.rootDir)) {
-    if (file.endsWith(`${sep}meta.json`) || file.endsWith('/meta.json')) continue;
-    const rel = relative(ctx.rootDir, file);
-    try {
-      const raw = await readFile(file, 'utf8');
-      const parsed = ContentRowFileOrArray.parse(JSON.parse(raw));
-      const rowsInFile = Array.isArray(parsed) ? parsed : [parsed];
-      for (const row of rowsInFile) rows.push({ row, sourceFile: rel });
-    } catch (err) {
-      throw new Error(`pack=${ctx.meta.slug} file=${rel}: ${(err as Error).message}`);
-    }
+  const enumerated = await enumeratePackRows(ctx.rootDir);
+  if (enumerated.errors.length > 0) {
+    const first = enumerated.errors[0];
+    throw new Error(`pack=${ctx.meta.slug} file=${first.sourceFile}: ${first.message}`);
   }
+  const rows: Array<{ row: ContentRowFile; sourceFile: string }> = enumerated.rows;
 
   // Upsert packs row first, then content rows, all in one txn.
   const now = new Date();
@@ -336,15 +320,4 @@ async function loadPack(ctx: PackContext): Promise<PackStats> {
   const elapsed = Date.now() - started;
   logger.info({ pack: ctx.meta.slug, rowsLoaded: stats.rowsLoaded, warnings: stats.warnings, elapsedMs: elapsed }, 'pack loaded');
   return stats;
-}
-
-async function* walkJsonFiles(root: string): AsyncGenerator<string> {
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    const full = join(root, entry.name);
-    if (entry.isDirectory()) {
-      yield* walkJsonFiles(full);
-    } else if (entry.isFile() && entry.name.endsWith('.json')) {
-      yield full;
-    }
-  }
 }

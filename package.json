@@ -17,6 +17,7 @@
     "test:unit": "vitest run --exclude 'src/lib/components/**'",
     "test:component": "vitest run src/lib/components",
     "test:watch": "vitest",
+    "validate:packs": "GRIMOIRE_PACKS_DIR=${GRIMOIRE_PACKS_DIR:-../grimoire-packs} vitest run src/lib/server/content/__tests__/packs-validation.test.ts",
     "gaps": "node scripts/content-gaps.mjs"
   },
   "devDependencies": {
