@@ -6,6 +6,11 @@ import {
   index,
   primaryKey
 } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+
+/** SQL expression for the current timestamp in ms — used as a column DEFAULT
+ *  so raw inserts (e.g. admin DB endpoint) auto-fill "created at now". */
+const nowMs = sql`(unixepoch('now') * 1000)`;
 
 
 // Kept intentionally portable: only text/integer/blob, no SQLite-specific
@@ -18,7 +23,7 @@ export const campaigns = sqliteTable('campaigns', {
   code: text('code').notNull().unique(), // short shareable code, e.g. 6-char base32
   name: text('name').notNull(),
   slug: text('slug'), // url-safe campaign name for human-readable URLs; null until assigned
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 });
 
 export const characters = sqliteTable('characters', {
@@ -39,7 +44,7 @@ export const notes = sqliteTable('notes', {
     .references(() => campaigns.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
 
@@ -61,7 +66,7 @@ export const packs = sqliteTable(
     name: text('name').notNull(),
     version: text('version').notNull(),                               // informational
     defaultSource: text('default_source').notNull(),                  // applied to rows that omit `source`
-    loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull(),
+    loadedAt: integer('loaded_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
     author: text('author'),
     /** Rules edition this pack targets ('5e', '5.5e', …). Drives the browse
      *  edition filter and (later) campaign-scoped pickers. Nullable because
@@ -80,7 +85,7 @@ export const packs = sqliteTable(
      *    'public'   — surfaced in /packs and /homebrew/browse
      *  The SRD pack is 'public'; the synthetic 'homebrew' bucket is 'private'. */
     visibility: text('visibility').notNull().default('private'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
   },
   (t) => ({
@@ -108,7 +113,7 @@ export const content = sqliteTable(
       .references(() => packs.slug),
     name: text('name').notNull(),
     data: text('data').notNull(),                                   // JSON serialized to TEXT (portable)
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
     /** Stamped on every homebrew edit; null for pack-loaded rows that have
      *  never been touched in-app. */
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
@@ -167,7 +172,7 @@ export const users = sqliteTable('users', {
   failedLoginCount: integer('failed_login_count').notNull().default(0),
   lockedUntil: integer('locked_until', { mode: 'timestamp_ms' }),
   isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 });
 
 export const authLog = sqliteTable(
@@ -178,7 +183,7 @@ export const authLog = sqliteTable(
     action: text('action').notNull(),
     ip: text('ip'),
     userAgent: text('user_agent'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     byUser: index('auth_log_user').on(t.userId, t.createdAt),
@@ -195,7 +200,7 @@ export const sessions = sqliteTable('sessions', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 });
 
 export const campaignMembers = sqliteTable(
@@ -209,7 +214,7 @@ export const campaignMembers = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     role: text('role').notNull(), // 'dm' | 'player'
     status: text('status').notNull().default('approved'), // 'pending' | 'approved' | 'rejected'
-    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull()
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     pk: primaryKey({ columns: [t.campaignId, t.userId] })
@@ -238,7 +243,7 @@ export const campaignCharacters = sqliteTable(
      *  one-shots, retired-character cameos, etc.  Free-text below those
      *  two for now; UI shows it verbatim. */
     role: text('role').notNull().default('player'),
-    addedAt: integer('added_at', { mode: 'timestamp_ms' }).notNull()
+    addedAt: integer('added_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     pk: primaryKey({ columns: [t.campaignId, t.characterId] })
@@ -275,7 +280,7 @@ export const encounters = sqliteTable('encounters', {
   round: integer('round').notNull().default(0), // 0 pre-combat, 1+ active round
   activeParticipantId: text('active_participant_id'),
   notesJson: text('notes_json'), // arbitrary DM notes
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
   endedAt: integer('ended_at', { mode: 'timestamp_ms' })
 });
 
@@ -378,7 +383,7 @@ export const actionLog = sqliteTable(
     targetHpBefore: integer('target_hp_before'),
     targetHpAfter: integer('target_hp_after'),
     notes: text('notes'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     byEncounter: index('action_log_encounter').on(t.encounterId, t.createdAt),
@@ -423,7 +428,7 @@ export const homebrewSubscriptions = sqliteTable(
      *  (legacy default). Non-null = pinned to that version regardless of new
      *  author publishes; subscriber upgrades explicitly via PATCH. */
     pinnedVersion: integer('pinned_version'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.contentKind, t.contentSlug, t.authorUserId] }),
@@ -444,7 +449,7 @@ export const contentReports = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** Free-text reason from the reporter. API caps at 1000 chars. */
     reason: text('reason').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
     /** Null while the report is open. */
     resolvedAt: integer('resolved_at', { mode: 'timestamp_ms' }),
     resolverUserId: text('resolver_user_id').references(() => users.id, {
@@ -496,7 +501,7 @@ export const notifications = sqliteTable(
     toVersion: integer('to_version').notNull(),
     /** Null = unread; populated when the subscriber dismisses or clicks through. */
     readAt: integer('read_at', { mode: 'timestamp_ms' }),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     byUser: index('notifications_by_user').on(t.userId, t.readAt),
@@ -530,7 +535,7 @@ export const campaignContentGrants = sqliteTable(
     grantType: text('grant_type').notNull(),
     /** pack slug when grantType='pack'; user id when grantType='author' */
     grantKey: text('grant_key').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
     byCampaign: index('campaign_content_grants_by_campaign').on(t.campaignId),

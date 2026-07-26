@@ -50,6 +50,13 @@
       "when": 1780260192443,
       "tag": "0006_slug_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1785069430128,
+      "tag": "0007_awesome_power_man",
+      "breakpoints": true
     }
   ]
 }
