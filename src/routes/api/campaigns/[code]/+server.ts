@@ -5,11 +5,17 @@ import { db, schema } from '$lib/server/db';
 import { CampaignCode, UpdateCampaignRequest } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
+import { isRateLimited } from '$lib/server/auth/rate-limit';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals, getClientAddress }) => {
+  // Unauthenticated by design (the join page previews the campaign name),
+  // but throttle anonymous lookups so 6-char codes can't be enumerated.
+  if (!locals.user && isRateLimited(`campaign-lookup:${getClientAddress()}`, 20, 15 * 60 * 1000)) {
+    throw error(429, 'too many lookups — try again later');
+  }
   const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
 
   const rows = await db
