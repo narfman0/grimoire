@@ -717,6 +717,13 @@ export interface ActionGrants {
    *  UpcastScaling.extraTempHpPerSlot (numeric additions stack on top
    *  of the formula as a separate display: '1d4+4 (+5 per slot above 1)'). */
   tempHp?: number | string;
+  /** Conditions removed from the target when the activity resolves
+   *  (Lesser Restoration, a paladin's Restoring Touch, potions). A plain
+   *  string removes the condition entirely; the object form with `stacks`
+   *  decrements `conditionStacks` by N, removing the condition at 0.
+   *  `stacks` is numeric-only (no evaluateValue formulas). Currently
+   *  display-only on the sheet — grants have no auto-apply path yet. */
+  removeConditions?: Array<string | { condition: string; stacks?: number }>;
 }
 
 export interface UpcastScaling {

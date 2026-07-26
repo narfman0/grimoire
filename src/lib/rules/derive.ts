@@ -3437,6 +3437,26 @@ function realizeActivity(
       if (typeof resolved === 'number') grants.tempHp = resolved;
       else if (typeof resolved === 'string' && resolved.length > 0) grants.tempHp = resolved;
     }
+    // Condition-removal grants (Lesser Restoration shape). A string
+    // entry removes the condition entirely; `{ condition, stacks }`
+    // decrements conditionStacks by N (removal at 0 is the applier's
+    // business). `stacks` is kept numeric-only — no evaluateValue.
+    if (Array.isArray(g.removeConditions)) {
+      const entries: Array<string | { condition: string; stacks?: number }> = [];
+      for (const e of g.removeConditions as unknown[]) {
+        if (typeof e === 'string' && e.length > 0) {
+          entries.push(e);
+        } else if (e && typeof e === 'object') {
+          const condition = (e as { condition?: unknown }).condition;
+          if (typeof condition !== 'string' || condition.length === 0) continue;
+          const stacks = (e as { stacks?: unknown }).stacks;
+          entries.push(
+            typeof stacks === 'number' && stacks > 0 ? { condition, stacks } : { condition }
+          );
+        }
+      }
+      if (entries.length > 0) grants.removeConditions = entries;
+    }
     if (Object.keys(grants).length > 0) {
       action.grants = grants as Action['grants'];
     }

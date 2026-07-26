@@ -128,3 +128,64 @@ describe('derive(): grants.tempHp flows through to Action.grants', () => {
     expect(cast.grants).toBeUndefined();
   });
 });
+
+describe('derive(): grants.removeConditions flows through to Action.grants', () => {
+  function spellWithGrants(slug: string, grants: Record<string, unknown>): ContentRow {
+    return {
+      ...FAKE_ARMOR_OF_AGATHYS,
+      slug,
+      data: {
+        ...(FAKE_ARMOR_OF_AGATHYS.data as Record<string, unknown>),
+        activities: [
+          { id: `${slug}-cast`, type: 'utility', name: `Cast ${slug}`, cost: 'action', grants }
+        ]
+      }
+    };
+  }
+
+  it('plumbs string entries (Lesser Restoration shape) verbatim', () => {
+    const row = spellWithGrants('test-lesser-restoration', {
+      removeConditions: ['blinded', 'poisoned']
+    });
+    const d = derive(withKnownSpell(row.slug), lookupFor({ [`spell/${row.slug}`]: row }));
+    const cast = d.actions.find((a) => a.sourceContent.slug === row.slug)!;
+    expect(cast.grants?.removeConditions).toEqual(['blinded', 'poisoned']);
+  });
+
+  it('plumbs stack-decrement entries; stacks stays numeric-only', () => {
+    const row = spellWithGrants('test-restoring-touch', {
+      removeConditions: [
+        { condition: 'exhaustion', stacks: 2 },
+        { condition: 'frightened' },
+        { condition: 'poisoned', stacks: 'chaMod' } // non-numeric stacks → dropped, condition kept
+      ]
+    });
+    const d = derive(withKnownSpell(row.slug), lookupFor({ [`spell/${row.slug}`]: row }));
+    const cast = d.actions.find((a) => a.sourceContent.slug === row.slug)!;
+    expect(cast.grants?.removeConditions).toEqual([
+      { condition: 'exhaustion', stacks: 2 },
+      { condition: 'frightened' },
+      { condition: 'poisoned' }
+    ]);
+  });
+
+  it('drops malformed entries and omits the field when nothing survives', () => {
+    const row = spellWithGrants('test-bad-removals', {
+      removeConditions: ['', 42, { stacks: 3 }, null]
+    });
+    const d = derive(withKnownSpell(row.slug), lookupFor({ [`spell/${row.slug}`]: row }));
+    const cast = d.actions.find((a) => a.sourceContent.slug === row.slug)!;
+    expect(cast.grants?.removeConditions).toBeUndefined();
+  });
+
+  it('composes with tempHp in the same grants block', () => {
+    const row = spellWithGrants('test-combined-grants', {
+      tempHp: 5,
+      removeConditions: ['charmed']
+    });
+    const d = derive(withKnownSpell(row.slug), lookupFor({ [`spell/${row.slug}`]: row }));
+    const cast = d.actions.find((a) => a.sourceContent.slug === row.slug)!;
+    expect(cast.grants?.tempHp).toBe(5);
+    expect(cast.grants?.removeConditions).toEqual(['charmed']);
+  });
+});

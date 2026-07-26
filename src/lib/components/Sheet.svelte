@@ -53,7 +53,10 @@
         extraHealPerSlot?: string;
         extraTempHpPerSlot?: number;
       };
-      grants?: { tempHp?: number | string };
+      grants?: {
+        tempHp?: number | string;
+        removeConditions?: Array<string | { condition: string; stacks?: number }>;
+      };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
       description?: string;
     }>;
@@ -197,6 +200,20 @@
                   (+{action.upcastScaling.extraTempHpPerSlot} per slot above {action.upcastScaling.baseSlotLevel})
                 </span>
               {/if}
+            </div>
+          {/if}
+          {#if action.grants?.removeConditions?.length}
+            <div class="mt-1 text-sm">
+              <span class="text-slate-400">removes:</span>
+              <span class="ml-1">
+                {action.grants.removeConditions
+                  .map((e) =>
+                    typeof e === 'string'
+                      ? e.replace(/-/g, ' ')
+                      : `${e.condition.replace(/-/g, ' ')}${e.stacks ? ` (−${e.stacks} stack${e.stacks === 1 ? '' : 's'})` : ''}`
+                  )
+                  .join(', ')}
+              </span>
             </div>
           {/if}
           {#if action.upcastScaling}
