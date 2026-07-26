@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -9,7 +10,6 @@
   let editing: EditState = null;
   let editValue = '';
   let busy = false;
-  let err: string | null = null;
   let addingRow = false;
   let newRowValues: Record<string, string> = {};
 
@@ -29,19 +29,16 @@
     if (!editing) return;
     const { rowid, col } = editing;
     editing = null;
-    err = null;
     busy = true;
     try {
-      const res = await fetch(`/api/admin/db/${encodeURIComponent(data.tableName)}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rowid, column: col, value: editValue === '' ? null : editValue })
+      await api.patch(`/api/admin/db/${encodeURIComponent(data.tableName)}`, {
+        rowid,
+        column: col,
+        value: editValue === '' ? null : editValue
       });
-      if (!res.ok) {
-        err = `Save failed (${res.status})`;
-      } else {
-        await invalidateAll();
-      }
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -49,44 +46,30 @@
 
   async function deleteRow(rowid: number) {
     if (!confirm('Delete this row?')) return;
-    err = null;
     busy = true;
     try {
-      const res = await fetch(`/api/admin/db/${encodeURIComponent(data.tableName)}`, {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rowid })
-      });
-      if (!res.ok) {
-        err = `Delete failed (${res.status})`;
-      } else {
-        await invalidateAll();
-      }
+      await api.del(`/api/admin/db/${encodeURIComponent(data.tableName)}`, { body: { rowid } });
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
   }
 
   async function insertRow() {
-    err = null;
     busy = true;
     try {
       const payload: Record<string, string> = {};
       for (const [k, v] of Object.entries(newRowValues)) {
         if (v !== '') payload[k] = v;
       }
-      const res = await fetch(`/api/admin/db/${encodeURIComponent(data.tableName)}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        err = `Insert failed (${res.status})`;
-      } else {
-        newRowValues = {};
-        addingRow = false;
-        await invalidateAll();
-      }
+      await api.post(`/api/admin/db/${encodeURIComponent(data.tableName)}`, payload);
+      newRowValues = {};
+      addingRow = false;
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -108,9 +91,6 @@
   <span class="text-sm text-slate-500">{data.total.toLocaleString()} rows</span>
 </header>
 
-{#if err}
-  <p class="mb-4 rounded border border-red-800 bg-red-950/60 px-4 py-2 text-sm text-red-200">{err}</p>
-{/if}
 
 <div class="overflow-x-auto rounded-lg border border-slate-800">
   <table class="w-full min-w-max text-sm">

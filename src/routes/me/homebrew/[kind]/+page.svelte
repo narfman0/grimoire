@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
   export let data: PageData;
 
@@ -17,12 +18,13 @@
     }
     busy = slug;
     try {
-      await fetch(`/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(slug)}/visibility`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ visibility: next })
-      });
+      await api(
+        `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(slug)}/visibility`,
+        { method: 'PUT', body: { visibility: next } }
+      );
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
+  import { api } from '$lib/client/api';
   import MonsterPicker, { type MonsterOption } from '$lib/components/MonsterPicker.svelte';
   import RevealChip from '$lib/components/RevealChip.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
@@ -353,10 +354,10 @@
     if (!confirm('Remove this log entry? HP changes are not reverted.')) return;
     busy = true;
     try {
-      const res = await fetch(`/api/encounters/${data.encounter.id}/log/${id}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) await invalidateAll();
+      await api.del(`/api/encounters/${data.encounter.id}/log/${id}`);
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -412,11 +413,11 @@
   }
 
   async function patchParticipantHp(participantId: string, currentHp: number, tempHp: number) {
-    await fetch(`/api/participants/${participantId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ currentHp, tempHp })
-    });
+    try {
+      await api.patch(`/api/participants/${participantId}`, { currentHp, tempHp });
+    } catch {
+      // api() already toasted; next invalidate/poll re-syncs
+    }
   }
 
   // DM reveal toggles. Flips one flag at a time on the server and re-runs
@@ -424,12 +425,10 @@
   async function patchReveal(participantId: string, patch: Record<string, boolean>) {
     busy = true;
     try {
-      await fetch(`/api/participants/${participantId}/reveals`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(patch)
-      });
+      await api.patch(`/api/participants/${participantId}/reveals`, patch);
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -451,17 +450,14 @@
     nextTemp: number
   ): Promise<boolean> {
     try {
-      const res = await fetch(`/api/characters/${characterId}`);
-      if (!res.ok) return false;
-      const char = await res.json() as { document: Record<string, unknown> | null };
+      const char = await api.get<{ document: Record<string, unknown> | null }>(
+        `/api/characters/${characterId}`
+      );
       const doc = { ...(char.document ?? {}), currentHp: nextCurrent, tempHp: nextTemp };
-      const patch = await fetch(`/api/characters/${characterId}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ document: doc })
-      });
-      return patch.ok;
+      await api.patch(`/api/characters/${characterId}`, { document: doc });
+      return true;
     } catch {
+      // api() already toasted
       return false;
     }
   }
@@ -523,12 +519,10 @@
     if (!trimmed || trimmed === encounterName) { renamingEncounter = false; return; }
     busy = true;
     try {
-      const res = await fetch(`/api/encounters/${data.encounter.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmed })
-      });
-      if (res.ok) encounterName = trimmed;
+      await api.patch(`/api/encounters/${data.encounter.id}`, { name: trimmed });
+      encounterName = trimmed;
+    } catch {
+      // api() already toasted; keep the old name
     } finally {
       busy = false;
       renamingEncounter = false;
@@ -580,12 +574,12 @@
         };
         if (newKind === 'pc') body.characterId = newCharacterId;
         if (newKind === 'npc' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
-        const res = await fetch(`/api/encounters/${data.encounter.id}/participants`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) break;
+        try {
+          await api.post(`/api/encounters/${data.encounter.id}/participants`, body);
+        } catch {
+          // api() already toasted; stop adding further copies
+          break;
+        }
       }
       newName = '';
       newMonsterSlug = '';
@@ -601,12 +595,10 @@
   async function updateInitiative(id: string, value: number | null) {
     busy = true;
     try {
-      await fetch(`/api/participants/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ initiative: value })
-      });
+      await api.patch(`/api/participants/${id}`, { initiative: value });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -624,11 +616,11 @@
         if (p.initiative != null) continue;
         const dexMod = Math.floor(((p.dexScore ?? 10) - 10) / 2);
         const roll = 1 + Math.floor(Math.random() * 20) + dexMod;
-        await fetch(`/api/participants/${p.id}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ initiative: roll })
-        });
+        try {
+          await api.patch(`/api/participants/${p.id}`, { initiative: roll });
+        } catch {
+          // api() already toasted; keep rolling the rest
+        }
       }
       await invalidateAll();
     } finally {
@@ -640,8 +632,10 @@
     if (!confirm('Remove this participant?')) return;
     busy = true;
     try {
-      await fetch(`/api/participants/${id}`, { method: 'DELETE' });
+      await api.del(`/api/participants/${id}`);
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -653,12 +647,10 @@
     if (status === 'ended' && !confirm('End this encounter? It becomes read-only history.')) return;
     busy = true;
     try {
-      await fetch(`/api/encounters/${data.encounter.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
+      await api.patch(`/api/encounters/${data.encounter.id}`, { status });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -701,12 +693,12 @@
     if (conn && connStatus === 'open') {
       conn.setConditions(p.id, next).catch(() => {});
     } else {
-      await fetch(`/api/participants/${p.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ conditions: next })
-      });
-      await invalidateAll();
+      try {
+        await api.patch(`/api/participants/${p.id}`, { conditions: next });
+        await invalidateAll();
+      } catch {
+        // api() already toasted
+      }
     }
   }
 
@@ -811,14 +803,10 @@
     }
     busy = true;
     try {
-      const res = await fetch(`/api/participants/${p.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (res.ok) {
-        await invalidateAll();
-      }
+      await api.patch(`/api/participants/${p.id}`, body);
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -1052,12 +1040,13 @@
     // Fallback when the channel hasn't initialized (SSR-only mode).
     busy = true;
     try {
-      await fetch(`/api/encounters/${data.encounter.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ activeParticipantId: nextActive, ...(nextRound !== undefined ? { round: nextRound } : {}) })
+      await api.patch(`/api/encounters/${data.encounter.id}`, {
+        activeParticipantId: nextActive,
+        ...(nextRound !== undefined ? { round: nextRound } : {})
       });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -1075,12 +1064,11 @@
   let notesSaveTimer: ReturnType<typeof setTimeout> | null = null;
   function scheduleNotesSave() {
     if (notesSaveTimer) clearTimeout(notesSaveTimer);
-    notesSaveTimer = setTimeout(async () => {
-      await fetch(`/api/encounters/${data.encounter.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ notesJson: encounterNotesDraft || null })
-      });
+    notesSaveTimer = setTimeout(() => {
+      // api() toasts on failure; nothing to roll back for a notes autosave
+      api
+        .patch(`/api/encounters/${data.encounter.id}`, { notesJson: encounterNotesDraft || null })
+        .catch(() => {});
     }, 800);
   }
 

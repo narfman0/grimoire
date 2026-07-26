@@ -4,6 +4,8 @@ export interface ApiError {
   message: string;
   code?: string;
   requestId?: string;
+  /** HTTP status of the failed response (set by $lib/client/api). */
+  status?: number;
 }
 
 export interface Toast {

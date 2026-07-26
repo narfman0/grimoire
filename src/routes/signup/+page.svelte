@@ -1,49 +1,9 @@
 <script lang="ts">
-  let username = '';
-  let email = '';
-  let password = '';
-  let confirmPassword = '';
+  import { enhance } from '$app/forms';
+  import type { ActionData } from './$types';
+
+  export let form: ActionData;
   let busy = false;
-  let error: string | null = null;
-
-  async function submit(e: Event) {
-    e.preventDefault();
-    error = null;
-
-    if (password.length < 8) {
-      error = 'password must be at least 8 characters';
-      return;
-    }
-    if (password !== confirmPassword) {
-      error = 'passwords do not match';
-      return;
-    }
-
-    busy = true;
-    try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), email: email.trim(), password })
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        if (res.status === 409) {
-          error = body.includes('email') ? 'that email is already registered' : 'that username is already taken';
-        } else if (res.status === 429) {
-          error = 'too many requests — try again later';
-        } else if (res.status === 400) {
-          error = body || 'invalid signup details';
-        } else {
-          error = `signup failed (${res.status})`;
-        }
-        return;
-      }
-      window.location.href = '/';
-    } finally {
-      busy = false;
-    }
-  }
 </script>
 
 <svelte:head>
@@ -57,12 +17,23 @@
     (8+ chars). Your email is used for verification and account recovery.
   </p>
 
-  <form on:submit={submit} class="space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
+  <form
+    method="POST"
+    use:enhance={() => {
+      busy = true;
+      return async ({ update }) => {
+        busy = false;
+        await update();
+      };
+    }}
+    class="space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-5"
+  >
     <label class="block text-sm">
       <span class="mb-1 block text-slate-400">Username</span>
       <input
+        name="username"
         class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono"
-        bind:value={username}
+        value={form?.username ?? ''}
         placeholder="alice"
         autocomplete="username"
         required
@@ -75,9 +46,10 @@
     <label class="block text-sm">
       <span class="mb-1 block text-slate-400">Email</span>
       <input
+        name="email"
         type="email"
         class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
-        bind:value={email}
+        value={form?.email ?? ''}
         autocomplete="email"
         required
       />
@@ -86,9 +58,9 @@
     <label class="block text-sm">
       <span class="mb-1 block text-slate-400">Password</span>
       <input
+        name="password"
         type="password"
         class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
-        bind:value={password}
         autocomplete="new-password"
         required
         minlength="8"
@@ -98,17 +70,17 @@
     <label class="block text-sm">
       <span class="mb-1 block text-slate-400">Confirm password</span>
       <input
+        name="confirmPassword"
         type="password"
         class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
-        bind:value={confirmPassword}
         autocomplete="new-password"
         required
         minlength="8"
       />
     </label>
 
-    {#if error}
-      <p class="rounded border border-red-800 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
+    {#if form?.error}
+      <p class="rounded border border-red-800 bg-red-950/60 px-3 py-2 text-sm text-red-200">{form.error}</p>
     {/if}
 
     <div class="flex items-center justify-between">

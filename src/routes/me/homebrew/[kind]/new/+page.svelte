@@ -1,47 +1,37 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { editorFor } from '$lib/components/editor-registry';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
 
   export let data: PageData;
   let busy = false;
+  // Server errors surface via the api() toast; this stays for the editor's
+  // inline slot (unused now, kept so the prop wiring is unchanged).
   let errorMessage = '';
 
   async function onSave(
     e: CustomEvent<{ slug: string; name: string; visibility: 'private' | 'unlisted' | 'public'; data: Record<string, unknown> }>
   ) {
     busy = true;
-    errorMessage = '';
     try {
       // 1. Create the row as a private draft.
-      const res = await fetch(`/api/homebrew/${encodeURIComponent(data.kind)}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slug: e.detail.slug, name: e.detail.name, data: e.detail.data })
+      await api.post(`/api/homebrew/${encodeURIComponent(data.kind)}`, {
+        slug: e.detail.slug,
+        name: e.detail.name,
+        data: e.detail.data
       });
-      if (!res.ok) {
-        errorMessage = (await res.text()) || `HTTP ${res.status}`;
-        return;
-      }
       // 2. If the author wants it visible now, publish it. Notifications
       //    are a no-op for brand-new rows (no subscribers exist yet).
       if (e.detail.visibility !== 'private') {
-        const pubRes = await fetch(
+        await api.post(
           `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(e.detail.slug)}/publish`,
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ visibility: e.detail.visibility })
-          }
+          { visibility: e.detail.visibility }
         );
-        if (!pubRes.ok) {
-          errorMessage = (await pubRes.text()) || `HTTP ${pubRes.status}`;
-          return;
-        }
       }
       await goto(`/me/homebrew/${encodeURIComponent(data.kind)}`);
-    } catch (err) {
-      errorMessage = (err as Error).message;
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }

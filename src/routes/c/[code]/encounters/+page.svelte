@@ -1,29 +1,22 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
 
   export let data: PageData;
 
   let newName = '';
   let busy = false;
-  let error: string | null = null;
 
   async function createEncounter(e: Event) {
     e.preventDefault();
-    error = null;
     busy = true;
     try {
-      const res = await fetch('/api/encounters', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ campaignCode: data.campaign.code, name: newName })
-      });
-      if (!res.ok) {
-        error = `could not create (${res.status})`;
-        return;
-      }
+      await api.post('/api/encounters', { campaignCode: data.campaign.code, name: newName });
       newName = '';
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -32,12 +25,10 @@
   async function setStatus(id: string, status: 'staging' | 'live' | 'ended') {
     busy = true;
     try {
-      await fetch(`/api/encounters/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
+      await api.patch(`/api/encounters/${id}`, { status });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -47,8 +38,10 @@
     if (!confirm('Delete this encounter?')) return;
     busy = true;
     try {
-      await fetch(`/api/encounters/${id}`, { method: 'DELETE' });
+      await api.del(`/api/encounters/${id}`);
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -105,9 +98,6 @@
         Create
       </button>
     </form>
-    {#if error}
-      <p class="mt-2 text-xs text-red-300">{error}</p>
-    {/if}
   </section>
 {/if}
 

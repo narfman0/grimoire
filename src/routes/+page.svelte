@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import CharacterRow from '$lib/components/CharacterRow.svelte';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -15,17 +16,12 @@
     error = null;
     busy = true;
     try {
-      const res = await fetch('/api/campaigns', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: createName })
+      const { code } = await api.post<{ id: string; code: string }>('/api/campaigns', {
+        name: createName
       });
-      if (!res.ok) {
-        error = `Could not create campaign (${res.status})`;
-        return;
-      }
-      const { code } = (await res.json()) as { id: string; code: string };
       window.location.href = `/c/${code}`;
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -37,12 +33,11 @@
     busy = true;
     try {
       const code = joinCode.trim().toUpperCase();
-      const res = await fetch(`/api/campaigns/${code}/join`, { method: 'POST' });
-      if (!res.ok) {
-        error = res.status === 404 ? 'No campaign with that code.' : `Could not join (${res.status}).`;
-        return;
-      }
+      await api.post(`/api/campaigns/${code}/join`);
       window.location.href = `/c/${code}`;
+    } catch (err) {
+      // api() already toasted; keep the friendlier inline hint for a bad code
+      if ((err as { status?: number }).status === 404) error = 'No campaign with that code.';
     } finally {
       busy = false;
     }
@@ -138,19 +133,12 @@
         modifierToggles: {}
       };
 
-      const res = await fetch('/api/characters', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: charName, document })
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        charError = `Could not create character (${res.status}): ${body.slice(0, 200)}`;
-        return;
-      }
+      await api.post('/api/characters', { name: charName, document });
       charName = '';
       showCharacterForm = false;
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }

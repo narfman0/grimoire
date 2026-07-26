@@ -1,28 +1,9 @@
 <script lang="ts">
-  let email = '';
-  let busy = false;
-  let sent = false;
-  let error: string | null = null;
+  import { enhance } from '$app/forms';
+  import type { ActionData } from './$types';
 
-  async function submit(e: Event) {
-    e.preventDefault();
-    error = null;
-    busy = true;
-    try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() })
-      });
-      if (res.status === 429) {
-        error = 'too many requests — try again later';
-        return;
-      }
-      sent = true;
-    } finally {
-      busy = false;
-    }
-  }
+  export let form: ActionData;
+  let busy = false;
 </script>
 
 <svelte:head>
@@ -32,7 +13,7 @@
 <section class="mx-auto max-w-md">
   <h1 class="mb-4 text-2xl font-semibold">Forgot your password?</h1>
 
-  {#if sent}
+  {#if form?.sent}
     <p class="rounded border border-emerald-800 bg-emerald-950/60 px-4 py-3 text-sm text-emerald-200">
       If an account with that email exists, we've sent instructions to reset your password.
       Check your inbox (and spam folder).
@@ -41,20 +22,31 @@
       <a href="/login" class="hover:text-slate-200">Back to log in</a>
     </p>
   {:else}
-    <form on:submit={submit} class="space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
+    <form
+      method="POST"
+      use:enhance={() => {
+        busy = true;
+        return async ({ update }) => {
+          busy = false;
+          await update();
+        };
+      }}
+      class="space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-5"
+    >
       <label class="block text-sm">
         <span class="mb-1 block text-slate-400">Email address</span>
         <input
+          name="email"
           type="email"
           class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
-          bind:value={email}
+          value={form?.email ?? ''}
           autocomplete="email"
           required
         />
       </label>
 
-      {#if error}
-        <p class="rounded border border-red-800 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
+      {#if form?.error}
+        <p class="rounded border border-red-800 bg-red-950/60 px-3 py-2 text-sm text-red-200">{form.error}</p>
       {/if}
 
       <div class="flex items-center justify-between">

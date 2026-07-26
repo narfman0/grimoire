@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto, invalidateAll } from '$app/navigation';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
   export let data: PageData;
 
@@ -33,12 +34,14 @@
     if (!item.authorUserId) return;
     busy = `sub:${item.kind}/${item.slug}/${item.authorUserId}`;
     try {
-      await fetch('/api/homebrew/subscriptions', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind: item.kind, slug: item.slug, authorUserId: item.authorUserId })
+      await api.post('/api/homebrew/subscriptions', {
+        kind: item.kind,
+        slug: item.slug,
+        authorUserId: item.authorUserId
       });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }
@@ -47,11 +50,12 @@
     if (!item.authorUserId) return;
     busy = `unsub:${item.kind}/${item.slug}/${item.authorUserId}`;
     try {
-      await fetch(
-        `/api/homebrew/subscriptions/${encodeURIComponent(item.kind)}/${encodeURIComponent(item.slug)}/${encodeURIComponent(item.authorUserId)}`,
-        { method: 'DELETE' }
+      await api.del(
+        `/api/homebrew/subscriptions/${encodeURIComponent(item.kind)}/${encodeURIComponent(item.slug)}/${encodeURIComponent(item.authorUserId)}`
       );
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
   export let data: PageData;
 
@@ -8,16 +9,10 @@
   async function resolve(id: string, resolution: 'hidden' | 'dismissed') {
     busy = id;
     try {
-      const res = await fetch(`/api/admin/reports/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ resolution })
-      });
-      if (!res.ok) {
-        alert((await res.text()) || `HTTP ${res.status}`);
-        return;
-      }
+      await api.patch(`/api/admin/reports/${encodeURIComponent(id)}`, { resolution });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }

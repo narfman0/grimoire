@@ -29,6 +29,7 @@
   import { lookupFromMap, type CharacterDocument, type ContentLookup } from '$lib/rules/types';
   import { connectCharacter, type ConnectedDoc } from '$lib/realtime/character-channel';
   import { toasts } from '$lib/client/errors';
+  import { api } from '$lib/client/api';
   import { encounterUrl } from '$lib/urls';
   import {
     connectEncounter,
@@ -54,11 +55,9 @@
 
   // Quick-init state: shown when data.document is null (stub character).
   let initBusy = false;
-  let initError: string | null = null;
 
   async function quickInit() {
     initBusy = true;
-    initError = null;
     try {
       const minDoc = {
         id: data.character.id,
@@ -76,18 +75,10 @@
         conditions: [],
         modifierToggles: {}
       };
-      const res = await fetch(`/api/characters/${data.character.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ document: minDoc })
-      });
-      if (!res.ok) {
-        initError = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
-        return;
-      }
+      await api.patch(`/api/characters/${data.character.id}`, { document: minDoc });
       await invalidateAll();
-    } catch (e) {
-      initError = String(e);
+    } catch {
+      // api() already toasted
     } finally {
       initBusy = false;
     }
@@ -475,10 +466,8 @@
       }
       targetHpAfter = next.currentHp;
     }
-    const res = await fetch(`/api/encounters/${data.liveEncounter.id}/log`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await api.post(`/api/encounters/${data.liveEncounter.id}/log`, {
         participantId: selfId,
         targetParticipantId: target?.id ?? null,
         actionId: myPlan.actionId,
@@ -490,9 +479,12 @@
         targetHpBefore,
         targetHpAfter,
         notes: notesText.slice(0, 500) || null
-      })
-    });
-    return res.ok;
+      });
+      return true;
+    } catch {
+      // api() already toasted; caller keeps its inline resolve-form hint
+      return false;
+    }
   }
 
   async function submitResolve() {
@@ -924,17 +916,11 @@
     busy = true;
     try {
       const nextDoc = { ...charDoc, abilityScores: { ...editAbilities } };
-      const res = await fetch(`/api/characters/${data.character.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: trimmed, document: nextDoc })
-      });
-      if (!res.ok) {
-        editError = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
-        return;
-      }
+      await api.patch(`/api/characters/${data.character.id}`, { name: trimmed, document: nextDoc });
       editingMeta = false;
       await invalidateAll();
+    } catch {
+      // api() already toasted; stay in edit mode so the user can retry
     } finally {
       busy = false;
     }
@@ -3011,8 +2997,5 @@
       Creates a level&nbsp;1 fighter (human, all scores&nbsp;10, 10&nbsp;HP). You can change everything
       on the sheet afterward.
     </p>
-    {#if initError}
-      <p class="mt-2 text-xs text-red-300">{initError}</p>
-    {/if}
   </section>
 {/if}

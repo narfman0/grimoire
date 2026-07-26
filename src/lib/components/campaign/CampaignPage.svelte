@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import CharacterCard from '$lib/components/CharacterCard.svelte';
+  import { api } from '$lib/client/api';
   import type { CampaignPageData } from '$lib/server/campaign-page';
 
   export let data: CampaignPageData;
@@ -50,17 +51,11 @@
     }
     busy = true;
     try {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: trimmed })
-      });
-      if (!res.ok) {
-        editCampaignError = `error: ${res.status} ${(await res.text()).slice(0, 200)}`;
-        return;
-      }
+      await api.patch(`/api/campaigns/${data.campaign.code}`, { name: trimmed });
       editingCampaign = false;
       await invalidateAll();
+    } catch {
+      // api() already toasted; stay in edit mode so the user can retry
     } finally {
       busy = false;
     }
@@ -78,21 +73,17 @@
     if (!noteDraftTitle.trim()) return;
     busy = true;
     try {
-      const res = await fetch('/api/notes', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          campaignCode: data.campaign.code,
-          title: noteDraftTitle.trim(),
-          body: noteDraftBody
-        })
+      await api.post('/api/notes', {
+        campaignCode: data.campaign.code,
+        title: noteDraftTitle.trim(),
+        body: noteDraftBody
       });
-      if (res.ok) {
-        noteDraftTitle = '';
-        noteDraftBody = '';
-        noteDraftOpen = false;
-        await invalidateAll();
-      }
+      noteDraftTitle = '';
+      noteDraftBody = '';
+      noteDraftOpen = false;
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -108,15 +99,11 @@
     if (!editingNoteId) return;
     busy = true;
     try {
-      const res = await fetch(`/api/notes/${editingNoteId}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: editTitle.trim(), body: editBody })
-      });
-      if (res.ok) {
-        editingNoteId = null;
-        await invalidateAll();
-      }
+      await api.patch(`/api/notes/${editingNoteId}`, { title: editTitle.trim(), body: editBody });
+      editingNoteId = null;
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -126,8 +113,10 @@
     if (!confirm('Delete this note?')) return;
     busy = true;
     try {
-      const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-      if (res.ok) await invalidateAll();
+      await api.del(`/api/notes/${id}`);
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -193,25 +182,18 @@
         modifierToggles: {}
       };
 
-      const res = await fetch('/api/characters', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          campaignCode: data.campaign.code,
-          name: newName,
-          document
-        })
+      await api.post('/api/characters', {
+        campaignCode: data.campaign.code,
+        name: newName,
+        document
       });
-      if (!res.ok) {
-        const body = await res.text();
-        error = `Could not create character (${res.status}): ${body.slice(0, 200)}`;
-        return;
-      }
       // Only clear the name — each character needs a unique one. Leave
       // species/class/level/subclass/abilities so a second character can
       // be created from the same starting form without re-entering.
       newName = '';
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -219,8 +201,12 @@
 
   async function deleteCharacter(id: string) {
     if (!confirm('Delete this character entirely? Removes it from every campaign and drops its data.')) return;
-    const res = await fetch(`/api/characters/${id}`, { method: 'DELETE' });
-    if (res.ok) await invalidateAll();
+    try {
+      await api.del(`/api/characters/${id}`);
+      await invalidateAll();
+    } catch {
+      // api() already toasted
+    }
   }
 
   // Phase 4: link an existing user-owned character into this campaign.
@@ -233,18 +219,15 @@
     if (!linkChosenId) return;
     busy = true;
     try {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}/characters`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ characterId: linkChosenId, role: 'player' })
+      await api.post(`/api/campaigns/${data.campaign.code}/characters`, {
+        characterId: linkChosenId,
+        role: 'player'
       });
-      if (res.ok) {
-        showLinkPicker = false;
-        linkChosenId = '';
-        await invalidateAll();
-      } else {
-        error = `Could not link character (${res.status})`;
-      }
+      showLinkPicker = false;
+      linkChosenId = '';
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -254,12 +237,12 @@
     if (!confirm(`Remove "${name}" from this campaign? The character itself is kept.`)) return;
     busy = true;
     try {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}/characters`, {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ characterId: id })
+      await api.del(`/api/campaigns/${data.campaign.code}/characters`, {
+        body: { characterId: id }
       });
-      if (res.ok) await invalidateAll();
+      await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -269,7 +252,6 @@
 
   // ---- Content grants (DM only) ----
   let grants = data.grants;
-  let grantError: string | null = null;
   let grantModalOpen = false;
   $: grantedPackCount = grants.filter((g) => g.grantType === 'pack').length;
 
@@ -279,34 +261,36 @@
 
   async function togglePackGrant(slug: string) {
     const existing = grants.find((g) => g.grantType === 'pack' && g.grantKey === slug);
-    if (existing) {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}/grants/${existing.id}`, { method: 'DELETE' });
-      if (res.ok) grants = grants.filter((g) => g.id !== existing.id);
-    } else {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}/grants`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ grantType: 'pack', grantKey: slug })
-      });
-      if (res.ok) {
-        const g = await res.json();
+    try {
+      if (existing) {
+        await api.del(`/api/campaigns/${data.campaign.code}/grants/${existing.id}`);
+        grants = grants.filter((g) => g.id !== existing.id);
+      } else {
+        const g = await api.post<{ id: string }>(`/api/campaigns/${data.campaign.code}/grants`, {
+          grantType: 'pack',
+          grantKey: slug
+        });
         grants = [...grants, { id: g.id, grantType: 'pack' as const, grantKey: slug, label: slug }];
       }
+    } catch {
+      // api() already toasted; local grant list left unchanged
     }
   }
 
   async function enableAllPacks() {
-    grantError = null;
     for (const pack of data.availablePacks) {
       if (!isPackGranted(pack.slug)) await togglePackGrant(pack.slug);
     }
   }
 
   async function disableAllPacks() {
-    grantError = null;
     for (const g of grants.filter((g) => g.grantType === 'pack')) {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}/grants/${g.id}`, { method: 'DELETE' });
-      if (res.ok) grants = grants.filter((x) => x.id !== g.id);
+      try {
+        await api.del(`/api/campaigns/${data.campaign.code}/grants/${g.id}`);
+        grants = grants.filter((x) => x.id !== g.id);
+      } catch {
+        // api() already toasted; keep going so one failure doesn't block the rest
+      }
     }
   }
 
@@ -385,16 +369,10 @@
   async function resolveMember(userId: string, status: 'approved' | 'rejected') {
     busy = true;
     try {
-      const res = await fetch(`/api/campaigns/${data.campaign.code}/members/${userId}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (!res.ok) {
-        error = `Could not ${status === 'approved' ? 'approve' : 'reject'} member (${res.status})`;
-        return;
-      }
+      await api.patch(`/api/campaigns/${data.campaign.code}/members/${userId}`, { status });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -923,9 +901,6 @@
       >Advanced…</button>
     </div>
   </div>
-  {#if grantError}
-    <p class="mt-2 text-xs text-red-400">{grantError}</p>
-  {/if}
 </section>
 
 {#if grantModalOpen}
@@ -954,9 +929,6 @@
           </li>
         {/each}
       </ul>
-    {/if}
-    {#if grantError}
-      <p class="mt-3 text-xs text-red-400">{grantError}</p>
     {/if}
     <div class="mt-5 flex justify-end">
       <button

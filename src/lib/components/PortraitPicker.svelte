@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { api } from '$lib/client/api';
 
   export let characterId: string;
   export let currentPortrait: string | undefined = undefined;
@@ -20,13 +21,12 @@
   let groups: Group[] = [];
   let loading = true;
   let uploadBusy = false;
-  let uploadError: string | null = null;
   let fileInput: HTMLInputElement;
 
   async function loadGallery() {
     try {
-      const res = await fetch('/portraits/gallery.json');
-      const entries: GalleryEntry[] = await res.json();
+      // Static asset load — silent: a missing gallery just shows the empty state.
+      const entries = await api.get<GalleryEntry[]>('/portraits/gallery.json', { silent: true });
       const map = new Map<string, GalleryEntry[]>();
       for (const e of entries) {
         const key = e.group ?? 'generic';
@@ -50,23 +50,17 @@
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    uploadError = null;
     uploadBusy = true;
     try {
       const fd = new FormData();
       fd.append('portrait', file);
-      const res = await fetch(`/api/characters/${characterId}/portrait`, {
-        method: 'POST',
-        body: fd
-      });
-      if (!res.ok) {
-        uploadError = `Upload failed (${res.status})`;
-        return;
-      }
-      const { url } = await res.json();
+      const { url } = await api.post<{ url: string }>(
+        `/api/characters/${characterId}/portrait`,
+        fd
+      );
       dispatch('select', url);
     } catch {
-      uploadError = 'Upload failed';
+      // api() already toasted the error
     } finally {
       uploadBusy = false;
       input.value = '';
@@ -127,8 +121,5 @@
         on:change={handleUpload}
       />
     </label>
-    {#if uploadError}
-      <p class="mt-1 text-xs text-red-400">{uploadError}</p>
-    {/if}
   </div>
 </div>

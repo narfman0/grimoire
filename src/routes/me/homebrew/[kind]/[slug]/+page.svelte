@@ -1,10 +1,14 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { editorFor } from '$lib/components/editor-registry';
+  import { api } from '$lib/client/api';
+  import { toasts, type ApiError } from '$lib/client/errors';
   import type { PageData } from './$types';
 
   export let data: PageData;
   let busy = false;
+  // Server errors surface via the api() toast; this stays for the editor's
+  // inline slot (unused now, kept so the prop wiring is unchanged).
   let errorMessage = '';
 
   async function onSave(
@@ -16,7 +20,7 @@
     }>
   ) {
     busy = true;
-    errorMessage = '';
+    const base = `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}`;
     try {
       // Confirmation when going public for the first time.
       const goingPublic =
@@ -27,19 +31,10 @@
 
       // 1. PATCH name/data. If the latest row was already published, the API
       //    spawns a new draft at version+1; the response's `isDraft` tells us.
-      const patchRes = await fetch(
-        `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}`,
-        {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ name: e.detail.name, data: e.detail.data })
-        }
+      const patched = await api.patch<{ isDraft: boolean; visibility: string; version: number }>(
+        base,
+        { name: e.detail.name, data: e.detail.data }
       );
-      if (!patchRes.ok) {
-        errorMessage = (await patchRes.text()) || `HTTP ${patchRes.status}`;
-        return;
-      }
-      const patched: { isDraft: boolean; visibility: string; version: number } = await patchRes.json();
 
       // 2. Decide how to land the visibility:
       //    - want visible + row is a draft → POST /publish (also fans out notifications)
@@ -47,31 +42,16 @@
       //    - want visible + row is already at that visibility → no-op
       const wantVisible = e.detail.visibility !== 'private';
       if (wantVisible && patched.isDraft) {
-        const pubRes = await fetch(
-          `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}/publish`,
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ visibility: e.detail.visibility })
-          }
-        );
-        if (!pubRes.ok) {
-          errorMessage = (await pubRes.text()) || `HTTP ${pubRes.status}`;
-          return;
-        }
+        await api.post(`${base}/publish`, { visibility: e.detail.visibility });
       } else if (patched.visibility !== e.detail.visibility) {
-        await fetch(
-          `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}/visibility`,
-          {
-            method: 'PUT',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ visibility: e.detail.visibility })
-          }
-        );
+        await api(`${base}/visibility`, {
+          method: 'PUT',
+          body: { visibility: e.detail.visibility }
+        });
       }
       await goto(`/me/homebrew/${encodeURIComponent(data.kind)}`);
-    } catch (err) {
-      errorMessage = (err as Error).message;
+    } catch {
+      // api() already toasted
     } finally {
       busy = false;
     }
@@ -80,28 +60,25 @@
   async function onDelete() {
     if (!confirm(`Delete homebrew ${data.kind} "${data.item.name}"?`)) return;
     busy = true;
-    errorMessage = '';
+    const base = `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}`;
     try {
-      let res = await fetch(
-        `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}`,
-        { method: 'DELETE' }
-      );
-      if (res.status === 409) {
-        const body = (await res.json()) as { inUseBy: Array<{ name: string }> };
-        const names = body.inUseBy.map((c) => c.name).join(', ');
-        if (!confirm(`This is used by: ${names}. Delete anyway?`)) return;
-        res = await fetch(
-          `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}?force=1`,
-          { method: 'DELETE' }
-        );
-      }
-      if (!res.ok) {
-        errorMessage = (await res.text()) || `HTTP ${res.status}`;
-        return;
+      try {
+        // Silent: a 409 here is a confirm-flow, not an error to toast.
+        await api.del(base, { silent: true });
+      } catch (err) {
+        const e = err as ApiError & { inUseBy?: Array<{ name: string }> };
+        if (e.status === 409 && Array.isArray(e.inUseBy)) {
+          const names = e.inUseBy.map((c) => c.name).join(', ');
+          if (!confirm(`This is used by: ${names}. Delete anyway?`)) return;
+          await api.del(`${base}?force=1`);
+        } else {
+          toasts.add({ type: 'error', message: e.message, requestId: e.requestId });
+          return;
+        }
       }
       await goto(`/me/homebrew/${encodeURIComponent(data.kind)}`);
-    } catch (err) {
-      errorMessage = (err as Error).message;
+    } catch {
+      // api() already toasted (forced delete failure)
     } finally {
       busy = false;
     }

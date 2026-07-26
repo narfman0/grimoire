@@ -1,5 +1,7 @@
 <script lang="ts">
   import { invalidateAll, goto } from '$app/navigation';
+  import { api } from '$lib/client/api';
+  import { toasts } from '$lib/client/errors';
   import { monsterDerive } from '$lib/rules/monster-derive';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import type { PageData } from './$types';
@@ -12,16 +14,14 @@
   async function subscribe() {
     busy = 'sub';
     try {
-      await fetch('/api/homebrew/subscriptions', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          kind: data.item.kind,
-          slug: data.item.slug,
-          authorUserId: data.item.authorUserId
-        })
+      await api.post('/api/homebrew/subscriptions', {
+        kind: data.item.kind,
+        slug: data.item.slug,
+        authorUserId: data.item.authorUserId
       });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }
@@ -29,11 +29,12 @@
   async function unsubscribe() {
     busy = 'unsub';
     try {
-      await fetch(
-        `/api/homebrew/subscriptions/${encodeURIComponent(data.item.kind)}/${encodeURIComponent(data.item.slug)}/${encodeURIComponent(data.item.authorUserId)}`,
-        { method: 'DELETE' }
+      await api.del(
+        `/api/homebrew/subscriptions/${encodeURIComponent(data.item.kind)}/${encodeURIComponent(data.item.slug)}/${encodeURIComponent(data.item.authorUserId)}`
       );
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }
@@ -46,21 +47,13 @@
     if (!newSlug) return;
     busy = 'fork';
     try {
-      const res = await fetch(`/api/homebrew/${encodeURIComponent(data.item.kind)}/fork`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          slug: data.item.slug,
-          authorUserId: data.item.authorUserId,
-          newSlug
-        })
-      });
-      if (!res.ok) {
-        alert((await res.text()) || `fork failed: HTTP ${res.status}`);
-        return;
-      }
-      const body = (await res.json()) as { slug: string; kind: string };
+      const body = await api.post<{ slug: string; kind: string }>(
+        `/api/homebrew/${encodeURIComponent(data.item.kind)}/fork`,
+        { slug: data.item.slug, authorUserId: data.item.authorUserId, newSlug }
+      );
       await goto(`/me/homebrew/${encodeURIComponent(body.kind)}/${encodeURIComponent(body.slug)}`);
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }
@@ -69,18 +62,12 @@
     if (!reportReason.trim()) return;
     busy = 'report';
     try {
-      const res = await fetch('/api/homebrew/reports', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ contentId: data.item.id, reason: reportReason })
-      });
-      if (res.ok) {
-        showReportModal = false;
-        reportReason = '';
-        alert('Thanks — reported. An admin will review.');
-      } else {
-        alert((await res.text()) || `HTTP ${res.status}`);
-      }
+      await api.post('/api/homebrew/reports', { contentId: data.item.id, reason: reportReason });
+      showReportModal = false;
+      reportReason = '';
+      toasts.add({ type: 'info', message: 'Thanks — reported. An admin will review.' });
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }

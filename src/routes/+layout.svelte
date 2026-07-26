@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { toasts } from '$lib/client/errors';
+  import { api } from '$lib/client/api';
   import type { LayoutData } from './$types';
   export let data: LayoutData;
 
@@ -12,8 +13,10 @@
   async function logout() {
     loggingOut = true;
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await api.post('/api/auth/logout');
       window.location.href = '/login';
+    } catch {
+      // api() already toasted
     } finally {
       loggingOut = false;
     }
@@ -27,8 +30,10 @@
   async function resendVerify() {
     resendBusy = true;
     try {
-      await fetch('/api/auth/resend-verify', { method: 'POST' });
+      await api.post('/api/auth/resend-verify');
       resendDone = true;
+    } catch {
+      // api() already toasted
     } finally {
       resendBusy = false;
     }

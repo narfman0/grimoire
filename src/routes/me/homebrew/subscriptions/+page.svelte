@@ -1,18 +1,22 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { api } from '$lib/client/api';
   import type { PageData } from './$types';
   export let data: PageData;
 
   let busy = '';
 
+  function subUrl(kind: string, slug: string, authorUserId: string): string {
+    return `/api/homebrew/subscriptions/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}/${encodeURIComponent(authorUserId)}`;
+  }
+
   async function unsubscribe(kind: string, slug: string, authorUserId: string) {
     busy = `unsub:${kind}/${slug}/${authorUserId}`;
     try {
-      await fetch(
-        `/api/homebrew/subscriptions/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}/${encodeURIComponent(authorUserId)}`,
-        { method: 'DELETE' }
-      );
+      await api.del(subUrl(kind, slug, authorUserId));
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }
@@ -21,15 +25,10 @@
   async function upgrade(kind: string, slug: string, authorUserId: string, toVersion: number) {
     busy = `upgrade:${kind}/${slug}/${authorUserId}`;
     try {
-      await fetch(
-        `/api/homebrew/subscriptions/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}/${encodeURIComponent(authorUserId)}`,
-        {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ pinnedVersion: toVersion })
-        }
-      );
+      await api.patch(subUrl(kind, slug, authorUserId), { pinnedVersion: toVersion });
       await invalidateAll();
+    } catch {
+      // api() already toasted
     } finally {
       busy = '';
     }
