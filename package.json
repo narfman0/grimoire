@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node build",
-    "check": "node scripts/check-drizzle.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "node scripts/check-drizzle.mjs && node scripts/rehearse-migrations.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node ./scripts/migrate.mjs",
     "migrate": "node ./scripts/migrate.mjs",

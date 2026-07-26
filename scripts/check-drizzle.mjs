@@ -67,6 +67,42 @@ for (const entry of journal.entries) {
   if (typeof entry.when === 'number') prevWhen = entry.when;
 }
 
+// --- Live-DB drift check -----------------------------------------------
+// The journal can be internally consistent and still disagree with what a
+// real database has recorded: on 2026-07-26 the dev DB held an applied
+// migration whose timestamp matched no journal entry (the journal had been
+// regenerated), so the next `pnpm migrate` replayed 0006 and died on
+// `duplicate column name: slug`. When the configured DB file exists, assert
+// every applied created_at matches a journal `when`. Skipped when the DB
+// doesn't exist (CI, fresh clones).
+const DB_PATH = process.env.DATABASE_URL ?? './grimoire.db';
+if (errors.length === 0 && existsSync(DB_PATH) && !DB_PATH.includes(':memory:')) {
+  try {
+    const { default: Database } = await import('better-sqlite3');
+    const sqlite = new Database(DB_PATH, { readonly: true });
+    const hasTable = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE name = '__drizzle_migrations'")
+      .get();
+    if (hasTable) {
+      const applied = sqlite
+        .prepare('SELECT created_at FROM __drizzle_migrations ORDER BY created_at')
+        .all()
+        .map((r) => Number(r.created_at));
+      const journalWhens = new Set(journal.entries.map((e) => e.when));
+      for (const ts of applied) {
+        if (!journalWhens.has(ts)) {
+          errors.push(
+            `  ${DB_PATH}: applied migration created_at=${ts} (${new Date(ts).toISOString()}) matches no journal entry\n    → the journal was renumbered/regenerated after this DB applied it. The next migrate will REPLAY migrations and likely fail (duplicate column). Reconcile __drizzle_migrations against the journal (see 2026-07-26 incident).`
+          );
+        }
+      }
+    }
+    sqlite.close();
+  } catch (err) {
+    console.error(`check-drizzle: warning — could not inspect ${DB_PATH}: ${err.message}`);
+  }
+}
+
 if (errors.length > 0) {
   console.error('check-drizzle: migration integrity check FAILED');
   for (const e of errors) console.error(e);
