@@ -520,7 +520,37 @@ export interface Action {
    *  via applyDamageDelta). Spells like Armor of Agathys (5 temp HP on
    *  cast) drive this. */
   grants?: ActionGrants;
+  /** Companion-summoning payload — set on `type: 'summon'` activities.
+   *  The sheet / encounter runtime reads this to append CompanionState
+   *  entries to `character.companions` when the action resolves (see
+   *  ActionSummons for the choice-vs-all semantics). */
+  summons?: ActionSummons;
   appliedModifiers: AppliedModifier[];
+}
+
+/** Resolved summon payload on an Action (from a `type: 'summon'`
+ *  activity's `summon` block). Creature counts are evaluateValue-resolved
+ *  at derive() time (default 1). */
+export interface ActionSummons {
+  creatures: Array<{
+    /** Monster content-row slug backing the summoned creature. */
+    slug: string;
+    /** How many copies one use of the action summons (already resolved
+     *  from the authored number / magic string; default 1). */
+    count: number;
+    /** Authored display-name override for the summoned creature. */
+    name?: string;
+    /** Monster row's name when the ContentLookup resolved the slug.
+     *  Absent → the row wasn't found (a `summon-missing-content` soft
+     *  warning fires in that case). */
+    resolvedName?: string;
+  }>;
+  /** true → the player picks ONE entry from `creatures`; false → every
+   *  entry is summoned together. */
+  choice: boolean;
+  /** Display-only duration, mirrored from the authored activity. The
+   *  engine doesn't tick a countdown — dismissal is manual. */
+  duration?: ActivationDuration;
 }
 
 /** Battle Master / Martial Adept / Superior Technique maneuver content

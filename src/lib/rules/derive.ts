@@ -23,6 +23,7 @@ import type {
   AbilityKey,
   Action,
   ActivationDeclaration,
+  ActivationDuration,
   ActiveForm,
   AvailableActivation,
   AppliedModifier,
@@ -1977,8 +1978,9 @@ function registerTriggers(s: DerivePhaseState): void {
  *  legacy synonyms). Anything else falls through to the 'utility'
  *  default at realization time, so a typo silently degrades — the
  *  unknown-activity-type soft warning below surfaces it to authors.
- *    - 'summon' is reserved for the summons batch (packs may author it
- *      ahead of engine support without warning).
+ *    - 'summon' realizes into an Action carrying `summons` (see
+ *      realizeActivity); unresolved monster slugs get the
+ *      summon-missing-content soft warning below.
  *    - 'cast' is a legacy synonym used by SRD faithful-steed (cast
  *      without a slot); 'heal' marks healing activities whose dice the
  *      generic damage.parts path already surfaces.
@@ -2044,6 +2046,28 @@ function runSoftValidations(s: DerivePhaseState): void {
           code: 'unknown-activity-type',
           message: `Activity '${(act.id as string | undefined) ?? '?'}' on ${a.row.kind}/${a.row.slug} has unknown type '${t}'.`
         });
+      }
+      // Summon activities referencing monster rows the lookup can't
+      // resolve. Deliberately NOT an `unknown-*` code (the packs QC gate
+      // hard-fails T3 rows on unknown-*): packs may summon monsters
+      // shipped in a different pack or in operator homebrew, so an
+      // unresolved slug against a partial lookup isn't proof of an
+      // authoring error. The action still realizes; the runtime falls
+      // back to a 0-HP companion shell the DM can edit.
+      if (t === 'summon') {
+        const spec = act.summon as
+          | { creatures?: Array<{ slug?: unknown }> }
+          | undefined;
+        for (const c of spec?.creatures ?? []) {
+          if (typeof c?.slug !== 'string' || c.slug.length === 0) continue;
+          if (!content({ kind: 'monster', slug: c.slug })) {
+            validations.push({
+              severity: 'warning',
+              code: 'summon-missing-content',
+              message: `Summon activity '${(act.id as string | undefined) ?? '?'}' on ${a.row.kind}/${a.row.slug} references unresolved monster '${c.slug}'.`
+            });
+          }
+        }
       }
     }
   }
@@ -3417,6 +3441,44 @@ function realizeActivity(
       if (typeof overrides.attackBonus === 'number' && action.attackBonus != null) {
         action.attackBonus = overrides.attackBonus;
       }
+    }
+  } else if (type === 'summon') {
+    // Content-driven companion summoning. The activity's `summon` block
+    // lists monster slugs (plus optional counts / display names); the
+    // resolved payload lands on Action.summons for the sheet / runtime
+    // to append CompanionState entries when the action resolves.
+    // Unresolved slugs still pass through (the runtime falls back to a
+    // 0-HP shell the DM can edit) — the summon-missing-content soft
+    // warning in runSoftValidations surfaces them to authors.
+    const spec = act.summon as
+      | {
+          creatures?: Array<{ slug?: unknown; count?: unknown; name?: unknown }>;
+          choice?: unknown;
+          duration?: unknown;
+        }
+      | undefined;
+    const creatures: NonNullable<Action['summons']>['creatures'] = [];
+    for (const c of spec?.creatures ?? []) {
+      if (typeof c?.slug !== 'string' || c.slug.length === 0) continue;
+      const countRaw = c.count != null ? evaluateValue(c.count, ctx) : 1;
+      const count = typeof countRaw === 'number' && countRaw > 0 ? Math.floor(countRaw) : 1;
+      const row = content({ kind: 'monster', slug: c.slug });
+      creatures.push({
+        slug: c.slug,
+        count,
+        ...(typeof c.name === 'string' && c.name.length > 0 ? { name: c.name } : {}),
+        ...(row ? { resolvedName: row.name } : {})
+      });
+    }
+    if (creatures.length > 0) {
+      const duration = spec?.duration as { value?: unknown; units?: unknown } | undefined;
+      action.summons = {
+        creatures,
+        choice: spec?.choice === true,
+        ...(typeof duration?.value === 'number' && typeof duration?.units === 'string'
+          ? { duration: duration as ActivationDuration }
+          : {})
+      };
     }
   }
 
