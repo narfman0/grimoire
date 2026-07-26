@@ -179,6 +179,19 @@ function hasBooleanTarget(mods: ActiveModifier[], target: string): boolean {
   );
 }
 
+/** The equipped body-armor row (category=armor, armorType !== 'shield'),
+ *  if any. Last equipped row wins, mirroring computeAC's selection. */
+function findEquippedArmor(active: ActiveContent[]): ActiveContent | undefined {
+  let armor: ActiveContent | undefined;
+  for (const a of active) {
+    if (a.row.kind !== 'item') continue;
+    if ((a.data.category as string | undefined) !== 'armor') continue;
+    if ((a.data.armorType as string | undefined) === 'shield') continue;
+    armor = a;
+  }
+  return armor;
+}
+
 /** Mutable state threaded through the phase 3-6 helpers below derive().
  *  Phases 1-2 build these locals inside derive() (they are mutation-heavy
  *  and stay inline for now); phases 3-6 read and extend them via this
@@ -1338,6 +1351,23 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   // (d) Speeds — start from species walk, accumulate
   const speeds = computeSpeeds(active, allMods, character, ctx);
+  // (d.5) Armor strength requirement (RAW): wearing armor whose
+  // `strRequired` exceeds the STR *score* reduces every speed by 10 ft.
+  // Applied after all other speed math, floored at 0. A mithral-style
+  // `armor.ignore-str-requirement` modifier (boolean true, any active
+  // source — the armor itself usually) waives the penalty; a mithral row
+  // can equally just omit `strRequired`.
+  const equippedArmor = findEquippedArmor(active);
+  {
+    const strRequired = equippedArmor?.data.strRequired;
+    if (
+      typeof strRequired === 'number' &&
+      strRequired > abilities.str.score &&
+      !hasBooleanTarget(allMods, 'armor.ignore-str-requirement')
+    ) {
+      for (const key of Object.keys(speeds)) speeds[key] = Math.max(0, speeds[key] - 10);
+    }
+  }
   ctx.walkSpeed = speeds.walk ?? 0;
 
   // (e) Saves — proficient = ability appears in any class's `saves`, OR a
@@ -1560,6 +1590,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         if (typeof v === 'number') checkBonus[ab] = (checkBonus[ab] ?? 0) + v;
       }
     }
+  }
+  // Equipped armor with stealthDisadvantage → disadvantage on Stealth
+  // checks, unless a mithral-style `armor.ignore-stealth-disadvantage`
+  // modifier is active (the armor row itself usually authors it).
+  if (
+    equippedArmor?.data.stealthDisadvantage === true &&
+    !hasBooleanTarget(allMods, 'armor.ignore-stealth-disadvantage')
+  ) {
+    skillDisadvantage.add('stealth');
   }
   const skills: Record<string, SkillCell> = {};
   for (const skill of SKILLS) {
