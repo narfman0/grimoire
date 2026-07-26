@@ -25,13 +25,17 @@ RUN pnpm build
 
 FROM base AS web
 ENV NODE_ENV=production
+# Litestream streams the SQLite file to S3-compatible storage when
+# LITESTREAM_REPLICA_URL is set (see scripts/start.sh); inert otherwise.
+COPY --from=docker.io/litestream/litestream:0.3 /usr/local/bin/litestream /usr/local/bin/litestream
 COPY --from=deps      /app/node_modules ./node_modules
 COPY --from=web-build /app/build         ./build
 COPY --from=web-build /app/drizzle       ./drizzle
 COPY --from=web-build /app/scripts       ./scripts
 COPY --from=web-build /app/package.json      ./package.json
 COPY --from=web-build /app/content-packs     ./content-packs
+RUN chmod +x scripts/start.sh
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
-CMD ["sh", "-c", "node scripts/migrate.mjs && node build"]
+CMD ["sh", "scripts/start.sh"]

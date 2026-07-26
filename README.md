@@ -68,6 +68,30 @@ ORIGIN=https://grimoire.example.com docker compose build && docker compose up -d
 The compose file exposes `${GRIMOIRE_PORT:-49300}` (web), with a
 `grimoire-data` volume holding `grimoire.db`.
 
+### Backups
+
+Two layers, both automatic once configured:
+
+1. **Pre-migration snapshots (always on).** `scripts/migrate.mjs` runs
+   `VACUUM INTO` next to the DB file before applying any pending migration
+   and keeps the last 3 snapshots (`grimoire.db.pre-migrate-*`). If a
+   migration goes wrong, the restore point is already on the volume:
+   `fly ssh console` → copy the snapshot over `grimoire.db` → restart.
+2. **Offsite streaming replication (needs a bucket).** The image ships
+   [Litestream](https://litestream.io); it activates when
+   `LITESTREAM_REPLICA_URL` is set and is inert otherwise:
+
+   ```bash
+   fly secrets set \
+     LITESTREAM_REPLICA_URL=s3://your-bucket/grimoire.db \
+     LITESTREAM_ACCESS_KEY_ID=... \
+     LITESTREAM_SECRET_ACCESS_KEY=...
+   ```
+
+   (For Cloudflare R2/Backblaze B2 also set `AWS_ENDPOINT_URL_S3` /
+   region vars per the Litestream docs.) Restore to an empty volume with
+   `litestream restore -o /data/grimoire.db s3://your-bucket/grimoire.db`.
+
 **Required env vars for production:**
 
 | Variable | Required | Description |
