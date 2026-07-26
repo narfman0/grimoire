@@ -11,6 +11,35 @@ This project favors **many small commits pushed straight to `master`** over long
 - Pull before you start a session (`git pull --ff-only`) in case another agent or device pushed.
 - Branches + PRs are reserved for risky changes (schema migrations that need review, infra spikes). Use them when in doubt; default is straight to `master`.
 
+## Parallel workstreams
+
+The codebase is partitioned so 2–4 agents can work concurrently without
+colliding. The stable split:
+
+- **A — Rules engine + content**: `src/lib/rules/**` (pure, isomorphic — a
+  purity test pins the no-non-relative-imports invariant) and
+  `content-packs/**` (per-class/species files). No schema or route deps.
+- **B — API/server**: `src/routes/api/**` + `src/lib/server/**`. Contract-first
+  via the Zod schemas + `_openapi` exports.
+- **C — UI**: `src/lib/components/**` + page routes. The big pages are single
+  shared components (`CharacterSheetPage`, `EncounterPage`, `CampaignPage`)
+  with thin route wrappers per URL scheme — **never re-fork them**; add
+  behavior behind data-driven conditionals.
+
+Hard serialization points (one owner at a time, coordinate before touching):
+- **Schema/migrations** (`src/lib/server/db/schema.ts` + `drizzle/`): the
+  journal makes concurrent `db:generate` runs collide. Migrations are also
+  the one thing that must not go straight to master unrehearsed (see the
+  boundary below).
+- `src/lib/server/api/schemas.ts` and `derive.ts` have high fan-in — fine to
+  edit, but only one workstream at a time.
+- `src/lib/realtime/**` belongs to whichever stream is touching sync.
+
+Verification stack agents are expected to keep green: `pnpm check` (includes
+migration integrity + populated-data migration rehearsal), `pnpm test`
+(vitest, per-worker in-memory DBs), `pnpm build`, and `pnpm test:e2e`
+(Playwright two-client smoke — runs in CI as a non-blocking job).
+
 ## Commit message format
 
 [Conventional Commits](https://www.conventionalcommits.org/) prefixes, lowercase, no scope unless it clarifies:
@@ -84,5 +113,6 @@ slugs that don't resolve to feature rows (transcription gaps).
 - **Don't** shadow the DOM `document` global with a local variable named `document` (the page-local `CharacterDocument`) and then call `document.getElementById(...)`. TypeScript will catch it; if you need the DOM ref, use `globalThis.document.getElementById(...)`.
 - **Don't** use `console.log/warn/error` in server-side code — import the Pino singleton from `$lib/server/logger` instead. Structured fields go in the first argument object (`logger.error({ err, userId }, 'message')`); raw string interpolation loses structure.
 - **Don't** let database errors surface as raw 500s in routes where a constraint violation is plausible (unique slug, duplicate user, FK violation). Import `handleDbError` from `$lib/server/db/errors` and `.catch((err) => handleDbError(err, 'context'))` the insert/update call.
-- **Client-side fetch errors** in the encounter channel are automatically shown to the user via the `toasts` store — the `send()` utility in `encounter-channel.ts` handles it. For other client-side fetch calls that need user feedback, import `toasts` from `$lib/client/errors` and call `toasts.add({ type: 'error', message: '...' })`.
+- **Client-side fetch calls** go through the `api` helper in `$lib/client/api.ts` (`api.get/post/patch/del`) — it parses `ApiError` (message + requestId + status), shows a toast, and rethrows; call sites catch only to roll back optimistic state, never to re-toast. Don't hand-roll `fetch` in `.svelte` files. The encounter channel keeps its internal `send()` (same semantics).
+- **Character document writes** use optimistic concurrency: PATCH `/api/characters/[id]` with `baseUpdatedAt`; stale tokens 409 with the current character for rebase. Any new sheet mutation goes through `patchDocument` in `CharacterSheetPage.svelte` — don't add parallel write paths.
 
