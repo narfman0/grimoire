@@ -7,6 +7,7 @@ import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
+import { OkResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -66,6 +67,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Update a participant (initiative, HP, conditions)', body: UpdateParticipantRequest },
-  DELETE: { summary: 'Remove a participant from an encounter (DM only)' }
+  PATCH: {
+    summary: 'Update a participant (initiative, HP, conditions; DM only)',
+    params: Params,
+    body: UpdateParticipantRequest,
+    response: OkResponse,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  },
+  DELETE: {
+    summary: 'Remove a participant from an encounter (DM only)',
+    params: Params,
+    status: 204,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  }
 } as const;

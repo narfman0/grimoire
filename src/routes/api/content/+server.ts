@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { ContentKind } from '$lib/server/api/schemas';
+import { ContentKind, ContentList } from '$lib/server/api/schemas';
 import { parseSearch } from '$lib/server/api/validate';
 import { PUBLIC_SOURCES } from '$lib/server/api/public-sources';
 import type { RequestHandler } from './$types';
@@ -104,5 +104,10 @@ export const GET: RequestHandler = async ({ url }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List public catalog content rows' }
+  GET: {
+    summary: 'List public catalog content rows (paginated)',
+    query: ListQuery,
+    response: ContentList,
+    public: true
+  }
 } as const;

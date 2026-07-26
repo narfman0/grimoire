@@ -2,7 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { UpdateEncounterRequest } from '$lib/server/api/encounter-schemas';
+import { Encounter, UpdateEncounterRequest } from '$lib/server/api/encounter-schemas';
+import { EncounterDetail } from '$lib/server/api/responses';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
@@ -89,7 +90,23 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'Fetch an encounter with its participants' },
-  PATCH: { summary: 'Update an encounter (DM only)', body: UpdateEncounterRequest },
-  DELETE: { summary: 'Delete an encounter (DM only)' }
+  GET: {
+    summary: 'Fetch an encounter with its participants',
+    params: Params,
+    response: EncounterDetail,
+    errors: [403, 404]
+  },
+  PATCH: {
+    summary: 'Update an encounter (name/round/status are DM only)',
+    params: Params,
+    body: UpdateEncounterRequest,
+    response: Encounter,
+    errors: [{ status: 403, description: 'Name/round/status/notes updates are DM only' }, 404]
+  },
+  DELETE: {
+    summary: 'Delete an encounter (DM only)',
+    params: Params,
+    status: 204,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  }
 } as const;

@@ -15,6 +15,7 @@ import { parseJson } from '$lib/server/api/validate';
 import { HomebrewPatch, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { requireUser } from '$lib/server/auth/guards';
+import { HomebrewRow, HomebrewDeleteResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 function serialize(r: typeof schema.content.$inferSelect) {
@@ -168,7 +169,28 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'Fetch the caller\'s homebrew entry by kind and slug' },
-  PATCH: { summary: 'Update a homebrew entry (spawns a new draft if published)', body: HomebrewPatch },
-  DELETE: { summary: 'Delete all versions of a homebrew entry' }
+  GET: {
+    summary: "Fetch the caller's homebrew entry by kind and slug (latest version)",
+    response: HomebrewRow,
+    errors: [404]
+  },
+  PATCH: {
+    summary: 'Update a homebrew entry (spawns a new draft if published)',
+    body: HomebrewPatch,
+    response: HomebrewRow,
+    errors: [{ status: 400, description: 'Unknown content kind or invalid data payload' }, 404]
+  },
+  DELETE: {
+    summary: 'Delete all versions of a homebrew entry (?force=1 overrides in-use check)',
+    response: HomebrewDeleteResponse,
+    errors: [
+      404,
+      {
+        status: 409,
+        description:
+          "The caller's own characters still reference this entry — body lists them; retry with ?force=1 to delete anyway",
+        schema: HomebrewDeleteResponse
+      }
+    ]
+  }
 } as const;

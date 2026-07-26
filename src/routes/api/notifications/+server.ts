@@ -4,14 +4,23 @@
 
 import { json } from '@sveltejs/kit';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { requireUser } from '$lib/server/auth/guards';
+import { parseSearch } from '$lib/server/api/validate';
+import { NotificationList } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
-const MAX = 50;
+// Default window matches the historical hardcoded MAX=50; offset makes
+// older notifications reachable.
+const ListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0)
+});
 
-export const GET: RequestHandler = async ({ locals }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
   const user = requireUser(locals);
+  const { limit, offset } = parseSearch(url, ListQuery);
 
   const rows = await db
     .select({
@@ -30,7 +39,8 @@ export const GET: RequestHandler = async ({ locals }) => {
     .leftJoin(schema.users, eq(schema.users.id, schema.notifications.authorUserId))
     .where(eq(schema.notifications.userId, user.id))
     .orderBy(desc(schema.notifications.createdAt))
-    .limit(MAX);
+    .limit(limit)
+    .offset(offset);
 
   const [{ unread }] = await db
     .select({ unread: sql<number>`count(*)`.as('unread') })
@@ -41,6 +51,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 
   return json({
     unreadCount: Number(unread) || 0,
+    limit,
+    offset,
     notifications: rows.map((r) => ({
       id: r.id,
       type: r.type,
@@ -57,5 +69,9 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List recent notifications for the logged-in user' }
+  GET: {
+    summary: 'List recent notifications for the logged-in user (newest first, paginated)',
+    query: ListQuery,
+    response: NotificationList
+  }
 } as const;

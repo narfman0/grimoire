@@ -66,5 +66,15 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Resolve a content report (admin only)', body: ReportResolve }
+  PATCH: {
+    summary: 'Resolve a content report (admin only)',
+    params: Params,
+    body: ReportResolve,
+    response: z.object({ id: Uuid, resolution: z.string() }),
+    errors: [
+      { status: 403, description: 'Admin only' },
+      404,
+      { status: 409, description: 'Report is already resolved' }
+    ]
+  }
 } as const;

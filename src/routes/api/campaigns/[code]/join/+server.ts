@@ -6,6 +6,7 @@ import { handleDbError } from '$lib/server/db/errors';
 import { CampaignCode } from '$lib/server/api/schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { requireUser } from '$lib/server/auth/guards';
+import { JoinCampaignResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
@@ -62,5 +63,10 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Join a campaign as a player' }
+  POST: {
+    summary: 'Join a campaign as a player (creates a pending membership)',
+    params: Params,
+    response: JoinCampaignResponse,
+    errors: [404]
+  }
 } as const;

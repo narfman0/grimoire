@@ -9,6 +9,7 @@ import { requireUser } from '$lib/server/auth/guards';
 import { serializeNote } from '$lib/server/serializers';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { Uuid } from '$lib/server/api/schemas';
+import { Note } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -51,6 +52,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Update a note', body: UpdateNoteRequest },
-  DELETE: { summary: 'Delete a note' }
+  PATCH: {
+    summary: 'Update a note',
+    params: Params,
+    body: UpdateNoteRequest,
+    response: Note,
+    errors: [403, 404]
+  },
+  DELETE: {
+    summary: 'Delete a note',
+    params: Params,
+    status: 204,
+    errors: [403, 404]
+  }
 } as const;

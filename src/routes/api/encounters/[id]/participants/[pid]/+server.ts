@@ -6,6 +6,7 @@ import { UpdateParticipantRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
+import { OkResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
@@ -53,5 +54,15 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Update a participant (DM only)', body: UpdateParticipantRequest }
+  PATCH: {
+    summary: 'Update a participant (DM only)',
+    params: Params,
+    body: UpdateParticipantRequest,
+    response: OkResponse,
+    errors: [
+      { status: 400, description: 'Character is not in this campaign' },
+      { status: 403, description: 'DM only' },
+      404
+    ]
+  }
 } as const;

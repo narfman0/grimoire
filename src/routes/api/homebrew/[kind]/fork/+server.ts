@@ -5,6 +5,7 @@
 // untouched (fork ≠ subscribe).
 
 import { json, error } from '@sveltejs/kit';
+import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
@@ -99,5 +100,21 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Fork another author\'s homebrew entry into the caller\'s library', body: ForkBody }
+  POST: {
+    summary: "Fork another author's homebrew entry into the caller's library",
+    body: ForkBody,
+    response: z.object({
+      kind: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      visibility: z.string(),
+      forkedFrom: z.object({ authorUserId: z.string(), slug: z.string() })
+    }),
+    errors: [
+      { status: 400, description: "Unknown kind, or can't fork your own homebrew" },
+      { status: 403, description: 'Source homebrew is private' },
+      404,
+      { status: 409, description: 'Caller already has an entry of this kind with the target slug' }
+    ]
+  }
 } as const;

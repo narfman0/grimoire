@@ -10,6 +10,7 @@ import { isRateLimited } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
 import { sendEmail, verificationEmail } from '$lib/server/email';
 import { logger } from '$lib/server/logger';
+import { AuthUserResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const SignupRequest = z.object({
@@ -81,5 +82,11 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 };
 
 export const _openapi = {
-  POST: { summary: 'Create a new user account' }
+  POST: {
+    summary: 'Create a new user account',
+    body: SignupRequest,
+    response: AuthUserResponse,
+    public: true,
+    errors: [{ status: 409, description: 'Username or email already registered' }, 429]
+  }
 } as const;

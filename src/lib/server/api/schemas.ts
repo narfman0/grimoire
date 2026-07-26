@@ -26,6 +26,18 @@ export const CampaignName = z.string().trim().min(1).max(100);
 export const TimestampMs = z.number().int().nonnegative();
 
 // ---------------------------------------------------------------------------
+// Pagination — shared limit/offset query params for collection endpoints.
+// Generous defaults: collections stay "effectively unpaginated" for normal
+// data volumes, but the response is bounded for pathological ones. Routes
+// extend this via `.extend(PaginationQuery.shape)`.
+// ---------------------------------------------------------------------------
+
+export const PaginationQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  offset: z.coerce.number().int().min(0).default(0)
+});
+
+// ---------------------------------------------------------------------------
 // Error envelope (RFC 7807-ish, kept simple)
 // ---------------------------------------------------------------------------
 
@@ -199,10 +211,12 @@ export const CharacterDocument = z
   })
   .openapi('CharacterDocument');
 
+/** Wire shape produced by serializeCharacter() in src/lib/server/serializers.ts. */
 export const Character = z
   .object({
     id: Uuid,
-    campaignId: Uuid,
+    campaignId: Uuid.nullable(),
+    ownerUserId: Uuid.nullable(),
     name: CharacterName,
     document: CharacterDocument.nullable(),
     updatedAt: TimestampMs
@@ -211,7 +225,10 @@ export const Character = z
 
 export const CharacterList = z
   .object({
-    characters: z.array(Character)
+    characters: z.array(Character),
+    total: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+    offset: z.number().int().nonnegative()
   })
   .openapi('CharacterList');
 

@@ -2,7 +2,7 @@ import { destroySession } from '$lib/server/auth/sessions';
 import type { RequestHandler } from './$types';
 
 export const _openapi = {
-  POST: { summary: 'Log out (destroy current session)' }
+  POST: { summary: 'Log out (destroy current session)', status: 204, public: true }
 } as const;
 
 export const POST: RequestHandler = async ({ cookies }) => {

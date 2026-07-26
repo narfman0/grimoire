@@ -23,6 +23,7 @@ import { parseJson, parseParams, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializeActionLogEntry } from '$lib/server/serializers';
+import { ActionLogList, ActionLogSubmitResponse } from '$lib/server/api/responses';
 import { logger } from '$lib/server/logger';
 import {
   buildTriggerEventsFromLog,
@@ -204,8 +205,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 export const _openapi = {
   GET: {
-    summary:
-      'Read the action log for an encounter (chronological). Paginated via ?limit (default 200, max 500) and ?offset; responds { entries, total, limit, offset }.'
+    summary: 'Read the action log for an encounter (chronological, paginated)',
+    params: Params,
+    query: LogListQuery,
+    response: ActionLogList,
+    errors: [403, 404]
   },
-  POST: { summary: 'Append a resolution to the action log', body: SubmitActionLogRequest }
+  POST: {
+    summary: 'Append a resolution to the action log',
+    params: Params,
+    body: SubmitActionLogRequest,
+    response: ActionLogSubmitResponse,
+    status: 201,
+    errors: [
+      { status: 400, description: 'Participant not in this encounter' },
+      { status: 403, description: 'Players may only log actions for characters they own' },
+      404
+    ]
+  }
 } as const;

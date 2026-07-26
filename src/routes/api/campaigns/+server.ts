@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { generateCampaignCode } from '$lib/server/code';
-import { CreateCampaignRequest } from '$lib/server/api/schemas';
+import { CreateCampaignRequest, CreateCampaignResponse } from '$lib/server/api/schemas';
 import { parseJson } from '$lib/server/api/validate';
 import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
@@ -51,5 +51,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Create a new campaign', body: CreateCampaignRequest }
+  POST: {
+    summary: 'Create a new campaign',
+    body: CreateCampaignRequest,
+    response: CreateCampaignResponse,
+    status: 201
+  }
 } as const;

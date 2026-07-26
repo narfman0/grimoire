@@ -40,7 +40,7 @@ describe('GET /api/campaigns/[code]/grants', () => {
     const { dmId } = await fixture(db);
     const res = await GET(makeEvent({ user: asUser(dmId, 'dm'), params: { code: CODE } }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ grants: [] });
+    expect(await res.json()).toEqual({ grants: [], total: 0, limit: 200, offset: 0 });
   });
 
   it('returns existing grants with resolved author label', async () => {

@@ -13,7 +13,7 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { UpdateActionLogRequest } from '$lib/server/api/encounter-schemas';
+import { ActionLogEntry, UpdateActionLogRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
@@ -82,6 +82,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Amend a log entry (DM only)', body: UpdateActionLogRequest },
-  DELETE: { summary: 'Delete a log entry (DM only)' }
+  PATCH: {
+    summary: 'Amend a log entry (DM only)',
+    params: Params,
+    body: UpdateActionLogRequest,
+    response: ActionLogEntry,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  },
+  DELETE: {
+    summary: 'Delete a log entry (DM only)',
+    params: Params,
+    status: 204,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  }
 } as const;

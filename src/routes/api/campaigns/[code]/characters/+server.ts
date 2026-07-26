@@ -96,6 +96,23 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Link a character into a campaign', body: LinkCharacterRequest },
-  DELETE: { summary: 'Unlink a character from a campaign' }
+  POST: {
+    summary: 'Link a character into a campaign (idempotent; 200 when already linked)',
+    params: Params,
+    body: LinkCharacterRequest,
+    response: z.object({
+      campaignId: Uuid,
+      characterId: Uuid,
+      role: z.enum(['player', 'guest'])
+    }),
+    status: 201,
+    errors: [{ status: 403, description: 'You can only link characters you own' }, 404]
+  },
+  DELETE: {
+    summary: 'Unlink a character from a campaign (owner or DM)',
+    params: Params,
+    body: z.object({ characterId: Uuid }),
+    status: 204,
+    errors: [{ status: 403, description: 'Only the owner or DM can unlink' }, 404]
+  }
 } as const;

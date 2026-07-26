@@ -7,6 +7,7 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq, isNotNull, desc, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { Subscription, SubscriptionList } from '$lib/server/api/responses';
 import { SubscriptionCreate } from '$lib/server/content/schemas';
 import { latestPublishedVersion } from '$lib/server/content/lookup';
 import { requireUser } from '$lib/server/auth/guards';
@@ -150,6 +151,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List the caller\'s homebrew subscriptions' },
-  POST: { summary: 'Subscribe to another author\'s homebrew entry', body: SubscriptionCreate }
+  GET: { summary: "List the caller's homebrew subscriptions", response: SubscriptionList },
+  POST: {
+    summary: "Subscribe to another author's homebrew entry",
+    body: SubscriptionCreate,
+    response: Subscription,
+    errors: [
+      { status: 400, description: "Can't subscribe to your own homebrew" },
+      { status: 403, description: 'Target homebrew is private' },
+      404
+    ]
+  }
 } as const;

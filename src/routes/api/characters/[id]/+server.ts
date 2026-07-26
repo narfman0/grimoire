@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { UpdateCharacterRequest, PutCharacterRequest, Uuid } from '$lib/server/api/schemas';
+import { Character, UpdateCharacterRequest, PutCharacterRequest, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import {
   requireCharacterViewAccess,
@@ -152,12 +152,40 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'Fetch a character by ID' },
+  GET: {
+    summary: 'Fetch a character by ID',
+    params: Params,
+    response: Character,
+    errors: [403, 404]
+  },
   PATCH: {
     summary:
       'Partially update a character name or document; optional baseUpdatedAt enables optimistic concurrency (409 with current character on mismatch)',
-    body: UpdateCharacterRequest
+    params: Params,
+    body: UpdateCharacterRequest,
+    response: Character,
+    errors: [
+      403,
+      404,
+      {
+        status: 409,
+        description:
+          'Stale baseUpdatedAt — the character changed since the client read it. Body is the current serialized character; rebase and retry.',
+        schema: Character
+      }
+    ]
   },
-  PUT: { summary: 'Replace a character document (accepts GET response shape)', body: PutCharacterRequest },
-  DELETE: { summary: 'Delete a character' }
+  PUT: {
+    summary: 'Replace a character document (accepts GET response shape)',
+    params: Params,
+    body: PutCharacterRequest,
+    response: Character,
+    errors: [403, 404]
+  },
+  DELETE: {
+    summary: 'Delete a character',
+    params: Params,
+    status: 204,
+    errors: [{ status: 403, description: 'Only the owner can delete this character' }, 404]
+  }
 } as const;

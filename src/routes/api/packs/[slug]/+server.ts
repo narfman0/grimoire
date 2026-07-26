@@ -18,6 +18,7 @@ import { PackSlug, Visibility } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializePack } from '$lib/server/serializers';
+import { Pack, PackDeleteResponse } from '$lib/server/api/responses';
 import { _SYSTEM_PACK_SLUGS } from '../+server';
 import type { RequestHandler } from './$types';
 
@@ -219,8 +220,40 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
   return json({ deleted: true, rowsDeleted: n });
 };
 
+const DeleteQuery = z.object({
+  /** Pass 'true' to delete the pack's content rows along with it. */
+  cascade: z.enum(['true', 'false']).optional()
+});
+
 export const _openapi = {
-  GET: { summary: 'Fetch pack detail + per-kind row counts' },
-  PATCH: { summary: 'Update pack metadata or rename slug (owner only)', body: _PackPatchBody },
-  DELETE: { summary: 'Delete a pack (owner only); requires ?cascade=true when rows exist' }
+  GET: {
+    summary: 'Fetch pack detail + per-kind row counts',
+    params: Params,
+    response: Pack,
+    public: true,
+    errors: [404]
+  },
+  PATCH: {
+    summary: 'Update pack metadata or rename slug (owner only)',
+    params: Params,
+    body: _PackPatchBody,
+    response: Pack,
+    errors: [
+      { status: 403, description: 'Not your pack (system packs cannot be edited)' },
+      404,
+      { status: 409, description: 'New slug already exists or is reserved' }
+    ]
+  },
+  DELETE: {
+    summary: 'Delete a pack (owner only); requires ?cascade=true when rows exist',
+    params: Params,
+    query: DeleteQuery,
+    response: PackDeleteResponse,
+    errors: [
+      { status: 400, description: 'System packs cannot be deleted' },
+      { status: 403, description: 'Not your pack' },
+      404,
+      { status: 409, description: 'Pack still has content rows and cascade was not requested' }
+    ]
+  }
 } as const;

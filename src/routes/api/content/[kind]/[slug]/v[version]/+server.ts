@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { ContentKind } from '$lib/server/api/schemas';
+import { ContentKind, ContentRow } from '$lib/server/api/schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { PUBLIC_SOURCES } from '$lib/server/api/public-sources';
 import type { RequestHandler } from './$types';
@@ -48,5 +48,11 @@ export const GET: RequestHandler = async ({ params }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'Fetch a specific pinned version of a content row' }
+  GET: {
+    summary: 'Fetch a specific pinned version of a content row',
+    params: Params,
+    response: ContentRow,
+    public: true,
+    errors: [404]
+  }
 } as const;

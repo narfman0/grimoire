@@ -2,14 +2,23 @@
 // Gated by users.is_admin; promote a user via SQL today.
 
 import { json, error } from '@sveltejs/kit';
-import { eq, isNull, desc, inArray } from 'drizzle-orm';
+import { eq, isNull, desc, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireUser } from '$lib/server/auth/guards';
+import { parseSearch } from '$lib/server/api/validate';
+import { PaginationQuery } from '$lib/server/api/schemas';
+import { AdminReportList } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ locals }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
   const user = requireUser(locals);
   if (!user.isAdmin) throw error(403, 'admin only');
+  const { limit, offset } = parseSearch(url, PaginationQuery);
+
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(schema.contentReports)
+    .where(isNull(schema.contentReports.resolvedAt));
 
   const rows = await db
     .select({
@@ -27,7 +36,9 @@ export const GET: RequestHandler = async ({ locals }) => {
     .from(schema.contentReports)
     .innerJoin(schema.content, eq(schema.content.id, schema.contentReports.contentId))
     .where(isNull(schema.contentReports.resolvedAt))
-    .orderBy(desc(schema.contentReports.createdAt));
+    .orderBy(desc(schema.contentReports.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   // Resolve usernames in a second pass (drizzle's aliasedTable typing is
   // currently flaky in 0.33; doing two queries keeps the types clean).
@@ -60,10 +71,18 @@ export const GET: RequestHandler = async ({ locals }) => {
         ownerUserId: r.ownerUserId,
         ownerUsername: r.ownerUserId ? usernameById.get(r.ownerUserId) ?? null : null
       }
-    }))
+    })),
+    total: Number(total),
+    limit,
+    offset
   });
 };
 
 export const _openapi = {
-  GET: { summary: 'List open content reports (admin only)' }
+  GET: {
+    summary: 'List open content reports (admin only, paginated)',
+    query: PaginationQuery,
+    response: AdminReportList,
+    errors: [{ status: 403, description: 'Admin only' }]
+  }
 } as const;

@@ -6,6 +6,7 @@ import { SetPlanRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
+import { OkResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
@@ -63,6 +64,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Set the turn plan for a participant', body: SetPlanRequest },
-  DELETE: { summary: 'Clear the turn plan for a participant' }
+  POST: {
+    summary: 'Set the turn plan for a participant',
+    params: Params,
+    body: SetPlanRequest,
+    response: OkResponse,
+    errors: [{ status: 403, description: 'Players can only plan for PCs they own' }, 404]
+  },
+  DELETE: {
+    summary: 'Clear the turn plan for a participant',
+    params: Params,
+    status: 204,
+    errors: [{ status: 403, description: 'Players can only clear plans for PCs they own' }, 404]
+  }
 } as const;

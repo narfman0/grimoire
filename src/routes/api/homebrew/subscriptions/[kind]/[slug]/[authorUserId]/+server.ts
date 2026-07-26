@@ -6,9 +6,11 @@
 //            version even after the author publishes new ones.
 
 import { json, error } from '@sveltejs/kit';
+import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { OkResponse } from '$lib/server/api/responses';
 import { SubscriptionPinPatch } from '$lib/server/content/schemas';
 import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
@@ -69,6 +71,11 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const _openapi = {
-  DELETE: { summary: 'Unsubscribe from a homebrew entry' },
-  PATCH: { summary: 'Change the pinned version for a subscription', body: SubscriptionPinPatch }
+  DELETE: { summary: 'Unsubscribe from a homebrew entry', response: OkResponse },
+  PATCH: {
+    summary: 'Change the pinned version for a subscription',
+    body: SubscriptionPinPatch,
+    response: z.object({ pinnedVersion: z.number().int().positive().nullable() }),
+    errors: [404]
+  }
 } as const;

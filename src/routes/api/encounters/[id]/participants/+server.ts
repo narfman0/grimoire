@@ -7,6 +7,7 @@ import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { defaultRevealsFor } from '$lib/realtime/reveals';
+import { IdResponse } from '$lib/server/api/responses';
 import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
@@ -71,5 +72,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Add a participant to an encounter (DM only)', body: AddParticipantRequest }
+  POST: {
+    summary: 'Add a participant to an encounter (DM only)',
+    params: Params,
+    body: AddParticipantRequest,
+    response: IdResponse,
+    errors: [
+      { status: 400, description: 'Character is not in this campaign' },
+      { status: 403, description: 'DM only' },
+      404
+    ]
+  }
 } as const;

@@ -6,6 +6,7 @@ import { CampaignCode, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
+import { MemberStatusResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode, userId: Uuid });
@@ -51,5 +52,15 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Approve or reject a pending campaign join request (DM only)' }
+  PATCH: {
+    summary: 'Approve or reject a pending campaign join request (DM only)',
+    params: Params,
+    body: Body,
+    response: MemberStatusResponse,
+    errors: [
+      { status: 403, description: 'DM only' },
+      404,
+      { status: 409, description: 'Membership is not pending' }
+    ]
+  }
 } as const;

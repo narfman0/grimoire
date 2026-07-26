@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { z } from 'zod';
 import { sqlite } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { OkResponse } from '$lib/server/api/responses';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { logger } from '$lib/server/logger';
 import { requireUser } from '$lib/server/auth/guards';
@@ -104,7 +105,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Admin: edit one cell of a table row', body: PatchRequest },
-  DELETE: { summary: 'Admin: delete a table row by rowid', body: DeleteRequest },
-  POST: { summary: 'Admin: insert a row into a table' }
+  PATCH: {
+    summary: 'Admin: edit one cell of a table row',
+    body: PatchRequest,
+    response: OkResponse,
+    errors: [400, { status: 403, description: 'Admin only, and some columns are not editable' }, 404]
+  },
+  DELETE: {
+    summary: 'Admin: delete a table row by rowid',
+    body: DeleteRequest,
+    response: OkResponse,
+    errors: [{ status: 403, description: 'Admin only' }, 404]
+  },
+  POST: {
+    summary: 'Admin: insert a row into a table',
+    body: InsertRequest,
+    response: z.object({ rowid: z.number().int() }),
+    errors: [400, { status: 403, description: 'Admin only' }, 404]
+  }
 } as const;

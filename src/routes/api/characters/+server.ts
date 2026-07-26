@@ -2,7 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq, like } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { CampaignCode, CreateCharacterRequest } from '$lib/server/api/schemas';
+import {
+  CampaignCode,
+  Character,
+  CharacterList,
+  CreateCharacterRequest,
+  PaginationQuery
+} from '$lib/server/api/schemas';
 import { parseJson, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCode } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
@@ -10,11 +16,13 @@ import { serializeCharacter } from '$lib/server/serializers';
 import { slugify } from '$lib/rules/slug';
 import type { RequestHandler } from './$types';
 
-const ListQuery = z.object({ campaign: CampaignCode.optional() });
+const ListQuery = z
+  .object({ campaign: CampaignCode.optional() })
+  .extend(PaginationQuery.shape);
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const user = requireUser(locals);
-  const { campaign } = parseSearch(url, ListQuery);
+  const { campaign, limit, offset } = parseSearch(url, ListQuery);
 
   const characterColumns = {
     id: schema.characters.id,
@@ -50,7 +58,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       );
     const seen = new Set<string>();
     const rows = [...own, ...shared].filter((r) => !seen.has(r.id) && seen.add(r.id));
-    return json({ characters: rows.map(serializeCharacter) });
+    // Merge-dedupe happens in JS, so paginate in JS too — `total` is the
+    // full deduped count, `characters` the requested window.
+    return json({
+      characters: rows.slice(offset, offset + limit).map(serializeCharacter),
+      total: rows.length,
+      limit,
+      offset
+    });
   }
 
   const m = await getMembershipByCode(user.id, campaign);
@@ -65,7 +80,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     )
     .where(eq(schema.campaignCharacters.campaignId, m.campaignId));
 
-  return json({ characters: rows.map(serializeCharacter) });
+  return json({
+    characters: rows.slice(offset, offset + limit).map(serializeCharacter),
+    total: rows.length,
+    limit,
+    offset
+  });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -130,6 +150,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List characters for the current user' },
-  POST: { summary: 'Create a character in a campaign', body: CreateCharacterRequest }
+  GET: {
+    summary: 'List characters for the current user',
+    query: ListQuery,
+    response: CharacterList,
+    errors: [{ status: 403, description: 'Not a member of the requested campaign' }]
+  },
+  POST: {
+    summary: 'Create a character in a campaign',
+    body: CreateCharacterRequest,
+    response: Character,
+    status: 201,
+    errors: [{ status: 403, description: 'Not a member of the requested campaign' }]
+  }
 } as const;

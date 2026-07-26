@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { OkResponse } from '$lib/server/api/responses';
 import { verifyPassword, hashPassword } from '$lib/server/auth/passwords';
 import {
   SESSION_COOKIE,
@@ -54,5 +55,10 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 };
 
 export const _openapi = {
-  POST: { summary: 'Change password for the logged-in user' }
+  POST: {
+    summary: 'Change password for the logged-in user',
+    body: ChangeRequest,
+    response: OkResponse,
+    errors: [{ status: 401, description: 'Not authenticated or current password incorrect' }]
+  }
 } as const;

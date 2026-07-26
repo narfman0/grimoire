@@ -28,6 +28,7 @@
 // A txn-level throw (rare; only for DB errors) rolls back everything.
 
 import { json, error } from '@sveltejs/kit';
+import { z } from 'zod';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
@@ -210,6 +211,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 export const _openapi = {
   POST: {
     summary: "Bulk import a pack-shaped manifest as the caller's homebrew",
-    body: HomebrewImportRequest
+    body: HomebrewImportRequest,
+    response: z.object({
+      created: z.number().int().nonnegative(),
+      updated: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+      errors: z.array(z.object({ slug: z.string(), kind: z.string(), reason: z.string() }))
+    }),
+    errors: [{ status: 413, description: 'Too many rows in the manifest' }]
   }
 } as const;

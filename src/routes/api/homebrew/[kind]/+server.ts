@@ -12,6 +12,7 @@ import { HomebrewCreate, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { requireUser } from '$lib/server/auth/guards';
+import { HomebrewRow, HomebrewList } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_SOURCE = 'homebrew';
@@ -114,6 +115,18 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List the caller\'s homebrew entries of a given kind' },
-  POST: { summary: 'Create a homebrew entry', body: HomebrewCreate }
+  GET: {
+    summary: "List the caller's homebrew entries of a given kind",
+    response: HomebrewList,
+    errors: [{ status: 400, description: 'Unknown content kind' }]
+  },
+  POST: {
+    summary: 'Create a homebrew entry',
+    body: HomebrewCreate,
+    response: HomebrewRow,
+    errors: [
+      { status: 400, description: 'Unknown content kind or invalid data payload' },
+      { status: 409, description: 'Caller already has an entry of this kind with this slug' }
+    ]
+  }
 } as const;

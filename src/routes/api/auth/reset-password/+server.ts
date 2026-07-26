@@ -3,6 +3,7 @@ import { and, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { OkResponse } from '$lib/server/api/responses';
 import { isRateLimited } from '$lib/server/auth/rate-limit';
 import { hashPassword } from '$lib/server/auth/passwords';
 import { destroyAllSessions } from '$lib/server/auth/sessions';
@@ -54,5 +55,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Reset password using a token from email' }
+  POST: {
+    summary: 'Reset password using a token from email',
+    body: ResetRequest,
+    response: OkResponse,
+    public: true,
+    errors: [{ status: 400, description: 'Invalid or expired link' }, 429]
+  }
 } as const;

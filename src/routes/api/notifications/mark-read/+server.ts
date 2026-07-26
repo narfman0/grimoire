@@ -5,6 +5,7 @@ import { json } from '@sveltejs/kit';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
+import { OkResponse } from '$lib/server/api/responses';
 import { MarkReadBody } from '$lib/server/content/schemas';
 import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
@@ -39,5 +40,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Mark notifications as read', body: MarkReadBody }
+  POST: { summary: 'Mark notifications as read', body: MarkReadBody, response: OkResponse }
 } as const;

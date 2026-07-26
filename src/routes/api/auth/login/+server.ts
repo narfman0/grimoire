@@ -7,6 +7,7 @@ import { verifyPassword } from '$lib/server/auth/passwords';
 import { createSession, SESSION_COOKIE } from '$lib/server/auth/sessions';
 import { isRateLimited } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
+import { AuthUserResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const LoginRequest = z.object({
@@ -15,7 +16,17 @@ const LoginRequest = z.object({
 });
 
 export const _openapi = {
-  POST: { summary: 'Log in with username and password', body: LoginRequest }
+  POST: {
+    summary: 'Log in with username and password',
+    body: LoginRequest,
+    response: AuthUserResponse,
+    public: true,
+    errors: [
+      { status: 401, description: 'Invalid credentials' },
+      { status: 423, description: 'Account temporarily locked after repeated failures' },
+      429
+    ]
+  }
 } as const;
 
 const MAX_FAILED = 10;

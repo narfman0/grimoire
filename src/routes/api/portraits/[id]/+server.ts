@@ -1,8 +1,11 @@
 import { error } from '@sveltejs/kit';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
+
+const Params = z.object({ id: z.string().min(1) });
 
 const PORTRAITS_DIR = '/data/portraits';
 
@@ -27,3 +30,14 @@ export const GET: RequestHandler = async ({ params }) => {
   }
   throw error(404, 'portrait not found');
 };
+
+export const _openapi = {
+  GET: {
+    summary: 'Serve an uploaded character portrait',
+    description:
+      'Returns the raw image bytes (image/jpeg, image/png, or image/webp) with immutable caching. Not JSON.',
+    params: Params,
+    public: true,
+    errors: [{ status: 400, description: 'Invalid portrait id' }, 404]
+  }
+} as const;

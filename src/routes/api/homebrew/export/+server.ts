@@ -15,6 +15,7 @@
 // roundtrip; users who want a richer manifest can edit `meta` themselves
 // before re-importing.
 
+import { z } from 'zod';
 import { json } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
@@ -95,5 +96,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: "Export the caller's homebrew as an import-ready manifest" }
+  GET: {
+    summary: "Export the caller's homebrew as an import-ready manifest",
+    response: z.object({
+      meta: z.record(z.string(), z.unknown()).nullable(),
+      rows: z.array(z.record(z.string(), z.unknown()))
+    })
+  }
 } as const;

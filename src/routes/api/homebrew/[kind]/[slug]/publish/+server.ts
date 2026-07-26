@@ -12,6 +12,7 @@
 //     subscribers already at the new version.
 
 import { json, error } from '@sveltejs/kit';
+import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
@@ -102,5 +103,15 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Publish the latest draft of a homebrew entry and notify subscribers', body: PublishBody }
+  POST: {
+    summary: 'Publish the latest draft of a homebrew entry and notify subscribers',
+    body: PublishBody,
+    response: z.object({
+      version: z.number().int().positive(),
+      publishedAt: z.number().int(),
+      visibility: z.string(),
+      notifiedSubscribers: z.number().int().nonnegative()
+    }),
+    errors: [{ status: 400, description: 'Unknown content kind' }, 404]
+  }
 } as const;

@@ -1,12 +1,13 @@
 import { json, error } from '@sveltejs/kit';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
-import { parseJson, parseParams } from '$lib/server/api/validate';
+import { parseJson, parseParams, parseSearch } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
-import { CampaignCode } from '$lib/server/api/schemas';
+import { CampaignCode, PaginationQuery } from '$lib/server/api/schemas';
+import { Grant, GrantList } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
@@ -16,15 +17,23 @@ const AddGrantRequest = z.object({
   grantKey: z.string().min(1).max(128)
 });
 
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, url, locals }) => {
   const user = requireUser(locals);
   const { code } = parseParams({ code: params.code.toUpperCase() }, Params);
+  const { limit, offset } = parseSearch(url, PaginationQuery);
   const m = await requireMembershipByCode(user, code);
 
+  const where = eq(schema.campaignContentGrants.campaignId, m.campaignId);
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(schema.campaignContentGrants)
+    .where(where);
   const grants = await db
     .select()
     .from(schema.campaignContentGrants)
-    .where(eq(schema.campaignContentGrants.campaignId, m.campaignId));
+    .where(where)
+    .limit(limit)
+    .offset(offset);
 
   // Resolve author user IDs → usernames for display.
   const authorIds = grants.filter((g) => g.grantType === 'author').map((g) => g.grantKey);
@@ -44,7 +53,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       grantKey: g.grantKey,
       label: g.grantType === 'author' ? (usernameMap.get(g.grantKey) ?? g.grantKey) : g.grantKey,
       createdAt: g.createdAt.getTime()
-    }))
+    })),
+    total: Number(total),
+    limit,
+    offset
   });
 };
 
@@ -137,6 +149,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List content grants for a campaign (DM only)' },
-  POST: { summary: 'Add a content grant to a campaign (DM only)', body: AddGrantRequest }
+  GET: {
+    summary: 'List content grants for a campaign (members)',
+    params: Params,
+    query: PaginationQuery,
+    response: GrantList,
+    errors: [{ status: 403, description: 'Not a member of this campaign' }]
+  },
+  POST: {
+    summary: 'Add a content grant to a campaign (DM only)',
+    params: Params,
+    body: AddGrantRequest,
+    response: Grant,
+    status: 201,
+    errors: [
+      { status: 403, description: 'DM only' },
+      { status: 404, description: 'Pack or user for the grant key not found' },
+      { status: 409, description: 'Grant already exists' }
+    ]
+  }
 } as const;

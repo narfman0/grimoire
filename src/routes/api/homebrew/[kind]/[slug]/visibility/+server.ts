@@ -9,6 +9,7 @@
 // breaking existing subscriptions.
 
 import { json, error } from '@sveltejs/kit';
+import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
@@ -53,5 +54,10 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const _openapi = {
-  PUT: { summary: 'Change the visibility of a homebrew entry (private/unlisted/public)', body: VisibilityPut }
+  PUT: {
+    summary: 'Change the visibility of a homebrew entry (private/unlisted/public)',
+    body: VisibilityPut,
+    response: z.object({ visibility: z.string() }),
+    errors: [404]
+  }
 } as const;

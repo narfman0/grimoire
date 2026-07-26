@@ -6,6 +6,7 @@ import { SetConcentrationRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
+import { OkResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
@@ -32,6 +33,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 export const _openapi = {
   POST: {
     summary: 'Set concentration for a non-PC participant (DM only)',
-    body: SetConcentrationRequest
+    params: Params,
+    body: SetConcentrationRequest,
+    response: OkResponse,
+    errors: [{ status: 400, description: 'PC concentration lives on the character document' }, 403, 404]
   }
 } as const;

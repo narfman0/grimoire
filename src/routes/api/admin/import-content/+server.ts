@@ -168,5 +168,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'Bulk import content rows as homebrew (admin only)', body: ImportContentRequest }
+  POST: {
+    summary: 'Bulk import content rows as homebrew (admin only)',
+    body: ImportContentRequest,
+    response: z.object({
+      inserted: z.number().int(),
+      updated: z.number().int(),
+      skipped: z.number().int(),
+      failed: z.array(z.object({ kind: z.string(), slug: z.string(), error: z.string() }))
+    }),
+    errors: [{ status: 403, description: 'Admin only' }]
+  }
 } as const;

@@ -229,8 +229,17 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
 export const _openapi = {
   GET: {
-    summary:
-      'Fetch the live encounter snapshot (round, turn, HP, plans) for polling. Sets an ETag; send If-None-Match to get a bodyless 304 when nothing changed.',
-    response: EncounterStateResponse
+    summary: 'Fetch the live encounter snapshot (round, turn, HP, plans) for polling',
+    description:
+      'The 200 response carries an `ETag` header derived from the encounter state. ' +
+      'Pollers should echo it back via `If-None-Match`; when nothing changed the server ' +
+      'answers a bodyless 304 with the same `ETag`, keeping the 2s poll loop cheap.',
+    params: Params,
+    response: EncounterStateResponse,
+    errors: [
+      { status: 304, description: 'Not modified — If-None-Match matched the current ETag' },
+      403,
+      404
+    ]
   }
 } as const;

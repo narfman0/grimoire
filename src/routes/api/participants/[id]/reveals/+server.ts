@@ -11,6 +11,7 @@ import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
 import { requireUser } from '$lib/server/auth/guards';
+import { RevealsResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -60,5 +61,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  PATCH: { summary: 'Toggle visibility reveal flags for a participant (DM only)', body: Patch }
+  PATCH: {
+    summary: 'Toggle visibility reveal flags for a participant (DM only)',
+    params: Params,
+    body: Patch,
+    response: RevealsResponse,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  }
 } as const;

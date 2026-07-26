@@ -2,6 +2,7 @@
 // Any logged-in user can report; admins handle the queue at /admin/reports.
 
 import { json, error } from '@sveltejs/kit';
+import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
@@ -37,5 +38,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  POST: { summary: 'File a report against a homebrew content row', body: ReportCreate }
+  POST: {
+    summary: 'File a report against a homebrew content row',
+    body: ReportCreate,
+    response: z.object({ id: z.string(), ok: z.literal(true) }),
+    errors: [404]
+  }
 } as const;

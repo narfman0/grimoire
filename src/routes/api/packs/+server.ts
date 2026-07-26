@@ -20,6 +20,7 @@ import { PackSlug, Visibility } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializePack } from '$lib/server/serializers';
+import { Pack, PackList } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
 /** Slugs the user can never create/delete; they're system-owned and the
@@ -141,7 +142,23 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   });
 };
 
+const ListQuery = z.object({
+  /** Scope to one owner's packs (their public packs unless it is the caller). */
+  owner: z.string().optional()
+});
+
 export const _openapi = {
-  POST: { summary: 'Create a new content pack owned by the caller', body: _PackCreateBody },
-  GET: { summary: 'List packs visible to the caller (self + public + system)' }
+  POST: {
+    summary: 'Create a new content pack owned by the caller',
+    body: _PackCreateBody,
+    response: Pack,
+    status: 201,
+    errors: [{ status: 409, description: 'Pack slug already exists or is reserved' }]
+  },
+  GET: {
+    summary: 'List packs visible to the caller (self + public + system)',
+    query: ListQuery,
+    response: PackList,
+    public: true
+  }
 } as const;

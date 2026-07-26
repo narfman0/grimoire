@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { CampaignCode, UpdateCampaignRequest } from '$lib/server/api/schemas';
+import { Campaign, CampaignCode, UpdateCampaignRequest } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { isRateLimited } from '$lib/server/auth/rate-limit';
@@ -58,6 +58,20 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'Fetch a campaign by its shareable code' },
-  PATCH: { summary: 'Rename a campaign (DM only)', body: UpdateCampaignRequest }
+  GET: {
+    summary: 'Fetch a campaign by its shareable code',
+    description:
+      'Unauthenticated by design so the join page can preview the campaign name; anonymous lookups are rate limited.',
+    params: Params,
+    response: Campaign,
+    public: true,
+    errors: [404, { status: 429, description: 'Too many anonymous lookups' }]
+  },
+  PATCH: {
+    summary: 'Rename a campaign (DM only)',
+    params: Params,
+    body: UpdateCampaignRequest,
+    response: Campaign,
+    errors: [{ status: 403, description: 'DM only' }, 404]
+  }
 } as const;

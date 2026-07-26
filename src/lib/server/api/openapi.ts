@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import { extendZodWithOpenApi, OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
+import { ErrorResponse } from './schemas';
 
 extendZodWithOpenApi(z);
 
@@ -18,13 +19,29 @@ extendZodWithOpenApi(z);
 // Public types — imported by route files
 // ---------------------------------------------------------------------------
 
+/** Extra non-2xx response. Bare numbers get the shared Error schema and a
+ *  stock description; the object form overrides either (e.g. the characters
+ *  PATCH 409 whose body is the current character, or a bodyless 304). */
+export type ErrorSpec = number | { status: number; description?: string; schema?: z.ZodTypeAny };
+
 export interface RouteMethodSpec {
   summary?: string;
+  description?: string;
   tags?: string[];
   body?: z.ZodTypeAny;
   response?: z.ZodTypeAny;
+  /** Success status code (default 200; use 201 for creates, 204 for deletes). */
+  status?: number;
   params?: z.ZodTypeAny;
   query?: z.ZodTypeAny;
+  /** Route needs no session — suppresses the default 401 response. */
+  public?: boolean;
+  /**
+   * Additional error statuses beyond the defaults. Defaults always emitted:
+   * 400 when the method declares a body/query/params, and 401 unless
+   * `public: true`. Entries here are merged on top (same status wins).
+   */
+  errors?: ErrorSpec[];
 }
 
 /** Map of HTTP method names (uppercase) to their spec. */
@@ -61,6 +78,47 @@ function defaultTag(openApiPath: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Error responses
+// ---------------------------------------------------------------------------
+
+const ERROR_DESCRIPTIONS: Record<number, string> = {
+  304: 'Not modified',
+  400: 'Validation error (malformed body, params, or query)',
+  401: 'Not authenticated',
+  403: 'Forbidden',
+  404: 'Not found',
+  409: 'Conflict',
+  413: 'Payload too large',
+  415: 'Unsupported media type',
+  423: 'Locked',
+  429: 'Too many requests'
+};
+
+/** Resolve the full error-response set for one method: defaults + declared. */
+function errorSpecsFor(methodSpec: RouteMethodSpec): Map<number, { description: string; schema?: z.ZodTypeAny }> {
+  const out = new Map<number, { description: string; schema?: z.ZodTypeAny }>();
+  const hasRequest = Boolean(methodSpec.body || methodSpec.query || methodSpec.params);
+  if (hasRequest) out.set(400, { description: ERROR_DESCRIPTIONS[400], schema: ErrorResponse });
+  if (!methodSpec.public) out.set(401, { description: ERROR_DESCRIPTIONS[401], schema: ErrorResponse });
+  for (const e of methodSpec.errors ?? []) {
+    const status = typeof e === 'number' ? e : e.status;
+    const description =
+      (typeof e === 'number' ? undefined : e.description) ??
+      ERROR_DESCRIPTIONS[status] ??
+      'Error';
+    // Bodyless statuses (304) get no content schema; explicit schema wins.
+    const schema =
+      typeof e === 'number'
+        ? status === 304
+          ? undefined
+          : ErrorResponse
+        : (e.schema ?? (status === 304 ? undefined : ErrorResponse));
+    out.set(status, { description, schema });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
 
@@ -82,6 +140,10 @@ export function buildSpec(
     }
     return schema;
   }
+
+  // Every method emits at least one Error-shaped response, so the shared
+  // envelope always belongs in components/schemas.
+  registerSchema(ErrorResponse);
 
   for (const [filePath, mod] of Object.entries(routes)) {
     const routeSpec = mod._openapi;
@@ -118,10 +180,12 @@ export function buildSpec(
         };
       }
 
-      const responses = {
-        200: {
-          description: 'OK',
-          ...(methodSpec.response
+      const successStatus = methodSpec.status ?? 200;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responses: Record<number, any> = {
+        [successStatus]: {
+          description: successStatus === 201 ? 'Created' : successStatus === 204 ? 'No content' : 'OK',
+          ...(methodSpec.response && successStatus !== 204
             ? {
                 content: {
                   'application/json': { schema: methodSpec.response }
@@ -131,11 +195,21 @@ export function buildSpec(
         }
       };
 
+      for (const [status, err] of errorSpecsFor(methodSpec)) {
+        responses[status] = {
+          description: err.description,
+          ...(err.schema
+            ? { content: { 'application/json': { schema: err.schema } } }
+            : {})
+        };
+      }
+
       registry.registerPath({
         method,
         path: openApiPath,
         tags,
         summary: methodSpec.summary ?? `${methodUpper} ${openApiPath}`,
+        ...(methodSpec.description ? { description: methodSpec.description } : {}),
         request: requestDef,
         responses
       });

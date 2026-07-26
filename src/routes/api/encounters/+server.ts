@@ -1,20 +1,21 @@
 import { json, error } from '@sveltejs/kit';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { CampaignCode } from '$lib/server/api/schemas';
-import { CreateEncounterRequest } from '$lib/server/api/encounter-schemas';
+import { CampaignCode, PaginationQuery } from '$lib/server/api/schemas';
+import { CreateEncounterRequest, Encounter } from '$lib/server/api/encounter-schemas';
+import { EncounterList } from '$lib/server/api/responses';
 import { parseJson, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCode } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializeEncounter } from '$lib/server/serializers';
 import type { RequestHandler } from './$types';
 
-const ListQuery = z.object({ campaign: CampaignCode });
+const ListQuery = z.object({ campaign: CampaignCode }).extend(PaginationQuery.shape);
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const user = requireUser(locals);
-  const { campaign } = parseSearch(url, ListQuery);
+  const { campaign, limit, offset } = parseSearch(url, ListQuery);
   const m = await getMembershipByCode(user.id, campaign);
   if (!m) throw error(403, 'not a member of this campaign');
 
@@ -26,8 +27,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
           eq(schema.encounters.campaignId, m.campaignId),
           inArray(schema.encounters.status, ['live', 'ended'])
         );
-  const rows = await db.select().from(schema.encounters).where(where);
-  return json({ encounters: rows.map(serializeEncounter) });
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(schema.encounters)
+    .where(where);
+  const rows = await db.select().from(schema.encounters).where(where).limit(limit).offset(offset);
+  return json({ encounters: rows.map(serializeEncounter), total: Number(total), limit, offset });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -65,6 +70,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'List encounters for a campaign' },
-  POST: { summary: 'Create an encounter under a campaign (DM only)', body: CreateEncounterRequest }
+  GET: {
+    summary: 'List encounters for a campaign',
+    query: ListQuery,
+    response: EncounterList,
+    errors: [{ status: 403, description: 'Not a member of this campaign' }]
+  },
+  POST: {
+    summary: 'Create an encounter under a campaign (DM only)',
+    body: CreateEncounterRequest,
+    response: Encounter,
+    status: 201,
+    errors: [{ status: 403, description: 'DM only' }]
+  }
 } as const;
