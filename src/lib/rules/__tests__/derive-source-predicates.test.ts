@@ -340,3 +340,71 @@ describe('derive() — sourcePredicate on save.advantage modifiers', () => {
     expect(d.stats.savesAdvantageSourceQualified).toEqual([]);
   });
 });
+
+describe('derive() — vs-spell save advantage from an ITEM stat-modifier', () => {
+  // Mantle of Spell Resistance shape: an attunement item granting
+  // "advantage on saving throws against spells". The item path composes
+  // the same qualified channel as feats, and the batch-1 attunement gate
+  // (appliesWhen.requires: 'equipped:attuned') keeps the entry out of
+  // allMods when the slot isn't attuned.
+  const MANTLE: ContentRow = {
+    kind: 'item',
+    slug: 'test-mantle-of-spell-resistance',
+    version: 1,
+    name: 'Mantle of Spell Resistance',
+    source: 'test',
+    data: {
+      category: 'wondrous',
+      requiresAttunement: true,
+      modifiers: [
+        {
+          kind: 'stat-modifier',
+          target: 'save.advantage.all',
+          mode: 'OVERRIDE',
+          value: true,
+          sourcePredicate: { kind: 'spell' },
+          appliesWhen: { requires: 'equipped:attuned' }
+        }
+      ]
+    }
+  };
+
+  function charWithMantle(attuned: boolean): CharacterDocument {
+    return {
+      ...charWithFeat('nonexistent-feat'),
+      feats: [],
+      inventory: [
+        {
+          contentKind: 'item',
+          contentSlug: MANTLE.slug,
+          version: 1,
+          equipped: true,
+          attuned
+        }
+      ]
+    };
+  }
+
+  it('attuned mantle lands {ability: all, sourcePredicate: spell} on savesAdvantageSourceQualified', () => {
+    const d = derive(charWithMantle(true), lookupOnly(MANTLE));
+    expect(d.stats.savesAdvantageSourceQualified.length).toBe(1);
+    expect(d.stats.savesAdvantageSourceQualified[0]).toMatchObject({
+      ability: 'all',
+      sourcePredicate: { kind: 'spell' }
+    });
+    expect(d.stats.savesAdvantageSourceQualified[0].sourceContent).toEqual({
+      kind: 'item',
+      slug: MANTLE.slug
+    });
+    // The unconditional per-ability advantage flags stay false — the
+    // narrowing lives in the qualified entry.
+    for (const ab of ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const) {
+      expect(d.stats.saves[ab].advantage).toBe(false);
+    }
+  });
+
+  it('unattuned mantle contributes nothing (attunement gate)', () => {
+    const d = derive(charWithMantle(false), lookupOnly(MANTLE));
+    expect(d.stats.savesAdvantageSourceQualified).toEqual([]);
+  });
+});
