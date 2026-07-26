@@ -1062,6 +1062,11 @@ export interface ActivationDeclaration {
   id: string;
   name: string;
   description?: string;
+  /** Inventory-state gate for item-sourced activations. `requires:
+   *  'equipped:attuned'` hides the activation until the item's slot is
+   *  attuned; `'equipped'` (or absence, on a non-attunement item) is the
+   *  baseline. See derive.ts itemRequirementMet for full semantics. */
+  appliesWhen?: { requires?: string };
   /** Action economy cost to activate. Display-only — the planner uses
    *  this to surface "BA to start" in the activation panel. */
   cost?: 'action' | 'bonus' | 'reaction' | 'free' | 'none';

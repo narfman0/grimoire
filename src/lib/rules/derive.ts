@@ -56,6 +56,50 @@ interface ActiveContent {
   ref: ContentRef;
   row: ContentRow;
   data: Record<string, unknown>;
+  /** For item-sourced entries: the originating inventory slot's state.
+   *  Carried so appliesWhen.requires gates ('equipped:attuned') and the
+   *  requiresAttunement wholesale rule can be evaluated per entry.
+   *  Absent for every non-item source. */
+  inventorySlot?: { equipped: boolean; attuned: boolean };
+}
+
+/** Gate for item-sourced content entries (modifiers, triggers,
+ *  activities, activations, charge pools) against the originating
+ *  inventory slot.
+ *
+ *  `appliesWhen.requires` values:
+ *    - 'equipped'         — satisfied whenever the item is equipped (the
+ *      baseline: only equipped items produce refs at all).
+ *    - 'equipped:attuned' — additionally requires the slot to be attuned.
+ *    - 'equipped:offHand' — v1: treated as plain 'equipped'. There is no
+ *      hand model yet; when one lands, this should also check the slot's
+ *      hand assignment.
+ *  Unknown requires strings are treated as satisfied (fail-open, matching
+ *  the engine's forward-compat posture).
+ *
+ *  Additionally, an item row with `data.requiresAttunement: true` whose
+ *  slot is NOT attuned is inert wholesale — every entry is skipped UNLESS
+ *  the entry explicitly declares `requires: 'equipped'` (rare: a property
+ *  that works while merely holding the unattuned item). Non-item sources
+ *  (no inventory slot) always pass. */
+function itemRequirementMet(source: ActiveContent, appliesWhen: unknown): boolean {
+  const slot = source.inventorySlot;
+  if (!slot) return true;
+  const requires = (appliesWhen as { requires?: unknown } | null | undefined)?.requires;
+  if (requires === 'equipped:attuned') return slot.attuned === true;
+  if (source.data.requiresAttunement === true && !slot.attuned) {
+    return requires === 'equipped';
+  }
+  return true;
+}
+
+/** An active row's `activities[]` minus entries whose
+ *  appliesWhen.requires gate is unmet (see itemRequirementMet). Rows
+ *  without an inventory slot pass through untouched. */
+function gatedActivities(a: ActiveContent): Array<Record<string, unknown>> {
+  const acts = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+  if (!a.inventorySlot) return acts;
+  return acts.filter((act) => itemRequirementMet(a, act.appliesWhen));
 }
 
 /** Validate an authored `sourcePredicate` field on a stat-modifier row
@@ -362,7 +406,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const totalLevel = character.classes.reduce((acc, c) => acc + c.level, 0);
   const proficiencyBonus = proficiencyBonusFor(totalLevel || 1);
 
-  const refs: Array<{ ref: ContentRef; sourceKind: string }> = [];
+  const refs: Array<{
+    ref: ContentRef;
+    sourceKind: string;
+    /** Originating inventory slot state, for item refs only. */
+    slot?: { equipped: boolean; attuned: boolean };
+  }> = [];
   refs.push({ ref: character.species, sourceKind: 'species' });
   if (character.subspecies) refs.push({ ref: character.subspecies, sourceKind: 'subspecies' });
   if (character.background) refs.push({ ref: character.background, sourceKind: 'background' });
@@ -374,11 +423,14 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   for (const f of character.feats) refs.push({ ref: f, sourceKind: 'feat' });
 
   // Items (each inventory slot points to a content row by (kind, slug)).
+  // The slot's equipped/attuned state rides along so attunement gates
+  // (appliesWhen.requires) can be evaluated per active entry.
   for (const slot of character.inventory) {
     if (!slot.equipped) continue;
     refs.push({
       ref: { kind: slot.contentKind, slug: slot.contentSlug, version: slot.version },
-      sourceKind: 'item'
+      sourceKind: 'item',
+      slot: { equipped: slot.equipped, attuned: slot.attuned === true }
     });
   }
 
@@ -414,7 +466,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   const active: ActiveContent[] = [];
   const validations: ValidationIssue[] = [];
-  for (const { ref } of refs) {
+  for (const { ref, slot } of refs) {
     const row = content(ref);
     if (!row) {
       validations.push({
@@ -424,7 +476,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       });
       continue;
     }
-    active.push({ ref, row, data: row.data });
+    active.push({ ref, row, data: row.data, ...(slot ? { inventorySlot: slot } : {}) });
   }
 
   // Walk active content and pull in any feature slugs they reference.
@@ -617,6 +669,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   for (const a of active) {
     const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
     for (let i = 0; i < mods.length; i++) {
+      // Attunement / requires gate: item-sourced modifiers whose
+      // appliesWhen.requires is unmet (or whose attunement item isn't
+      // attuned) never enter allMods, so every downstream consumer
+      // (applyTarget, applyActionModifiers, resistances, senses, the
+      // item-bonus reroute) sees a consistent view.
+      if (!itemRequirementMet(a, mods[i].appliesWhen)) continue;
       classifyModifier(
         mods[i],
         {
@@ -631,6 +689,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     const triggers = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
     for (let i = 0; i < triggers.length; i++) {
       const t = triggers[i];
+      if (!itemRequirementMet(a, t.appliesWhen)) continue;
       allMods.push({
         id: (t.id as string) ?? `${a.row.kind}/${a.row.slug}/trig/${i}`,
         kind: 'trigger',
@@ -1070,6 +1129,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (!Array.isArray(decls)) continue;
     for (const decl of decls) {
       if (!decl || typeof decl.id !== 'string' || typeof decl.condition !== 'string') continue;
+      // Attunement / requires gate — item activations (e.g. a cloak's
+      // toggled effect) don't surface while the gate is unmet.
+      if (!itemRequirementMet(a, decl.appliesWhen)) continue;
       const state = charActivations[decl.id];
       // Rest-pick activations: the activation is "active" whenever a
       // variant is recorded on state. The recorded pick survives until
@@ -1771,7 +1833,10 @@ function assembleActivities(s: DerivePhaseState): void {
   const charCritExtraDie = applyTarget(allMods, character, 'crit.extra-weapon-die', 0, ctx);
 
   for (const a of active) {
-    let activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+    // Attunement / requires gate filters item activities; an unattuned
+    // attunement weapon falls back to the synthesized plain weapon
+    // attack below (it still swings as a mundane weapon).
+    let activities = gatedActivities(a);
     if (activities.length === 0 && a.row.kind === 'item') {
       const synth = synthesizeWeaponActivity(a.row.slug, a.row.name, a.data);
       if (synth) activities = [synth];
@@ -1979,7 +2044,9 @@ function collectResources(
   const resources: Resource[] = [];
   const spent = character.resourcesSpent ?? {};
   for (const a of active) {
-    const activities = (a.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+    // Attunement / requires gate mirrors assembleActivities — an
+    // activity that produced no Action must not emit a Resource either.
+    const activities = gatedActivities(a);
     for (const act of activities) {
       const uses = act.uses as { max?: number | string | object; per?: string } | undefined;
       if (uses?.max == null || !uses.per) continue;
@@ -2004,7 +2071,7 @@ function collectResources(
     // normalizeItemCharges for the accepted authoring shapes). The id is
     // stable (`item/<slug>/charges`) so `resourcesSpent` round-trips
     // through the existing PATCH path.
-    if (a.row.kind === 'item') {
+    if (a.row.kind === 'item' && itemRequirementMet(a, undefined)) {
       const pool = normalizeItemCharges(a.data);
       if (pool) {
         const id = `item/${a.row.slug}/charges`;
@@ -2026,6 +2093,7 @@ function collectResources(
     // Endurance "1/long rest", Chronal Shift "2/long rest", etc.
     const triggerList = (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? [];
     for (const t of triggerList) {
+      if (!itemRequirementMet(a, t.appliesWhen)) continue;
       const limit = t.limit as { per?: string; uses?: number | string | object } | undefined;
       if (!limit?.per || limit.uses == null) continue;
       const maxRaw = evaluateValue(limit.uses, ctx);
