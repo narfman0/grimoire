@@ -26,27 +26,42 @@ export const campaigns = sqliteTable('campaigns', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 });
 
-export const characters = sqliteTable('characters', {
-  id: text('id').primaryKey(),
-  campaignId: text('campaign_id')
-    .references(() => campaigns.id), // nullable: standalone characters have no home campaign
-  ownerUserId: text('owner_user_id'), // FK to users.id; nullable for legacy/test rows pre-auth
-  name: text('name').notNull(),
-  slug: text('slug'), // url-safe character name for human-readable URLs; null until assigned
-  document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
-});
+export const characters = sqliteTable(
+  'characters',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .references(() => campaigns.id), // nullable: standalone characters have no home campaign
+    ownerUserId: text('owner_user_id'), // FK to users.id; nullable for legacy/test rows pre-auth
+    name: text('name').notNull(),
+    slug: text('slug'), // url-safe character name for human-readable URLs; null until assigned
+    document: text('document'), // JSON CharacterDocument (rules-engine input); nullable until M2 makes it required
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byOwner: index('characters_owner').on(t.ownerUserId),
+    // Uniqueness per owner backs the create-time slug allocator (the LIKE
+    // scan alone was racy). SQLite allows multiple NULL slugs.
+    ownerSlug: uniqueIndex('characters_owner_slug').on(t.ownerUserId, t.slug)
+  })
+);
 
-export const notes = sqliteTable('notes', {
-  id: text('id').primaryKey(),
-  campaignId: text('campaign_id')
-    .notNull()
-    .references(() => campaigns.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  body: text('body').notNull().default(''),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
-});
+export const notes = sqliteTable(
+  'notes',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byCampaign: index('notes_campaign').on(t.campaignId)
+  })
+);
 
 // ---------------------------------------------------------------------------
 // Content catalog (M1.5) — see docs/content-model.md + docs/content-distribution.md.
@@ -217,7 +232,9 @@ export const campaignMembers = sqliteTable(
     joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.campaignId, t.userId] })
+    pk: primaryKey({ columns: [t.campaignId, t.userId] }),
+    // "campaigns this user belongs to" — the membership list query.
+    byUser: index('campaign_members_user').on(t.userId)
   })
 );
 
@@ -246,7 +263,9 @@ export const campaignCharacters = sqliteTable(
     addedAt: integer('added_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.campaignId, t.characterId] })
+    pk: primaryKey({ columns: [t.campaignId, t.characterId] }),
+    // "campaigns this character is linked to" — the character-access join.
+    byCharacter: index('campaign_characters_character').on(t.characterId)
   })
 );
 
@@ -284,7 +303,9 @@ export const encounters = sqliteTable('encounters', {
   endedAt: integer('ended_at', { mode: 'timestamp_ms' })
 });
 
-export const participants = sqliteTable('participants', {
+export const participants = sqliteTable(
+  'participants',
+  {
   id: text('id').primaryKey(),
   encounterId: text('encounter_id')
     .notNull()
@@ -317,9 +338,14 @@ export const participants = sqliteTable('participants', {
    *  PCs default to all-true; monster/npc default to all-false. Server
    *  load layers filter player-facing data based on these flags. See
    *  $lib/realtime/reveals.ts. */
-  revealsJson: text('reveals_json').notNull().default('{}'),
-  sortOrder: integer('sort_order').notNull().default(0)
-});
+    revealsJson: text('reveals_json').notNull().default('{}'),
+    sortOrder: integer('sort_order').notNull().default(0)
+  },
+  (t) => ({
+    // WHERE clause of the 2-second /state poll and every encounter load.
+    byEncounter: index('participants_encounter').on(t.encounterId)
+  })
+);
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;

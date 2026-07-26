@@ -1,0 +1,48 @@
+# Staging app: migrations meet a copy of prod data here before prod does.
+# Deploy manually (never from CI):
+#   fly deploy -c fly.staging.toml --remote-only
+# Reseed from prod:
+#   fly ssh console -a grimoire-wispy-fog-2051 -C "node -e \"require('/app/node_modules/better-sqlite3')('/data/grimoire.db',{readonly:true}).exec(\\\"VACUUM INTO '/data/prod-pull.db'\\\")\""
+#   fly ssh sftp get /data/prod-pull.db /tmp/prod-pull.db -a grimoire-wispy-fog-2051
+#   fly ssh sftp shell -a grimoire-staging-wispy-fog  (put /tmp/prod-pull.db /data/incoming.db)
+#   fly ssh console -a grimoire-staging-wispy-fog -C "sh -c 'cp /data/incoming.db /data/grimoire.db && rm -f /data/grimoire.db-wal /data/grimoire.db-shm'"
+#   fly machine restart <id> -a grimoire-staging-wispy-fog
+# min_machines_running = 0 → scales to zero when idle; cost is ~the 1GB volume.
+
+app = 'grimoire-staging-wispy-fog'
+primary_region = 'iad'
+
+[build]
+
+[env]
+  DATABASE_URL = '/data/grimoire.db'
+  NODE_ENV = 'production'
+  BODY_SIZE_LIMIT = '10485760'
+
+[[mounts]]
+  source = 'grimoire_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 100
+    soft_limit = 80
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/api/health'
+
+[[vm]]
+  memory = '512mb'
+  cpus = 1
+  memory_mb = 512
