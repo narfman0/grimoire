@@ -42,6 +42,7 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@asteasolutions/zod-to-openapi": "^8.5.0",
     "@sentry/sveltekit": "^10.53.1",
     "better-sqlite3": "^11.1.0",

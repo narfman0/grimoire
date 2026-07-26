@@ -102,6 +102,7 @@ Two layers, both automatic once configured:
 | `SENTRY_DSN` | no | Server-side error monitoring (unhandled exceptions, 500s); Sentry is disabled when unset |
 | `PUBLIC_SENTRY_DSN` | no | Client-side error monitoring; typically the same DSN as `SENTRY_DSN` |
 | `LOG_LEVEL` | no | Structured log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`); defaults to `info` in production |
+| `ANTHROPIC_API_KEY` | no | Enables AI features (map/statblock ingestion, turn suggestions); when unset, `/api/ai/*` returns 501 and the UI hides AI entry points |
 
 **Single-instance only:** Grimoire uses SQLite and an in-process rate-limit store. Run one container. Multiple replicas would conflict on the SQLite file. The path to horizontal scaling is Postgres + a distributed rate-limit store — the Drizzle schema is intentionally kept portable for that migration.
 

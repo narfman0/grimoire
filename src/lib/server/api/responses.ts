@@ -219,6 +219,16 @@ export const NotificationList = z
   .openapi('NotificationList');
 
 // ---------------------------------------------------------------------------
+// AI
+// ---------------------------------------------------------------------------
+
+/** GET /api/ai/status — feature flag + model. `model` is null when AI is
+ *  not configured (ANTHROPIC_API_KEY unset). */
+export const AiStatus = z
+  .object({ enabled: z.boolean(), model: z.string().nullable() })
+  .openapi('AiStatus');
+
+// ---------------------------------------------------------------------------
 // Admin
 // ---------------------------------------------------------------------------
 
