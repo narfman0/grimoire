@@ -294,6 +294,13 @@ export interface SkillCell {
   ability: AbilityKey;
   proficient: boolean;
   expertise: boolean;
+  /** Advantage on checks with this skill. Set by `skill.advantage.<slug>`
+   *  / `skill.advantage.all` modifiers, by `check.advantage.<ability>` on
+   *  the governing ability, or by equipped armor's `stealthDisadvantage`
+   *  (disadvantage side). Both flags can be true simultaneously — derive
+   *  just reports; they cancel at roll time (the runtime's business). */
+  advantage: boolean;
+  disadvantage: boolean;
 }
 
 export interface StatBlock {
@@ -393,6 +400,12 @@ export interface StatBlock {
   /** Any attack that hits this creature within 5 ft is a Critical Hit
    *  (Paralyzed, Petrified, Unconscious). Read by the encounter layer. */
   attackedWithin5ftAutoCrit: boolean;
+  /** Raw ability-check advantage state per ability, from
+   *  `check.advantage.<ab>` / `check.disadvantage.<ab>` modifiers.
+   *  Skill cells of the ability already fold this in; this record is for
+   *  raw (non-skill) checks. 'both' means both flags were granted — they
+   *  cancel at roll time. Abilities with neither flag are absent. */
+  abilityCheckAdvantage: Partial<Record<AbilityKey, 'advantage' | 'disadvantage' | 'both'>>;
 }
 
 /** A single source-qualified save-advantage entry. Either an `ability`

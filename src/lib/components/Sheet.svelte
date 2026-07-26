@@ -8,7 +8,16 @@
     stats: {
       abilities: Record<string, { score: number; mod: number }>;
       saves: Record<string, { bonus: number; proficient: boolean }>;
-      skills: Record<string, { bonus: number; proficient: boolean; expertise: boolean }>;
+      skills: Record<
+        string,
+        {
+          bonus: number;
+          proficient: boolean;
+          expertise: boolean;
+          advantage?: boolean;
+          disadvantage?: boolean;
+        }
+      >;
       ac: number;
       hp: { current: number; max: number; temp: number };
       speeds: Record<string, number>;
@@ -123,6 +132,11 @@
           <span class={skill.proficient ? 'font-semibold text-emerald-300' : 'text-slate-400'}>
             {skill.proficient ? '●' : '○'}
             <span class="capitalize">{name.replace(/-/g, ' ')}</span>
+            {#if skill.advantage && !skill.disadvantage}
+              <span class="ml-1 rounded bg-emerald-900/50 px-1 text-[10px] uppercase text-emerald-300">adv</span>
+            {:else if skill.disadvantage && !skill.advantage}
+              <span class="ml-1 rounded bg-red-900/50 px-1 text-[10px] uppercase text-red-300">dis</span>
+            {/if}
           </span>
           <span class="font-mono">{fmt(skill.bonus)}</span>
         </li>

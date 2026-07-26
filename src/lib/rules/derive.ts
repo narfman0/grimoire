@@ -1511,6 +1511,47 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const halfProfBonus = allMods.some(
     (m) => m.kind === 'stat-modifier' && m.raw.target === 'skill.half-proficiency-bonus' && m.raw.value === true
   ) ? Math.floor(proficiencyBonus / 2) : 0;
+  // Skill + ability-check advantage channels. Boolean targets (value true):
+  //   skill.advantage.<slug> / skill.disadvantage.<slug>
+  //   skill.advantage.all    / skill.disadvantage.all
+  //   check.advantage.<ab>   / check.disadvantage.<ab>  — every skill of
+  //     that ability, plus recorded on stats.abilityCheckAdvantage for
+  //     raw checks.
+  // Numeric target: check.bonus.<ab> — added to every skill of that
+  // ability (initiative deliberately stays separate; it has its own
+  // `initiative` target).
+  // Both advantage and disadvantage can end up true — derive reports both;
+  // cancellation is the roll-time runtime's business.
+  const skillAdvantage = new Set<string>();
+  const skillDisadvantage = new Set<string>();
+  const checkAdvantage = new Set<AbilityKey>();
+  const checkDisadvantage = new Set<AbilityKey>();
+  const checkBonus: Partial<Record<AbilityKey, number>> = {};
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier') continue;
+    const t = m.raw.target;
+    if (typeof t !== 'string') continue;
+    if (m.raw.value === true) {
+      if (t === 'skill.advantage.all') for (const s of SKILLS) skillAdvantage.add(s);
+      else if (t === 'skill.disadvantage.all') for (const s of SKILLS) skillDisadvantage.add(s);
+      else if (t.startsWith('skill.advantage.')) skillAdvantage.add(t.slice('skill.advantage.'.length));
+      else if (t.startsWith('skill.disadvantage.')) skillDisadvantage.add(t.slice('skill.disadvantage.'.length));
+      else if (t.startsWith('check.advantage.')) {
+        const ab = t.slice('check.advantage.'.length) as AbilityKey;
+        if ((ABILITIES as readonly string[]).includes(ab)) checkAdvantage.add(ab);
+      } else if (t.startsWith('check.disadvantage.')) {
+        const ab = t.slice('check.disadvantage.'.length) as AbilityKey;
+        if ((ABILITIES as readonly string[]).includes(ab)) checkDisadvantage.add(ab);
+      }
+    }
+    if (t.startsWith('check.bonus.')) {
+      const ab = t.slice('check.bonus.'.length) as AbilityKey;
+      if ((ABILITIES as readonly string[]).includes(ab)) {
+        const v = evaluateValue(m.raw.value, ctx);
+        if (typeof v === 'number') checkBonus[ab] = (checkBonus[ab] ?? 0) + v;
+      }
+    }
+  }
   const skills: Record<string, SkillCell> = {};
   for (const skill of SKILLS) {
     const ability = SKILL_ABILITY[skill];
@@ -1520,8 +1561,25 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       abilities[ability].mod +
       (proficient ? proficiencyBonus : halfProfBonus) +
       (expertise && proficient ? proficiencyBonus : 0);
-    const bonus = applyTarget(allMods, character, `skill.${skill}`, base, ctx) as number;
-    skills[skill] = { bonus, ability, proficient, expertise };
+    const bonus =
+      (applyTarget(allMods, character, `skill.${skill}`, base, ctx) as number) +
+      (checkBonus[ability] ?? 0);
+    skills[skill] = {
+      bonus,
+      ability,
+      proficient,
+      expertise,
+      advantage: skillAdvantage.has(skill) || checkAdvantage.has(ability),
+      disadvantage: skillDisadvantage.has(skill) || checkDisadvantage.has(ability)
+    };
+  }
+  const abilityCheckAdvantage: StatBlock['abilityCheckAdvantage'] = {};
+  for (const ab of ABILITIES) {
+    const adv = checkAdvantage.has(ab);
+    const dis = checkDisadvantage.has(ab);
+    if (adv && dis) abilityCheckAdvantage[ab] = 'both';
+    else if (adv) abilityCheckAdvantage[ab] = 'advantage';
+    else if (dis) abilityCheckAdvantage[ab] = 'disadvantage';
   }
 
   // (f.5) Languages + tools + armor/weapon proficiencies — explicit picks
@@ -1690,6 +1748,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // Passive Perception per RAW: 10 + Perception bonus, +5 with advantage
+  // on the check, −5 with disadvantage. Simultaneous adv+dis cancel.
+  const perceptionCell = skills.perception;
+  const passivePerception =
+    10 +
+    perceptionCell.bonus +
+    (perceptionCell.advantage && !perceptionCell.disadvantage ? 5 : 0) -
+    (perceptionCell.disadvantage && !perceptionCell.advantage ? 5 : 0);
+
   const stats: StatBlock = {
     abilities,
     saves,
@@ -1707,7 +1774,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     ),
     savesAdvantageVs: [...savesAdvantageVs].sort(),
     savesDisadvantageVs: [...savesDisadvantageVs].sort(),
-    passivePerception: 10 + skills.perception.bonus,
+    passivePerception,
     spellSaveDC: spellInfo.dc,
     spellAttackBonus: spellInfo.attack,
     spellcastingAbility: spellInfo.ability,
@@ -1749,7 +1816,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         m.kind === 'stat-modifier' &&
         m.raw.target === 'tag.attacked-within-5ft-auto-crit' &&
         m.raw.value === true
-    )
+    ),
+    abilityCheckAdvantage
   };
 
   const phase: DerivePhaseState = {
