@@ -5,12 +5,13 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { CampaignCode } from '$lib/server/api/schemas';
 import { parseParams } from '$lib/server/api/validate';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
 
 export const POST: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
 
   const rows = await db
@@ -27,7 +28,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     .where(
       and(
         eq(schema.campaignMembers.campaignId, campaignId),
-        eq(schema.campaignMembers.userId, locals.user.id)
+        eq(schema.campaignMembers.userId, user.id)
       )
     )
     .limit(1);
@@ -35,7 +36,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   if (existing.length === 0) {
     await db.insert(schema.campaignMembers).values({
       campaignId,
-      userId: locals.user.id,
+      userId: user.id,
       role: 'player',
       status: 'pending',
       joinedAt: new Date()
@@ -51,7 +52,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       .where(
         and(
           eq(schema.campaignMembers.campaignId, campaignId),
-          eq(schema.campaignMembers.userId, locals.user.id)
+          eq(schema.campaignMembers.userId, user.id)
         )
       );
     return json({ campaignId, status: 'pending' });

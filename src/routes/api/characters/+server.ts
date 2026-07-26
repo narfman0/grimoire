@@ -5,31 +5,15 @@ import { db, schema } from '$lib/server/db';
 import { CampaignCode, CreateCharacterRequest } from '$lib/server/api/schemas';
 import { parseJson, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCode } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeCharacter } from '$lib/server/serializers';
 import { slugify } from '$lib/rules/slug';
 import type { RequestHandler } from './$types';
 
 const ListQuery = z.object({ campaign: CampaignCode.optional() });
 
-function serializeCharacter(r: {
-  id: string;
-  campaignId: string | null;
-  ownerUserId: string | null;
-  name: string;
-  document: string | null;
-  updatedAt: Date;
-}) {
-  return {
-    id: r.id,
-    campaignId: r.campaignId,
-    ownerUserId: r.ownerUserId,
-    name: r.name,
-    document: r.document ? JSON.parse(r.document) : null,
-    updatedAt: r.updatedAt.getTime()
-  };
-}
-
 export const GET: RequestHandler = async ({ url, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { campaign } = parseSearch(url, ListQuery);
 
   const characterColumns = {
@@ -48,7 +32,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     const own = await db
       .select(characterColumns)
       .from(schema.characters)
-      .where(eq(schema.characters.ownerUserId, locals.user.id));
+      .where(eq(schema.characters.ownerUserId, user.id));
     const shared = await db
       .select(characterColumns)
       .from(schema.characters)
@@ -60,7 +44,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         schema.campaignMembers,
         and(
           eq(schema.campaignMembers.campaignId, schema.campaignCharacters.campaignId),
-          eq(schema.campaignMembers.userId, locals.user.id),
+          eq(schema.campaignMembers.userId, user.id),
           eq(schema.campaignMembers.status, 'approved')
         )
       );
@@ -69,7 +53,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     return json({ characters: rows.map(serializeCharacter) });
   }
 
-  const m = await getMembershipByCode(locals.user.id, campaign);
+  const m = await getMembershipByCode(user.id, campaign);
   if (!m) throw error(403, 'not a member of this campaign');
 
   const rows = await db
@@ -85,12 +69,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { campaignCode, name, document } = await parseJson(request, CreateCharacterRequest);
 
   let campaignId: string | null = null;
   if (campaignCode) {
-    const m = await getMembershipByCode(locals.user.id, campaignCode);
+    const m = await getMembershipByCode(user.id, campaignCode);
     if (!m) throw error(403, 'not a member of this campaign');
     campaignId = m.campaignId;
   }
@@ -102,12 +86,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const existing = await db
     .select({ slug: schema.characters.slug })
     .from(schema.characters)
-    .where(and(eq(schema.characters.ownerUserId, locals.user.id), like(schema.characters.slug, `${baseSlug}%`)));
+    .where(and(eq(schema.characters.ownerUserId, user.id), like(schema.characters.slug, `${baseSlug}%`)));
   const taken = new Set(existing.map((r) => r.slug));
   let slug = baseSlug;
   for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
 
-  const userId = locals.user.id;
+  const userId = user.id;
   await db.transaction((tx) => {
     tx.insert(schema.characters)
       .values({
@@ -132,14 +116,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   });
 
-  return json({
-    id,
-    campaignId,
-    ownerUserId: locals.user.id,
-    name,
-    document: document ? { ...document, id } : null,
-    updatedAt: now.getTime()
-  });
+  return json(
+    {
+      id,
+      campaignId,
+      ownerUserId: user.id,
+      name,
+      document: document ? { ...document, id } : null,
+      updatedAt: now.getTime()
+    },
+    { status: 201 }
+  );
 };
 
 export const _openapi = {

@@ -18,6 +18,8 @@ import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { PackSlug, Visibility } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializePack } from '$lib/server/serializers';
 import type { RequestHandler } from './$types';
 
 /** Slugs the user can never create/delete; they're system-owned and the
@@ -35,23 +37,8 @@ export const _PackCreateBody = z.object({
 });
 export type PackCreateBody = z.infer<typeof _PackCreateBody>;
 
-function serialize(p: typeof schema.packs.$inferSelect, rowCount: number) {
-  return {
-    slug: p.slug,
-    name: p.name,
-    description: p.description,
-    ownerUserId: p.ownerUserId,
-    visibility: p.visibility,
-    version: p.version,
-    edition: p.edition,
-    rowCount,
-    createdAt: p.createdAt.getTime(),
-    updatedAt: p.updatedAt ? p.updatedAt.getTime() : null
-  };
-}
-
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, _PackCreateBody);
 
   if (_SYSTEM_PACK_SLUGS.has(body.slug)) {
@@ -77,9 +64,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       version: body.version,
       defaultSource: body.slug,
       loadedAt: now,
-      author: locals.user.username,
+      author: user.username,
       edition: body.edition ?? null,
-      ownerUserId: locals.user.id,
+      ownerUserId: user.id,
       visibility: body.visibility ?? 'private',
       createdAt: now,
       updatedAt: now
@@ -92,7 +79,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .from(schema.packs)
     .where(eq(schema.packs.slug, body.slug))
     .limit(1);
-  return json(serialize(row, 0), { status: 201 });
+  return json(serializePack(row, 0), { status: 201 });
 };
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -149,7 +136,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
   return json({
     items: rows
-      .map((p) => serialize(p, countBySlug.get(p.slug) ?? 0))
+      .map((p) => serializePack(p, countBySlug.get(p.slug) ?? 0))
       .sort((a, b) => a.name.localeCompare(b.name))
   });
 };

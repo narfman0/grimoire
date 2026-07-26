@@ -11,13 +11,14 @@ import { Uuid } from '$lib/server/api/schemas';
 import { ReportResolve } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { logger } from '$lib/server/logger';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
 
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  if (!locals.user.isAdmin) throw error(403, 'admin only');
+  const user = requireUser(locals);
+  if (!user.isAdmin) throw error(403, 'admin only');
 
   const { id } = parseParams(params, Params);
   const body = await parseJson(request, ReportResolve);
@@ -30,7 +31,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
   if (report.resolvedAt) throw error(409, 'report is already resolved');
 
   const now = new Date();
-  const resolverUserId = locals.user.id;
+  const resolverUserId = user.id;
   // Resolve + takedown must land together — a resolved report whose
   // takedown failed would leave reported content public with no open
   // report pointing at it.

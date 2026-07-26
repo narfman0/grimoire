@@ -11,6 +11,7 @@ import { parseJson } from '$lib/server/api/validate';
 import { HomebrewCreate, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_SOURCE = 'homebrew';
@@ -31,7 +32,7 @@ function serialize(r: typeof schema.content.$inferSelect) {
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const kind = params.kind!;
   if (!homebrewSchemaFor(kind)) throw error(400, `unknown content kind: ${kind}`);
 
@@ -39,7 +40,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     .select()
     .from(schema.content)
     .where(
-      and(eq(schema.content.kind, kind), eq(schema.content.ownerUserId, locals.user.id))
+      and(eq(schema.content.kind, kind), eq(schema.content.ownerUserId, user.id))
     );
   return json({
     items: rows.map(serialize).sort((a, b) => a.name.localeCompare(b.name))
@@ -47,7 +48,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const kind = params.kind!;
   const dataSchema = homebrewSchemaFor(kind);
   if (!dataSchema) throw error(400, `unknown content kind: ${kind}`);
@@ -73,14 +74,14 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
       and(
         eq(schema.content.kind, kind),
         eq(schema.content.slug, envelope.slug),
-        eq(schema.content.ownerUserId, locals.user.id)
+        eq(schema.content.ownerUserId, user.id)
       )
     )
     .limit(1);
   if (existing.length > 0)
     throw error(409, `you already have a ${kind} with slug "${envelope.slug}"`);
 
-  const packSlug = await resolvePackSlugForCreate(envelope.packSlug, locals.user.id);
+  const packSlug = await resolvePackSlugForCreate(envelope.packSlug, user.id);
   // When the row lands in a user-owned pack, stamp its source so the pack's
   // export round-trips the slug accurately. Fast-path bucket keeps the
   // legacy 'homebrew' source for backward compat with existing rows.
@@ -94,7 +95,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     version: 1,
     source,
     scopeId: null,
-    ownerUserId: locals.user.id,
+    ownerUserId: user.id,
     packSlug,
     name: envelope.name,
     data: JSON.stringify(dataParsed.data),

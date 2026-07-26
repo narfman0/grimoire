@@ -15,9 +15,10 @@
 // roundtrip; users who want a richer manifest can edit `meta` themselves
 // before re-importing.
 
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 interface ExportRow {
@@ -38,8 +39,8 @@ interface ExportMeta {
 }
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  const ownerUserId = locals.user.id;
+  const user = requireUser(locals);
+  const ownerUserId = user.id;
 
   const kindFilter = url.searchParams.get('kind');
   const sourceFilter = url.searchParams.get('source');
@@ -68,10 +69,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
   const meta: ExportMeta = {
     slug: defaultSource,
-    name: locals.user.username ? `${locals.user.username}'s homebrew` : 'homebrew',
+    name: user.username ? `${user.username}'s homebrew` : 'homebrew',
     version: '1',
     default_source: defaultSource,
-    author: locals.user.username ?? undefined
+    author: user.username ?? undefined
   };
 
   const outRows: ExportRow[] = rows

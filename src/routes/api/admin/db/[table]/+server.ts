@@ -4,6 +4,7 @@ import { sqlite } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { logger } from '$lib/server/logger';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 type ColInfo = { name: string };
@@ -25,9 +26,9 @@ const DeleteRequest = z.object({ rowid: z.number().int() });
 const InsertRequest = z.record(z.string(), z.unknown());
 
 function requireAdmin(locals: App.Locals) {
-  if (!locals.user) throw error(401, 'login required');
-  if (!locals.user.isAdmin) throw error(403, 'admin only');
-  return locals.user;
+  const user = requireUser(locals);
+  if (!user.isAdmin) throw error(403, 'admin only');
+  return user;
 }
 
 function validateTable(name: string) {

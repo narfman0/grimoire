@@ -17,10 +17,11 @@ import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { PublishBody, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const kind = params.kind!;
   const slug = params.slug!;
   if (!homebrewSchemaFor(kind)) throw error(400, `unknown content kind: ${kind}`);
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
       and(
         eq(schema.content.kind, kind),
         eq(schema.content.slug, slug),
-        eq(schema.content.ownerUserId, locals.user.id)
+        eq(schema.content.ownerUserId, user.id)
       )
     )
     .orderBy(desc(schema.content.version))
@@ -70,7 +71,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
       and(
         eq(schema.homebrewSubscriptions.contentKind, kind),
         eq(schema.homebrewSubscriptions.contentSlug, slug),
-        eq(schema.homebrewSubscriptions.authorUserId, locals.user.id)
+        eq(schema.homebrewSubscriptions.authorUserId, user.id)
       )
     );
 
@@ -82,7 +83,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
       type: 'homebrew_version_published',
       contentKind: kind,
       contentSlug: slug,
-      authorUserId: locals.user!.id,
+      authorUserId: user.id,
       fromVersion: s.pinnedVersion,
       toVersion: latest.version,
       readAt: null,

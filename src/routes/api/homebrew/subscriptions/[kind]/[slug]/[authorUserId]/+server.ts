@@ -10,16 +10,17 @@ import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { SubscriptionPinPatch } from '$lib/server/content/schemas';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
 
   await db
     .delete(schema.homebrewSubscriptions)
     .where(
       and(
-        eq(schema.homebrewSubscriptions.userId, locals.user.id),
+        eq(schema.homebrewSubscriptions.userId, user.id),
         eq(schema.homebrewSubscriptions.contentKind, params.kind!),
         eq(schema.homebrewSubscriptions.contentSlug, params.slug!),
         eq(schema.homebrewSubscriptions.authorUserId, params.authorUserId!)
@@ -29,7 +30,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, SubscriptionPinPatch);
 
   // Optional: verify the pinned version actually exists & is published.
@@ -56,7 +57,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     .set({ pinnedVersion: body.pinnedVersion })
     .where(
       and(
-        eq(schema.homebrewSubscriptions.userId, locals.user.id),
+        eq(schema.homebrewSubscriptions.userId, user.id),
         eq(schema.homebrewSubscriptions.contentKind, params.kind!),
         eq(schema.homebrewSubscriptions.contentSlug, params.slug!),
         eq(schema.homebrewSubscriptions.authorUserId, params.authorUserId!)

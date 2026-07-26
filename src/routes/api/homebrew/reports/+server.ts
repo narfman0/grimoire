@@ -6,10 +6,11 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { ReportCreate } from '$lib/server/content/schemas';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, ReportCreate);
 
   // Confirm the content exists before recording a report (avoids dangling
@@ -25,7 +26,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   await db.insert(schema.contentReports).values({
     id,
     contentId: body.contentId,
-    reporterUserId: locals.user.id,
+    reporterUserId: user.id,
     reason: body.reason,
     createdAt: new Date(),
     resolvedAt: null,

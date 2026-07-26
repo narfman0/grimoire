@@ -9,10 +9,11 @@ import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { SubscriptionCreate } from '$lib/server/content/schemas';
 import { latestPublishedVersion } from '$lib/server/content/lookup';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
 
   // Latest *published* version per (kind, slug, owner). Sub-selected with
   // a grouped aggregate so the GET stays one query.
@@ -58,7 +59,7 @@ export const GET: RequestHandler = async ({ locals }) => {
         eq(latestPublished.ownerUserId, schema.homebrewSubscriptions.authorUserId)
       )
     )
-    .where(eq(schema.homebrewSubscriptions.userId, locals.user.id));
+    .where(eq(schema.homebrewSubscriptions.userId, user.id));
 
   // Dedup: the inner-join with `content` (no version filter) produces one
   // row per (subscription, content version). We only need one entry per
@@ -87,9 +88,9 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, SubscriptionCreate);
-  if (body.authorUserId === locals.user.id) {
+  if (body.authorUserId === user.id) {
     throw error(400, "can't subscribe to your own homebrew");
   }
 
@@ -123,7 +124,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const now = new Date();
   try {
     await db.insert(schema.homebrewSubscriptions).values({
-      userId: locals.user.id,
+      userId: user.id,
       contentKind: body.kind,
       contentSlug: body.slug,
       authorUserId: body.authorUserId,

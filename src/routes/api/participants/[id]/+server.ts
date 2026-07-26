@@ -6,6 +6,7 @@ import { UpdateParticipantRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -24,12 +25,12 @@ async function loadWithEncounter(id: string) {
 }
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
   const row = await loadWithEncounter(id);
   if (!row) throw error(404, 'participant not found');
 
-  const role = await getMembershipByCampaignId(locals.user.id, row.enc.campaignId);
+  const role = await getMembershipByCampaignId(user.id, row.enc.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
   // DM only, matching the nested /api/encounters/[id]/participants/[pid]
   // route — every client call site is already gated on role === 'dm'.
@@ -52,11 +53,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
   const row = await loadWithEncounter(id);
   if (!row) throw error(404, 'participant not found');
-  const role = await getMembershipByCampaignId(locals.user.id, row.enc.campaignId);
+  const role = await getMembershipByCampaignId(user.id, row.enc.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
   if (role !== 'dm') throw error(403, 'only the DM can remove participants');
 

@@ -2,12 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const code = params.code.toUpperCase();
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
   if (m.role !== 'dm') throw error(403, 'only the DM can manage content grants');
 
   const [grant] = await db

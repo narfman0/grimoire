@@ -16,6 +16,8 @@ import { handleDbError } from '$lib/server/db/errors';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { PackSlug, Visibility } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializePack } from '$lib/server/serializers';
 import { _SYSTEM_PACK_SLUGS } from '../+server';
 import type { RequestHandler } from './$types';
 
@@ -43,22 +45,6 @@ export const _PackPatchBody = z
     { message: 'at least one field must be provided' }
   );
 export type PackPatchBody = z.infer<typeof _PackPatchBody>;
-
-function serialize(p: typeof schema.packs.$inferSelect, rowCount: number, byKind: Record<string, number>) {
-  return {
-    slug: p.slug,
-    name: p.name,
-    description: p.description,
-    ownerUserId: p.ownerUserId,
-    visibility: p.visibility,
-    version: p.version,
-    edition: p.edition,
-    rowCount,
-    rowCountByKind: byKind,
-    createdAt: p.createdAt.getTime(),
-    updatedAt: p.updatedAt ? p.updatedAt.getTime() : null
-  };
-}
 
 /** Throws 404 if the slug doesn't exist or the caller can't see it. */
 async function loadVisiblePack(
@@ -100,11 +86,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     byKind[r.kind] = n;
     total += n;
   }
-  return json(serialize(pack, total, byKind));
+  return json(serializePack(pack, total, byKind));
 };
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { slug } = parseParams({ slug: params.slug }, Params);
   const body = await parseJson(request, _PackPatchBody);
 
@@ -118,7 +104,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   // Ownership: system packs (null owner) are unrentable; everyone else
   // must match the caller's id.
   if (existing.ownerUserId === null) throw error(403, 'system packs cannot be edited');
-  if (existing.ownerUserId !== locals.user.id) throw error(403, 'not your pack');
+  if (existing.ownerUserId !== user.id) throw error(403, 'not your pack');
 
   const now = new Date();
 
@@ -169,7 +155,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       .from(schema.packs)
       .where(eq(schema.packs.slug, body.newSlug))
       .limit(1);
-    return json(serialize(renamed, 0, {}));
+    return json(serializePack(renamed, 0, {}));
   }
 
   // Pure metadata edit.
@@ -188,11 +174,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   invalidateContentCache();
 
   const [updated] = await db.select().from(schema.packs).where(eq(schema.packs.slug, slug)).limit(1);
-  return json(serialize(updated, 0, {}));
+  return json(serializePack(updated, 0, {}));
 };
 
 export const DELETE: RequestHandler = async ({ params, url, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { slug } = parseParams({ slug: params.slug }, Params);
   const cascade = url.searchParams.get('cascade') === 'true';
 
@@ -207,7 +193,7 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
     .limit(1);
   if (!existing) throw error(404, 'pack not found');
   if (existing.ownerUserId === null) throw error(403, 'system packs cannot be deleted');
-  if (existing.ownerUserId !== locals.user.id) throw error(403, 'not your pack');
+  if (existing.ownerUserId !== user.id) throw error(403, 'not your pack');
 
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)`.as('count') })

@@ -8,6 +8,8 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeNote } from '$lib/server/serializers';
 import { parseJson } from '$lib/server/api/validate';
 import { Uuid, CampaignCode } from '$lib/server/api/schemas';
 import type { RequestHandler } from './$types';
@@ -18,19 +20,8 @@ const CreateNoteRequest = z.object({
   body: z.string().max(50_000).optional().default('')
 });
 
-function serialize(r: typeof schema.notes.$inferSelect) {
-  return {
-    id: r.id,
-    campaignId: r.campaignId,
-    title: r.title,
-    body: r.body,
-    createdAt: r.createdAt.getTime(),
-    updatedAt: r.updatedAt.getTime()
-  };
-}
-
 export const GET: RequestHandler = async ({ url, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const code = url.searchParams.get('campaignCode');
   const parsed = z.object({ campaignCode: CampaignCode }).safeParse({ campaignCode: code });
   if (!parsed.success) throw error(400, 'campaignCode is required');
@@ -42,19 +33,19 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     .limit(1);
   if (camp.length === 0) throw error(404, 'campaign not found');
 
-  const role = await getMembershipByCampaignId(locals.user.id, camp[0].id);
+  const role = await getMembershipByCampaignId(user.id, camp[0].id);
   if (!role) throw error(403, 'not a member of this campaign');
 
   const rows = await db.select().from(schema.notes).where(eq(schema.notes.campaignId, camp[0].id));
   return json({
     notes: rows
-      .map(serialize)
+      .map(serializeNote)
       .sort((a, b) => b.updatedAt - a.updatedAt)
   });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, CreateNoteRequest);
 
   const camp = await db
@@ -64,7 +55,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .limit(1);
   if (camp.length === 0) throw error(404, 'campaign not found');
 
-  const role = await getMembershipByCampaignId(locals.user.id, camp[0].id);
+  const role = await getMembershipByCampaignId(user.id, camp[0].id);
   if (!role) throw error(403, 'not a member of this campaign');
 
   const now = new Date();
@@ -78,7 +69,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   };
   await db.insert(schema.notes).values(row);
   const stored = await db.select().from(schema.notes).where(eq(schema.notes.id, row.id)).limit(1);
-  return json(serialize(stored[0]), { status: 201 });
+  return json(serializeNote(stored[0]), { status: 201 });
 };
 
 export const _openapi = {

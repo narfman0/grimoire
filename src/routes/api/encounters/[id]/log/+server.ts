@@ -21,6 +21,8 @@ import { SubmitActionLogRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeActionLogEntry } from '$lib/server/serializers';
 import { logger } from '$lib/server/logger';
 import {
   buildTriggerEventsFromLog,
@@ -43,29 +45,6 @@ const LogListQuery = z.object({
   offset: z.coerce.number().int().min(0).default(0)
 });
 
-function serialize(r: typeof schema.actionLog.$inferSelect) {
-  return {
-    id: r.id,
-    encounterId: r.encounterId,
-    round: r.round,
-    participantId: r.participantId,
-    targetParticipantId: r.targetParticipantId,
-    actionId: r.actionId,
-    actionLabel: r.actionLabel,
-    submittedByUserId: r.submittedByUserId,
-    submitterRole: r.submitterRole,
-    isAmendment: r.isAmendment,
-    amendsLogId: r.amendsLogId,
-    attackRoll: r.attackRoll,
-    damageRoll: r.damageRoll,
-    hit: r.hit,
-    targetHpBefore: r.targetHpBefore,
-    targetHpAfter: r.targetHpAfter,
-    notes: r.notes,
-    createdAt: r.createdAt.getTime()
-  };
-}
-
 async function requireEncounter(userId: string, encounterId: string) {
   const enc = await db
     .select()
@@ -79,10 +58,10 @@ async function requireEncounter(userId: string, encounterId: string) {
 }
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id: encounterId } = parseParams(params, Params);
   const { limit, offset } = parseSearch(url, LogListQuery);
-  await requireEncounter(locals.user.id, encounterId);
+  await requireEncounter(user.id, encounterId);
   const [{ total }] = await db
     .select({ total: sql<number>`count(*)` })
     .from(schema.actionLog)
@@ -94,13 +73,13 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     .orderBy(asc(schema.actionLog.createdAt))
     .limit(limit)
     .offset(offset);
-  return json({ entries: rows.map(serialize), total: Number(total), limit, offset });
+  return json({ entries: rows.map(serializeActionLogEntry), total: Number(total), limit, offset });
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id: encounterId } = parseParams(params, Params);
-  const { enc, role } = await requireEncounter(locals.user.id, encounterId);
+  const { enc, role } = await requireEncounter(user.id, encounterId);
 
   const body = await parseJson(request, SubmitActionLogRequest);
 
@@ -125,7 +104,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       .from(schema.characters)
       .where(eq(schema.characters.id, part[0].characterId))
       .limit(1);
-    if (!char[0] || char[0].ownerUserId !== locals.user.id) {
+    if (!char[0] || char[0].ownerUserId !== user.id) {
       throw error(403, 'cannot log actions for a character you do not own');
     }
   }
@@ -138,7 +117,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     targetParticipantId: body.targetParticipantId ?? null,
     actionId: body.actionId,
     actionLabel: body.actionLabel,
-    submittedByUserId: locals.user.id,
+    submittedByUserId: user.id,
     submitterRole: role,
     isAmendment: false,
     amendsLogId: null,
@@ -214,13 +193,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     // it. A malformed character doc or content lookup glitch shouldn't
     // prevent the action from being recorded — but it should be visible.
     logger.warn(
-      { err, encounterId, logId: row.id, userId: locals.user.id },
+      { err, encounterId, logId: row.id, userId: user.id },
       'action log: trigger evaluation failed'
     );
     triggerOpportunities = [];
   }
 
-  return json({ ...serialize(stored[0]), triggerOpportunities }, { status: 201 });
+  return json({ ...serializeActionLogEntry(stored[0]), triggerOpportunities }, { status: 201 });
 };
 
 export const _openapi = {

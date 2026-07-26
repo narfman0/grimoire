@@ -17,6 +17,8 @@ import { UpdateActionLogRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeActionLogEntry } from '$lib/server/serializers';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, logId: Uuid });
@@ -44,33 +46,10 @@ async function loadEntry(logId: string, encounterId: string) {
   return rows[0];
 }
 
-function serialize(r: typeof schema.actionLog.$inferSelect) {
-  return {
-    id: r.id,
-    encounterId: r.encounterId,
-    round: r.round,
-    participantId: r.participantId,
-    targetParticipantId: r.targetParticipantId,
-    actionId: r.actionId,
-    actionLabel: r.actionLabel,
-    submittedByUserId: r.submittedByUserId,
-    submitterRole: r.submitterRole,
-    isAmendment: r.isAmendment,
-    amendsLogId: r.amendsLogId,
-    attackRoll: r.attackRoll,
-    damageRoll: r.damageRoll,
-    hit: r.hit,
-    targetHpBefore: r.targetHpBefore,
-    targetHpAfter: r.targetHpAfter,
-    notes: r.notes,
-    createdAt: r.createdAt.getTime()
-  };
-}
-
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id: encounterId, logId } = parseParams(params, Params);
-  await requireDm(locals.user.id, encounterId);
+  await requireDm(user.id, encounterId);
   await loadEntry(logId, encounterId);
 
   const patch = await parseJson(request, UpdateActionLogRequest);
@@ -90,13 +69,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   }
 
   const updated = await loadEntry(logId, encounterId);
-  return json(serialize(updated));
+  return json(serializeActionLogEntry(updated));
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id: encounterId, logId } = parseParams(params, Params);
-  await requireDm(locals.user.id, encounterId);
+  await requireDm(user.id, encounterId);
   await loadEntry(logId, encounterId);
   await db.delete(schema.actionLog).where(eq(schema.actionLog.id, logId));
   return new Response(null, { status: 204 });

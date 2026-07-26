@@ -3,13 +3,14 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const PORTRAITS_DIR = '/data/portraits';
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
 
   const row = await db
     .select({ ownerUserId: schema.characters.ownerUserId })
@@ -19,7 +20,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .then((r) => r[0]);
 
   if (!row) throw error(404, 'character not found');
-  if (row.ownerUserId !== locals.user.id && !locals.user.isAdmin)
+  if (row.ownerUserId !== user.id && !user.isAdmin)
     throw error(403, 'not the owner');
 
   const formData = await request.formData();

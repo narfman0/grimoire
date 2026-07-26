@@ -6,6 +6,8 @@ import { UpdateEncounterRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeEncounter } from '$lib/server/serializers';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -13,19 +15,6 @@ const Params = z.object({ id: Uuid });
 async function loadEncounter(id: string) {
   const rows = await db.select().from(schema.encounters).where(eq(schema.encounters.id, id)).limit(1);
   return rows[0];
-}
-
-function serializeEncounter(r: typeof schema.encounters.$inferSelect) {
-  return {
-    id: r.id,
-    campaignId: r.campaignId,
-    name: r.name,
-    status: r.status,
-    round: r.round,
-    activeParticipantId: r.activeParticipantId,
-    createdAt: r.createdAt.getTime(),
-    endedAt: r.endedAt ? r.endedAt.getTime() : null
-  };
 }
 
 async function requireEncounterAccess(userId: string, encounterId: string) {
@@ -37,9 +26,9 @@ async function requireEncounterAccess(userId: string, encounterId: string) {
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  const { enc } = await requireEncounterAccess(locals.user.id, id);
+  const { enc } = await requireEncounterAccess(user.id, id);
   const parts = await db
     .select()
     .from(schema.participants)
@@ -55,9 +44,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 };
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  const { enc, role } = await requireEncounterAccess(locals.user.id, id);
+  const { enc, role } = await requireEncounterAccess(user.id, id);
   const patch = await parseJson(request, UpdateEncounterRequest);
 
   // name/round/status remain DM-only. activeParticipantId is open to any
@@ -91,9 +80,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  const { role } = await requireEncounterAccess(locals.user.id, id);
+  const { role } = await requireEncounterAccess(user.id, id);
   if (role !== 'dm') throw error(403, 'only the DM can delete encounters');
   await db.delete(schema.encounters).where(eq(schema.encounters.id, id));
   return new Response(null, { status: 204 });

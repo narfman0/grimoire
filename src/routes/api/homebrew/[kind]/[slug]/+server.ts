@@ -14,6 +14,7 @@ import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { HomebrewPatch, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 function serialize(r: typeof schema.content.$inferSelect) {
@@ -51,18 +52,18 @@ async function loadOwnLatest(userId: string, kind: string, slug: string) {
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  const row = await loadOwnLatest(locals.user.id, params.kind!, params.slug!);
+  const user = requireUser(locals);
+  const row = await loadOwnLatest(user.id, params.kind!, params.slug!);
   if (!row) throw error(404, 'not found');
   return json(serialize(row));
 };
 
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const dataSchema = homebrewSchemaFor(params.kind!);
   if (!dataSchema) throw error(400, `unknown content kind: ${params.kind}`);
 
-  const latest = await loadOwnLatest(locals.user.id, params.kind!, params.slug!);
+  const latest = await loadOwnLatest(user.id, params.kind!, params.slug!);
   if (!latest) throw error(404, 'not found');
 
   const body = await parseJson(request, HomebrewPatch);
@@ -125,8 +126,8 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, url, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  const latest = await loadOwnLatest(locals.user.id, params.kind!, params.slug!);
+  const user = requireUser(locals);
+  const latest = await loadOwnLatest(user.id, params.kind!, params.slug!);
   if (!latest) throw error(404, 'not found');
 
   // Soft-block when any of the author's own characters reference this row.
@@ -139,7 +140,7 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
     .from(schema.characters)
     .where(
       and(
-        eq(schema.characters.ownerUserId, locals.user.id),
+        eq(schema.characters.ownerUserId, user.id),
         like(schema.characters.document, needle)
       )
     );

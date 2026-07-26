@@ -1,15 +1,16 @@
 // POST /api/notifications/mark-read — mark a subset of the caller's
 // notifications read. Body: { ids: string[] | 'all' }. Idempotent.
 
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { MarkReadBody } from '$lib/server/content/schemas';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, MarkReadBody);
   const now = new Date();
 
@@ -19,7 +20,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .set({ readAt: now })
       .where(
         and(
-          eq(schema.notifications.userId, locals.user.id),
+          eq(schema.notifications.userId, user.id),
           isNull(schema.notifications.readAt)
         )
       );
@@ -29,7 +30,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .set({ readAt: now })
       .where(
         and(
-          eq(schema.notifications.userId, locals.user.id),
+          eq(schema.notifications.userId, user.id),
           inArray(schema.notifications.id, body.ids)
         )
       );

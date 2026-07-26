@@ -4,10 +4,11 @@ import { db, schema } from '$lib/server/db';
 import { generateCampaignCode } from '$lib/server/code';
 import { CreateCampaignRequest } from '$lib/server/api/schemas';
 import { parseJson } from '$lib/server/api/validate';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { name } = await parseJson(request, CreateCampaignRequest);
 
   const id = crypto.randomUUID();
@@ -38,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     tx.insert(schema.campaignMembers)
       .values({
         campaignId: id,
-        userId: locals.user!.id,
+        userId: user.id,
         role: 'dm',
         status: 'approved',
         joinedAt: now
@@ -46,7 +47,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .run();
   });
 
-  return json({ id, code });
+  return json({ id, code }, { status: 201 });
 };
 
 export const _openapi = {

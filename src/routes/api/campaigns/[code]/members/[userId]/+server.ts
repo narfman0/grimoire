@@ -5,19 +5,20 @@ import { db, schema } from '$lib/server/db';
 import { CampaignCode, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode, userId: Uuid });
 const Body = z.object({ status: z.enum(['approved', 'rejected']) });
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code, userId } = parseParams(
     { code: params.code?.toUpperCase(), userId: params.userId },
     Params
   );
 
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
   if (m.role !== 'dm') throw error(403, 'DM only');
 
   const { status } = await parseJson(request, Body);

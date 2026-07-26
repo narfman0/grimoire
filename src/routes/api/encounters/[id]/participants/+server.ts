@@ -7,12 +7,13 @@ import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { defaultRevealsFor } from '$lib/realtime/reveals';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id: encounterId } = parseParams(params, Params);
 
   const encRows = await db
@@ -23,7 +24,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const enc = encRows[0];
   if (!enc) throw error(404, 'encounter not found');
 
-  const role = await getMembershipByCampaignId(locals.user.id, enc.campaignId);
+  const role = await getMembershipByCampaignId(user.id, enc.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
   if (role !== 'dm') throw error(403, 'only the DM can add participants');
 

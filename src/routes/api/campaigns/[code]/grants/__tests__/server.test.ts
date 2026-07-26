@@ -40,7 +40,7 @@ describe('GET /api/campaigns/[code]/grants', () => {
     const { dmId } = await fixture(db);
     const res = await GET(makeEvent({ user: asUser(dmId, 'dm'), params: { code: CODE } }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([]);
+    expect(await res.json()).toEqual({ grants: [] });
   });
 
   it('returns existing grants with resolved author label', async () => {
@@ -48,10 +48,10 @@ describe('GET /api/campaigns/[code]/grants', () => {
     await seedContentGrant(db, { campaignId, grantType: 'author', grantKey: playerId });
     const res = await GET(makeEvent({ user: asUser(dmId, 'dm'), params: { code: CODE } }));
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].grantType).toBe('author');
-    expect(body[0].label).toBe('player');
+    const { grants } = await res.json();
+    expect(grants).toHaveLength(1);
+    expect(grants[0].grantType).toBe('author');
+    expect(grants[0].label).toBe('player');
   });
 
   it('player can also list grants', async () => {

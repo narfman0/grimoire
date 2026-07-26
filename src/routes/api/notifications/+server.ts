@@ -2,15 +2,16 @@
 // Mark-read lives at the sub-route /mark-read so the URL surface stays
 // REST-ish (collection vs. action).
 
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const MAX = 50;
 
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
 
   const rows = await db
     .select({
@@ -27,7 +28,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     })
     .from(schema.notifications)
     .leftJoin(schema.users, eq(schema.users.id, schema.notifications.authorUserId))
-    .where(eq(schema.notifications.userId, locals.user.id))
+    .where(eq(schema.notifications.userId, user.id))
     .orderBy(desc(schema.notifications.createdAt))
     .limit(MAX);
 
@@ -35,7 +36,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     .select({ unread: sql<number>`count(*)`.as('unread') })
     .from(schema.notifications)
     .where(
-      and(eq(schema.notifications.userId, locals.user.id), isNull(schema.notifications.readAt))
+      and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt))
     );
 
   return json({

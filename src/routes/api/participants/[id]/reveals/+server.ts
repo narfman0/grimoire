@@ -10,6 +10,7 @@ import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -22,7 +23,7 @@ const Patch = z.object({
 });
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
 
   const rows = await db
@@ -37,7 +38,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (rows.length === 0) throw error(404, 'participant not found');
   const { part, enc } = rows[0];
 
-  const role = await getMembershipByCampaignId(locals.user.id, enc.campaignId);
+  const role = await getMembershipByCampaignId(user.id, enc.campaignId);
   if (!role) throw error(403, 'not a member of this campaign');
   if (role !== 'dm') throw error(403, 'only the DM can manage reveals');
 

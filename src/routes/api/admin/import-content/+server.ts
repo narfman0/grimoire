@@ -22,6 +22,7 @@ import { Slug } from '$lib/server/content/schemas';
 import { parseJson } from '$lib/server/api/validate';
 import { invalidateContentCache } from '$lib/server/content/cache';
 import { logger } from '$lib/server/logger';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_PACK_SLUG = 'homebrew';
@@ -47,11 +48,11 @@ const ImportContentRequest = z.object({
 });
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  if (!locals.user.isAdmin) throw error(403, 'admin only');
+  const user = requireUser(locals);
+  if (!user.isAdmin) throw error(403, 'admin only');
 
   const body = await parseJson(request, ImportContentRequest);
-  const ownerUserId = locals.user.id;
+  const ownerUserId = user.id;
   const mode = body.mode ?? 'skip';
   const suffix = body.nameSuffixOnGlobalConflict ?? '';
 

@@ -106,7 +106,7 @@ describe('POST /api/characters — standalone (no campaignCode)', () => {
         body: { name: 'Solo Hero', document: minDoc('placeholder') }
       })
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.name).toBe('Solo Hero');
     expect(body.campaignId).toBeNull();
@@ -141,7 +141,7 @@ describe('POST /api/characters — standalone (no campaignCode)', () => {
         body: { name: 'Campaign Hero', campaignCode: code, document: minDoc('placeholder') }
       })
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.campaignId).not.toBeNull();
 

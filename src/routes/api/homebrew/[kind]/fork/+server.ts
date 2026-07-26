@@ -11,18 +11,19 @@ import { parseJson } from '$lib/server/api/validate';
 import { ForkBody, homebrewSchemaFor } from '$lib/server/content/schemas';
 import { resolvePackSlugForCreate, HOMEBREW_PACK_SLUG } from '$lib/server/content/pack-ownership';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_SOURCE = 'homebrew';
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const kind = params.kind!;
   if (!homebrewSchemaFor(kind)) throw error(400, `unknown content kind: ${kind}`);
-  if (locals.user.id === '') throw error(401, 'login required');
+  if (user.id === '') throw error(401, 'login required');
 
   const body = await parseJson(request, ForkBody);
-  if (body.authorUserId === locals.user.id) {
+  if (body.authorUserId === user.id) {
     throw error(400, "can't fork your own homebrew — edit it directly");
   }
 
@@ -61,13 +62,13 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
       and(
         eq(schema.content.kind, kind),
         eq(schema.content.slug, newSlug),
-        eq(schema.content.ownerUserId, locals.user.id)
+        eq(schema.content.ownerUserId, user.id)
       )
     )
     .limit(1);
   if (conflict.length > 0) throw error(409, `you already have a ${kind} with slug "${newSlug}"`);
 
-  const packSlug = await resolvePackSlugForCreate(body.packSlug, locals.user.id);
+  const packSlug = await resolvePackSlugForCreate(body.packSlug, user.id);
   const source = packSlug === HOMEBREW_PACK_SLUG ? HOMEBREW_SOURCE : packSlug;
   const id = crypto.randomUUID();
   const now = new Date();
@@ -78,7 +79,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     version: 1,
     source,
     scopeId: null,
-    ownerUserId: locals.user.id,
+    ownerUserId: user.id,
     packSlug,
     name: src.name,
     data: src.data,

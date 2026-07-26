@@ -8,6 +8,8 @@ import {
   requireCharacterViewAccess,
   requireCharacterWriteAccess
 } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeCharacter } from '$lib/server/serializers';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -28,24 +30,6 @@ async function load(id: string) {
   return rows[0];
 }
 
-function serialize(r: {
-  id: string;
-  campaignId: string | null;
-  ownerUserId: string | null;
-  name: string;
-  document: string | null;
-  updatedAt: Date;
-}) {
-  return {
-    id: r.id,
-    campaignId: r.campaignId,
-    ownerUserId: r.ownerUserId,
-    name: r.name,
-    document: r.document ? JSON.parse(r.document) : null,
-    updatedAt: r.updatedAt.getTime()
-  };
-}
-
 /** Read: owner, admin, or an approved member of a campaign the character is
  *  linked to (via campaign_characters — never the campaignId soft pointer).
  *  Write (PATCH/PUT): owner, admin, or the DM of a linked campaign — the DM
@@ -61,12 +45,12 @@ async function requireDeleteAccess(
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
   const row = await load(id);
   if (!row) throw error(404, 'character not found');
-  await requireCharacterViewAccess(locals.user, row);
-  return json(serialize(row));
+  await requireCharacterViewAccess(user, row);
+  return json(serializeCharacter(row));
 };
 
 /** updatedAt doubles as the optimistic-concurrency token, so it must
@@ -78,13 +62,13 @@ function nextUpdatedAt(existing: Date): Date {
 }
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
   const patch = await parseJson(request, UpdateCharacterRequest);
 
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireCharacterWriteAccess(locals.user, existing);
+  await requireCharacterWriteAccess(user, existing);
 
   // Optimistic concurrency: when the client says which version it based its
   // edit on and that version is no longer current, reject with the current
@@ -93,7 +77,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     patch.baseUpdatedAt !== undefined &&
     patch.baseUpdatedAt !== existing.updatedAt.getTime()
   ) {
-    return json(serialize(existing), { status: 409 });
+    return json(serializeCharacter(existing), { status: 409 });
   }
 
   const now = nextUpdatedAt(existing.updatedAt);
@@ -126,13 +110,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
   const body = await parseJson(request, PutCharacterRequest);
 
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireCharacterWriteAccess(locals.user, existing);
+  await requireCharacterWriteAccess(user, existing);
 
   const now = nextUpdatedAt(existing.updatedAt);
   const nextDocument = JSON.stringify({ ...body.document, id });
@@ -157,11 +141,11 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
   const existing = await load(id);
   if (!existing) throw error(404, 'character not found');
-  await requireDeleteAccess(locals.user, existing);
+  await requireDeleteAccess(user, existing);
 
   await db.delete(schema.characters).where(eq(schema.characters.id, id));
   return new Response(null, { status: 204 });

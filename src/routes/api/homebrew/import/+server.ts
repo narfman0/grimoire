@@ -38,6 +38,7 @@ import {
   homebrewSchemaFor
 } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_PACK_SLUG = 'homebrew';
@@ -50,9 +51,9 @@ interface ImportResult {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  const ownerUserId = locals.user.id;
-  const ownerUsername = locals.user.username;
+  const user = requireUser(locals);
+  const ownerUserId = user.id;
+  const ownerUsername = user.username;
 
   const body = await parseJson(request, HomebrewImportRequest);
   if (body.rows.length > HOMEBREW_IMPORT_MAX_ROWS) {

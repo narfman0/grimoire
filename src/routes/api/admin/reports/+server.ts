@@ -4,11 +4,12 @@
 import { json, error } from '@sveltejs/kit';
 import { eq, isNull, desc, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.user) throw error(401, 'login required');
-  if (!locals.user.isAdmin) throw error(403, 'admin only');
+  const user = requireUser(locals);
+  if (!user.isAdmin) throw error(403, 'admin only');
 
   const rows = await db
     .select({

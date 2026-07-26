@@ -6,6 +6,7 @@ import { CampaignCode, UpdateCampaignRequest } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
 import { isRateLimited } from '$lib/server/auth/rate-limit';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
@@ -33,10 +34,10 @@ export const GET: RequestHandler = async ({ params, locals, getClientAddress }) 
 };
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
   // DM-only — players can't rename a campaign they joined.
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
   if (m.role !== 'dm') throw error(403, 'only the DM can rename the campaign');
 
   const patch = await parseJson(request, UpdateCampaignRequest);

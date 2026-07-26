@@ -5,6 +5,7 @@ import { db, schema } from '$lib/server/db';
 import { handleDbError } from '$lib/server/db/errors';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
 import { CampaignCode } from '$lib/server/api/schemas';
 import type { RequestHandler } from './$types';
 
@@ -16,9 +17,9 @@ const AddGrantRequest = z.object({
 });
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code } = parseParams({ code: params.code.toUpperCase() }, Params);
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
 
   const grants = await db
     .select()
@@ -36,21 +37,21 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     for (const u of users) usernameMap.set(u.id, u.username);
   }
 
-  return json(
-    grants.map((g) => ({
+  return json({
+    grants: grants.map((g) => ({
       id: g.id,
       grantType: g.grantType,
       grantKey: g.grantKey,
       label: g.grantType === 'author' ? (usernameMap.get(g.grantKey) ?? g.grantKey) : g.grantKey,
       createdAt: g.createdAt.getTime()
     }))
-  );
+  });
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code } = parseParams({ code: params.code.toUpperCase() }, Params);
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
   if (m.role !== 'dm') throw error(403, 'only the DM can manage content grants');
 
   const { grantType, grantKey } = await parseJson(request, AddGrantRequest);
@@ -102,12 +103,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       grantKey: resolvedKey,
       createdAt: new Date()
     }).catch((err) => handleDbError(err, 'grants:insert-author'));
-    const [user] = await db
+    const [author] = await db
       .select({ username: schema.users.username })
       .from(schema.users)
       .where(eq(schema.users.id, resolvedKey))
       .limit(1);
-    return json({ id: authorGrantId, grantType: 'author', grantKey: resolvedKey, label: user?.username ?? resolvedKey }, { status: 201 });
+    return json({ id: authorGrantId, grantType: 'author', grantKey: resolvedKey, label: author?.username ?? resolvedKey }, { status: 201 });
   }
 
   // Pack path

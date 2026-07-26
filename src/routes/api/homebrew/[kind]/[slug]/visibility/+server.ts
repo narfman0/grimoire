@@ -14,10 +14,11 @@ import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { VisibilityPut } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 export const PUT: RequestHandler = async ({ request, params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const body = await parseJson(request, VisibilityPut);
 
   const [row] = await db
@@ -27,7 +28,7 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
       and(
         eq(schema.content.kind, params.kind!),
         eq(schema.content.slug, params.slug!),
-        eq(schema.content.ownerUserId, locals.user.id)
+        eq(schema.content.ownerUserId, user.id)
       )
     )
     .orderBy(desc(schema.content.version))

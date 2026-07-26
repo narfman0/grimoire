@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
+import { serializeNote } from '$lib/server/serializers';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { Uuid } from '$lib/server/api/schemas';
 import type { RequestHandler } from './$types';
@@ -25,21 +27,10 @@ async function requireNote(userId: string, noteId: string) {
   return rows[0];
 }
 
-function serialize(r: typeof schema.notes.$inferSelect) {
-  return {
-    id: r.id,
-    campaignId: r.campaignId,
-    title: r.title,
-    body: r.body,
-    createdAt: r.createdAt.getTime(),
-    updatedAt: r.updatedAt.getTime()
-  };
-}
-
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  await requireNote(locals.user.id, id);
+  await requireNote(user.id, id);
   const patch = await parseJson(request, UpdateNoteRequest);
 
   const updates: Partial<typeof schema.notes.$inferInsert> = { updatedAt: new Date() };
@@ -48,13 +39,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   await db.update(schema.notes).set(updates).where(eq(schema.notes.id, id));
   const next = await db.select().from(schema.notes).where(eq(schema.notes.id, id)).limit(1);
-  return json(serialize(next[0]));
+  return json(serializeNote(next[0]));
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  await requireNote(locals.user.id, id);
+  await requireNote(user.id, id);
   await db.delete(schema.notes).where(eq(schema.notes.id, id));
   return new Response(null, { status: 204 });
 };

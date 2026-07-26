@@ -10,6 +10,7 @@ import { handleDbError } from '$lib/server/db/errors';
 import { CampaignCode, Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireMembershipByCode } from '$lib/server/auth/membership';
+import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
@@ -19,9 +20,9 @@ const LinkCharacterRequest = z.object({
 });
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
 
   const body = await parseJson(request, LinkCharacterRequest);
 
@@ -33,11 +34,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .where(eq(schema.characters.id, body.characterId))
     .limit(1);
   if (charRows.length === 0) throw error(404, 'character not found');
-  if (charRows[0].ownerUserId !== locals.user.id) {
+  if (charRows[0].ownerUserId !== user.id) {
     throw error(403, 'you can only link characters you own');
   }
 
-  // Idempotent — if the link already exists, return 200 with no insert.
+  // Idempotent — if the link already exists, return 200 with no insert;
+  // a fresh link returns 201.
   const existing = await db
     .select({ campaignId: schema.campaignCharacters.campaignId })
     .from(schema.campaignCharacters)
@@ -57,13 +59,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }).catch((err) => handleDbError(err, 'campaign-characters:link'));
   }
 
-  return json({ campaignId: m.campaignId, characterId: body.characterId, role: body.role });
+  return json(
+    { campaignId: m.campaignId, characterId: body.characterId, role: body.role },
+    { status: existing.length === 0 ? 201 : 200 }
+  );
 };
 
 export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-  if (!locals.user) throw error(401, 'login required');
+  const user = requireUser(locals);
   const { code } = parseParams({ code: params.code?.toUpperCase() }, Params);
-  const m = await requireMembershipByCode(locals.user, code);
+  const m = await requireMembershipByCode(user, code);
 
   const body = await parseJson(request, z.object({ characterId: Uuid }));
 
@@ -74,7 +79,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
     .where(eq(schema.characters.id, body.characterId))
     .limit(1);
   if (charRows.length === 0) throw error(404, 'character not found');
-  const isOwner = charRows[0].ownerUserId === locals.user.id;
+  const isOwner = charRows[0].ownerUserId === user.id;
   const isDm = m.role === 'dm';
   if (!isOwner && !isDm) throw error(403, 'only the owner or DM can unlink');
 
