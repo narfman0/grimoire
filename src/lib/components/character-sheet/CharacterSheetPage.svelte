@@ -28,7 +28,12 @@
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
   import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
-  import { lookupFromMap, type CharacterDocument, type ContentLookup } from '$lib/rules/types';
+  import {
+    lookupFromMap,
+    type Action,
+    type CharacterDocument,
+    type ContentLookup
+  } from '$lib/rules/types';
   import { connectCharacter, type ConnectedDoc } from '$lib/realtime/character-channel';
   import { toasts } from '$lib/client/errors';
   import { api } from '$lib/client/api';
@@ -1199,6 +1204,114 @@
     return adjustResource(id, delta, r.max);
   }
 
+  // ---- companions & summons ----
+  // `type: 'summon'` activities realize into Actions carrying `summons`
+  // (creature slugs + resolved counts). Clicking Summon appends
+  // CompanionState entries to charDoc.companions via patchDocument,
+  // debiting the action's charge pool / per-activity uses resource when
+  // one exists (the same Resources the ResourcesPanel shows). Each row
+  // precomputes its resource gate so buttons disable when the pool can't
+  // cover the cost.
+  $: summonRows = ((derived?.actions ?? []) as Action[])
+    .filter((a) => a.summons)
+    .map((a) => {
+      // chargeCost activities point at the shared pool via spendsResource;
+      // uses activities emit a resource whose id equals the action id.
+      const res =
+        derived?.resources.find((r) => r.id === (a.spendsResource ?? a.id)) ?? null;
+      const cost = a.spendsResource ? (a.resourceCost ?? 1) : 1;
+      const remaining = res ? res.max - res.used : null;
+      const costNote = res
+        ? a.spendsResource
+          ? `${cost} charge${cost === 1 ? '' : 's'} (${remaining} left)`
+          : `${remaining}/${res.max} uses`
+        : null;
+      return {
+        action: a,
+        costLabel: costLabel(a.cost),
+        res,
+        cost,
+        insufficient: res != null && (remaining ?? 0) < cost,
+        costNote
+      };
+    });
+
+  /** Max HP for a monster slug from the shipped content map ({max} /
+   *  {average} / bare-number hp shapes). 0 when the row is missing or
+   *  shapeless — the companion lands as a 0-HP shell the DM edits. */
+  function monsterMaxHp(slug: string): number {
+    const row = contentLookup({ kind: 'monster', slug });
+    const hp = (row?.data as { hp?: number | { max?: number; average?: number } } | undefined)
+      ?.hp;
+    if (typeof hp === 'number') return hp;
+    if (typeof hp?.max === 'number') return hp.max;
+    if (typeof hp?.average === 'number') return hp.average;
+    return 0;
+  }
+
+  /** Append CompanionState entries for one summon action. `creature` set →
+   *  the player picked one entry from a choice-style summon; absent → all
+   *  entries are summoned together. Resource debit and companion append
+   *  land in a single patch so the write is atomic. */
+  async function summonFromAction(
+    action: Action,
+    creature?: NonNullable<Action['summons']>['creatures'][number]
+  ) {
+    const summons = action.summons;
+    if (!summons) return;
+    const picks = creature ? [creature] : summons.creatures;
+    const res =
+      derived?.resources.find((r) => r.id === (action.spendsResource ?? action.id)) ?? null;
+    const cost = action.spendsResource ? (action.resourceCost ?? 1) : 1;
+    await patchDocument((d) => {
+      if (res) {
+        d.resourcesSpent ??= {};
+        d.resourcesSpent[res.id] = Math.min(res.max, (d.resourcesSpent[res.id] ?? 0) + cost);
+      }
+      d.companions ??= [];
+      for (const c of picks) {
+        const maxHp = monsterMaxHp(c.slug);
+        const base = c.name ?? c.resolvedName ?? c.slug;
+        // Number the copies past any same-slug companions already out so
+        // repeat summons don't produce duplicate display names.
+        const existing = d.companions.filter((x) => x.slug === c.slug).length;
+        for (let i = 0; i < c.count; i += 1) {
+          const n = existing + i;
+          d.companions.push({
+            slug: c.slug,
+            name: c.count > 1 || n > 0 ? `${base} ${n + 1}` : base,
+            sourceContent: action.sourceContent,
+            currentHp: maxHp,
+            maxHp,
+            status: 'summoned'
+          });
+        }
+      }
+    });
+  }
+
+  async function setCompanionStatus(index: number, status: 'summoned' | 'dismissed') {
+    await patchDocument((d) => {
+      const c = d.companions?.[index];
+      if (c) c.status = status;
+    });
+  }
+
+  async function removeCompanion(index: number) {
+    await patchDocument((d) => {
+      d.companions?.splice(index, 1);
+    });
+  }
+
+  async function adjustCompanionHp(index: number, delta: number) {
+    await patchDocument((d) => {
+      const c = d.companions?.[index];
+      if (!c) return;
+      const ceiling = c.maxHp > 0 ? c.maxHp : Number.POSITIVE_INFINITY;
+      c.currentHp = Math.max(0, Math.min(ceiling, c.currentHp + delta));
+    });
+  }
+
   // ---- reaction + concentration (M3.6) ----
   async function toggleReaction() {
     await patchDocument((d) => {
@@ -2122,6 +2235,121 @@
         on:use={(e) => adjustResourceById(e.detail, 1)}
         on:restore={(e) => adjustResourceById(e.detail, -1)}
       />
+    </section>
+  {/if}
+
+  <!-- Companions & summons: summon-typed actions + the persisted
+       companion roster. Summon appends CompanionState entries (HP from
+       the monster row when the content map has it); dismiss keeps the
+       entry but hides it from Derived.companions / the tracker. -->
+  {#if summonRows.length > 0 || (charDoc.companions?.length ?? 0) > 0}
+    <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+      <h2 class="mb-2 text-sm font-semibold text-slate-200">Companions</h2>
+
+      {#if (charDoc.companions?.length ?? 0) > 0}
+        <ul class="mb-3 divide-y divide-slate-800 rounded border border-slate-800 text-sm">
+          {#each charDoc.companions ?? [] as comp, i}
+            <li
+              class={`flex items-center gap-2 px-2 py-1 ${comp.status === 'dismissed' ? 'opacity-50' : ''}`}
+            >
+              <span class="flex-1 text-slate-200">
+                {comp.name}
+                <span class="ml-1 text-xs text-slate-500">({comp.slug})</span>
+                {#if comp.status === 'dismissed'}
+                  <span class="ml-1 text-[10px] uppercase tracking-wide text-slate-500">dismissed</span>
+                {/if}
+              </span>
+              <span class="font-mono text-xs text-slate-300">{comp.currentHp} / {comp.maxHp} HP</span>
+              {#if comp.status === 'summoned'}
+                <button
+                  class="rounded border border-slate-700 px-1.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy}
+                  title="−1 HP"
+                  on:click={() => adjustCompanionHp(i, -1)}
+                >
+                  −
+                </button>
+                <button
+                  class="rounded border border-slate-700 px-1.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy}
+                  title="+1 HP"
+                  on:click={() => adjustCompanionHp(i, 1)}
+                >
+                  +
+                </button>
+                <button
+                  class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy}
+                  on:click={() => setCompanionStatus(i, 'dismissed')}
+                >
+                  dismiss
+                </button>
+              {:else}
+                <button
+                  class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                  disabled={busy}
+                  on:click={() => setCompanionStatus(i, 'summoned')}
+                >
+                  re-summon
+                </button>
+                <button
+                  class="text-xs text-slate-500 hover:text-red-400 disabled:opacity-40"
+                  disabled={busy}
+                  title="Remove companion"
+                  on:click={() => removeCompanion(i)}
+                >
+                  ×
+                </button>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      {#each summonRows as row (row.action.id)}
+        <div class="mb-2 rounded border border-slate-800 bg-slate-950/40 p-2 text-sm last:mb-0">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-200">
+              {row.action.name}
+              <span class="ml-1 text-xs text-slate-500">
+                {row.costLabel}{row.costNote ? ` · ${row.costNote}` : ''}
+                {#if row.action.summons?.duration}
+                  · {row.action.summons.duration.value}
+                  {row.action.summons.duration.units}{row.action.summons.duration.value === 1 ? '' : 's'}
+                {/if}
+              </span>
+            </span>
+            {#if !row.action.summons?.choice}
+              <button
+                class="rounded bg-emerald-800 px-2 py-0.5 text-xs hover:bg-emerald-700 disabled:opacity-40"
+                disabled={busy || row.insufficient}
+                on:click={() => summonFromAction(row.action)}
+              >
+                Summon
+              </button>
+            {/if}
+          </div>
+          <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+            {#each row.action.summons?.creatures ?? [] as c (c.slug + (c.name ?? ''))}
+              <span class="flex items-center gap-1">
+                {c.count > 1 ? `${c.count}× ` : ''}{c.name ?? c.resolvedName ?? c.slug}
+                {#if !c.resolvedName}
+                  <span class="text-amber-300" title="Monster row not found — summons as a 0-HP shell">?</span>
+                {/if}
+                {#if row.action.summons?.choice}
+                  <button
+                    class="rounded bg-emerald-800 px-1.5 py-0.5 text-[10px] hover:bg-emerald-700 disabled:opacity-40"
+                    disabled={busy || row.insufficient}
+                    on:click={() => summonFromAction(row.action, c)}
+                  >
+                    Summon
+                  </button>
+                {/if}
+              </span>
+            {/each}
+          </div>
+        </div>
+      {/each}
     </section>
   {/if}
 
