@@ -10,6 +10,7 @@ import { parseJson, parseParams } from '$lib/server/api/validate';
 import { Uuid } from '$lib/server/api/schemas';
 import { ReportResolve } from '$lib/server/content/schemas';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -55,6 +56,11 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
   });
   invalidateContentCache();
 
+  // Moderation actions (especially 'hidden' takedowns) need an audit trail.
+  logger.info(
+    { userId: resolverUserId, reportId: report.id, contentId: report.contentId, resolution: body.resolution },
+    'admin report resolved'
+  );
   return json({ id: report.id, resolution: body.resolution });
 };
 

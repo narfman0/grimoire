@@ -1,12 +1,14 @@
 import { json, error } from '@sveltejs/kit';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
 import { Uuid } from '$lib/server/api/schemas';
 import { PlanJson } from '$lib/server/api/encounter-schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
+import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -39,7 +41,7 @@ const EncounterStateResponse = z.object({
 
 export type TEncounterStateResponse = z.infer<typeof EncounterStateResponse>;
 
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, locals, request }) => {
   if (!locals.user) throw error(401, 'login required');
   const { id } = parseParams(params, Params);
 
@@ -87,6 +89,48 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   const pcCharIds = partRows
     .filter((p) => p.kind === 'pc' && p.characterId)
     .map((p) => p.characterId as string);
+
+  // --- change-token short-circuit (ETag / If-None-Match) -------------------
+  // The expensive part of this poll is loading + JSON-parsing character
+  // documents (and the per-participant JSON columns). Everything the
+  // response depends on is derivable from cheap already-indexed reads:
+  //   - encounters.round / activeParticipantId (fetched above for auth),
+  //   - the role-filtered participants rows (fetched above; every non-PC
+  //     mutation — HP, plan, conditions, concentration, reveals, add /
+  //     remove — changes one of the hashed columns),
+  //   - max(characters.updated_at) over PC participants (every PC doc
+  //     mutation bumps updated_at via PATCH /api/characters),
+  //   - the viewer's role — reveals redaction is role-dependent, so a DM
+  //     token must never validate a player's cached variant (and hashing
+  //     the post-filter rows means hidden-participant churn doesn't even
+  //     invalidate player caches).
+  // If the client's If-None-Match matches, return 304 before touching the
+  // character documents.
+  let pcDocsUpdatedMax = 0;
+  if (pcCharIds.length > 0) {
+    const [agg] = await db
+      .select({ max: sql<number | null>`max(${schema.characters.updatedAt})` })
+      .from(schema.characters)
+      .where(inArray(schema.characters.id, pcCharIds));
+    pcDocsUpdatedMax = Number(agg?.max ?? 0);
+  }
+  const token = createHash('sha1')
+    .update(
+      JSON.stringify([
+        role,
+        enc.round,
+        enc.activeParticipantId ?? null,
+        pcDocsUpdatedMax,
+        // Sort for a deterministic hash — SQLite row order is unspecified.
+        [...partRows].sort((a, b) => (a.id < b.id ? -1 : 1))
+      ])
+    )
+    .digest('hex');
+  const etag = `"${token}"`;
+  if (request.headers.get('if-none-match') === etag) {
+    return new Response(null, { status: 304, headers: { etag } });
+  }
+
   const charDocs = new Map<string, Record<string, unknown>>();
   if (pcCharIds.length > 0) {
     const rows = await db
@@ -97,8 +141,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       if (!r.document) continue;
       try {
         charDocs.set(r.id, JSON.parse(r.document) as Record<string, unknown>);
-      } catch {
-        // skip malformed doc
+      } catch (err) {
+        // best-effort: skip malformed doc, but leave a trail
+        logger.warn({ err, encounterId: id, characterId: r.id }, 'state poll: malformed character document');
       }
     }
   }
@@ -112,8 +157,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       try {
         const parsed = PlanJson.safeParse(JSON.parse(p.planJson));
         if (parsed.success) plans[p.id] = parsed.data;
-      } catch {
-        // ignore malformed plan
+      } catch (err) {
+        // best-effort: drop malformed plan, but leave a trail
+        logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed plan_json');
       }
     }
 
@@ -132,8 +178,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       try {
         const parsed = JSON.parse(p.conditionsJson);
         if (Array.isArray(parsed)) conditions = parsed as string[];
-      } catch {
-        // ignore malformed json on the participants row
+      } catch (err) {
+        // best-effort: drop malformed conditions, but leave a trail
+        logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed conditions_json');
       }
     }
 
@@ -146,8 +193,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     } else if (p.concentratingJson) {
       try {
         concentrating = JSON.parse(p.concentratingJson);
-      } catch {
-        // ignore
+      } catch (err) {
+        // best-effort: drop malformed concentration, but leave a trail
+        logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed concentrating_json');
       }
     }
 
@@ -176,9 +224,13 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     participantHp
   };
 
-  return json(body);
+  return json(body, { headers: { etag } });
 };
 
 export const _openapi = {
-  GET: { summary: 'Fetch the live encounter snapshot (round, turn, HP, plans) for polling', response: EncounterStateResponse }
+  GET: {
+    summary:
+      'Fetch the live encounter snapshot (round, turn, HP, plans) for polling. Sets an ETag; send If-None-Match to get a bodyless 304 when nothing changed.',
+    response: EncounterStateResponse
+  }
 } as const;

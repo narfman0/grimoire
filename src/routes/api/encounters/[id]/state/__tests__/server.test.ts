@@ -143,4 +143,134 @@ describe('GET /api/encounters/[id]/state', () => {
     expect(playerBody.participantHp[ambushId]).toBeUndefined();
     expect(playerBody.plans[ambushId]).toBeUndefined();
   });
+
+  // --- change-token short-circuit (ETag / If-None-Match) -------------------
+  describe('ETag short-circuit', () => {
+    /** makeEvent has no headers option; swap in a request carrying
+     *  If-None-Match. The handler only reads request.headers. */
+    function withIfNoneMatch(ev: ReturnType<typeof makeEvent>, etag: string) {
+      ev.request = new Request('http://localhost/', { headers: { 'if-none-match': etag } });
+      return ev;
+    }
+
+    it('returns 304 with no body on unchanged state, then a fresh ETag + body after an HP change', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const { campaignId } = await seedCampaign(db, { dmId });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+      await db
+        .update(schema.participants)
+        .set({ currentHp: 7, maxHp: 12 })
+        .where(eq(schema.participants.id, mobId));
+
+      const first = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+      const etag = first.headers.get('etag');
+      expect(first.status).toBe(200);
+      expect(etag).toBeTruthy();
+
+      // Nothing changed → 304, no body, before any character-doc work.
+      const second = await GET(
+        withIfNoneMatch(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }), etag!)
+      );
+      expect(second.status).toBe(304);
+      expect(await second.text()).toBe('');
+      expect(second.headers.get('etag')).toBe(etag);
+
+      // Participant HP change → token moves, full body returned.
+      await db
+        .update(schema.participants)
+        .set({ currentHp: 3 })
+        .where(eq(schema.participants.id, mobId));
+      const third = await GET(
+        withIfNoneMatch(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }), etag!)
+      );
+      expect(third.status).toBe(200);
+      const newEtag = third.headers.get('etag');
+      expect(newEtag).toBeTruthy();
+      expect(newEtag).not.toBe(etag);
+      const body = await third.json();
+      expect(body.participantHp[mobId].currentHp).toBe(3);
+    });
+
+    it('a PC character-document change (updated_at bump) invalidates the token', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const { campaignId } = await seedCampaign(db, { dmId });
+      const charId = await seedCharacter(db, {
+        campaignId,
+        ownerUserId: dmId,
+        name: 'Hero',
+        document: { ...minCharDoc('hero-1'), currentHp: 42 },
+        linkToCampaign: true
+      });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const pcId = await seedParticipant(db, { encounterId, kind: 'pc', characterId: charId, name: 'Hero' });
+
+      const first = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+      const etag = first.headers.get('etag')!;
+
+      // Mirror PATCH /api/characters: new document + bumped updated_at.
+      await db
+        .update(schema.characters)
+        .set({
+          document: JSON.stringify({ ...minCharDoc('hero-1'), currentHp: 17 }),
+          updatedAt: new Date(Date.now() + 60_000)
+        })
+        .where(eq(schema.characters.id, charId));
+
+      const second = await GET(
+        withIfNoneMatch(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }), etag)
+      );
+      expect(second.status).toBe(200);
+      expect(second.headers.get('etag')).not.toBe(etag);
+      const body = await second.json();
+      expect(body.participantHp[pcId].currentHp).toBe(17);
+    });
+
+    // Reveals redaction is role-dependent — a role must never validate the
+    // other role's cached variant.
+    it('DM and player tokens differ, and one role\'s ETag never 304s the other', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const playerId = await seedUser(db, { username: 'player' });
+      const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+      const dmRes = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+      const dmEtag = dmRes.headers.get('etag')!;
+      const playerRes = await GET(
+        makeEvent({ user: userOf(playerId, 'player'), params: { id: encounterId } })
+      );
+      const playerEtag = playerRes.headers.get('etag')!;
+      expect(dmEtag).not.toBe(playerEtag);
+
+      // A player presenting the DM's token must get a full 200.
+      const cross = await GET(
+        withIfNoneMatch(makeEvent({ user: userOf(playerId, 'player'), params: { id: encounterId } }), dmEtag)
+      );
+      expect(cross.status).toBe(200);
+    });
+
+    it('round / active-participant changes invalidate the token', async () => {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const { campaignId } = await seedCampaign(db, { dmId });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+      const first = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+      const etag = first.headers.get('etag')!;
+
+      await db
+        .update(schema.encounters)
+        .set({ round: 2, activeParticipantId: mobId })
+        .where(eq(schema.encounters.id, encounterId));
+
+      const second = await GET(
+        withIfNoneMatch(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }), etag)
+      );
+      expect(second.status).toBe(200);
+      const body = await second.json();
+      expect(body.round).toBe(2);
+      expect(body.activeParticipantId).toBe(mobId);
+    });
+  });
 });

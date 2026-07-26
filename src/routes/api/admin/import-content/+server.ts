@@ -21,6 +21,7 @@ import { ContentKind } from '$lib/server/api/schemas';
 import { Slug } from '$lib/server/content/schemas';
 import { parseJson } from '$lib/server/api/validate';
 import { invalidateContentCache } from '$lib/server/content/cache';
+import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
 const HOMEBREW_PACK_SLUG = 'homebrew';
@@ -142,6 +143,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           .run();
         inserted++;
       } catch (err) {
+        // Per-row failures are reported in the response, but the caller is
+        // a one-shot script — leave a server-side trail too.
+        logger.warn(
+          { err, userId: ownerUserId, kind: r.kind, slug: r.slug },
+          'admin import-content: row failed'
+        );
         failed.push({
           kind: r.kind,
           slug: r.slug,
@@ -152,6 +159,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   });
   invalidateContentCache();
 
+  logger.info(
+    { userId: ownerUserId, mode, inserted, updated, skipped, failed: failed.length },
+    'admin import-content'
+  );
   return json({ inserted, updated, skipped, failed });
 };
 

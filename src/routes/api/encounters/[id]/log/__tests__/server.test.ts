@@ -5,6 +5,7 @@
 // response surfaces the matched trigger opportunity.
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
 import {
   seedUser,
@@ -12,10 +13,11 @@ import {
   seedEncounter,
   seedParticipant,
   seedCharacter,
-  seedContent
+  seedContent,
+  seedActionLog
 } from '$lib/server/__tests__/fixtures';
-import { makeEvent } from '$lib/server/__tests__/test-event';
-import { POST } from '../+server';
+import { makeEvent, expectHttpError } from '$lib/server/__tests__/test-event';
+import { GET, POST } from '../+server';
 
 type Db = ReturnType<typeof setupTestDb>;
 
@@ -256,5 +258,83 @@ describe('POST /api/encounters/[id]/log — trigger consumer wiring', () => {
       (o: { eventName: string }) => o.eventName === 'damage.reduce-to-zero'
     );
     expect(reduceOpp).toBeUndefined();
+  });
+});
+
+describe('GET /api/encounters/[id]/log — pagination', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  /** Seed `n` rows with strictly increasing createdAt so chronological
+   *  order (and therefore offset slicing) is deterministic. */
+  async function seedRows(encounterId: string, userId: string, n: number): Promise<string[]> {
+    const ids: string[] = [];
+    const base = Date.now();
+    for (let i = 0; i < n; i++) {
+      const id = await seedActionLog(db, {
+        encounterId,
+        submittedByUserId: userId,
+        actionLabel: `Action ${i}`
+      });
+      await db
+        .update(schema.actionLog)
+        .set({ createdAt: new Date(base + i * 1000) })
+        .where(eq(schema.actionLog.id, id));
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  it('default request returns all rows (up to 200) with the pagination envelope', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const ids = await seedRows(encounterId, dmId, 3);
+
+    const res = await GET(
+      makeEvent({ user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false }, params: { id: encounterId } })
+    );
+    const body = await res.json();
+    expect(body.entries.map((e: { id: string }) => e.id)).toEqual(ids); // chronological
+    expect(body.total).toBe(3);
+    expect(body.limit).toBe(200);
+    expect(body.offset).toBe(0);
+  });
+
+  it('limit + offset slice the chronological window; total reports the full count', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const ids = await seedRows(encounterId, dmId, 5);
+    const user = { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false };
+
+    const page1 = await (
+      await GET(makeEvent({ user, params: { id: encounterId }, searchParams: { limit: '2' } }))
+    ).json();
+    expect(page1.entries.map((e: { id: string }) => e.id)).toEqual(ids.slice(0, 2));
+    expect(page1.total).toBe(5);
+    expect(page1.limit).toBe(2);
+    expect(page1.offset).toBe(0);
+
+    const page3 = await (
+      await GET(
+        makeEvent({ user, params: { id: encounterId }, searchParams: { limit: '2', offset: '4' } })
+      )
+    ).json();
+    expect(page3.entries.map((e: { id: string }) => e.id)).toEqual(ids.slice(4));
+    expect(page3.offset).toBe(4);
+  });
+
+  it('rejects a limit above the 500 cap with a 400', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const user = { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false };
+    await expectHttpError(
+      GET(makeEvent({ user, params: { id: encounterId }, searchParams: { limit: '501' } })),
+      400
+    );
   });
 });

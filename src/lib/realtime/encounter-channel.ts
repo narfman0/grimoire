@@ -153,6 +153,15 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
   let mutationSeq = 0;
   let mutationsInFlight = 0;
 
+  // --- change-token (ETag) --------------------------------------------------
+  // The state endpoint sets an ETag over everything the snapshot depends on.
+  // Echo it back via If-None-Match so an unchanged poll costs the server a
+  // few indexed reads and returns a bodyless 304. Only remembered when a
+  // snapshot is actually APPLIED — a snapshot dropped by the stale-poll
+  // guard must not advance the ETag, or the next poll would 304 against
+  // state the store never received and the re-sync would never happen.
+  let lastEtag: string | null = null;
+
   /** Marks a mutation as started; returns a settle callback for `finally`. */
   function beginMutation(): () => void {
     mutationSeq++;
@@ -170,7 +179,16 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     if (destroyed) return;
     const seqAtPollStart = mutationSeq;
     try {
-      const res = await fetch(`/api/encounters/${opts.encounterId}/state`);
+      const res = await fetch(`/api/encounters/${opts.encounterId}/state`, {
+        headers: lastEtag ? { 'if-none-match': lastEtag } : undefined
+      });
+      if (res.status === 304) {
+        // Nothing changed server-side. Success — reset error accounting and
+        // leave the store (and the stale-poll guard) untouched.
+        consecutiveErrors = 0;
+        status.set('open');
+        return;
+      }
       if (!res.ok) {
         consecutiveErrors++;
         if (consecutiveErrors >= MAX_ERRORS_BEFORE_ERROR_STATUS) {
@@ -193,6 +211,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
         plans: (data.plans ?? {}) as Record<string, TurnPlan>,
         participantHp: (data.participantHp ?? {}) as Record<string, ParticipantHp>
       });
+      lastEtag = res.headers.get('etag');
       status.set('open');
     } catch {
       consecutiveErrors++;

@@ -13,14 +13,15 @@
 // the schema for backwards compat with rows written under the old flow.
 
 import { json, error } from '@sveltejs/kit';
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
 import { SubmitActionLogRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
-import { parseJson, parseParams } from '$lib/server/api/validate';
+import { parseJson, parseParams, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { logger } from '$lib/server/logger';
 import {
   buildTriggerEventsFromLog,
   makeFactionContext
@@ -30,6 +31,17 @@ import { loadEncounterTriggerContext } from '$lib/server/encounter/load-particip
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
+
+// Pagination for GET. `entries` stays chronological (createdAt asc) and the
+// envelope keeps its historical key, so pre-pagination consumers that read
+// `body.entries` still work; `total` tells them whether they got everything.
+// Combat logs are short (hundreds of rows at the very worst), so the 200
+// default effectively preserves "full history" for real encounters while
+// bounding the response for pathological ones.
+const LogListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  offset: z.coerce.number().int().min(0).default(0)
+});
 
 function serialize(r: typeof schema.actionLog.$inferSelect) {
   return {
@@ -66,22 +78,29 @@ async function requireEncounter(userId: string, encounterId: string) {
   return { enc: enc[0], role };
 }
 
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, url, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { id: encounterId } = parseParams(params, Params);
+  const { limit, offset } = parseSearch(url, LogListQuery);
   await requireEncounter(locals.user.id, encounterId);
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(schema.actionLog)
+    .where(eq(schema.actionLog.encounterId, encounterId));
   const rows = await db
     .select()
     .from(schema.actionLog)
     .where(eq(schema.actionLog.encounterId, encounterId))
-    .orderBy(asc(schema.actionLog.createdAt));
-  return json({ entries: rows.map(serialize) });
+    .orderBy(asc(schema.actionLog.createdAt))
+    .limit(limit)
+    .offset(offset);
+  return json({ entries: rows.map(serialize), total: Number(total), limit, offset });
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!locals.user) throw error(401, 'login required');
   const { id: encounterId } = parseParams(params, Params);
-  const { role } = await requireEncounter(locals.user.id, encounterId);
+  const { enc, role } = await requireEncounter(locals.user.id, encounterId);
 
   const body = await parseJson(request, SubmitActionLogRequest);
 
@@ -157,7 +176,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     limit?: { per: string; uses: number };
   }> = [];
   try {
-    const { enc } = await requireEncounter(locals.user.id, encounterId);
     const { triggers, factions } = await loadEncounterTriggerContext(
       encounterId,
       enc.campaignId
@@ -191,10 +209,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
       }
     }
-  } catch {
+  } catch (err) {
     // Trigger evaluation is best-effort; never block the log POST on
     // it. A malformed character doc or content lookup glitch shouldn't
-    // prevent the action from being recorded.
+    // prevent the action from being recorded — but it should be visible.
+    logger.warn(
+      { err, encounterId, logId: row.id, userId: locals.user.id },
+      'action log: trigger evaluation failed'
+    );
     triggerOpportunities = [];
   }
 
@@ -202,6 +224,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const _openapi = {
-  GET: { summary: 'Read the action log for an encounter (chronological)' },
+  GET: {
+    summary:
+      'Read the action log for an encounter (chronological). Paginated via ?limit (default 200, max 500) and ?offset; responds { entries, total, limit, offset }.'
+  },
   POST: { summary: 'Append a resolution to the action log', body: SubmitActionLogRequest }
 } as const;

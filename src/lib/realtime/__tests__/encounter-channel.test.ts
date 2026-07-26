@@ -416,6 +416,53 @@ describe('connectEncounter (polling)', () => {
       }
     });
 
+    it('does not remember the ETag of a snapshot dropped by the stale-poll guard', async () => {
+      vi.useFakeTimers();
+      try {
+        let resolveStalePoll!: (r: Response) => void;
+        const stalePoll = new Promise<Response>((r) => { resolveStalePoll = r; });
+        const inmHeaders: Array<string | null> = [];
+        let stateCalls = 0;
+        globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input.toString();
+          if (url.includes('/state')) {
+            stateCalls++;
+            inmHeaders.push(new Headers(init?.headers).get('if-none-match'));
+            if (stateCalls === 1) return stalePoll;
+            return new Response(JSON.stringify(stateSnapshot()), {
+              status: 200,
+              headers: { 'content-type': 'application/json', etag: '"t2"' }
+            });
+          }
+          return jsonResponse({ ok: true });
+        }) as typeof fetch;
+
+        conn = connectEncounter({ encounterId: 'enc-1' });
+        // Poll #1 in flight; mutate so the guard will drop its snapshot.
+        const mutation = conn.setPlan('mob-7', plan);
+        await vi.advanceTimersByTimeAsync(0);
+        await mutation;
+
+        // The stale poll resolves carrying an ETag. Its snapshot is dropped
+        // — the ETag must be dropped with it, or the next poll would 304
+        // against state the store never applied.
+        resolveStalePoll(
+          new Response(JSON.stringify(stateSnapshot()), {
+            status: 200,
+            headers: { 'content-type': 'application/json', etag: '"t1"' }
+          })
+        );
+        await vi.advanceTimersByTimeAsync(0);
+        expect(get(conn.state).plans['mob-7']).toEqual(plan);
+
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(stateCalls).toBe(2);
+        expect(inmHeaders[1]).toBeNull(); // no If-None-Match sent
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('a failed mutation still lets subsequent polls apply (guard resets on settle)', async () => {
       let serverRound = 1;
       globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
@@ -436,6 +483,84 @@ describe('connectEncounter (polling)', () => {
         serverRound = 9;
         await vi.advanceTimersByTimeAsync(2000);
         expect(get(conn.state).round).toBe(9);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  // --- ETag / 304 handling --------------------------------------------------
+  describe('ETag / 304 handling', () => {
+    it('remembers the ETag, sends If-None-Match, and treats 304 as a healthy no-op', async () => {
+      vi.useFakeTimers();
+      try {
+        const inmHeaders: Array<string | null> = [];
+        globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input.toString();
+          if (url.includes('/state')) {
+            const inm = new Headers(init?.headers).get('if-none-match');
+            inmHeaders.push(inm);
+            if (inm === '"tok-1"') {
+              return new Response(null, { status: 304, headers: { etag: '"tok-1"' } });
+            }
+            return new Response(JSON.stringify(stateSnapshot({ round: 3 })), {
+              status: 200,
+              headers: { 'content-type': 'application/json', etag: '"tok-1"' }
+            });
+          }
+          return jsonResponse({ ok: true });
+        }) as typeof fetch;
+
+        conn = connectEncounter({ encounterId: 'enc-1' });
+        await vi.advanceTimersByTimeAsync(0);
+        // First poll: no ETag yet, full snapshot applied.
+        expect(inmHeaders[0]).toBeNull();
+        expect(get(conn.state).round).toBe(3);
+        expect(get(conn.status)).toBe('open');
+
+        // Second poll: If-None-Match echoed, 304 → store untouched, still open.
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(inmHeaders[1]).toBe('"tok-1"');
+        expect(get(conn.state).round).toBe(3);
+        expect(get(conn.status)).toBe('open');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('304 resets the consecutive-error counter', async () => {
+      vi.useFakeTimers();
+      try {
+        let mode: '200' | '500' | '304' = '200';
+        globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+          const url = typeof input === 'string' ? input : input.toString();
+          if (url.includes('/state')) {
+            if (mode === '500') return jsonResponse({ error: 'x' }, 500);
+            if (mode === '304') return new Response(null, { status: 304 });
+            return new Response(JSON.stringify(stateSnapshot({ round: 1 })), {
+              status: 200,
+              headers: { 'content-type': 'application/json', etag: '"t"' }
+            });
+          }
+          return jsonResponse({ ok: true });
+        }) as typeof fetch;
+
+        conn = connectEncounter({ encounterId: 'enc-1' });
+        await vi.advanceTimersByTimeAsync(0); // 200 — open
+        mode = '500';
+        await vi.advanceTimersByTimeAsync(2000); // error 1
+        await vi.advanceTimersByTimeAsync(2000); // error 2
+        expect(get(conn.status)).toBe('open'); // threshold (3) not reached
+
+        mode = '304';
+        await vi.advanceTimersByTimeAsync(2000); // healthy no-change → counter resets
+
+        mode = '500';
+        await vi.advanceTimersByTimeAsync(2000); // error 1 (again)
+        await vi.advanceTimersByTimeAsync(2000); // error 2 (again)
+        // Without the reset this would be the 4th consecutive error and the
+        // status would have degraded to 'connecting'.
+        expect(get(conn.status)).toBe('open');
       } finally {
         vi.useRealTimers();
       }
