@@ -3181,23 +3181,38 @@ function realizeActivity(
     const attack = act.attack as
       | {
           ability?: string;
+          bonus?: number;
           classification?: 'weapon' | 'spell';
           range?: 'melee' | 'ranged';
           damage?: Array<{ dice: unknown; type: string }>;
         }
       | undefined;
     if (attack) {
-      const ability = resolveAttackAbility(attack, source, stats);
-      const mod = stats.abilities[ability].mod;
-      const proficient = computeAttackProficiency(attack, source, character, stats);
-      action.attackBonus = mod + (proficient ? stats.proficiencyBonus : 0);
-      action.attackAbility = ability;
+      // Fixed attack bonus: a literal `attack.bonus` is used verbatim —
+      // no ability mod, no proficiency, and no ability mod added to the
+      // damage formula (ring-of-the-ram style: +7 to hit, 2d10 flat).
+      // `attack.ability` may be absent in this shape; attackAbility stays
+      // unset so character-wide weapon crit riders don't attach.
+      const fixedBonus = typeof attack.bonus === 'number' ? attack.bonus : null;
+      let mod = 0;
+      if (fixedBonus !== null) {
+        action.attackBonus = fixedBonus;
+      } else {
+        const ability = resolveAttackAbility(attack, source, stats);
+        mod = stats.abilities[ability].mod;
+        const proficient = computeAttackProficiency(attack, source, character, stats);
+        action.attackBonus = mod + (proficient ? stats.proficiencyBonus : 0);
+        action.attackAbility = ability;
+      }
       action.attackRange = attack.range;
       action.weaponProperties = (source.data.properties as string[] | undefined) ?? [];
       if (attack.damage) {
         action.damageRolls = attack.damage.map((d) => {
           const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
-          return { formula: addAbilityToFormula(formula, mod), type: d.type };
+          return {
+            formula: fixedBonus !== null ? formula : addAbilityToFormula(formula, mod),
+            type: d.type
+          };
         });
       } else {
         // 5etools shape: damage lives at act.damage.parts as a sibling of
@@ -3276,6 +3291,22 @@ function realizeActivity(
         if (!action.range && spellRow.data.range && typeof spellRow.data.range === 'object') {
           action.range = spellRow.data.range as { value: number; units: string };
         }
+      }
+    }
+    // Literal overrides on the inlined spell numbers — "the item casts
+    // Fireball, save DC 15". Applied AFTER inlining so the authored
+    // literal replaces the character-derived DC / attack bonus. Only the
+    // cast-spell path honors spellOverrides; plain save activities
+    // already express a literal DC via `save.dc.value`.
+    const overrides = act.spellOverrides as
+      | { saveDC?: number; attackBonus?: number }
+      | undefined;
+    if (overrides) {
+      if (typeof overrides.saveDC === 'number' && action.saveDC) {
+        action.saveDC = { ...action.saveDC, value: overrides.saveDC };
+      }
+      if (typeof overrides.attackBonus === 'number' && action.attackBonus != null) {
+        action.attackBonus = overrides.attackBonus;
       }
     }
   }
