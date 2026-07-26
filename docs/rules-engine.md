@@ -72,7 +72,34 @@ An item row with `requiresAttunement: true` whose slot is not attuned is inert w
 
 ### Activity types
 
-`realizeActivity` treats unrecognized `type` strings as `utility`; phase 6 emits an `unknown-activity-type` soft warning for anything outside {`attack`, `save`, `damage`, `heal`, `cast`, `cast-spell`, `utility`, `summon`, `maneuver-rider`} (`summon` is reserved for the summons batch). Absent `type` intentionally defaults to utility without warning.
+`realizeActivity` treats unrecognized `type` strings as `utility`; phase 6 emits an `unknown-activity-type` soft warning for anything outside {`attack`, `save`, `damage`, `heal`, `cast`, `cast-spell`, `utility`, `summon`, `maneuver-rider`}. Absent `type` intentionally defaults to utility without warning.
+
+### Summon activities
+
+A `type: 'summon'` activity (any content kind; items are the usual driver) declares the creatures it brings out:
+
+```jsonc
+{
+  "id": "blow-horn", "name": "Blow the Horn", "type": "summon",
+  "cost": "action", "chargeCost": 2,          // or "uses": { "max": 1, "per": "day" }
+  "summon": {
+    "creatures": [
+      { "slug": "goblin", "count": 3 },        // count: number | evaluateValue string; default 1
+      { "slug": "orc", "name": "Warband Leader" }
+    ],
+    "choice": false,                            // true → player picks ONE entry; false/absent → all together
+    "duration": { "value": 1, "units": "hour" } // display-only, ActivationDuration shape
+  }
+}
+```
+
+Resolution: the Action carries `summons: { creatures: [{ slug, count, name?, resolvedName? }], choice, duration? }`. `count` is `evaluateValue`-resolved (magic strings like `proficiencyBonus` work); `resolvedName` is the monster row's name when the `ContentLookup` resolves `{kind: 'monster', slug}`. The sheet's Companions panel renders a Summon button per action (per creature when `choice` is true) that appends `CompanionState` entries to `character.companions` — HP snapshotted from the monster row's `hp.max`/`hp.average` when available, a 0-HP shell the DM edits otherwise — debiting the activity's charge pool or `uses` resource in the same write. Cost integration, attunement gating, and the `uses`-vs-`chargeCost` exclusivity all compose exactly like other activity types.
+
+Warning semantics: an unresolvable creature slug emits a `summon-missing-content` soft warning. This is deliberately **not** an `unknown-*` code — the packs QC gate hard-fails T3 rows on `unknown-*`, and a summon may legitimately reference a monster shipped in another pack or in operator homebrew that a partial lookup can't see. The action still realizes either way.
+
+## API schema parity
+
+Every `CharacterDocument` field must appear in the Zod `CharacterDocument` schema in `src/lib/server/api/schemas.ts` — Zod strips unknown keys, and the character PATCH/PUT handlers persist the parsed body, so a missing schema entry silently deletes the field on every client round-trip. 2026-07: `companions`, `polymorphForm`, and `deathSaves` were missing and got stripped this way; the round-trip regression test in `src/routes/api/characters/[id]/__tests__/server.test.ts` now covers all three (add new optional fields to that test when extending the document).
 
 ## Known scope limits
 
