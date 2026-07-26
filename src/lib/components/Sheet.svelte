@@ -33,6 +33,7 @@
       immunities: string[];
       vulnerabilities: string[];
       senses: Record<string, number>;
+      traits?: string[];
     };
     actions: Array<{
       id: string;
@@ -256,7 +257,7 @@
   </section>
 {/if}
 
-{#if stats.resistances.length > 0 || Object.keys(stats.senses).length > 0}
+{#if stats.resistances.length > 0 || Object.keys(stats.senses).length > 0 || (stats.traits ?? []).length > 0}
   <section class="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-300">
     {#if stats.resistances.length > 0}
       <div>
@@ -269,6 +270,14 @@
         <span class="text-slate-400">Senses:</span>
         {#each Object.entries(stats.senses) as [name, distance], i}
           <span class="ml-1 capitalize">{name} {distance} ft{i < Object.entries(stats.senses).length - 1 ? ',' : ''}</span>
+        {/each}
+      </div>
+    {/if}
+    {#if (stats.traits ?? []).length > 0}
+      <div class="flex flex-wrap items-center gap-1">
+        <span class="text-slate-400">Traits:</span>
+        {#each stats.traits ?? [] as trait}
+          <span class="rounded bg-slate-800 px-1.5 py-0.5 text-xs capitalize text-slate-300">{trait.replace(/-/g, ' ')}</span>
         {/each}
       </div>
     {/if}

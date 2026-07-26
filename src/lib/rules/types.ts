@@ -406,6 +406,18 @@ export interface StatBlock {
    *  raw (non-skill) checks. 'both' means both flags were granted — they
    *  cancel at roll time. Abilities with neither flag are absent. */
   abilityCheckAdvantage: Partial<Record<AbilityKey, 'advantage' | 'disadvantage' | 'both'>>;
+  /** Curated capability flags from `trait.<slug>` modifiers (value true).
+   *  Sorted + deduped. Any slug is allowed; canonical slugs are listed in
+   *  docs/rules-engine.md (water-breathing, x-ray-vision, …). Consumers
+   *  (UI badges, encounter runtime) interpret slugs they know. */
+  traits: string[];
+  /** Critical hits against this creature become normal hits (adamantine
+   *  armor). Set by `tag.incoming-crit-immune`. Derive+type only — the
+   *  encounter runtime consumes it when adjudicating incoming crits. */
+  incomingCritImmune: boolean;
+  /** Death saving throws are rolled with advantage. Set by
+   *  `deathsave.advantage`. The sheet/runtime chooses how to surface it. */
+  deathSaveAdvantage: boolean;
 }
 
 /** A single source-qualified save-advantage entry. Either an `ability`

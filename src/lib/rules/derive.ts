@@ -170,6 +170,15 @@ function classifyModifier(
   }
 }
 
+/** True when any active stat-modifier sets `target` to literal true —
+ *  the shared shape of the boolean flag channels (attacked.advantage,
+ *  deathsave.advantage, tag.*, armor.ignore-*, …). */
+function hasBooleanTarget(mods: ActiveModifier[], target: string): boolean {
+  return mods.some(
+    (m) => m.kind === 'stat-modifier' && m.raw.target === target && m.raw.value === true
+  );
+}
+
 /** Mutable state threaded through the phase 3-6 helpers below derive().
  *  Phases 1-2 build these locals inside derive() (they are mutation-heavy
  *  and stay inline for now); phases 3-6 read and extend them via this
@@ -1748,6 +1757,19 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // (j) Curated trait flags — `trait.<slug>` boolean targets append the
+  // slug. Any slug is allowed (no validation gate); canonical slugs are
+  // documented in docs/rules-engine.md.
+  const traits = new Set<string>();
+  for (const m of allMods) {
+    if (m.kind !== 'stat-modifier' || m.raw.value !== true) continue;
+    const t = m.raw.target;
+    if (typeof t === 'string' && t.startsWith('trait.')) {
+      const slug = t.slice('trait.'.length);
+      if (slug.length > 0) traits.add(slug);
+    }
+  }
+
   // Passive Perception per RAW: 10 + Perception bonus, +5 with advantage
   // on the check, −5 with disadvantage. Simultaneous adv+dis cancel.
   const perceptionCell = skills.perception;
@@ -1817,7 +1839,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         m.raw.target === 'tag.attacked-within-5ft-auto-crit' &&
         m.raw.value === true
     ),
-    abilityCheckAdvantage
+    abilityCheckAdvantage,
+    traits: [...traits].sort(),
+    incomingCritImmune: hasBooleanTarget(allMods, 'tag.incoming-crit-immune'),
+    deathSaveAdvantage: hasBooleanTarget(allMods, 'deathsave.advantage')
   };
 
   const phase: DerivePhaseState = {
