@@ -3,7 +3,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'node:path';
 
 export default defineConfig({
-  plugins: [svelte({ hot: false })],
+  plugins: [svelte()],
   resolve: {
     // Component tests load the browser entry, not the SSR one.
     conditions: ['browser'],
@@ -12,17 +12,31 @@ export default defineConfig({
     }
   },
   test: {
-    include: ['src/**/*.test.ts'],
-    // Default Node env keeps the existing rules-engine + content-pack tests
-    // fast; component tests opt into jsdom via the per-glob override.
-    environment: 'node',
-    environmentMatchGlobs: [
-      ['src/lib/components/**', 'jsdom'],
-      // encounter-channel guards on `typeof window !== 'undefined'` and uses
-      // EventSource/fetch — needs the jsdom-backed window globals.
-      ['src/lib/realtime/**/encounter-channel*', 'jsdom']
-    ],
     setupFiles: ['./vitest.setup.ts'],
-    globals: false
+    globals: false,
+    // Vitest 3 removed `environmentMatchGlobs`; the node/jsdom split now
+    // lives in two projects. Individual files outside components/ can still
+    // opt into jsdom with a `// @vitest-environment jsdom` docblock (the
+    // realtime channel tests do — they need window/EventSource globals).
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          // Default Node env keeps the rules-engine + content-pack tests fast.
+          environment: 'node',
+          include: ['src/**/*.test.ts'],
+          exclude: ['**/node_modules/**', 'src/lib/components/**']
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'jsdom',
+          environment: 'jsdom',
+          include: ['src/lib/components/**/*.test.ts']
+        }
+      }
+    ]
   }
 });

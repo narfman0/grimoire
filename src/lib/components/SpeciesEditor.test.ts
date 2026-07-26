@@ -28,10 +28,10 @@ describe('SpeciesEditor (unique)', () => {
   // abilityBonuses map breaks derive() which expects only non-zero keys).
   it('save omits abilityBonuses when every score is 0', async () => {
     const onSave = vi.fn();
-    const { getByRole, component } = render(SpeciesEditor, {
-      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } }
+    const { getByRole } = render(SpeciesEditor, {
+      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
 
     await fireEvent.click(getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledOnce();

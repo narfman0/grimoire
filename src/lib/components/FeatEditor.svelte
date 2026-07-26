@@ -229,8 +229,8 @@
       </div>
     {/each}
     <datalist id="feat-target-presets">
-      {#each TARGET_PRESETS as t}<option value={t} />{/each}
-      {#each SKILLS as s}<option value={`proficiency.skill.${s}`} /><option value={`expertise.skill.${s}`} />{/each}
+      {#each TARGET_PRESETS as t}<option value={t}></option>{/each}
+      {#each SKILLS as s}<option value={`proficiency.skill.${s}`}></option><option value={`expertise.skill.${s}`}></option>{/each}
     </datalist>
     <button
       type="button"

@@ -36,10 +36,10 @@ describe('RevealChip', () => {
   // toggle on the encounter page at once.
   it('dispatches toggle with the inverted value', async () => {
     const onToggle = vi.fn();
-    const { getByRole, component } = render(RevealChip, {
-      props: { label: 'identity', on: false }
+    const { getByRole } = render(RevealChip, {
+      props: { label: 'identity', on: false },
+      events: { toggle: (e) => onToggle(e.detail) }
     });
-    component.$on('toggle', (e) => onToggle(e.detail));
 
     await fireEvent.click(getByRole('button'));
     expect(onToggle).toHaveBeenCalledWith(true);

@@ -289,7 +289,7 @@
       <span>Traits (JSON array)</span>
       {#if traitsError}<span class="text-red-300">{traitsError}</span>{/if}
     </span>
-    <textarea class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs" rows="6" bind:value={traitsText} spellcheck="false" />
+    <textarea class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs" rows="6" bind:value={traitsText} spellcheck="false"></textarea>
   </label>
 
   <label class="mt-3 block text-xs">
@@ -297,6 +297,6 @@
       <span>Actions (JSON array)</span>
       {#if actionsError}<span class="text-red-300">{actionsError}</span>{/if}
     </span>
-    <textarea class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs" rows="8" bind:value={actionsText} spellcheck="false" />
+    <textarea class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs" rows="8" bind:value={actionsText} spellcheck="false"></textarea>
   </label>
 </EditorShell>

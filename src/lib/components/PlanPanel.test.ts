@@ -55,7 +55,7 @@ describe('PlanPanel', () => {
   // re-filters self, this fails.
   it('clicking a target chip dispatches targetPick with the toggled list', async () => {
     const onTargetPick = vi.fn();
-    const { getByRole, component } = render(PlanPanel, {
+    const { getByRole } = render(PlanPanel, {
       props: {
         ...baseProps,
         plan: {
@@ -65,9 +65,9 @@ describe('PlanPanel', () => {
           notes: '',
           updatedAt: 0
         }
-      }
+      },
+      events: { targetPick: (e) => onTargetPick(e.detail) }
     });
-    component.$on('targetPick', (e) => onTargetPick(e.detail));
 
     await fireEvent.click(getByRole('button', { name: 'Goblin' }));
     expect(onTargetPick).toHaveBeenCalledWith(['foe']);
@@ -111,7 +111,7 @@ describe('PlanPanel', () => {
   // (event name typo, dispatch dropped), this fails before the user does.
   it('clicking resolve dispatches the resolve event', async () => {
     const onResolve = vi.fn();
-    const { getByRole, component } = render(PlanPanel, {
+    const { getByRole } = render(PlanPanel, {
       props: {
         ...baseProps,
         plan: {
@@ -121,9 +121,9 @@ describe('PlanPanel', () => {
           notes: '',
           updatedAt: 0
         }
-      }
+      },
+      events: { resolve: onResolve }
     });
-    component.$on('resolve', onResolve);
 
     await fireEvent.click(getByRole('button', { name: 'resolve' }));
     expect(onResolve).toHaveBeenCalledOnce();

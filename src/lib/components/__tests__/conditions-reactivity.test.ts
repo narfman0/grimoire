@@ -24,21 +24,21 @@ describe('conditions reactivity (encounter page pattern)', () => {
   // dep without an explicit argument.
   it('non-PC chip text updates when liveConditions changes', async () => {
     const participants = [{ id: 'm1', kind: 'npc', conditions: [] }];
-    const { getByTestId, component } = render(Harness, {
+    const { getByTestId, rerender } = render(Harness, {
       props: { participants, liveConditions: {}, pcConditions: {} }
     });
     expect(getByTestId('chips-m1').textContent).toBe('');
 
-    component.$set({ liveConditions: { m1: ['blinded'] } });
+    rerender({ liveConditions: { m1: ['blinded'] } });
     await tick();
     expect(getByTestId('chips-m1').textContent).toBe('blinded');
 
-    component.$set({ liveConditions: { m1: ['blinded', 'prone'] } });
+    rerender({ liveConditions: { m1: ['blinded', 'prone'] } });
     await tick();
     expect(getByTestId('chips-m1').textContent).toBe('blinded,prone');
 
     // Clearing also flips back.
-    component.$set({ liveConditions: { m1: [] } });
+    rerender({ liveConditions: { m1: [] } });
     await tick();
     expect(getByTestId('chips-m1').textContent).toBe('');
   });
@@ -56,12 +56,12 @@ describe('conditions reactivity (encounter page pattern)', () => {
   // visibility requirement applies.
   it('PC chip text updates when pcConditions mirror changes', async () => {
     const participants = [{ id: 'p1', kind: 'pc', conditions: ['ignored'] }];
-    const { getByTestId, component } = render(Harness, {
+    const { getByTestId, rerender } = render(Harness, {
       props: { participants, liveConditions: {}, pcConditions: {} }
     });
     expect(getByTestId('chips-p1').textContent).toBe('');
 
-    component.$set({ pcConditions: { p1: ['frightened'] } });
+    rerender({ pcConditions: { p1: ['frightened'] } });
     await tick();
     expect(getByTestId('chips-p1').textContent).toBe('frightened');
   });
@@ -73,13 +73,13 @@ describe('conditions reactivity (encounter page pattern)', () => {
       { id: 'a', kind: 'npc', conditions: [] },
       { id: 'b', kind: 'npc', conditions: [] }
     ];
-    const { getByTestId, component } = render(Harness, {
+    const { getByTestId, rerender } = render(Harness, {
       props: { participants, liveConditions: { a: ['x'] }, pcConditions: {} }
     });
     expect(getByTestId('chips-a').textContent).toBe('x');
     expect(getByTestId('chips-b').textContent).toBe('');
 
-    component.$set({ liveConditions: { a: ['x'], b: ['y'] } });
+    rerender({ liveConditions: { a: ['x'], b: ['y'] } });
     await tick();
     expect(getByTestId('chips-a').textContent).toBe('x');
     expect(getByTestId('chips-b').textContent).toBe('y');

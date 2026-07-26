@@ -32,7 +32,7 @@
 <label class="block text-xs {klass}">
   <span class="mb-1 block text-slate-400">{label}</span>
   {#if type === 'textarea'}
-    <textarea class={inputClass} {rows} {maxlength} {placeholder} spellcheck={mono ? false : undefined} bind:value />
+    <textarea class={inputClass} {rows} {maxlength} {placeholder} spellcheck={mono ? false : undefined} bind:value></textarea>
   {:else if type === 'number'}
     <input type="number" class={inputClass} {min} {max} {step} {placeholder} {disabled} bind:value />
   {:else if type === 'select'}

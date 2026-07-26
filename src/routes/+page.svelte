@@ -209,19 +209,22 @@
           </label>
 
           {#if level >= 3}
-            <label class="text-sm">
-              <span class="mb-1 block text-slate-400">Subclass</span>
-              {#if subclassesForClass.length === 0}
+            {#if subclassesForClass.length === 0}
+              <div class="text-sm">
+                <span class="mb-1 block text-slate-400">Subclass</span>
                 <p class="rounded border border-amber-700 bg-amber-950/30 px-2 py-2 text-xs text-amber-200">No subclasses loaded for {classSlug}.</p>
-              {:else}
+              </div>
+            {:else}
+              <label class="text-sm">
+                <span class="mb-1 block text-slate-400">Subclass</span>
                 <select class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2" bind:value={subclassSlug}>
                   <option value="">— pick subclass —</option>
                   {#each subclassesForClass as opt}
                     <option value={opt.slug}>{opt.name}</option>
                   {/each}
                 </select>
-              {/if}
-            </label>
+              </label>
+            {/if}
           {/if}
         </div>
 

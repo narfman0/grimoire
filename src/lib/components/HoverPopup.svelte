@@ -15,6 +15,9 @@
 </script>
 
 <span class="group relative inline-flex">
+  <!-- svelte-ignore a11y-no-noninteractive-tabindex -- the trigger is
+       focusable on purpose: keyboard users open the popup via focus-within,
+       matching the mouse hover affordance. -->
   <span tabindex="0" class="cursor-help focus:outline-none group-focus-within:underline">
     <slot />
   </span>

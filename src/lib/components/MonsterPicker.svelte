@@ -134,7 +134,7 @@
   aria-label="Close"
   tabindex="-1"
   on:click={() => dispatch('close')}
-/>
+></button>
 
 <!-- panel -->
 <div

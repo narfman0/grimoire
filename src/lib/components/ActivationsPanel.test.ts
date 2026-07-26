@@ -33,20 +33,20 @@ describe('ActivationsPanel', () => {
 
   it('Activate button dispatches toggle with on=true', async () => {
     const onToggle = vi.fn();
-    const { getByRole, component } = render(ActivationsPanel, {
-      props: { activations: [avail()] }
+    const { getByRole } = render(ActivationsPanel, {
+      props: { activations: [avail()] },
+      events: { toggle: (e) => onToggle(e.detail) }
     });
-    component.$on('toggle', (e) => onToggle(e.detail));
     await fireEvent.click(getByRole('button', { name: /Activate/i }));
     expect(onToggle).toHaveBeenCalledWith({ id: 'bladesong', on: true });
   });
 
   it('Deactivate button dispatches toggle with on=false when active', async () => {
     const onToggle = vi.fn();
-    const { getByRole, component } = render(ActivationsPanel, {
-      props: { activations: [avail({ active: true })] }
+    const { getByRole } = render(ActivationsPanel, {
+      props: { activations: [avail({ active: true })] },
+      events: { toggle: (e) => onToggle(e.detail) }
     });
-    component.$on('toggle', (e) => onToggle(e.detail));
     await fireEvent.click(getByRole('button', { name: /Deactivate/i }));
     expect(onToggle).toHaveBeenCalledWith({ id: 'bladesong', on: false });
   });
@@ -73,8 +73,11 @@ describe('ActivationsPanel', () => {
         { id: 'panther', label: 'Panther' }
       ]
     });
-    const { getByRole, component } = render(ActivationsPanel, { props: { activations: [a] } });
-    component.$on('toggle', (e) => onToggle(e.detail));
+    const { getByRole } = render(ActivationsPanel, {
+      props: { activations: [a] },
+      events: { toggle: (e) => onToggle(e.detail) }
+
+    });
 
     const select = getByRole('combobox') as HTMLSelectElement;
     await fireEvent.change(select, { target: { value: 'panther' } });
@@ -147,8 +150,11 @@ describe('ActivationsPanel', () => {
         { id: 'cold', label: 'Cold' }
       ]
     });
-    const { getByRole, component } = render(ActivationsPanel, { props: { activations: [a] } });
-    component.$on('restPick', (e) => onRestPick(e.detail));
+    const { getByRole } = render(ActivationsPanel, {
+      props: { activations: [a] },
+      events: { restPick: (e) => onRestPick(e.detail) }
+
+    });
     const select = getByRole('combobox') as HTMLSelectElement;
     await fireEvent.change(select, { target: { value: 'cold' } });
     expect(onRestPick).toHaveBeenCalledWith({ id: 'fiendish-resilience', variant: 'cold' });
@@ -170,8 +176,11 @@ describe('ActivationsPanel', () => {
         { id: 'cold', label: 'Cold' }
       ]
     });
-    const { getByRole, component } = render(ActivationsPanel, { props: { activations: [a] } });
-    component.$on('restPick', (e) => onRestPick(e.detail));
+    const { getByRole } = render(ActivationsPanel, {
+      props: { activations: [a] },
+      events: { restPick: (e) => onRestPick(e.detail) }
+
+    });
     const select = getByRole('combobox') as HTMLSelectElement;
     await fireEvent.change(select, { target: { value: '' } });
     expect(onRestPick).toHaveBeenCalledWith({ id: 'fiendish-resilience', variant: null });

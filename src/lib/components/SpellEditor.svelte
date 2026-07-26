@@ -176,7 +176,7 @@
       rows="8"
       bind:value={activitiesText}
       spellcheck="false"
-    />
+    ></textarea>
     <span class="mt-1 block text-[11px] text-slate-500">
       Attack rolls, saves, and damage live here. Leave empty if the spell has no mechanical rolls; the rules engine validates per-activity shape on save.
     </span>

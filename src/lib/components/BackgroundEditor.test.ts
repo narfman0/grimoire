@@ -22,10 +22,10 @@ describe('BackgroundEditor (unique)', () => {
   // Regression here would ship empty arrays to the server and fail Zod.
   it('save omits empty optional fields and keeps language bonus when default', async () => {
     const onSave = vi.fn();
-    const { getByRole, getAllByRole, component } = render(BackgroundEditor, {
-      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } }
+    const { getByRole, getAllByRole } = render(BackgroundEditor, {
+      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
 
     await fireEvent.click(getByRole('button', { name: 'Save' }));
     const payload = onSave.mock.calls[0][0];

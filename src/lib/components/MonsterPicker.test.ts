@@ -42,8 +42,11 @@ describe('MonsterPicker', () => {
   // Locks the two-stage select: click → preview, never an immediate pick.
   it('clicking a monster row does NOT dispatch pick (it opens the preview)', async () => {
     const onPick = vi.fn();
-    const { getByText, component } = render(MonsterPicker, { props: { monsters } });
-    component.$on('pick', (e) => onPick(e.detail));
+    const { getByText } = render(MonsterPicker, {
+      props: { monsters },
+      events: { pick: (e) => onPick(e.detail) }
+
+    });
 
     await fireEvent.click(getByText('Orc'));
     expect(onPick).not.toHaveBeenCalled();
@@ -53,8 +56,11 @@ describe('MonsterPicker', () => {
   // → pick dispatches with the previewed MonsterOption.
   it('clicking Add after preview dispatches pick with the previewed monster', async () => {
     const onPick = vi.fn();
-    const { getByText, component } = render(MonsterPicker, { props: { monsters } });
-    component.$on('pick', (e) => onPick(e.detail));
+    const { getByText } = render(MonsterPicker, {
+      props: { monsters },
+      events: { pick: (e) => onPick(e.detail) }
+
+    });
 
     await fireEvent.click(getByText('Orc'));
     const addBtn = getByText(/^Add Orc$/);
@@ -118,10 +124,10 @@ describe('MonsterPicker', () => {
   // Locks the Escape → close contract.
   it('Escape dispatches close', async () => {
     const onClose = vi.fn();
-    const { getByPlaceholderText, component } = render(MonsterPicker, {
-      props: { monsters }
+    const { getByPlaceholderText } = render(MonsterPicker, {
+      props: { monsters },
+      events: { close: onClose }
     });
-    component.$on('close', onClose);
 
     await fireEvent.keyDown(getByPlaceholderText('Search monsters…'), { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();

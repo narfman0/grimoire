@@ -39,10 +39,10 @@ describe('ActionEconomyPanel', () => {
   // someone adds back `readonly={isPc}` or similar, this fails.
   it('action dropdown is enabled when readonly is false and dispatches actionPick', async () => {
     const onPick = vi.fn();
-    const { container, component } = render(ActionEconomyPanel, {
-      props: { ...baseProps, readonly: false }
+    const { container } = render(ActionEconomyPanel, {
+      props: { ...baseProps, readonly: false },
+      events: { actionPick: (e) => onPick(e.detail) }
     });
-    component.$on('actionPick', (e) => onPick(e.detail));
 
     const select = actionSelect(container);
     expect(select.disabled).toBe(false);

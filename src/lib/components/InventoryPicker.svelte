@@ -77,7 +77,7 @@
   aria-label="Close picker"
   tabindex="-1"
   on:click={() => dispatch('pick', { slug: '' })}
-/>
+></button>
 
 <!-- panel -->
 <div

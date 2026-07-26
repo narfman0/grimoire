@@ -29,10 +29,10 @@ describe('ItemEditor (unique)', () => {
   // on every item — noise in the DB and confusing to consumers.
   it('save omits requiresAttunement when false', async () => {
     const onSave = vi.fn();
-    const { getByRole, component } = render(ItemEditor, {
-      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } }
+    const { getByRole } = render(ItemEditor, {
+      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
 
     await fireEvent.click(getByRole('button', { name: 'Save' }));
     expect(onSave.mock.calls[0][0].data.requiresAttunement).toBeUndefined();
@@ -41,10 +41,10 @@ describe('ItemEditor (unique)', () => {
   // Locks: modifier rows with empty target are filtered out before save.
   it('save filters out modifier rows with blank target', async () => {
     const onSave = vi.fn();
-    const { getByRole, component } = render(ItemEditor, {
-      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } }
+    const { getByRole } = render(ItemEditor, {
+      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
 
     await fireEvent.click(getByRole('button', { name: '+ Add modifier' }));
     // Modifier added with empty target → should be filtered.

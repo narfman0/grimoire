@@ -153,7 +153,7 @@
       </div>
     {/each}
     <datalist id="item-target-presets">
-      {#each TARGET_PRESETS as t}<option value={t} />{/each}
+      {#each TARGET_PRESETS as t}<option value={t}></option>{/each}
     </datalist>
     <button
       type="button"

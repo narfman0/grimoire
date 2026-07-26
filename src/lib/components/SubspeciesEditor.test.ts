@@ -28,10 +28,10 @@ describe('SubspeciesEditor (unique)', () => {
   // dropped from the payload.
   it('save trims parentSpecies and omits it when blank', async () => {
     const onSave = vi.fn();
-    const { getByRole, component } = render(SubspeciesEditor, {
-      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } }
+    const { getByRole } = render(SubspeciesEditor, {
+      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
 
     await fireEvent.click(getByRole('button', { name: 'Save' }));
     expect(onSave.mock.calls[0][0].data.parentSpecies).toBeUndefined();

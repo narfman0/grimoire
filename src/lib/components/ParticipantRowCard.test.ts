@@ -53,18 +53,20 @@ describe('ParticipantRowCard', () => {
 
   it('dispatches select on row click', async () => {
     const onSelect = vi.fn();
-    const { container, component } = render(ParticipantRowCard, { props: baseProps() });
-    component.$on('select', onSelect);
+    const { container } = render(ParticipantRowCard, {
+      props: baseProps(),
+      events: { select: onSelect }
+    });
     await fireEvent.click(container.querySelector('li')!);
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
   it('dispatches commitInitiative with the typed number on Enter', async () => {
     const onCommit = vi.fn();
-    const { getByPlaceholderText, component } = render(ParticipantRowCard, {
-      props: baseProps({ editingInitiative: true, p: baseParticipant({ initiative: null }) })
+    const { getByPlaceholderText } = render(ParticipantRowCard, {
+      props: baseProps({ editingInitiative: true, p: baseParticipant({ initiative: null }) }),
+      events: { commitInitiative: onCommit }
     });
-    component.$on('commitInitiative', onCommit);
     const input = getByPlaceholderText('init') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: '17' } });
     await fireEvent.keyDown(input, { key: 'Enter' });
@@ -73,10 +75,10 @@ describe('ParticipantRowCard', () => {
 
   it('dispatches cancelEditInitiative on Escape', async () => {
     const onCancel = vi.fn();
-    const { getByPlaceholderText, component } = render(ParticipantRowCard, {
-      props: baseProps({ editingInitiative: true, p: baseParticipant({ initiative: 8 }) })
+    const { getByPlaceholderText } = render(ParticipantRowCard, {
+      props: baseProps({ editingInitiative: true, p: baseParticipant({ initiative: 8 }) }),
+      events: { cancelEditInitiative: onCancel }
     });
-    component.$on('cancelEditInitiative', onCancel);
     await fireEvent.keyDown(getByPlaceholderText('init'), { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
@@ -97,8 +99,10 @@ describe('ParticipantRowCard', () => {
 
   it('dispatches remove when the ✕ button is clicked (DM)', async () => {
     const onRemove = vi.fn();
-    const { getByTitle, component } = render(ParticipantRowCard, { props: baseProps() });
-    component.$on('remove', onRemove);
+    const { getByTitle } = render(ParticipantRowCard, {
+      props: baseProps(),
+      events: { remove: onRemove }
+    });
     await fireEvent.click(getByTitle('Remove npc from encounter'));
     expect(onRemove).toHaveBeenCalledTimes(1);
   });

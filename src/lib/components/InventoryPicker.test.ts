@@ -29,10 +29,10 @@ describe('InventoryPicker', () => {
 
   it('clicking an item dispatches pick with its slug', async () => {
     const onPick = vi.fn();
-    const { getByText, component } = render(InventoryPicker, {
-      props: { items: sampleItems }
+    const { getByText } = render(InventoryPicker, {
+      props: { items: sampleItems },
+      events: { pick: (e) => onPick(e.detail) }
     });
-    component.$on('pick', (e) => onPick(e.detail));
 
     await fireEvent.click(getByText('Longsword'));
     expect(onPick).toHaveBeenCalledWith({ slug: 'longsword' });
@@ -42,10 +42,10 @@ describe('InventoryPicker', () => {
   // empty slug so the parent treats it as a cancel.
   it('Escape dispatches an empty pick (cancel)', async () => {
     const onPick = vi.fn();
-    const { getByPlaceholderText, component } = render(InventoryPicker, {
-      props: { items: sampleItems }
+    const { getByPlaceholderText } = render(InventoryPicker, {
+      props: { items: sampleItems },
+      events: { pick: (e) => onPick(e.detail) }
     });
-    component.$on('pick', (e) => onPick(e.detail));
 
     await fireEvent.keyDown(getByPlaceholderText('Search items…'), { key: 'Escape' });
     expect(onPick).toHaveBeenCalledWith({ slug: '' });
@@ -54,10 +54,10 @@ describe('InventoryPicker', () => {
   // Locks: ArrowDown advances selection, Enter picks the highlighted row.
   it('Enter on a highlighted row dispatches pick', async () => {
     const onPick = vi.fn();
-    const { getByPlaceholderText, component } = render(InventoryPicker, {
-      props: { items: sampleItems }
+    const { getByPlaceholderText } = render(InventoryPicker, {
+      props: { items: sampleItems },
+      events: { pick: (e) => onPick(e.detail) }
     });
-    component.$on('pick', (e) => onPick(e.detail));
 
     const input = getByPlaceholderText('Search items…');
     await fireEvent.keyDown(input, { key: 'ArrowDown' });
@@ -67,10 +67,10 @@ describe('InventoryPicker', () => {
 
   it('backdrop click dispatches empty pick (cancel)', async () => {
     const onPick = vi.fn();
-    const { getByLabelText, component } = render(InventoryPicker, {
-      props: { items: sampleItems }
+    const { getByLabelText } = render(InventoryPicker, {
+      props: { items: sampleItems },
+      events: { pick: (e) => onPick(e.detail) }
     });
-    component.$on('pick', (e) => onPick(e.detail));
 
     await fireEvent.click(getByLabelText('Close picker'));
     expect(onPick).toHaveBeenCalledWith({ slug: '' });

@@ -40,10 +40,10 @@ describe('GenericContentEditor (unique)', () => {
   // the string textarea content.
   it('Save dispatches parsed JSON object on data', async () => {
     const onSave = vi.fn();
-    const { getByRole, component } = render(GenericContentEditor, {
-      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } }
+    const { getByRole } = render(GenericContentEditor, {
+      props: { item: { ...emptyItem(), slug: 'pre', name: 'Pre' } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
     const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
     await fireEvent.input(textarea, { target: { value: '{"foo": 42}' } });
 

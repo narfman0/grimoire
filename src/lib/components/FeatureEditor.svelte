@@ -225,7 +225,7 @@
         </div>
       {/each}
       <datalist id="feature-target-presets">
-        {#each TARGET_PRESETS as t}<option value={t} />{/each}
+        {#each TARGET_PRESETS as t}<option value={t}></option>{/each}
       </datalist>
       <button
         type="button"

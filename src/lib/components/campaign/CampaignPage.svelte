@@ -905,7 +905,7 @@
 
 {#if grantModalOpen}
 <div class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Content grants">
-  <button class="absolute inset-0 bg-black/60 cursor-default" tabindex="-1" aria-label="Close" on:click={() => grantModalOpen = false} />
+  <button class="absolute inset-0 bg-black/60 cursor-default" tabindex="-1" aria-label="Close" on:click={() => grantModalOpen = false}></button>
   <div class="relative w-full max-w-sm rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-xl">
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-slate-200">Content grants</h2>

@@ -32,10 +32,10 @@ describe('ReceivedBuffsPanel', () => {
 
   it('dispatches add when a spell is picked and the add button is clicked', async () => {
     const onAdd = vi.fn();
-    const { getByRole, component } = render(ReceivedBuffsPanel, {
-      props: { buffs: [], spellOptions: SPELLS }
+    const { getByRole } = render(ReceivedBuffsPanel, {
+      props: { buffs: [], spellOptions: SPELLS },
+      events: { add: (e) => onAdd(e.detail) }
     });
-    component.$on('add', (e) => onAdd(e.detail));
 
     const select = getByRole('combobox') as HTMLSelectElement;
     await fireEvent.change(select, { target: { value: 'shield-of-faith' } });
@@ -45,13 +45,13 @@ describe('ReceivedBuffsPanel', () => {
 
   it('dispatches remove when the Remove button is clicked', async () => {
     const onRemove = vi.fn();
-    const { getByRole, component } = render(ReceivedBuffsPanel, {
+    const { getByRole } = render(ReceivedBuffsPanel, {
       props: {
         buffs: [{ id: 'b1', spellSlug: 'shield-of-faith' }],
         spellOptions: SPELLS
-      }
+      },
+      events: { remove: (e) => onRemove(e.detail) }
     });
-    component.$on('remove', (e) => onRemove(e.detail));
 
     await fireEvent.click(getByRole('button', { name: /Remove/ }));
     expect(onRemove).toHaveBeenCalledWith({ id: 'b1' });
@@ -59,13 +59,13 @@ describe('ReceivedBuffsPanel', () => {
 
   it('dispatches update when the source label changes', async () => {
     const onUpdate = vi.fn();
-    const { getByLabelText, component } = render(ReceivedBuffsPanel, {
+    const { getByLabelText } = render(ReceivedBuffsPanel, {
       props: {
         buffs: [{ id: 'b1', spellSlug: 'shield-of-faith' }],
         spellOptions: SPELLS
-      }
+      },
+      events: { update: (e) => onUpdate(e.detail) }
     });
-    component.$on('update', (e) => onUpdate(e.detail));
 
     const input = getByLabelText(/source/i) as HTMLInputElement;
     input.value = 'from Cleric Vortha';

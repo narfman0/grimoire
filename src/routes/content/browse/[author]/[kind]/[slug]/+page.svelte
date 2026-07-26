@@ -166,7 +166,7 @@
         maxlength="1000"
         bind:value={reportReason}
         placeholder="Why are you reporting this?"
-      />
+      ></textarea>
       <div class="flex items-center justify-end gap-2 text-sm">
         <button class="rounded border border-slate-700 px-3 py-1 hover:bg-slate-800" on:click={() => (showReportModal = false)}>Cancel</button>
         <button class="rounded bg-red-700 px-3 py-1 text-red-100 hover:bg-red-600 disabled:opacity-40" on:click={submitReport} disabled={busy === 'report' || !reportReason.trim()}>Submit report</button>

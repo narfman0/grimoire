@@ -63,10 +63,10 @@ export function runEditorContract(
 
     it('Cancel button dispatches the cancel event', async () => {
       const onCancel = vi.fn();
-      const { getByRole, component } = render(Component, {
-        props: buildProps({ isEdit: false })
+      const { getByRole } = render(Component, {
+        props: buildProps({ isEdit: false }),
+        events: { cancel: onCancel }
       });
-      component.$on('cancel', onCancel);
       await fireEvent.click(getByRole('button', { name: 'Cancel' }));
       expect(onCancel).toHaveBeenCalledOnce();
     });

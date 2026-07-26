@@ -56,10 +56,10 @@ describe('ConditionEditor', () => {
   // shipping ['', '', 'Disadvantage'] to the server.
   it('save event omits empty effects and blank optional fields', async () => {
     const onSave = vi.fn();
-    const { getByRole, getAllByRole, component } = render(ConditionEditor, {
-      props: { item: { slug: 'pre', name: 'Pre', visibility: 'private', data: {} } }
+    const { getByRole, getAllByRole } = render(ConditionEditor, {
+      props: { item: { slug: 'pre', name: 'Pre', visibility: 'private', data: {} } },
+      events: { save: (e) => onSave(e.detail) }
     });
-    component.$on('save', (e) => onSave(e.detail));
 
     // Click "+ Add effect" twice; fill only the second.
     const addBtn = getByRole('button', { name: '+ Add effect' });
@@ -84,10 +84,10 @@ describe('ConditionEditor', () => {
 
   it('dispatches cancel when Cancel is clicked', async () => {
     const onCancel = vi.fn();
-    const { getByRole, component } = render(ConditionEditor, {
-      props: { item: emptyItem() }
+    const { getByRole } = render(ConditionEditor, {
+      props: { item: emptyItem() },
+      events: { cancel: onCancel }
     });
-    component.$on('cancel', onCancel);
 
     await fireEvent.click(getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalledOnce();
