@@ -7,9 +7,9 @@
   // arrays with optional attack/save/damage metadata that aren't worth
   // structurally editing in v1.
 
-  import { createEventDispatcher } from 'svelte';
+  import EditorShell, { type Visibility } from './EditorShell.svelte';
+  import EditorField from './EditorField.svelte';
 
-  type Visibility = 'private' | 'unlisted' | 'public';
   type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
   type MonsterData = {
     size?: 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan';
@@ -45,18 +45,9 @@
   export let busy = false;
   export let errorMessage = '';
 
-  const dispatch = createEventDispatcher<{
-    save: { slug: string; name: string; visibility: Visibility; data: MonsterData };
-    cancel: void;
-    delete: void;
-  }>();
-
   const SIZES = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] as const;
   const ABILITIES: AbilityKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
-  let name = item.name;
-  let slug = item.slug;
-  let visibility: Visibility = item.visibility ?? 'private';
   let size: MonsterData['size'] | '' = item.data.size ?? '';
   let type = item.data.type ?? '';
   let alignment = item.data.alignment ?? '';
@@ -120,24 +111,6 @@
   $: traitsError = validateJsonArray(traitsText);
   $: actionsError = validateJsonArray(actionsText);
 
-  function kebab(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 64);
-  }
-  let slugManuallyEdited = isEdit;
-  function onNameInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    name = el.value;
-    if (!slugManuallyEdited) slug = kebab(name);
-  }
-  function onSlugInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    slug = el.value;
-    slugManuallyEdited = true;
-  }
   function csv(s: string): string[] {
     return s.split(',').map((x) => x.trim()).filter(Boolean);
   }
@@ -152,8 +125,8 @@
     return out;
   }
 
-  function onSave() {
-    if (traitsError || actionsError) return;
+  function buildData(): Record<string, unknown> | null {
+    if (traitsError || actionsError) return null;
     const speed: Record<string, number> = {};
     if (speedWalk) speed.walk = speedWalk;
     if (speedFly) speed.fly = speedFly;
@@ -189,67 +162,26 @@
       ...(traits.length > 0 ? { traits } : {}),
       ...(actions.length > 0 ? { actions } : {})
     };
-    dispatch('save', { slug, name, visibility, data });
+    return data;
   }
 </script>
 
-<div class="rounded-lg border border-slate-700 bg-slate-950 p-4">
-  {#if errorMessage}
-    <p class="mb-3 rounded border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">{errorMessage}</p>
-  {/if}
+<EditorShell
+  {item}
+  {isEdit}
+  {busy}
+  {errorMessage}
+  {buildData}
+  saveBlocked={!!traitsError || !!actionsError}
+  on:save
+  on:cancel
+  on:delete
+>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <EditorField label="Size" type="select" emptyOption="(none)" options={[...SIZES]} bind:value={size} />
+    <EditorField label="Type" maxlength={64} placeholder="e.g. humanoid, undead" bind:value={type} />
 
-  <div class="grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Name</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        value={name}
-        on:input={onNameInput}
-        maxlength="200"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slug{isEdit ? ' (locked)' : ''}</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
-        value={slug}
-        on:input={onSlugInput}
-        disabled={isEdit}
-        maxlength="64"
-      />
-    </label>
-
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Size</span>
-      <select class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={size}>
-        <option value="">(none)</option>
-        {#each SIZES as s}
-          <option value={s}>{s}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Type</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={type}
-        maxlength="64"
-        placeholder="e.g. humanoid, undead"
-      />
-    </label>
-
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Alignment</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={alignment}
-        maxlength="64"
-      />
-    </label>
+    <EditorField label="Alignment" maxlength={64} bind:value={alignment} />
     <label class="block text-xs">
       <span class="mb-1 block text-slate-400">Challenge / XP</span>
       <div class="flex gap-2">
@@ -337,32 +269,20 @@
   </fieldset>
 
   <div class="mt-3 grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Damage vulnerabilities (comma)</span>
-      <input type="text" class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={vulnerabilitiesText} placeholder="e.g. fire, radiant" />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Damage immunities (comma)</span>
-      <input type="text" class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={immunitiesText} />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Condition immunities (comma)</span>
-      <input type="text" class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={conditionImmunitiesText} />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Languages (comma)</span>
-      <input type="text" class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={languagesText} />
-    </label>
-    <label class="block text-xs sm:col-span-2">
-      <span class="mb-1 block text-slate-400">Senses (key=value, comma)</span>
-      <input type="text" class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm font-mono" bind:value={sensesText} placeholder="e.g. darkvision=60, passive_perception=14" />
-    </label>
+    <EditorField label="Damage vulnerabilities (comma)" placeholder="e.g. fire, radiant" bind:value={vulnerabilitiesText} />
+    <EditorField label="Damage immunities (comma)" bind:value={immunitiesText} />
+    <EditorField label="Condition immunities (comma)" bind:value={conditionImmunitiesText} />
+    <EditorField label="Languages (comma)" bind:value={languagesText} />
+    <EditorField
+      class="sm:col-span-2"
+      label="Senses (key=value, comma)"
+      mono
+      placeholder="e.g. darkvision=60, passive_perception=14"
+      bind:value={sensesText}
+    />
   </div>
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Description / flavor</span>
-    <textarea class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" rows="4" bind:value={description} maxlength="16000" />
-  </label>
+  <EditorField class="mt-3" label="Description / flavor" type="textarea" rows={4} maxlength={16000} bind:value={description} />
 
   <label class="mt-3 block text-xs">
     <span class="mb-1 flex items-center justify-between text-slate-400">
@@ -379,48 +299,4 @@
     </span>
     <textarea class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs" rows="8" bind:value={actionsText} spellcheck="false" />
   </label>
-
-  <fieldset class="mt-4 rounded border border-slate-800 p-3">
-    <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Visibility</legend>
-    <div class="space-y-1 text-xs">
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="private" />
-        <span class="ml-1">Private</span>
-        <span class="ml-1 text-slate-500">— only you</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="unlisted" />
-        <span class="ml-1">Unlisted</span>
-        <span class="ml-1 text-slate-500">— URL-only, hidden from marketplace</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="public" />
-        <span class="ml-1">Public</span>
-        <span class="ml-1 text-slate-500">— browseable in /homebrew/browse</span>
-      </label>
-    </div>
-  </fieldset>
-
-  <div class="mt-4 flex items-center gap-2">
-    <button
-      type="button"
-      class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-      on:click={onSave}
-      disabled={busy || !name.trim() || !slug.trim() || !!traitsError || !!actionsError}
-    >Save</button>
-    <button
-      type="button"
-      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
-      on:click={() => dispatch('cancel')}
-      disabled={busy}
-    >Cancel</button>
-    {#if isEdit}
-      <button
-        type="button"
-        class="ml-auto rounded border border-red-800 px-3 py-1 text-sm text-red-200 hover:bg-red-950"
-        on:click={() => dispatch('delete')}
-        disabled={busy}
-      >Delete</button>
-    {/if}
-  </div>
-</div>
+</EditorShell>

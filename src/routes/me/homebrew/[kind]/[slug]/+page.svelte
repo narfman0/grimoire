@@ -1,16 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import GenericContentEditor from '$lib/components/GenericContentEditor.svelte';
-  import SpellEditor from '$lib/components/SpellEditor.svelte';
-  import ItemEditor from '$lib/components/ItemEditor.svelte';
-  import MonsterEditor from '$lib/components/MonsterEditor.svelte';
-  import BackgroundEditor from '$lib/components/BackgroundEditor.svelte';
-  import ConditionEditor from '$lib/components/ConditionEditor.svelte';
-  import SpeciesEditor from '$lib/components/SpeciesEditor.svelte';
-  import SubspeciesEditor from '$lib/components/SubspeciesEditor.svelte';
-  import FeatureEditor from '$lib/components/FeatureEditor.svelte';
-  import SubclassEditor from '$lib/components/SubclassEditor.svelte';
-  import ClassEditor from '$lib/components/ClassEditor.svelte';
+  import { editorFor } from '$lib/components/editor-registry';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -128,26 +118,13 @@
   </h1>
 </header>
 
-{#if data.kind === 'spell'}
-  <SpellEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'item'}
-  <ItemEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'monster'}
-  <MonsterEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'background'}
-  <BackgroundEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'condition'}
-  <ConditionEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'species'}
-  <SpeciesEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'subspecies'}
-  <SubspeciesEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'feature'}
-  <FeatureEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'subclass'}
-  <SubclassEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else if data.kind === 'class'}
-  <ClassEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{:else}
-  <GenericContentEditor item={data.item} isEdit={true} on:save={onSave} on:delete={onDelete} on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)} {busy} {errorMessage} />
-{/if}
+<svelte:component
+  this={editorFor(data.kind)}
+  item={data.item}
+  isEdit={true}
+  on:save={onSave}
+  on:delete={onDelete}
+  on:cancel={() => goto(`/me/homebrew/${encodeURIComponent(data.kind)}`)}
+  {busy}
+  {errorMessage}
+/>

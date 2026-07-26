@@ -1,7 +1,7 @@
 // Shared helper for the single-row homebrew endpoints
-// (POST /api/homebrew/[kind], POST /api/homebrew/feats, fork).
+// (POST /api/homebrew/[kind], fork).
 //
-// All three accept an optional `packSlug` body field; when present we have
+// Both accept an optional `packSlug` body field; when present we have
 // to make sure the caller actually owns the pack (or that it's the fast-path
 // 'homebrew' bucket). This used to be inlined per-endpoint; pulling it out
 // gives us one canonical permission gate and one error message shape.

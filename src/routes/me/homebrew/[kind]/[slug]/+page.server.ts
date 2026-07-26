@@ -10,8 +10,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   if (!HOMEBREW_KINDS.includes(kind as (typeof HOMEBREW_KINDS)[number])) {
     throw error(404, `unknown content kind: ${kind}`);
   }
-  if (kind === 'feat') throw error(404, 'use /me/homebrew/feats/[slug]');
-
   // Pick the highest-version row. The author always edits the latest copy
   // (which may be a draft sitting above a previously-published version).
   const [row] = await db

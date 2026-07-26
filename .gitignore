@@ -12,3 +12,4 @@ dist
 .DS_Store
 *.log
 .claude/settings.local.json.claude/
+grimoire.db.pre-migrate-*

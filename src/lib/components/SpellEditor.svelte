@@ -7,9 +7,9 @@
   // Nested `activities` are edited via a JSON textarea — they're free-form
   // (attack/utility metadata) and the engine validates rows individually.
 
-  import { createEventDispatcher } from 'svelte';
+  import EditorShell, { type Visibility } from './EditorShell.svelte';
+  import EditorField from './EditorField.svelte';
 
-  type Visibility = 'private' | 'unlisted' | 'public';
   type SpellData = {
     level?: number;
     school?: string;
@@ -38,12 +38,6 @@
   export let busy = false;
   export let errorMessage = '';
 
-  const dispatch = createEventDispatcher<{
-    save: { slug: string; name: string; visibility: Visibility; data: SpellData };
-    cancel: void;
-    delete: void;
-  }>();
-
   const SCHOOLS = [
     'abjuration',
     'conjuration',
@@ -56,9 +50,6 @@
   ];
   const RANGE_UNITS = ['feet', 'miles', 'self', 'touch', 'sight', 'unlimited'];
 
-  let name = item.name;
-  let slug = item.slug;
-  let visibility: Visibility = item.visibility ?? 'private';
   let level = item.data.level ?? 0;
   let school = item.data.school ?? '';
   let castingTime = item.data.castingTime ?? '';
@@ -87,38 +78,19 @@
     }
   }
 
-  function kebab(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 64);
-  }
-  let slugManuallyEdited = isEdit;
-  function onNameInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    name = el.value;
-    if (!slugManuallyEdited) slug = kebab(name);
-  }
-  function onSlugInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    slug = el.value;
-    slugManuallyEdited = true;
-  }
-
-  function onSave() {
+  function buildData(): Record<string, unknown> | null {
     let activities: unknown[] = [];
     if (activitiesText.trim()) {
       try {
         const parsed = JSON.parse(activitiesText);
         if (!Array.isArray(parsed)) {
           activitiesError = 'must be a JSON array';
-          return;
+          return null;
         }
         activities = parsed;
       } catch (e) {
         activitiesError = (e as Error).message;
-        return;
+        return null;
       }
     }
 
@@ -141,78 +113,16 @@
       ...(description ? { description } : {}),
       ...(activities.length > 0 ? { activities } : {})
     };
-    dispatch('save', { slug, name, visibility, data });
+    return data;
   }
 </script>
 
-<div class="rounded-lg border border-slate-700 bg-slate-950 p-4">
-  {#if errorMessage}
-    <p class="mb-3 rounded border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">{errorMessage}</p>
-  {/if}
-
-  <div class="grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Name</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        value={name}
-        on:input={onNameInput}
-        maxlength="200"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slug{isEdit ? ' (locked)' : ''}</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
-        value={slug}
-        on:input={onSlugInput}
-        disabled={isEdit}
-        maxlength="64"
-      />
-    </label>
-
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Level</span>
-      <input
-        type="number"
-        min="0"
-        max="9"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={level}
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">School</span>
-      <select class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={school}>
-        <option value="">(none)</option>
-        {#each SCHOOLS as s}
-          <option value={s}>{s}</option>
-        {/each}
-      </select>
-    </label>
-
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Casting time</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={castingTime}
-        maxlength="64"
-        placeholder="e.g. 1 action"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Duration</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={duration}
-        maxlength="64"
-        placeholder="e.g. Instantaneous, 1 minute"
-      />
-    </label>
+<EditorShell {item} {isEdit} {busy} {errorMessage} {buildData} saveBlocked={!!activitiesError} on:save on:cancel on:delete>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <EditorField label="Level" type="number" min={0} max={9} bind:value={level} />
+    <EditorField label="School" type="select" emptyOption="(none)" options={SCHOOLS} bind:value={school} />
+    <EditorField label="Casting time" maxlength={64} placeholder="e.g. 1 action" bind:value={castingTime} />
+    <EditorField label="Duration" maxlength={64} placeholder="e.g. Instantaneous, 1 minute" bind:value={duration} />
 
     <label class="block text-xs">
       <span class="mb-1 block text-slate-400">Range</span>
@@ -254,15 +164,7 @@
     </fieldset>
   </div>
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Description</span>
-    <textarea
-      class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-      rows="6"
-      bind:value={description}
-      maxlength="16000"
-    />
-  </label>
+  <EditorField class="mt-3" label="Description" type="textarea" rows={6} maxlength={16000} bind:value={description} />
 
   <label class="mt-3 block text-xs">
     <span class="mb-1 flex items-center justify-between text-slate-400">
@@ -279,48 +181,4 @@
       Attack rolls, saves, and damage live here. Leave empty if the spell has no mechanical rolls; the rules engine validates per-activity shape on save.
     </span>
   </label>
-
-  <fieldset class="mt-4 rounded border border-slate-800 p-3">
-    <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Visibility</legend>
-    <div class="space-y-1 text-xs">
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="private" />
-        <span class="ml-1">Private</span>
-        <span class="ml-1 text-slate-500">— only you</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="unlisted" />
-        <span class="ml-1">Unlisted</span>
-        <span class="ml-1 text-slate-500">— URL-only, hidden from marketplace</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="public" />
-        <span class="ml-1">Public</span>
-        <span class="ml-1 text-slate-500">— browseable in /homebrew/browse</span>
-      </label>
-    </div>
-  </fieldset>
-
-  <div class="mt-4 flex items-center gap-2">
-    <button
-      type="button"
-      class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-      on:click={onSave}
-      disabled={busy || !name.trim() || !slug.trim() || !!activitiesError}
-    >Save</button>
-    <button
-      type="button"
-      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
-      on:click={() => dispatch('cancel')}
-      disabled={busy}
-    >Cancel</button>
-    {#if isEdit}
-      <button
-        type="button"
-        class="ml-auto rounded border border-red-800 px-3 py-1 text-sm text-red-200 hover:bg-red-950"
-        on:click={() => dispatch('delete')}
-        disabled={busy}
-      >Delete</button>
-    {/if}
-  </div>
-</div>
+</EditorShell>

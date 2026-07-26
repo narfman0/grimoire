@@ -2,15 +2,10 @@
   // Structured editor for kind='item' homebrew rows. Field structure
   // mirrors src/lib/server/content/schemas.ts:ItemDataSchema and the SRD
   // magic-items shape (see ~/workspace/dnd-5e-srd magic-items.json).
-  //
-  // Modifiers reuse the same {target, mode, value} shape as feats; the row
-  // UI is duplicated rather than extracted for now — three occurrences
-  // (feats + items + a future spell-modifiers slot) would justify a shared
-  // ModifierListEditor, but two is below the abstraction threshold.
 
-  import { createEventDispatcher } from 'svelte';
+  import EditorShell, { type Visibility } from './EditorShell.svelte';
+  import EditorField from './EditorField.svelte';
 
-  type Visibility = 'private' | 'unlisted' | 'public';
   type Modifier = {
     kind: 'stat-modifier';
     target: string;
@@ -40,12 +35,6 @@
   export let busy = false;
   export let errorMessage = '';
 
-  const dispatch = createEventDispatcher<{
-    save: { slug: string; name: string; visibility: Visibility; data: ItemData };
-    cancel: void;
-    delete: void;
-  }>();
-
   const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary', 'artifact'] as const;
   const MODES = ['ADD', 'MULTIPLY', 'OVERRIDE', 'UPGRADE', 'DOWNGRADE', 'CUSTOM'] as const;
   const TARGET_PRESETS = [
@@ -60,9 +49,6 @@
     'speed'
   ];
 
-  let name = item.name;
-  let slug = item.slug;
-  let visibility: Visibility = item.visibility ?? 'private';
   let category = item.data.category ?? '';
   let rarity: ItemData['rarity'] | '' = item.data.rarity ?? '';
   let requiresAttunement = item.data.requiresAttunement ?? false;
@@ -71,25 +57,6 @@
   let description = item.data.description ?? '';
   let note = item.data.note ?? '';
   let modifiers: Modifier[] = (item.data.modifiers ?? []).map((m) => ({ ...m }));
-
-  function kebab(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 64);
-  }
-  let slugManuallyEdited = isEdit;
-  function onNameInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    name = el.value;
-    if (!slugManuallyEdited) slug = kebab(name);
-  }
-  function onSlugInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    slug = el.value;
-    slugManuallyEdited = true;
-  }
 
   function addModifier() {
     modifiers = [...modifiers, { kind: 'stat-modifier', target: '', mode: 'ADD', value: 0 }];
@@ -106,7 +73,7 @@
     setModifierValue(i, (e.target as HTMLInputElement).value);
   }
 
-  function onSave() {
+  function buildData(): Record<string, unknown> {
     const cleanedModifiers = modifiers.filter((m) => m.target.trim());
     const data: ItemData = {
       ...item.data,
@@ -120,78 +87,16 @@
       ...(cleanedModifiers.length > 0 ? { modifiers: cleanedModifiers } : {})
     };
     if (!requiresAttunement) delete data.requiresAttunement;
-    dispatch('save', { slug, name, visibility, data });
+    return data;
   }
 </script>
 
-<div class="rounded-lg border border-slate-700 bg-slate-950 p-4">
-  {#if errorMessage}
-    <p class="mb-3 rounded border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">{errorMessage}</p>
-  {/if}
-
-  <div class="grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Name</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        value={name}
-        on:input={onNameInput}
-        maxlength="200"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slug{isEdit ? ' (locked)' : ''}</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
-        value={slug}
-        on:input={onSlugInput}
-        disabled={isEdit}
-        maxlength="64"
-      />
-    </label>
-
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Category</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={category}
-        maxlength="64"
-        placeholder="e.g. wondrous, weapon, ring"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Rarity</span>
-      <select class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={rarity}>
-        <option value="">(none)</option>
-        {#each RARITIES as r}
-          <option value={r}>{r}</option>
-        {/each}
-      </select>
-    </label>
-
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Weight (lb)</span>
-      <input
-        type="number"
-        min="0"
-        step="0.1"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={weight}
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slot</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={slot}
-        maxlength="64"
-        placeholder="e.g. head, neck, mainhand"
-      />
-    </label>
+<EditorShell {item} {isEdit} {busy} {errorMessage} {buildData} on:save on:cancel on:delete>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <EditorField label="Category" maxlength={64} placeholder="e.g. wondrous, weapon, ring" bind:value={category} />
+    <EditorField label="Rarity" type="select" emptyOption="(none)" options={[...RARITIES]} bind:value={rarity} />
+    <EditorField label="Weight (lb)" type="number" min={0} step={0.1} bind:value={weight} />
+    <EditorField label="Slot" maxlength={64} placeholder="e.g. head, neck, mainhand" bind:value={slot} />
   </div>
 
   <label class="mt-3 flex items-center gap-2 text-xs">
@@ -199,25 +104,16 @@
     <span>Requires attunement</span>
   </label>
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Description</span>
-    <textarea
-      class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-      rows="6"
-      bind:value={description}
-      maxlength="16000"
-    />
-  </label>
+  <EditorField class="mt-3" label="Description" type="textarea" rows={6} maxlength={16000} bind:value={description} />
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Note (short attunement / mechanics blurb)</span>
-    <textarea
-      class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-      rows="2"
-      bind:value={note}
-      maxlength="2000"
-    />
-  </label>
+  <EditorField
+    class="mt-3"
+    label="Note (short attunement / mechanics blurb)"
+    type="textarea"
+    rows={2}
+    maxlength={2000}
+    bind:value={note}
+  />
 
   <fieldset class="mt-4 rounded border border-slate-800 p-3">
     <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Modifiers</legend>
@@ -265,48 +161,4 @@
       on:click={addModifier}
     >+ Add modifier</button>
   </fieldset>
-
-  <fieldset class="mt-4 rounded border border-slate-800 p-3">
-    <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Visibility</legend>
-    <div class="space-y-1 text-xs">
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="private" />
-        <span class="ml-1">Private</span>
-        <span class="ml-1 text-slate-500">— only you</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="unlisted" />
-        <span class="ml-1">Unlisted</span>
-        <span class="ml-1 text-slate-500">— URL-only, hidden from marketplace</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="public" />
-        <span class="ml-1">Public</span>
-        <span class="ml-1 text-slate-500">— browseable in /homebrew/browse</span>
-      </label>
-    </div>
-  </fieldset>
-
-  <div class="mt-4 flex items-center gap-2">
-    <button
-      type="button"
-      class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-      on:click={onSave}
-      disabled={busy || !name.trim() || !slug.trim()}
-    >Save</button>
-    <button
-      type="button"
-      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
-      on:click={() => dispatch('cancel')}
-      disabled={busy}
-    >Cancel</button>
-    {#if isEdit}
-      <button
-        type="button"
-        class="ml-auto rounded border border-red-800 px-3 py-1 text-sm text-red-200 hover:bg-red-950"
-        on:click={() => dispatch('delete')}
-        disabled={busy}
-      >Delete</button>
-    {/if}
-  </div>
-</div>
+</EditorShell>

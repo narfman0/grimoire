@@ -3,7 +3,8 @@
   // data.spells mirrors the pack loader format: Array<{ level: number; spells: string[] }>
   // data.subclassFeatures: Array<{ name: string; level: number; slug?: string }>
 
-  import { createEventDispatcher } from 'svelte';
+  import EditorShell, { type Visibility } from './EditorShell.svelte';
+  import EditorField from './EditorField.svelte';
 
   type SpellEntry = { level: number; spells: string[] };
   type FeatureRef = { name: string; level: number; slug?: string };
@@ -11,7 +12,7 @@
   export let item: {
     slug: string;
     name: string;
-    visibility?: 'private' | 'unlisted' | 'public';
+    visibility?: Visibility;
     data: {
       parentClass?: string;
       source?: string;
@@ -20,32 +21,11 @@
       subclassFeatures?: FeatureRef[];
     };
   } = { slug: '', name: '', visibility: 'private', data: {} };
-
   export let isEdit = false;
   export let busy = false;
   export let errorMessage = '';
 
-  const dispatch = createEventDispatcher<{
-    save: {
-      slug: string;
-      name: string;
-      visibility: 'private' | 'unlisted' | 'public';
-      data: {
-        parentClass?: string;
-        source?: string;
-        description?: string;
-        spells?: SpellEntry[];
-        subclassFeatures?: FeatureRef[];
-      };
-    };
-    cancel: void;
-    delete: void;
-  }>();
-
   // ---- form state ----
-  let name = item.name;
-  let slug = item.slug;
-  let visibility: 'private' | 'unlisted' | 'public' = item.visibility ?? 'private';
   let parentClass = item.data.parentClass ?? '';
   let source = item.data.source ?? '';
   let description = item.data.description ?? '';
@@ -60,26 +40,6 @@
   // Subclass features section
   let features: FeatureRef[] = (item.data.subclassFeatures ?? []).map((f) => ({ ...f }));
   let featuresOpen = features.length > 0;
-
-  // ---- slug auto-generation ----
-  function kebab(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 64);
-  }
-  let slugManuallyEdited = isEdit;
-  function onNameInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    name = el.value;
-    if (!slugManuallyEdited) slug = kebab(name);
-  }
-  function onSlugInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    slug = el.value;
-    slugManuallyEdited = true;
-  }
 
   // ---- spell list helpers ----
   function addSpellLevel() {
@@ -101,7 +61,7 @@
   }
 
   // ---- save ----
-  function onSave() {
+  function buildData(): Record<string, unknown> {
     const spellData: SpellEntry[] = spells
       .map((e) => ({ level: e.level, spells: csv(e.spellsRaw) }))
       .filter((e) => e.spells.length > 0);
@@ -121,81 +81,18 @@
       ...(spellData.length > 0 ? { spells: spellData } : {}),
       ...(featureData.length > 0 ? { subclassFeatures: featureData } : {})
     };
-
-    dispatch('save', { slug, name, visibility, data });
+    return data;
   }
 </script>
 
-<div class="rounded-lg border border-slate-700 bg-slate-950 p-4">
-  {#if errorMessage}
-    <p class="mb-3 rounded border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">{errorMessage}</p>
-  {/if}
-
+<EditorShell {item} {isEdit} {busy} {errorMessage} {buildData} on:save on:cancel on:delete>
   <!-- Basic fields -->
-  <div class="grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Name</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        value={name}
-        on:input={onNameInput}
-        maxlength="200"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slug{isEdit ? ' (locked)' : ''}</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
-        value={slug}
-        on:input={onSlugInput}
-        disabled={isEdit}
-        maxlength="64"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Visibility</span>
-      <select
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={visibility}
-      >
-        <option value="private">Private</option>
-        <option value="unlisted">Unlisted</option>
-        <option value="public">Public</option>
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Parent Class (slug)</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm"
-        bind:value={parentClass}
-        maxlength="64"
-        placeholder="e.g. paladin, wizard"
-      />
-    </label>
-    <label class="block text-xs sm:col-span-2">
-      <span class="mb-1 block text-slate-400">Source (optional)</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={source}
-        maxlength="200"
-        placeholder="e.g. Player's Handbook, homebrew"
-      />
-    </label>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <EditorField label="Parent Class (slug)" mono maxlength={64} placeholder="e.g. paladin, wizard" bind:value={parentClass} />
+    <EditorField label="Source (optional)" maxlength={200} placeholder="e.g. Player's Handbook, homebrew" bind:value={source} />
   </div>
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Description</span>
-    <textarea
-      class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-      rows="4"
-      bind:value={description}
-      maxlength="8000"
-    />
-  </label>
+  <EditorField class="mt-3" label="Description" type="textarea" rows={4} maxlength={8000} bind:value={description} />
 
   <!-- Expanded Spell List (collapsible) -->
   <fieldset class="mt-4 rounded border border-slate-800 p-3">
@@ -224,7 +121,7 @@
               class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               bind:value={entry.level}
             >
-              {#each [1,2,3,4,5,6,7,8,9] as lvl}
+              {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as lvl}
                 <option value={lvl}>{lvl}</option>
               {/each}
             </select>
@@ -320,27 +217,4 @@
       >+ Add feature</button>
     {/if}
   </fieldset>
-
-  <div class="mt-4 flex items-center gap-2">
-    <button
-      type="button"
-      class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-      on:click={onSave}
-      disabled={busy || !name.trim() || !slug.trim()}
-    >Save</button>
-    <button
-      type="button"
-      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
-      on:click={() => dispatch('cancel')}
-      disabled={busy}
-    >Cancel</button>
-    {#if isEdit}
-      <button
-        type="button"
-        class="ml-auto rounded border border-red-800 px-3 py-1 text-sm text-red-200 hover:bg-red-950"
-        on:click={() => dispatch('delete')}
-        disabled={busy}
-      >Delete</button>
-    {/if}
-  </div>
-</div>
+</EditorShell>

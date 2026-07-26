@@ -3,7 +3,8 @@
   // Field structure mirrors what a ClassDataSchema would expect so that a
   // save round-trips cleanly with the homebrew API.
 
-  import { createEventDispatcher } from 'svelte';
+  import EditorShell, { type Visibility } from './EditorShell.svelte';
+  import EditorField from './EditorField.svelte';
 
   type ClassFeature = { name: string; level: number; slug?: string };
 
@@ -24,32 +25,21 @@
   export let item: {
     slug: string;
     name: string;
-    visibility?: 'private' | 'unlisted' | 'public';
+    visibility?: Visibility;
     data: ClassData;
   } = { slug: '', name: '', visibility: 'private', data: {} };
-
-  /** True when editing an existing row — locks the slug and shows Delete. */
   export let isEdit = false;
   export let busy = false;
   export let errorMessage = '';
 
-  const dispatch = createEventDispatcher<{
-    save: { slug: string; name: string; visibility: 'private' | 'unlisted' | 'public'; data: ClassData };
-    cancel: void;
-    delete: void;
-  }>();
-
-  const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
-  const HIT_DICE = ['d6', 'd8', 'd10', 'd12'] as const;
+  const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+  const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
   const ARMOR_PROFS = ['Light', 'Medium', 'Heavy', 'Shield'] as const;
   const WEAPON_PROFS = ['Simple', 'Martial'] as const;
-  const CASTER_TYPES = ['full', 'half', 'third', 'pact'] as const;
-  const SPELLCASTING_ABILITIES = ['None', 'INT', 'WIS', 'CHA'] as const;
+  const CASTER_TYPES = ['full', 'half', 'third', 'pact'];
+  const SPELLCASTING_ABILITIES = ['None', 'INT', 'WIS', 'CHA'];
 
   // ---- form state ----
-  let name = item.name;
-  let slug = item.slug;
-  let visibility: 'private' | 'unlisted' | 'public' = item.visibility ?? 'private';
   let description = item.data.description ?? '';
   let hitDie = item.data.hitDie ?? 'd8';
   let primaryAbility = item.data.primaryAbility ?? 'STR';
@@ -74,29 +64,9 @@
   let featuresOpen = (item.data.classFeatures ?? []).length > 0;
   let classFeatures: ClassFeature[] = (item.data.classFeatures ?? []).map((f) => ({ ...f }));
 
-  // ---- slug auto-generation ----
-  function kebab(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 64);
-  }
-  let slugManuallyEdited = isEdit;
-  function onNameInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    name = el.value;
-    if (!slugManuallyEdited) slug = kebab(name);
-  }
-  function onSlugInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    slug = el.value;
-    slugManuallyEdited = true;
-  }
-
   // ---- proficiency checkbox helpers ----
-  function toggleProf(list: string[], item: string): string[] {
-    return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  function toggleProf(list: string[], entry: string): string[] {
+    return list.includes(entry) ? list.filter((x) => x !== entry) : [...list, entry];
   }
 
   // ---- class feature helpers ----
@@ -109,7 +79,7 @@
   }
 
   // ---- save ----
-  function onSave() {
+  function buildData(): Record<string, unknown> {
     const data: ClassData = {
       ...(description ? { description } : {}),
       hitDie,
@@ -132,119 +102,32 @@
           }
         : {})
     };
-    dispatch('save', { slug, name, visibility, data });
+    return data;
   }
 </script>
 
-<div class="rounded-lg border border-slate-700 bg-slate-950 p-4">
-  {#if errorMessage}
-    <p class="mb-3 rounded border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">{errorMessage}</p>
-  {/if}
-
+<EditorShell {item} {isEdit} {busy} {errorMessage} {buildData} on:save on:cancel on:delete>
   <!-- Basic fields -->
-  <div class="grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Name</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        value={name}
-        on:input={onNameInput}
-        maxlength="200"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slug{isEdit ? ' (locked)' : ''}</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
-        value={slug}
-        on:input={onSlugInput}
-        disabled={isEdit}
-        maxlength="64"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Visibility</span>
-      <select
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={visibility}
-      >
-        <option value="private">Private</option>
-        <option value="unlisted">Unlisted</option>
-        <option value="public">Public</option>
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Hit Die</span>
-      <select
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={hitDie}
-      >
-        {#each HIT_DICE as d}
-          <option value={d}>{d}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Primary Ability</span>
-      <select
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={primaryAbility}
-      >
-        {#each ABILITIES as a}
-          <option value={a}>{a}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Source (optional)</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={source}
-        maxlength="200"
-        placeholder="e.g. Player's Handbook"
-      />
-    </label>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <EditorField label="Hit Die" type="select" options={HIT_DICE} bind:value={hitDie} />
+    <EditorField label="Primary Ability" type="select" options={ABILITIES} bind:value={primaryAbility} />
+    <EditorField
+      class="sm:col-span-2"
+      label="Source (optional)"
+      maxlength={200}
+      placeholder="e.g. Player's Handbook"
+      bind:value={source}
+    />
   </div>
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Description</span>
-    <textarea
-      class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-      rows="4"
-      bind:value={description}
-      maxlength="8000"
-    />
-  </label>
+  <EditorField class="mt-3" label="Description" type="textarea" rows={4} maxlength={8000} bind:value={description} />
 
   <!-- Saving Throws -->
   <fieldset class="mt-4 rounded border border-slate-800 p-3">
     <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Saving Throws</legend>
     <div class="mt-2 grid gap-3 sm:grid-cols-2">
-      <label class="block text-xs">
-        <span class="mb-1 block text-slate-400">Saving Throw 1</span>
-        <select
-          class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-          bind:value={savingThrow1}
-        >
-          {#each ABILITIES as a}
-            <option value={a}>{a}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="block text-xs">
-        <span class="mb-1 block text-slate-400">Saving Throw 2</span>
-        <select
-          class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-          bind:value={savingThrow2}
-        >
-          {#each ABILITIES as a}
-            <option value={a}>{a}</option>
-          {/each}
-        </select>
-      </label>
+      <EditorField label="Saving Throw 1" type="select" options={ABILITIES} bind:value={savingThrow1} />
+      <EditorField label="Saving Throw 2" type="select" options={ABILITIES} bind:value={savingThrow2} />
     </div>
   </fieldset>
 
@@ -328,29 +211,9 @@
 
     {#if spellcastingOpen}
       <div class="mt-2 grid gap-3 sm:grid-cols-2">
-        <label class="block text-xs">
-          <span class="mb-1 block text-slate-400">Spellcasting Ability</span>
-          <select
-            class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-            bind:value={spellcastingAbility}
-          >
-            {#each SPELLCASTING_ABILITIES as a}
-              <option value={a}>{a}</option>
-            {/each}
-          </select>
-        </label>
+        <EditorField label="Spellcasting Ability" type="select" options={SPELLCASTING_ABILITIES} bind:value={spellcastingAbility} />
         {#if spellcastingAbility !== 'None'}
-          <label class="block text-xs">
-            <span class="mb-1 block text-slate-400">Caster Type</span>
-            <select
-              class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-              bind:value={casterType}
-            >
-              {#each CASTER_TYPES as t}
-                <option value={t}>{t}</option>
-              {/each}
-            </select>
-          </label>
+          <EditorField label="Caster Type" type="select" options={CASTER_TYPES} bind:value={casterType} />
         {/if}
       </div>
     {/if}
@@ -427,28 +290,4 @@
       >+ Add feature</button>
     {/if}
   </fieldset>
-
-  <!-- Actions -->
-  <div class="mt-4 flex items-center gap-2">
-    <button
-      type="button"
-      class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-      on:click={onSave}
-      disabled={busy || !name.trim() || !slug.trim()}
-    >Save</button>
-    <button
-      type="button"
-      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
-      on:click={() => dispatch('cancel')}
-      disabled={busy}
-    >Cancel</button>
-    {#if isEdit}
-      <button
-        type="button"
-        class="ml-auto rounded border border-red-800 px-3 py-1 text-sm text-red-200 hover:bg-red-950"
-        on:click={() => dispatch('delete')}
-        disabled={busy}
-      >Delete</button>
-    {/if}
-  </div>
-</div>
+</EditorShell>

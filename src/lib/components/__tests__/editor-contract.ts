@@ -1,16 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 
-/** Common contract every structured homebrew editor honors:
+/** Common contract every structured homebrew editor honors — all of it now
+ *  lives in EditorShell.svelte, so these tests lock the shell wiring
+ *  (props forwarded, events re-emitted) once per host editor:
  *  - Save button disabled until name + slug are both non-empty
  *  - Slug auto-fills from name in create mode until manually edited
  *  - Slug input is disabled in edit mode
  *  - Delete button renders only in edit mode
  *  - Cancel button always fires the cancel event
  *
- *  Most editors take their seed row as `item` and a sibling `isEdit` flag.
- *  FeatEditor names that prop `feat` — pass a custom `buildProps` that
- *  shapes the props object accordingly.
+ *  Every editor takes its seed row as `item` and a sibling `isEdit` flag.
  *
  *  Typing note: Svelte 4's ComponentType<C> generic doesn't play nicely
  *  with a loose `Record<string, unknown>` props bag, and the strict shape

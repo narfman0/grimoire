@@ -123,3 +123,69 @@ describe('POST /api/homebrew/[kind]', () => {
     );
   });
 });
+
+// kind='feat' used to have a bespoke route (/api/homebrew/feats); it now goes
+// through the generic handler. These tests are ported from that route's suite
+// and lock the same behavior against the generic surface.
+describe('POST /api/homebrew/[kind] with kind=feat (legacy feats route parity)', () => {
+  let db: Db;
+  beforeEach(async () => {
+    db = setupTestDb();
+    await seedHomebrewPack(db);
+  });
+
+  it('default path: row lands in fast-path bucket', async () => {
+    const userId = await seedUser(db, { username: 'alice' });
+    const res = await POST(
+      makeEvent({
+        user: userOf(userId, 'alice'),
+        params: { kind: 'feat' },
+        body: { slug: 'mighty', name: 'Mighty', data: {} }
+      })
+    );
+    expect(res.status).toBe(200);
+    const [row] = await db
+      .select()
+      .from(schema.content)
+      .where(eq(schema.content.slug, 'mighty'))
+      .limit(1);
+    expect(row.kind).toBe('feat');
+    expect(row.packSlug).toBe('homebrew');
+  });
+
+  it('explicit packSlug → row lands in that owned pack', async () => {
+    const userId = await seedUser(db, { username: 'alice' });
+    await seedOwnedPack(db, userId, 'alice-feats');
+    const res = await POST(
+      makeEvent({
+        user: userOf(userId, 'alice'),
+        params: { kind: 'feat' },
+        body: { slug: 'mighty', name: 'Mighty', data: {}, packSlug: 'alice-feats' }
+      })
+    );
+    expect(res.status).toBe(200);
+    const [row] = await db
+      .select()
+      .from(schema.content)
+      .where(eq(schema.content.slug, 'mighty'))
+      .limit(1);
+    expect(row.packSlug).toBe('alice-feats');
+    expect(row.source).toBe('alice-feats');
+  });
+
+  it("explicit packSlug pointing at another user's pack → 403", async () => {
+    const aliceId = await seedUser(db, { username: 'alice' });
+    const bobId = await seedUser(db, { username: 'bob' });
+    await seedOwnedPack(db, aliceId, 'alice-feats');
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user: userOf(bobId, 'bob'),
+          params: { kind: 'feat' },
+          body: { slug: 'mighty', name: 'Mighty', data: {}, packSlug: 'alice-feats' }
+        })
+      ),
+      403
+    );
+  });
+});

@@ -60,11 +60,7 @@
         return;
       }
       const body = (await res.json()) as { slug: string; kind: string };
-      if (body.kind === 'feat') {
-        await goto(`/me/homebrew/feats/${body.slug}`);
-      } else {
-        await goto('/me/homebrew/feats');
-      }
+      await goto(`/me/homebrew/${encodeURIComponent(body.kind)}/${encodeURIComponent(body.slug)}`);
     } finally {
       busy = '';
     }

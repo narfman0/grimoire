@@ -9,10 +9,8 @@ const editFeat = () => ({
   data: { category: 'General' }
 });
 
-// FeatEditor names its seed prop `feat` (not `item`); the contract helper
-// supports custom prop builders.
 runEditorContract('FeatEditor', FeatEditor, ({ isEdit }) => ({
-  feat: isEdit ? editFeat() : emptyFeat(),
+  item: isEdit ? editFeat() : emptyFeat(),
   isEdit
 }));
 

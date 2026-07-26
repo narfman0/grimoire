@@ -3,9 +3,9 @@
   // class/subclass/species ability with optional mechanical encoding via
   // modifiers (flat stat bonuses) and triggers (event-driven abilities).
 
-  import { createEventDispatcher } from 'svelte';
+  import EditorShell, { type Visibility } from './EditorShell.svelte';
+  import EditorField from './EditorField.svelte';
 
-  type Visibility = 'private' | 'unlisted' | 'public';
   type OwnerKind = 'subclass' | 'species' | 'class' | 'background';
   type ModifierMode = 'ADD' | 'MULTIPLY' | 'OVERRIDE' | 'UPGRADE' | 'DOWNGRADE';
   type GrantType = 'set-hp' | 'heal' | 'reroll-save' | 'damage.extra' | 'flag';
@@ -49,16 +49,9 @@
     visibility?: Visibility;
     data: FeatureData;
   } = { slug: '', name: '', visibility: 'private', data: {} };
-  /** True when editing an existing row — locks the slug and shows Delete. */
   export let isEdit = false;
   export let busy = false;
   export let errorMessage = '';
-
-  const dispatch = createEventDispatcher<{
-    save: { slug: string; name: string; visibility: Visibility; data: FeatureData };
-    cancel: void;
-    delete: void;
-  }>();
 
   const OWNER_KINDS: OwnerKind[] = ['subclass', 'species', 'class', 'background'];
   const MODIFIER_MODES: ModifierMode[] = ['ADD', 'MULTIPLY', 'OVERRIDE', 'UPGRADE', 'DOWNGRADE'];
@@ -77,9 +70,6 @@
   ];
 
   // ---- form state ----
-  let name = item.name;
-  let slug = item.slug;
-  let visibility: Visibility = item.visibility ?? 'private';
   let ownerKind: OwnerKind = (item.data.ownerKind as OwnerKind) ?? 'class';
   let ownerSlug = (item.data.ownerSlug as string) ?? '';
   let minLevel = (item.data.minLevel as number) ?? 1;
@@ -106,22 +96,6 @@
     limitUses: t.limit?.uses ?? 1
   }));
   let triggersOpen = triggers.length > 0;
-
-  // ---- slug auto-generation ----
-  function kebab(s: string): string {
-    return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
-  }
-  let slugManuallyEdited = isEdit;
-  function onNameInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    name = el.value;
-    if (!slugManuallyEdited) slug = kebab(name);
-  }
-  function onSlugInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    slug = el.value;
-    slugManuallyEdited = true;
-  }
 
   // ---- modifier helpers ----
   function addModifier() {
@@ -160,8 +134,8 @@
     return s.split(',').map((x) => x.trim()).filter(Boolean);
   }
 
-  // ---- assemble payload + dispatch save ----
-  function onSave() {
+  // ---- assemble payload ----
+  function buildData(): Record<string, unknown> {
     const data: FeatureData = {
       ...(ownerKind ? { ownerKind } : {}),
       ...(ownerSlug.trim() ? { ownerSlug: ownerSlug.trim() } : {}),
@@ -184,91 +158,19 @@
           })) }
         : {})
     };
-    dispatch('save', { slug, name, visibility, data });
+    return data;
   }
 </script>
 
-<div class="rounded-lg border border-slate-700 bg-slate-950 p-4">
-  {#if errorMessage}
-    <p class="mb-3 rounded border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">{errorMessage}</p>
-  {/if}
-
+<EditorShell {item} {isEdit} {busy} {errorMessage} {buildData} on:save on:cancel on:delete>
   <!-- Basic info -->
-  <div class="grid gap-3 sm:grid-cols-2">
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Name</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        value={name}
-        on:input={onNameInput}
-        maxlength="200"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Slug{isEdit ? ' (locked)' : ''}</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
-        value={slug}
-        on:input={onSlugInput}
-        disabled={isEdit}
-        maxlength="64"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Visibility</span>
-      <select
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={visibility}
-      >
-        <option value="private">Private</option>
-        <option value="unlisted">Unlisted</option>
-        <option value="public">Public</option>
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Owner Kind</span>
-      <select
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={ownerKind}
-      >
-        {#each OWNER_KINDS as k}
-          <option value={k}>{k}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Owner Slug</span>
-      <input
-        type="text"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm"
-        bind:value={ownerSlug}
-        maxlength="64"
-        placeholder="e.g. champion, high-elf"
-      />
-    </label>
-    <label class="block text-xs">
-      <span class="mb-1 block text-slate-400">Min Level (1–20)</span>
-      <input
-        type="number"
-        min="1"
-        max="20"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        bind:value={minLevel}
-      />
-    </label>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <EditorField label="Owner Kind" type="select" options={OWNER_KINDS} bind:value={ownerKind} />
+    <EditorField label="Owner Slug" mono maxlength={64} placeholder="e.g. champion, high-elf" bind:value={ownerSlug} />
+    <EditorField label="Min Level (1–20)" type="number" min={1} max={20} bind:value={minLevel} />
   </div>
 
-  <label class="mt-3 block text-xs">
-    <span class="mb-1 block text-slate-400">Description</span>
-    <textarea
-      class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-      rows="4"
-      bind:value={description}
-      maxlength="8000"
-    />
-  </label>
+  <EditorField class="mt-3" label="Description" type="textarea" rows={4} maxlength={8000} bind:value={description} />
 
   <!-- Modifiers (collapsible) -->
   <fieldset class="mt-4 rounded border border-slate-800 p-3">
@@ -444,49 +346,4 @@
       >+ Add trigger</button>
     {/if}
   </fieldset>
-
-  <!-- Visibility -->
-  <fieldset class="mt-4 rounded border border-slate-800 p-3">
-    <legend class="px-1 text-xs uppercase tracking-wide text-slate-400">Visibility</legend>
-    <div class="space-y-1 text-xs">
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="private" />
-        <span class="ml-1">Private</span>
-        <span class="ml-1 text-slate-500">— only you see it on your characters</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="unlisted" />
-        <span class="ml-1">Unlisted</span>
-        <span class="ml-1 text-slate-500">— anyone with the URL can view, hidden from the marketplace index</span>
-      </label>
-      <label class="block">
-        <input type="radio" bind:group={visibility} value="public" />
-        <span class="ml-1">Public</span>
-        <span class="ml-1 text-slate-500">— surfaced in /homebrew/browse; other users can subscribe or fork</span>
-      </label>
-    </div>
-  </fieldset>
-
-  <div class="mt-4 flex items-center gap-2">
-    <button
-      type="button"
-      class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-      on:click={onSave}
-      disabled={busy || !name.trim() || !slug.trim()}
-    >Save</button>
-    <button
-      type="button"
-      class="rounded border border-slate-700 px-3 py-1 text-sm hover:bg-slate-800"
-      on:click={() => dispatch('cancel')}
-      disabled={busy}
-    >Cancel</button>
-    {#if isEdit}
-      <button
-        type="button"
-        class="ml-auto rounded border border-red-800 px-3 py-1 text-sm text-red-200 hover:bg-red-950"
-        on:click={() => dispatch('delete')}
-        disabled={busy}
-      >Delete</button>
-    {/if}
-  </div>
-</div>
+</EditorShell>

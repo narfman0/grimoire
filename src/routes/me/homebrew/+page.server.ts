@@ -32,8 +32,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     kinds: HOMEBREW_KINDS.map((kind) => ({
       kind,
       count: counts[kind] ?? 0,
-      // Feat keeps its bespoke path; everything else is dynamic.
-      href: kind === 'feat' ? '/me/homebrew/feats' : `/me/homebrew/${kind}`
+      href: `/me/homebrew/${kind}`
     })),
     subscriptionCount: subRow?.n ?? 0
   };

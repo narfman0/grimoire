@@ -70,7 +70,7 @@ export const ContentRowFileOrArray = z.union([ContentRowFile, z.array(ContentRow
 // FeatDataSchema — used by the homebrew API to validate `data` on
 // kind='feat' rows the user authors in-app. The pack loader continues to
 // accept arbitrary `data` (forward-compat), but anything written through
-// /api/homebrew/feats must conform.
+// /api/homebrew/feat must conform.
 //
 // Mirrors derive.ts:246-390 so every field the editor exposes is something
 // the engine already consumes. Don't expand this without also teaching
@@ -155,7 +155,9 @@ export const FeatDataSchema = z
   .passthrough();
 export type FeatData = z.infer<typeof FeatDataSchema>;
 
-/** Body of a POST /api/homebrew/feats request. */
+/** Feat-specific create body (kept for schema unit tests; the generic
+ *  POST /api/homebrew/[kind] validates the same shape via HomebrewCreate +
+ *  FeatDataSchema). */
 export const FeatHomebrewCreate = z.object({
   slug: Slug,
   name: z.string().min(1).max(200),
@@ -165,7 +167,7 @@ export const FeatHomebrewCreate = z.object({
 });
 export type FeatHomebrewCreate = z.infer<typeof FeatHomebrewCreate>;
 
-/** Body of a PATCH /api/homebrew/feats/[slug] request. */
+/** Feat-specific patch body (see FeatHomebrewCreate note above). */
 export const FeatHomebrewPatch = z.object({
   name: z.string().min(1).max(200).optional(),
   data: FeatDataSchema.optional()
