@@ -34,6 +34,48 @@ jobs:
       - name: Build
         run: pnpm build
 
+  e2e:
+    # Playwright smoke suite: two browser clients on one live encounter
+    # (realtime poll sync + reveals redaction) plus auth + character sheet.
+    # Runs against a throwaway sqlite DB (see playwright.config.ts).
+    #
+    # Deliberately NOT a deploy gate yet — deploy needs only `ci` — so a
+    # flaky e2e run can't block shipping. Once this job has proven stable
+    # for a while, promote it by adding `e2e` to deploy's `needs`.
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm build
+
+      - name: E2E smoke suite
+        run: pnpm test:e2e
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   deploy:
     # Only on master pushes (skips PRs and feature-branch CI runs); needs:ci
     # gates on the type-check + test + build jobs above so red CI never

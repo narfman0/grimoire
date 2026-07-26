@@ -13,12 +13,14 @@
     "db:migrate": "node ./scripts/migrate.mjs",
     "migrate": "node ./scripts/migrate.mjs",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:unit": "vitest run --exclude 'src/lib/components/**'",
     "test:component": "vitest run src/lib/components",
     "test:watch": "vitest",
     "gaps": "node scripts/content-gaps.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/kit": "^2.5.0",
     "@sveltejs/vite-plugin-svelte": "^3.1.0",
