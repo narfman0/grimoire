@@ -97,6 +97,57 @@ Resolution: the Action carries `summons: { creatures: [{ slug, count, name?, res
 
 Warning semantics: an unresolvable creature slug emits a `summon-missing-content` soft warning. This is deliberately **not** an `unknown-*` code — the packs QC gate hard-fails T3 rows on `unknown-*`, and a summon may legitimately reference a monster shipped in another pack or in operator homebrew that a partial lookup can't see. The action still realizes either way.
 
+### Item choice slots
+
+An item row can declare per-inventory-slot player picks via `data.choices` — the pick lives on the `InventorySlot` (`slot.choices`), not the content row, so two copies of a Spell Scroll hold different spells. v1 engine-read slots:
+
+```jsonc
+"choices": {
+  "spell":      { "label": "Inscribed spell", "maxLevel": 3, "allowedLevels": [1, 2, 3], "allowedClasses": ["wizard"], "allowedSchools": ["evocation"] },
+  "baseWeapon": { "label": "Base sword", "allowedCategories": ["sword"] }
+}
+// slot.choices.spell      = "fireball"    (a spell slug)
+// slot.choices.baseWeapon = "longsword"   (any corpus weapon row — NOT necessarily in inventory)
+```
+
+The allow-list fields are declaration metadata for the picker UI; the engine records the pick without validating it (same posture as feature choices). Any other slot name is a generic pass-through — declared, surfaced, and stored, but not interpreted.
+
+A `cast-spell` activity references a pick parametrically: `spell: { "fromChoice": "spell" }` resolves the picked slug at realize time and composes with `spellOverrides` and `chargeCost` exactly like a literal ref. With no pick recorded, the action still realizes as a stub carrying `Action.needsChoice: '<slot name>'` (no inlined attack/save/damage, **no warning**).
+
+`Derived.pendingItemChoices` is the manifest: one entry per (inventory slot, choice slot) pair on every equipped item with a `data.choices` declaration — `{ slotIndex, itemSlug, itemName, choice, declaration, picked? }`. `slotIndex` is the position in `character.inventory` where the sheet writes the pick back; `picked` is absent when unresolved. Entries surface regardless of attunement (recording a pick is setup, not effect); unequipped items surface nothing.
+
+### Base-weapon binding
+
+`data.baseWeaponFromChoice: true` (implies a `baseWeapon` choice slot) marks a generic-variant weapon — a Flame Tongue "any sword" whose bound longsword IS a longsword. With a pick recorded, the item's attack is synthesized FROM the base weapon's row:
+
+- The base row's authored `type: 'attack'` activity (SRD weapons author full activities) is renamed onto the item and realized against **merged data** — the base's fields overlaid with the item's own (item fields win). Bases without activities fall back to flat-damage synthesis (`damage` string).
+- Damage, damage type, weapon properties, and proficiency all flow from the base (`weaponType: martial-melee` makes the bound item a martial weapon), including finesse best-of ability selection.
+- The item's own stat-modifiers apply to the synthesized attack: the `attack.bonus` / `damage.bonus` reroute predicates on `weapon.slug = <item slug>`, and the synthesized action's `sourceContent.slug` IS the item's slug, so the predicate matches. Phase-4 predicate matching also consults the merged data (recorded per action id), so `weapon.kind` sees the base's weaponType.
+- An explicit `activities[]` on the item wins over synthesis (no double actions). Without a pick, the item contributes no attack action and `pendingItemChoices` surfaces the gap — no warning.
+
+### Spell storage
+
+`data.spellStorage: { "maxLevels": 5 }` (Ring of Spell Storing) turns the inventory slot into a spell container. Slot state: `slot.stored: [{ slug, level, dc?, attackBonus?, label? }]`. For an equipped, attunement-satisfying item, derive() emits one cast Action per stored entry:
+
+- The spell row's primary activity is inlined (like `cast-spell`), then upcast to the stored `level`; `upcastScaling` is stripped from the emitted Action — the cast level is fixed by the storer, the planner must not re-scale it.
+- The storer's `dc` / `attackBonus` override the wearer's derived numbers when recorded; absent, the wearer's own values stand.
+- `Action.description` carries a validation-free summary: `Cast at level N from <Item> (<label>).`
+- Capacity is enforced only as a soft warning: `spell-storage-over-capacity` (severity `warning`, deliberately **not** an `unknown-*` code) when Σ stored levels > `maxLevels`. The cast actions still realize.
+
+Unresolvable stored slugs are skipped silently — a character-state gap, not a pack-authoring error.
+
+## Trigger grants
+
+`TriggerDeclaration.grants` is a discriminated union (`TriggerGrant` in `types.ts`). Beyond the runtime-contract shapes (`force-reroll`, `damage.reduce`, `convert-hit-to-miss`, …), three canonical **on-hit rider** shapes exist as structured display contracts — the runtime stays DM-adjudicated; the planner/sheet renders the fields instead of parsing prose:
+
+```jsonc
+{ "type": "damage.rider",    "amount": "2d6", "damageType": "fire", "save": { "ability": "dex", "dc": 15, "half": true } }
+{ "type": "condition.rider", "condition": "poisoned", "save": { "ability": "con", "dc": 15 }, "duration": { "value": 1, "units": "minute" } }
+{ "type": "hp.max-reduce",   "amount": "3d6" }   // sword of life-stealing / wounding patterns
+```
+
+Item-sourced triggers respect the attunement gates (§ Attunement gating): a `requiresAttunement` item registers no triggers until attuned, and a per-entry `appliesWhen.requires: "equipped:attuned"` gates a single trigger on any item. Unknown grant `type` strings still pass through untyped (forward-compat).
+
 ## Modifier-side capability targets
 
 Boolean targets take `value: true`; anything else is ignored. All feed `derive()` phase 2 and land on `Derived.stats`.
