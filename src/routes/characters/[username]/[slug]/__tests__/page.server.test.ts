@@ -4,6 +4,7 @@ import {
   seedUser,
   seedCampaign,
   seedCharacter,
+  seedContent,
   seedMinimumContent,
   minCharDoc
 } from '$lib/server/__tests__/fixtures';
@@ -88,6 +89,32 @@ describe('/characters/[username]/[slug] +page.server load', () => {
     expect(data.derived).not.toBeNull();
     expect(data.derived.stats.abilities.str.score).toBe(16);
     expect(data.derived.stats.totalLevel).toBe(3);
+  });
+
+  // Class spell lists ride on spellOptions so the item spell-choice picker
+  // can honor a declaration's `allowedClasses`. Rows without class data
+  // ship an empty array (consumers treat that as "unknown", not "no class").
+  it('spellOptions rows carry lowercase class lists', async () => {
+    const { owner, characterId } = await fixture(db);
+    await seedContent(db, [
+      {
+        kind: 'spell',
+        slug: 'fireball',
+        name: 'Fireball',
+        data: { level: 3, school: 'evocation', classes: ['Sorcerer', 'wizard'] }
+      },
+      { kind: 'spell', slug: 'mystery-bolt', name: 'Mystery Bolt', data: { level: 1 } }
+    ]);
+    const data = await runLoad(
+      load,
+      loadEvent({
+        user: sessionUser(owner, 'owner'),
+        params: { username: 'owner', slug: characterId }
+      })
+    );
+    const opts = data.spellOptions as Array<{ slug: string; classes: string[] }>;
+    expect(opts.find((s) => s.slug === 'fireball')?.classes).toEqual(['sorcerer', 'wizard']);
+    expect(opts.find((s) => s.slug === 'mystery-bolt')?.classes).toEqual([]);
   });
 
   // Co-member (the campaign DM here) can view but not edit: the sheet is

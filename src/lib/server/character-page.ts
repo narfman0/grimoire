@@ -235,6 +235,7 @@ export async function buildCharacterPageData(
         concentration?: boolean;
         ritual?: boolean;
         description?: string;
+        classes?: string[];
         activities?: Array<{
           attack?: { ability?: string; range?: string };
           save?: { ability?: string; dc?: { calc?: string; value?: number } };
@@ -260,6 +261,15 @@ export async function buildCharacterPageData(
         duration: data.duration ?? null,
         concentration: isConcentration,
         ritual: data.ritual === true,
+        // Class spell lists — the item spell-choice picker filters on a
+        // declaration's `allowedClasses` against these. Empty when the row
+        // ships no class data (some homebrew) — consumers must treat that
+        // as "unknown", not "no class".
+        classes: Array.isArray(data.classes)
+          ? data.classes
+              .filter((c): c is string => typeof c === 'string')
+              .map((c) => c.toLowerCase())
+          : [],
         attackKind: act?.attack ? `${act.attack.range ?? ''} attack` : null,
         save: act?.save?.ability
           ? {

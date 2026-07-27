@@ -1539,11 +1539,10 @@
     });
   }
 
-  /** Spell options narrowed by the declaration. The client can filter by
-   *  level (maxLevel / allowedLevels) and school; `allowedClasses` can't
-   *  be applied here — spellOptions doesn't ship per-spell class lists —
-   *  so class-restricted declarations fall back to level/school
-   *  narrowing only. */
+  /** Spell options narrowed by the declaration: level (maxLevel /
+   *  allowedLevels), school, and class list (`allowedClasses` vs the
+   *  row's `classes`). A row shipping no class data (some homebrew)
+   *  passes the class filter — unknown is not "no class". */
   function spellChoiceOptions(decl: Record<string, unknown>) {
     const maxLevel = typeof decl.maxLevel === 'number' ? decl.maxLevel : null;
     const allowedLevels = Array.isArray(decl.allowedLevels)
@@ -1552,10 +1551,19 @@
     const allowedSchools = Array.isArray(decl.allowedSchools)
       ? (decl.allowedSchools as string[])
       : null;
+    const allowedClasses = Array.isArray(decl.allowedClasses)
+      ? (decl.allowedClasses as unknown[]).map((c) => String(c).toLowerCase())
+      : null;
     return data.spellOptions.filter((s) => {
       if (maxLevel != null && s.level > maxLevel) return false;
       if (allowedLevels && !allowedLevels.includes(s.level)) return false;
       if (allowedSchools && s.school && !allowedSchools.includes(s.school)) return false;
+      if (
+        allowedClasses &&
+        s.classes.length > 0 &&
+        !s.classes.some((c) => allowedClasses.includes(c))
+      )
+        return false;
       return true;
     });
   }
