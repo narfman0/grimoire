@@ -596,6 +596,13 @@ export interface Action {
    *  entries to `character.companions` when the action resolves (see
    *  ActionSummons for the choice-vs-all semantics). */
   summons?: ActionSummons;
+  /** Structured self-teleport payload, mirrored from the activity's
+   *  `teleport` block (boots of the winding path, shard solitaire's
+   *  Rift Step). Display contract — movement/positioning stays
+   *  DM-adjudicated. `distanceFt` absent → unlimited/scene-scoped;
+   *  `mode` 'line-of-sight' (default reading) vs 'unrestricted'
+   *  (can pass barriers / no sight needed). */
+  teleport?: { distanceFt?: number; mode?: 'line-of-sight' | 'unrestricted' };
   appliedModifiers: AppliedModifier[];
 }
 
@@ -770,6 +777,12 @@ export interface ActionGrants {
    *  `stacks` is numeric-only (no evaluateValue formulas). Currently
    *  display-only on the sheet — grants have no auto-apply path yet. */
   removeConditions?: Array<string | { condition: string; stacks?: number }>;
+  /** Expended spell slots restored when the activity resolves
+   *  (spell-refueling ring: one slot of level ≤ 3). `level` is the
+   *  maximum slot level restorable; `count` is how many slots (default
+   *  1). Display-only like tempHp / removeConditions — the player
+   *  un-spends the slot on the sheet. */
+  restoreSpellSlots?: { level: number; count?: number };
 }
 
 export interface UpcastScaling {
@@ -806,7 +819,12 @@ export type ActionCost =
   | { uses: number; per: 'turn' | 'round' | 'short-rest' | 'long-rest' | 'day' }
   /** Movement-only action (Disengage replaced by movement-style content, etc.).
    *  `feet` is the cost from the character's movement speed budget for the turn. */
-  | { movement: number };
+  | { movement: number }
+  /** Activation funded by spending Hit Dice (crown of the wrath bringer,
+   *  delver's claws). Display contract — `costLabel` renders "N Hit
+   *  Dice"; the player debits `character.hitDiceSpent` manually via the
+   *  sheet's hit-dice row (no auto-spend path exists for action costs). */
+  | { hitDice: number };
 
 /** Known trigger event names. The engine validates trigger declarations
  *  against this list and emits a soft validation warning on unknowns so
@@ -1255,10 +1273,13 @@ export interface ActivationDeclaration {
    *  `classLevel:<slug>`, arithmetic like 'max(1, intMod)'), and the
    *  perClass-table shape used by activity-level uses for things like
    *  rage (`{perClass: 'barbarian', table: [2,2,3,3,3,4,…]}`). `per`
-   *  controls when refreshActivations() resets uses back to max. */
+   *  controls when refreshActivations() resets uses back to max.
+   *  `'week'` (night-caller, cauldron of rebirth) is never reset by any
+   *  rest — the player restores uses manually via the resource counter
+   *  when the in-fiction week has passed (the sheet has no calendar). */
   uses?: {
     max: number | string | { perClass: string; table: Array<number | string> };
-    per: 'short-rest' | 'long-rest' | 'day';
+    per: 'short-rest' | 'long-rest' | 'day' | 'week';
   };
   /** True if this activation requires concentration. Toggling on cancels
    *  any other concentration the character is currently maintaining. */
@@ -1364,8 +1385,9 @@ export interface AvailableActivation {
   usesMax: number | null;
   /** Uses remaining; null = unlimited. */
   usesRemaining: number | null;
-  /** Refresh policy from the declaration's `uses.per`, null when unlimited. */
-  refreshOn: 'short-rest' | 'long-rest' | 'day' | null;
+  /** Refresh policy from the declaration's `uses.per`, null when
+   *  unlimited. `'week'` never refreshes on rest — manual restore only. */
+  refreshOn: 'short-rest' | 'long-rest' | 'day' | 'week' | null;
   concentration?: boolean;
   group?: string;
   condition: string;

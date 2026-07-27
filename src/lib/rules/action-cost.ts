@@ -15,6 +15,10 @@ export function costLabel(cost: unknown): string {
       const c = cost as { uses: number; per: string };
       return `${c.uses}/${c.per}`;
     }
+    if ('hitDice' in cost) {
+      const c = cost as { hitDice: number };
+      return `${c.hitDice} Hit ${c.hitDice === 1 ? 'Die' : 'Dice'}`;
+    }
   }
   return String(cost ?? '');
 }

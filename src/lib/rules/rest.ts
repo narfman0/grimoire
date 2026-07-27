@@ -11,6 +11,10 @@
 //   - 'day' / 'dawn' ("next dawn") abilities refresh on a long rest in
 //     practice — the sheet has no clock, so the long-rest button is the
 //     player's dawn;
+//   - 'week' (night-caller, cauldron of rebirth) is deliberately NOT in
+//     either set — a rest never spans a week, and the sheet has no
+//     calendar. Weekly pools are restored manually via the resource
+//     counter when the in-fiction week has passed;
 //   - 'never' (and any unknown cadence) is never reset by a rest.
 
 export type RestKind = 'short-rest' | 'long-rest';

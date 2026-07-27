@@ -57,7 +57,9 @@
       grants?: {
         tempHp?: number | string;
         removeConditions?: Array<string | { condition: string; stacks?: number }>;
+        restoreSpellSlots?: { level: number; count?: number };
       };
+      teleport?: { distanceFt?: number; mode?: string };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
       description?: string;
     }>;
@@ -73,6 +75,8 @@
     resources: Array<{ id: string; name: string; max: number; used: number; per: string; description?: string }>;
     validations: Array<{ severity: string; code: string; message: string }>;
   };
+
+  import { costLabel } from '$lib/rules/action-cost';
 
   export let derived: SerializedDerived;
 
@@ -214,7 +218,7 @@
             <div>
               <span class="font-semibold">{action.name}</span>
               <span class="ml-2 text-xs uppercase tracking-wide text-slate-500">
-                {action.type} &middot; {typeof action.cost === 'string' ? action.cost : 'limited use'}
+                {action.type} &middot; {costLabel(action.cost)}
               </span>
             </div>
             <span class="text-xs text-slate-500">{action.sourceContent.kind}/{action.sourceContent.slug}</span>
@@ -253,6 +257,26 @@
                   (+{action.upcastScaling.extraTempHpPerSlot} per slot above {action.upcastScaling.baseSlotLevel})
                 </span>
               {/if}
+            </div>
+          {/if}
+          {#if action.grants?.restoreSpellSlots}
+            {@const r = action.grants.restoreSpellSlots}
+            <div class="mt-1 text-sm">
+              <span class="text-slate-400">restores:</span>
+              <span class="ml-1">
+                {r.count ?? 1} spell slot{(r.count ?? 1) === 1 ? '' : 's'} of level {r.level} or lower
+              </span>
+            </div>
+          {/if}
+          {#if action.teleport}
+            <div class="mt-1 text-sm">
+              <span class="text-slate-400">teleport:</span>
+              <span class="ml-1">
+                {action.teleport.distanceFt != null ? `${action.teleport.distanceFt} ft` : 'unlimited'}{action
+                  .teleport.mode
+                  ? ` (${action.teleport.mode.replace(/-/g, ' ')})`
+                  : ''}
+              </span>
             </div>
           {/if}
           {#if action.grants?.removeConditions?.length}

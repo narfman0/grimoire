@@ -189,3 +189,122 @@ describe('derive(): grants.removeConditions flows through to Action.grants', () 
     expect(cast.grants?.removeConditions).toEqual(['charmed']);
   });
 });
+
+describe('derive(): grants.restoreSpellSlots + activity teleport shape', () => {
+  const RING: ContentRow = {
+    kind: 'item',
+    slug: 'test-refueling-ring',
+    version: 1,
+    source: 'test',
+    name: 'Test Refueling Ring',
+    data: {
+      category: 'wondrous',
+      activities: [
+        {
+          id: 'refuel',
+          name: 'Refuel',
+          type: 'utility',
+          cost: 'action',
+          uses: { max: 1, per: 'day' },
+          grants: { restoreSpellSlots: { level: 3 } }
+        }
+      ]
+    }
+  };
+  const BOOTS: ContentRow = {
+    kind: 'item',
+    slug: 'test-winding-boots',
+    version: 1,
+    source: 'test',
+    name: 'Test Boots of the Winding Path',
+    data: {
+      category: 'wondrous',
+      activities: [
+        {
+          id: 'step-back',
+          name: 'Step Back',
+          type: 'utility',
+          cost: 'bonus',
+          teleport: { distanceFt: 15, mode: 'line-of-sight' }
+        },
+        {
+          id: 'rift-step',
+          name: 'Rift Step',
+          type: 'utility',
+          cost: { hitDice: 1 },
+          teleport: { mode: 'unrestricted' }
+        }
+      ]
+    }
+  };
+
+  function withItems(): CharacterDocument {
+    return {
+      ...chronurgy.CHARACTER,
+      inventory: [
+        ...chronurgy.CHARACTER.inventory,
+        { contentKind: 'item', contentSlug: 'test-refueling-ring', version: 1, equipped: true, attuned: false },
+        { contentKind: 'item', contentSlug: 'test-winding-boots', version: 1, equipped: true, attuned: false }
+      ]
+    };
+  }
+  const lookup = lookupFor({
+    'item/test-refueling-ring': RING,
+    'item/test-winding-boots': BOOTS
+  });
+
+  it('plumbs restoreSpellSlots onto Action.grants (count defaults absent)', () => {
+    const d = derive(withItems(), lookup);
+    const refuel = d.actions.find((a) => a.id === 'item/test-refueling-ring/refuel');
+    expect(refuel).toBeDefined();
+    expect(refuel!.grants?.restoreSpellSlots).toEqual({ level: 3 });
+  });
+
+  it('plumbs the teleport block onto Action.teleport', () => {
+    const d = derive(withItems(), lookup);
+    const step = d.actions.find((a) => a.id === 'item/test-winding-boots/step-back');
+    expect(step!.teleport).toEqual({ distanceFt: 15, mode: 'line-of-sight' });
+    const rift = d.actions.find((a) => a.id === 'item/test-winding-boots/rift-step');
+    expect(rift!.teleport).toEqual({ mode: 'unrestricted' });
+  });
+
+  it('passes a hit-dice cost through Action.cost verbatim', () => {
+    const d = derive(withItems(), lookup);
+    const rift = d.actions.find((a) => a.id === 'item/test-winding-boots/rift-step');
+    expect(rift!.cost).toEqual({ hitDice: 1 });
+  });
+
+  it('drops malformed restoreSpellSlots / teleport blocks', () => {
+    const bad: ContentRow = {
+      ...RING,
+      slug: 'test-bad-ring',
+      data: {
+        category: 'wondrous',
+        activities: [
+          {
+            id: 'bad',
+            name: 'Bad',
+            type: 'utility',
+            cost: 'action',
+            grants: { restoreSpellSlots: { level: 'three' } },
+            teleport: { mode: 'sideways' }
+          }
+        ]
+      }
+    };
+    const d = derive(
+      {
+        ...chronurgy.CHARACTER,
+        inventory: [
+          ...chronurgy.CHARACTER.inventory,
+          { contentKind: 'item', contentSlug: 'test-bad-ring', version: 1, equipped: true, attuned: false }
+        ]
+      },
+      lookupFor({ 'item/test-bad-ring': bad })
+    );
+    const act = d.actions.find((a) => a.id === 'item/test-bad-ring/bad');
+    expect(act).toBeDefined();
+    expect(act!.grants).toBeUndefined();
+    expect(act!.teleport).toBeUndefined();
+  });
+});

@@ -256,3 +256,64 @@ describe('rest cadence for day/dawn resources (regression)', () => {
     expect([...short]).toEqual(['short-rest']);
   });
 });
+
+describe("weekly recharge cadence (per: 'week')", () => {
+  it('emits the pool with per week from the engine-native shape', () => {
+    const wand = chargedWand({ charges: { max: 5, recharge: { per: 'week' } } });
+    const lookup = wrapLookup(PACKS, { 'item/test-charged-wand': wand });
+    const d = derive(withInventory(EQUIPPED), lookup);
+    const pool = d.resources.find((r) => r.id === 'item/test-charged-wand/charges');
+    expect(pool).toBeDefined();
+    expect(pool!.per).toBe('week');
+  });
+
+  it("normalizes the 5etools sibling shape recharge: '7 days' to week", () => {
+    const wand = chargedWand({ charges: 1, recharge: '7 days' });
+    const lookup = wrapLookup(PACKS, { 'item/test-charged-wand': wand });
+    const d = derive(withInventory(EQUIPPED), lookup);
+    const pool = d.resources.find((r) => r.id === 'item/test-charged-wand/charges');
+    expect(pool!.per).toBe('week');
+  });
+
+  it('is NOT reset by short or long rests — manual restore only', () => {
+    const wand = chargedWand({ charges: { max: 5, recharge: { per: 'week' } } });
+    const lookup = wrapLookup(PACKS, { 'item/test-charged-wand': wand });
+    const d = derive(
+      withInventory(EQUIPPED, { resourcesSpent: { 'item/test-charged-wand/charges': 3 } }),
+      lookup
+    );
+    const spent = { 'item/test-charged-wand/charges': 3 };
+    const afterShort = refreshSpentResourcesOnRest(spent, d.resources, 'short-rest');
+    const afterLong = refreshSpentResourcesOnRest(spent, d.resources, 'long-rest');
+    expect(afterShort['item/test-charged-wand/charges']).toBe(3);
+    expect(afterLong['item/test-charged-wand/charges']).toBe(3);
+    // The shared cadence sets exclude 'week' outright.
+    expect(restRefreshPeriods('short-rest').has('week')).toBe(false);
+    expect(restRefreshPeriods('long-rest').has('week')).toBe(false);
+  });
+
+  it("activity uses with per: 'week' emit a resource that no rest refreshes", () => {
+    const wand = chargedWand({
+      activities: [
+        {
+          id: 'weekly-call',
+          name: 'Weekly Call',
+          type: 'utility',
+          cost: 'action',
+          uses: { max: 1, per: 'week' }
+        }
+      ]
+    });
+    const lookup = wrapLookup(PACKS, { 'item/test-charged-wand': wand });
+    const d = derive(withInventory(EQUIPPED), lookup);
+    const res = d.resources.find((r) => r.id === 'item/test-charged-wand/weekly-call');
+    expect(res).toBeDefined();
+    expect(res!.per).toBe('week');
+    const after = refreshSpentResourcesOnRest(
+      { 'item/test-charged-wand/weekly-call': 1 },
+      d.resources,
+      'long-rest'
+    );
+    expect(after['item/test-charged-wand/weekly-call']).toBe(1);
+  });
+});

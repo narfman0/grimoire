@@ -41,3 +41,14 @@ describe('slotForCost', () => {
     expect(slotForCost(undefined)).toBeNull();
   });
 });
+
+describe('hit-dice costs', () => {
+  it('renders "N Hit Dice" (singular Die at 1)', () => {
+    expect(costLabel({ hitDice: 2 })).toBe('2 Hit Dice');
+    expect(costLabel({ hitDice: 1 })).toBe('1 Hit Die');
+  });
+
+  it('maps to no action-economy slot (display-only cost)', () => {
+    expect(slotForCost({ hitDice: 2 })).toBe(null);
+  });
+});

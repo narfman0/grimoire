@@ -3018,9 +3018,12 @@ interface ItemChargePool {
   /** Pool maximum — any evaluateValue-compatible shape. */
   max: unknown;
   /** Recharge cadence. 'dawn' pools reset on long rest (the sheet has no
-   *  clock — the long-rest button is the player's dawn); 'never' pools
-   *  are only restored manually. */
-  per: 'dawn' | 'long-rest' | 'short-rest' | 'never';
+   *  clock — the long-rest button is the player's dawn); 'week' pools
+   *  (night-caller, cauldron of rebirth) are NOT reset by any rest —
+   *  the sheet has no calendar, so the player restores the counter
+   *  manually when the in-fiction week passes; 'never' pools are only
+   *  restored manually. */
+  per: 'dawn' | 'long-rest' | 'short-rest' | 'week' | 'never';
   /** Partial-recharge formula ('1d6+1' for a wand regaining 1d6+1 at
    *  dawn). Stored / displayed only — v1 resets the pool to max at the
    *  cadence; rolling the partial recharge is a follow-up. */
@@ -3077,6 +3080,11 @@ function normalizeRechargePer(
     case 'short-rest':
     case 'restShort':
       return 'short-rest';
+    // Multi-day cadences: never reset by a rest (no calendar on the
+    // sheet); the player restores the counter manually.
+    case 'week':
+    case '7 days':
+      return 'week';
     case 'never':
     case 'special':
       return 'never';
@@ -3655,9 +3663,34 @@ function realizeActivity(
       }
       if (entries.length > 0) grants.removeConditions = entries;
     }
+    // Spell-slot recovery (spell-refueling ring). Display-only like the
+    // other grants — `level` is the max restorable slot level, `count`
+    // defaults to 1. Numeric-only, no evaluateValue.
+    if (g.restoreSpellSlots && typeof g.restoreSpellSlots === 'object') {
+      const r = g.restoreSpellSlots as { level?: unknown; count?: unknown };
+      if (typeof r.level === 'number' && r.level >= 1) {
+        grants.restoreSpellSlots = {
+          level: Math.floor(r.level),
+          ...(typeof r.count === 'number' && r.count > 0 ? { count: Math.floor(r.count) } : {})
+        };
+      }
+    }
     if (Object.keys(grants).length > 0) {
       action.grants = grants as Action['grants'];
     }
+  }
+
+  // Structured self-teleport payload (boots of the winding path, Rift
+  // Step). Display contract — passes through onto Action.teleport.
+  if (act.teleport && typeof act.teleport === 'object') {
+    const t = act.teleport as { distanceFt?: unknown; mode?: unknown };
+    const teleport: NonNullable<Action['teleport']> = {
+      ...(typeof t.distanceFt === 'number' && t.distanceFt > 0
+        ? { distanceFt: t.distanceFt }
+        : {}),
+      ...(t.mode === 'line-of-sight' || t.mode === 'unrestricted' ? { mode: t.mode } : {})
+    };
+    if (Object.keys(teleport).length > 0) action.teleport = teleport;
   }
 
   if (type === 'attack') {
