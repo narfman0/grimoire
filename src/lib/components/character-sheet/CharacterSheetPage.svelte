@@ -325,10 +325,14 @@
     ? (derived.actions ?? [])
         .map((a) => {
           const slot = slotForCost(a.cost);
+          // Grey out when the action-economy slot is spent OR the action's
+          // spendsResource pool holds fewer than resourceCost uses (a Wand
+          // of Fireballs sibling activity costing 3 charges with 2 left).
           const unavailable =
             (slot === 'action' && charDoc?.actionUsedThisRound) ||
             (slot === 'bonus' && charDoc?.bonusActionUsedThisRound) ||
-            (slot === 'reaction' && charDoc?.reactionUsedThisRound);
+            (slot === 'reaction' && charDoc?.reactionUsedThisRound) ||
+            !hasResourceBudget(a, derived.resources);
           return {
             id: a.id,
             name: a.name,
