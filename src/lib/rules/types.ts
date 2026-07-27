@@ -451,8 +451,9 @@ export interface StatBlock {
    *  (UI badges, encounter runtime) interpret slugs they know. */
   traits: string[];
   /** Critical hits against this creature become normal hits (adamantine
-   *  armor). Set by `tag.incoming-crit-immune`. Derive+type only — the
-   *  encounter runtime consumes it when adjudicating incoming crits. */
+   *  armor). Set by `tag.incoming-crit-immune`. The DM resolve flow
+   *  downgrades 'crit' outcomes against immune PC targets (see
+   *  `downgradeCritForTarget` in $lib/realtime/resolve.ts). */
   incomingCritImmune: boolean;
   /** Death saving throws are rolled with advantage. Set by
    *  `deathsave.advantage`. The sheet/runtime chooses how to surface it. */

@@ -29,6 +29,19 @@ export function effectiveDamage(outcome: HitOutcome, damage: number): number {
   return outcome === 'saved' ? Math.floor(damage / 2) : damage;
 }
 
+/** Critical hits against a crit-immune target (adamantine armor —
+ *  `stats.incomingCritImmune`) become normal hits: the log entry reads
+ *  'hit' and `attack.crit` reaction triggers don't fire. The damage number
+ *  stays whatever the DM entered — dropping the extra crit dice is part of
+ *  the downgrade they're being told about. Every other outcome passes
+ *  through unchanged. */
+export function downgradeCritForTarget(
+  outcome: HitOutcome,
+  targetCritImmune: boolean
+): HitOutcome {
+  return outcome === 'crit' && targetCritImmune ? 'hit' : outcome;
+}
+
 /** Reaction-trigger events that fire from a given attack/save outcome. */
 export function firedEventsFor(outcome: HitOutcome): string[] {
   const events: string[] = [];

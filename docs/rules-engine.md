@@ -203,7 +203,7 @@ The sheet renders traits as chips beside senses; the encounter runtime interpret
 
 ### Incoming-crit immunity
 
-`tag.incoming-crit-immune` (boolean) → `stats.incomingCritImmune` — critical hits against the wearer become normal hits (adamantine armor). Derive + type only for now; encounter-runtime consumption at incoming-attack adjudication is a follow-on.
+`tag.incoming-crit-immune` (boolean) → `stats.incomingCritImmune` — critical hits against the wearer become normal hits (adamantine armor). Consumed by the DM resolve flow: a 'crit' outcome against an immune PC target is downgraded to 'hit' via `downgradeCritForTarget` (`src/lib/realtime/resolve.ts`) — the log reads 'hit', `attack.crit` reactions don't fire, and the form shows a drop-the-extra-dice note. The flag also renders on the encounter stats disclosure beside resistances. Monster statblocks have no crit-immune field, so only PC targets participate.
 
 ### Death-save advantage
 

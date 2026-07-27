@@ -213,6 +213,11 @@ export async function buildEncounterPageData(
     resistances: string[];
     immunities: string[];
     vulnerabilities: string[];
+    /** Critical hits against this PC become normal hits (adamantine
+     *  armor — stats.incomingCritImmune). The DM resolve flow downgrades
+     *  a 'crit' outcome against them; the stats disclosure shows a
+     *  defenses line. */
+    incomingCritImmune: boolean;
     species: string | null;
     subspecies: string | null;
   };
@@ -337,6 +342,7 @@ export async function buildEncounterPageData(
             resistances: s.resistances,
             immunities: s.immunities,
             vulnerabilities: s.vulnerabilities,
+            incomingCritImmune: s.incomingCritImmune,
             species: doc.species?.slug ?? null,
             subspecies: doc.subspecies?.slug ?? null
           };

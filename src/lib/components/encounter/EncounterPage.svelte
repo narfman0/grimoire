@@ -30,6 +30,7 @@
     revertPriorHpChange,
     firedEventsFor,
     effectiveDamage,
+    downgradeCritForTarget,
     reactionPromptsForResolution,
     type HitOutcome,
     type ResolveTarget
@@ -318,9 +319,20 @@
     return result.ok;
   }
 
+  /** True when the participant is a PC whose derived stats carry
+   *  incomingCritImmune (adamantine armor) — a 'crit' outcome against
+   *  them resolves as a normal hit. */
+  function pcCritImmune(participantId: string | null): boolean {
+    return !!participantId && data.participantPcStats?.[participantId]?.incomingCritImmune === true;
+  }
+
   async function submitDmResolve() {
     if (!conn || !resolveForParticipantId) return;
     const round = liveState?.round ?? data.encounter.round;
+    // Crit-immune targets take a normal hit instead: log reads 'hit',
+    // attack.crit reactions don't fire. The form shows the downgrade note
+    // while 'crit' is selected against such a target.
+    const singleOutcome = downgradeCritForTarget(resolveHit, pcCritImmune(resolveTargetId));
     resolveSubmitting = true;
     try {
       if (resolveMultiTargetIds.length > 0 && resolveSaveDC != null) {
@@ -342,7 +354,7 @@
           }
         }
       } else {
-        const ok = await dmApplyToTarget(resolveTargetId, resolveHit, resolveDamage, resolveAttack, round);
+        const ok = await dmApplyToTarget(resolveTargetId, singleOutcome, resolveDamage, resolveAttack, round);
         if (!ok) {
           resolveError = 'log entry failed';
           return;
@@ -350,14 +362,14 @@
         // Check if single target is concentrating and took real damage.
         if (
           resolveTargetId &&
-          (resolveHit === 'hit' || resolveHit === 'crit' || resolveHit === 'failed-save' || resolveHit === 'saved') &&
+          (singleOutcome === 'hit' || singleOutcome === 'crit' || singleOutcome === 'failed-save' || singleOutcome === 'saved') &&
           typeof resolveDamage === 'number' &&
           resolveDamage > 0
         ) {
           const targetHpEntry = liveHpMap[resolveTargetId];
           if (targetHpEntry?.concentrating) {
             const targetParticipant = liveParticipants.find((p) => p.id === resolveTargetId);
-            const effective = effectiveDamage(resolveHit, resolveDamage);
+            const effective = effectiveDamage(singleOutcome, resolveDamage);
             concSavePrompt = {
               participantName: targetParticipant?.name ?? 'Target',
               dc: Math.max(10, Math.floor(effective / 2)),
@@ -367,7 +379,9 @@
         }
       }
       // Build the set of events that fired from this resolution.
-      const firedEvents = firedEventsFor(resolveHit);
+      const firedEvents = firedEventsFor(
+        resolveMultiTargetIds.length > 0 ? resolveHit : singleOutcome
+      );
       // Add 'attack.reduce-to-zero' if any target hit 0 HP.
       const checkTargets = resolveMultiTargetIds.length > 0 ? resolveMultiTargetIds : (resolveTargetId ? [resolveTargetId] : []);
       for (const tid of checkTargets) {
@@ -1697,11 +1711,12 @@
                   <span><span class="text-slate-500">atk</span> {(cs.spellAttackBonus ?? 0) >= 0 ? '+' : ''}{cs.spellAttackBonus ?? 0}</span>
                 </div>
               {/if}
-              {#if cs.resistances.length > 0 || cs.immunities.length > 0 || cs.vulnerabilities.length > 0}
+              {#if cs.resistances.length > 0 || cs.immunities.length > 0 || cs.vulnerabilities.length > 0 || cs.incomingCritImmune}
                 <div class="mt-1 text-[11px]">
                   {#if cs.resistances.length > 0}<div><span class="text-slate-500">Resist:</span> {cs.resistances.join(', ')}</div>{/if}
                   {#if cs.immunities.length > 0}<div><span class="text-slate-500">Immune:</span> {cs.immunities.join(', ')}</div>{/if}
                   {#if cs.vulnerabilities.length > 0}<div><span class="text-slate-500">Vulnerable:</span> {cs.vulnerabilities.join(', ')}</div>{/if}
+                  {#if cs.incomingCritImmune}<div><span class="text-slate-500">Crit immune:</span> critical hits become normal hits</div>{/if}
                 </div>
               {/if}
               {#if Object.keys(cs.senses).length > 0}
@@ -2075,6 +2090,11 @@
           <option value="heal">heal</option>
         </select>
       </label>
+      {#if resolveHit === 'crit' && resolveMultiTargetIds.length === 0 && pcCritImmune(resolveTargetId)}
+        <span class="self-end rounded border border-amber-700 bg-amber-950/40 px-2 py-1 text-xs text-amber-200">
+          target is immune to critical hits — resolves as a normal hit (drop the extra crit dice)
+        </span>
+      {/if}
       <label class="flex-1 text-xs">
         <span class="block text-slate-400">Notes</span>
         <input

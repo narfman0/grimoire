@@ -4,6 +4,7 @@ import {
   revertPriorHpChange,
   firedEventsFor,
   effectiveDamage,
+  downgradeCritForTarget,
   reactionPromptsForResolution,
   type ResolveTarget
 } from '../resolve';
@@ -67,6 +68,25 @@ describe('firedEventsFor', () => {
     ['', []]
   ] as const)('%s → %j', (outcome, expected) => {
     expect(firedEventsFor(outcome)).toEqual(expected);
+  });
+});
+
+describe('downgradeCritForTarget', () => {
+  it('downgrades crit to a normal hit for a crit-immune target', () => {
+    expect(downgradeCritForTarget('crit', true)).toBe('hit');
+    // The downgraded outcome fires attack.hit but NOT attack.crit.
+    expect(firedEventsFor(downgradeCritForTarget('crit', true))).toEqual(['attack.hit']);
+  });
+
+  it('leaves crit alone for non-immune targets', () => {
+    expect(downgradeCritForTarget('crit', false)).toBe('crit');
+  });
+
+  it('passes every non-crit outcome through regardless of immunity', () => {
+    for (const outcome of ['', 'hit', 'miss', 'fumble', 'heal', 'saved', 'failed-save'] as const) {
+      expect(downgradeCritForTarget(outcome, true)).toBe(outcome);
+      expect(downgradeCritForTarget(outcome, false)).toBe(outcome);
+    }
   });
 });
 
