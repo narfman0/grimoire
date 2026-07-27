@@ -1438,6 +1438,147 @@
     return data.itemOptions.find((i) => i.slug === slug);
   }
 
+  // ---- item choice slots + spell storage ----
+  // Item rows may declare per-inventory-slot player picks (data.choices:
+  // spell / baseWeapon) and spell storage (data.spellStorage). Picks and
+  // stored spells live on the InventorySlot itself, written through the
+  // standard patchDocument path (inventory is part of the document).
+
+  type InvSlot = CharacterDocument['inventory'][number];
+
+  function selectValue(e: Event): string {
+    return (e.target as HTMLSelectElement).value;
+  }
+
+  function itemRowData(slot: InvSlot): Record<string, unknown> {
+    const row = contentLookup({ kind: slot.contentKind, slug: slot.contentSlug });
+    return (row?.data ?? {}) as Record<string, unknown>;
+  }
+
+  function choiceDecls(slot: InvSlot): Array<{ key: string; decl: Record<string, unknown> }> {
+    const decl = itemRowData(slot).choices;
+    if (!decl || typeof decl !== 'object') return [];
+    return Object.entries(decl as Record<string, unknown>)
+      .filter(([, v]) => v != null && typeof v === 'object')
+      .map(([key, v]) => ({ key, decl: v as Record<string, unknown> }));
+  }
+
+  function choicePick(slot: InvSlot, key: string): string {
+    const v = slot.choices?.[key];
+    return typeof v === 'string' ? v : '';
+  }
+
+  function choiceLabel(key: string, decl: Record<string, unknown>): string {
+    return typeof decl.label === 'string' && decl.label ? decl.label : key;
+  }
+
+  function hasUnresolvedChoice(slot: InvSlot): boolean {
+    return choiceDecls(slot).some((c) => !choicePick(slot, c.key));
+  }
+
+  async function setItemChoice(index: number, key: string, value: string) {
+    await patchDocument((d) => {
+      const s = d.inventory[index];
+      if (!s) return;
+      const next = { ...(s.choices ?? {}) };
+      if (value) next[key] = value;
+      else delete next[key];
+      s.choices = next;
+    });
+  }
+
+  /** Spell options narrowed by the declaration. The client can filter by
+   *  level (maxLevel / allowedLevels) and school; `allowedClasses` can't
+   *  be applied here — spellOptions doesn't ship per-spell class lists —
+   *  so class-restricted declarations fall back to level/school
+   *  narrowing only. */
+  function spellChoiceOptions(decl: Record<string, unknown>) {
+    const maxLevel = typeof decl.maxLevel === 'number' ? decl.maxLevel : null;
+    const allowedLevels = Array.isArray(decl.allowedLevels)
+      ? (decl.allowedLevels as number[])
+      : null;
+    const allowedSchools = Array.isArray(decl.allowedSchools)
+      ? (decl.allowedSchools as string[])
+      : null;
+    return data.spellOptions.filter((s) => {
+      if (maxLevel != null && s.level > maxLevel) return false;
+      if (allowedLevels && !allowedLevels.includes(s.level)) return false;
+      if (allowedSchools && s.school && !allowedSchools.includes(s.school)) return false;
+      return true;
+    });
+  }
+
+  /** Corpus weapon rows for a baseWeapon pick. `allowedCategories` is a
+   *  loose v1 filter (match on slug / weaponType / name); when it
+   *  matches nothing we fall back to every weapon row rather than
+   *  presenting an empty picker. */
+  function baseWeaponOptions(decl: Record<string, unknown>) {
+    const weapons = data.itemOptions.filter((i) => i.category === 'weapon');
+    const cats = Array.isArray(decl.allowedCategories)
+      ? (decl.allowedCategories as string[]).map((c) => String(c).toLowerCase())
+      : null;
+    if (!cats || cats.length === 0) return weapons;
+    const matched = weapons.filter((w) =>
+      cats.some(
+        (c) =>
+          w.slug.includes(c) ||
+          (w.weaponType ?? '').includes(c) ||
+          w.name.toLowerCase().includes(c)
+      )
+    );
+    return matched.length > 0 ? matched : weapons;
+  }
+
+  function spellStorageOf(slot: InvSlot): { maxLevels: number } | null {
+    const st = itemRowData(slot).spellStorage as { maxLevels?: unknown } | undefined;
+    return st && typeof st.maxLevels === 'number' ? { maxLevels: st.maxLevels } : null;
+  }
+
+  function storedLevelsTotal(slot: InvSlot): number {
+    return (slot.stored ?? []).reduce(
+      (acc, st) => acc + (typeof st.level === 'number' && st.level > 0 ? Math.floor(st.level) : 0),
+      0
+    );
+  }
+
+  // Single shared draft for the store-a-spell form (one storage item is
+  // the overwhelmingly common case; the form appears under each storage
+  // item and writes to the row it belongs to).
+  let storeSlug = '';
+  let storeLevel = 1;
+  let storeDc: number | null = null;
+  let storeAtk: number | null = null;
+  let storeLabel = '';
+
+  async function addStoredSpell(index: number) {
+    if (!storeSlug) return;
+    const entry = {
+      slug: storeSlug,
+      level: Math.max(0, Math.min(9, Math.floor(storeLevel || 0))),
+      ...(storeDc != null ? { dc: storeDc } : {}),
+      ...(storeAtk != null ? { attackBonus: storeAtk } : {}),
+      ...(storeLabel.trim() ? { label: storeLabel.trim() } : {})
+    };
+    await patchDocument((d) => {
+      const s = d.inventory[index];
+      if (!s) return;
+      s.stored = [...(s.stored ?? []), entry];
+    });
+    storeSlug = '';
+    storeLevel = 1;
+    storeDc = null;
+    storeAtk = null;
+    storeLabel = '';
+  }
+
+  async function removeStoredSpell(index: number, storedIndex: number) {
+    await patchDocument((d) => {
+      const s = d.inventory[index];
+      if (!s?.stored) return;
+      s.stored = s.stored.filter((_, j) => j !== storedIndex);
+    });
+  }
+
   // ---- spells ----
   let spellManagerOpen = false;
 
@@ -3077,7 +3218,8 @@
       <ul class="mb-3 divide-y divide-slate-800">
         {#each charDoc.inventory as slot, i}
           {@const meta = itemMeta(slot.contentSlug)}
-          <li class="flex items-center justify-between gap-3 py-2 text-sm">
+          <li class="py-2 text-sm">
+            <div class="flex items-center justify-between gap-3">
             <div class="flex-1">
               <HoverPopup>
                 <span class="font-medium">{meta?.name ?? slot.contentSlug}</span>
@@ -3145,6 +3287,9 @@
               {#if meta?.kindHint}
                 <span class="ml-2 text-xs text-slate-500">{meta.kindHint}</span>
               {/if}
+              {#if slot.equipped && hasUnresolvedChoice(slot)}
+                <span class="ml-2 rounded border border-amber-800/60 bg-amber-950/40 px-1 text-[9px] uppercase tracking-wide text-amber-300">needs choice</span>
+              {/if}
             </div>
             <label class="flex items-center gap-1 text-xs text-slate-400">
               <input
@@ -3174,6 +3319,134 @@
             >
               remove
             </button>
+            </div>
+
+            <!-- Item choice slots (parametric spell / base weapon) -->
+            {#if slot.equipped && choiceDecls(slot).length > 0}
+              <div class="mt-2 flex flex-col gap-1 pl-3">
+                {#each choiceDecls(slot) as c (c.key)}
+                  {#if c.key === 'spell'}
+                    <label class="flex items-center gap-2 text-xs text-slate-400">
+                      <span class="capitalize">{choiceLabel(c.key, c.decl)}:</span>
+                      <select
+                        class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs"
+                        value={choicePick(slot, 'spell')}
+                        disabled={busy}
+                        on:change={(e) => setItemChoice(i, 'spell', selectValue(e))}
+                      >
+                        <option value="">— pick a spell —</option>
+                        {#each spellChoiceOptions(c.decl) as opt (opt.pickerId)}
+                          <option value={opt.slug}>
+                            {opt.name} (L{opt.level}{opt.school ? `, ${opt.school}` : ''})
+                          </option>
+                        {/each}
+                      </select>
+                    </label>
+                  {:else if c.key === 'baseWeapon'}
+                    <label class="flex items-center gap-2 text-xs text-slate-400">
+                      <span class="capitalize">{choiceLabel(c.key, c.decl)}:</span>
+                      <select
+                        class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs"
+                        value={choicePick(slot, 'baseWeapon')}
+                        disabled={busy}
+                        on:change={(e) => setItemChoice(i, 'baseWeapon', selectValue(e))}
+                      >
+                        <option value="">— pick a base weapon —</option>
+                        {#each baseWeaponOptions(c.decl) as opt (opt.pickerId)}
+                          <option value={opt.slug}>
+                            {opt.name}{opt.weaponType ? ` (${opt.weaponType})` : ''}
+                          </option>
+                        {/each}
+                      </select>
+                    </label>
+                  {:else}
+                    <span class="text-xs text-slate-500">
+                      {choiceLabel(c.key, c.decl)}: {choicePick(slot, c.key) || 'unset'}
+                    </span>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+
+            <!-- Spell storage (Ring of Spell Storing) -->
+            {#if slot.equipped && spellStorageOf(slot)}
+              {@const storage = spellStorageOf(slot)}
+              {@const total = storedLevelsTotal(slot)}
+              <div class="mt-2 pl-3">
+                <div class="text-xs text-slate-400">
+                  Stored spells
+                  <span class="ml-1 font-mono {total > (storage?.maxLevels ?? 0) ? 'text-amber-300' : 'text-slate-500'}">
+                    {total}/{storage?.maxLevels} levels
+                  </span>
+                </div>
+                {#if (slot.stored ?? []).length > 0}
+                  <ul class="mt-1 space-y-0.5">
+                    {#each slot.stored ?? [] as st, si}
+                      <li class="flex items-center gap-2 text-xs text-slate-300">
+                        <span>
+                          {data.spellOptions.find((s) => s.slug === st.slug)?.name ?? st.slug}
+                          <span class="text-slate-500">
+                            · L{st.level}{st.dc != null ? ` · DC ${st.dc}` : ''}{st.attackBonus != null ? ` · +${st.attackBonus} atk` : ''}{st.label ? ` · ${st.label}` : ''}
+                          </span>
+                        </span>
+                        <button
+                          class="text-[10px] text-slate-500 hover:text-red-400"
+                          disabled={busy}
+                          title="Remove stored spell"
+                          on:click={() => removeStoredSpell(i, si)}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    {/each}
+                  </ul>
+                {/if}
+                <div class="mt-1 flex flex-wrap items-center gap-1 text-xs">
+                  <select
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs"
+                    bind:value={storeSlug}
+                    disabled={busy}
+                  >
+                    <option value="">— store a spell —</option>
+                    {#each data.spellOptions as opt (opt.pickerId)}
+                      <option value={opt.slug}>{opt.name} (L{opt.level})</option>
+                    {/each}
+                  </select>
+                  <label class="flex items-center gap-1 text-slate-500">
+                    lvl
+                    <input
+                      class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5"
+                      type="number" min="0" max="9" bind:value={storeLevel} disabled={busy}
+                    />
+                  </label>
+                  <label class="flex items-center gap-1 text-slate-500">
+                    DC
+                    <input
+                      class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5"
+                      type="number" min="1" placeholder="own" bind:value={storeDc} disabled={busy}
+                    />
+                  </label>
+                  <label class="flex items-center gap-1 text-slate-500">
+                    atk
+                    <input
+                      class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5"
+                      type="number" placeholder="own" bind:value={storeAtk} disabled={busy}
+                    />
+                  </label>
+                  <input
+                    class="w-28 rounded border border-slate-700 bg-slate-950 px-1 py-0.5"
+                    type="text" placeholder="stored by…" bind:value={storeLabel} disabled={busy}
+                  />
+                  <button
+                    class="rounded bg-emerald-700 px-2 py-0.5 text-xs hover:bg-emerald-600 disabled:opacity-50"
+                    disabled={busy || !storeSlug}
+                    on:click={() => addStoredSpell(i)}
+                  >
+                    Store
+                  </button>
+                </div>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>
