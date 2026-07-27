@@ -927,6 +927,30 @@ export type TriggerGrant =
    *  Wounding patterns). `amount` is a dice formula or flat number
    *  string; restoration timing is the DM's business. */
   | { type: 'hp.max-reduce'; amount: string }
+  /** Forgo the triggering d20 roll and use `value` instead (clockwork
+   *  amulet's take-10 on an attack roll). Display contract — the DM
+   *  applies the substitution at the table. */
+  | { type: 'd20.replace'; value: number }
+  /** The triggering failed save becomes a success (ring of evasion's
+   *  DEX conversion, mind-sharpener's INT patterns). Usually rides
+   *  `save.fail`; uses are metered by `limit` / `spendsResource`. */
+  | { type: 'save.convert-fail-to-success' }
+  /** Grants a reroll of the triggering d20 test — luck / fragment-of-
+   *  possibility style. `die` names the extra die rolled alongside
+   *  (default the d20 itself); the pool funding the reroll is declared
+   *  via `spendsResource` / `limit` on the trigger. */
+  | { type: 'reroll.grant'; die?: string }
+  /** On-death contingency: instead of dying / dropping to 0 HP, the
+   *  wearer returns with `hp` hit points (ring of temporal salvation,
+   *  amulet of duplicity). `hp` is a flat number or dice formula;
+   *  absent → 1 HP. Display contract — the DM adjudicates timing. */
+  | { type: 'contingency.revive'; hp?: number | string }
+  /** Absorb the triggering spell instead of suffering its effect (rod
+   *  of absorption / ioun stone of absorption capture reaction).
+   *  `maxLevels` caps total absorbable spell levels. Display contract
+   *  only — there is no runtime absorption; items that also cast from
+   *  the absorbed pool model that side via `data.spellStorage`. */
+  | { type: 'spell.absorb'; maxLevels?: number }
   | { type: string; [k: string]: unknown }; // forward-compat: unknown grant shapes still pass through
 
 export interface TriggerDeclaration {

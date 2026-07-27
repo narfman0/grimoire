@@ -123,6 +123,83 @@ describe('canonical on-hit rider trigger grants', () => {
     expect(attuned.triggers.filter((t) => t.id.startsWith('rider-blade'))).toHaveLength(3);
   });
 
+  it('passes the d20/save/reroll/contingency/absorb display-contract grants through typed', () => {
+    const trinket: ContentRow = {
+      kind: 'item',
+      slug: 'test-longtail-trinket',
+      version: 1,
+      name: 'Test Long-Tail Trinket',
+      source: 'test',
+      data: {
+        category: 'wondrous',
+        triggers: [
+          {
+            id: 'trinket-take-10',
+            name: 'Take 10',
+            on: ['attack.declare'],
+            grants: { type: 'd20.replace', value: 10 }
+          },
+          {
+            id: 'trinket-evasion',
+            name: 'Convert Fail',
+            on: ['save.fail'],
+            grants: { type: 'save.convert-fail-to-success' },
+            limit: { per: 'dawn', uses: 3 }
+          },
+          {
+            id: 'trinket-fragment',
+            name: 'Fragment of Possibility',
+            on: ['check.declare'],
+            grants: { type: 'reroll.grant', die: 'd20' }
+          },
+          {
+            id: 'trinket-salvation',
+            name: 'Temporal Salvation',
+            on: ['damage.reduce-to-zero'],
+            grants: { type: 'contingency.revive', hp: 1 }
+          },
+          {
+            id: 'trinket-absorb',
+            name: 'Absorb Spell',
+            on: ['save.declare'],
+            grants: { type: 'spell.absorb', maxLevels: 50 }
+          }
+        ]
+      }
+    };
+    const lookup = wrapLookup(PACKS, { 'item/test-longtail-trinket': trinket });
+    const d = derive(
+      withInventory([
+        { contentKind: 'item', contentSlug: 'test-longtail-trinket', version: 1, equipped: true, attuned: false }
+      ]),
+      lookup
+    );
+
+    const byId = (id: string) => d.triggers.find((t) => t.id === id);
+
+    const take10: TriggerGrant | undefined = byId('trinket-take-10')?.grants;
+    expect(take10).toEqual({ type: 'd20.replace', value: 10 });
+    if (take10?.type === 'd20.replace') expect(take10.value).toBe(10);
+
+    expect(byId('trinket-evasion')?.grants).toEqual({ type: 'save.convert-fail-to-success' });
+    expect(byId('trinket-evasion')?.limit).toEqual({ per: 'dawn', uses: 3 });
+
+    const fragment: TriggerGrant | undefined = byId('trinket-fragment')?.grants;
+    expect(fragment).toEqual({ type: 'reroll.grant', die: 'd20' });
+    if (fragment?.type === 'reroll.grant') expect(fragment.die).toBe('d20');
+
+    const salvation: TriggerGrant | undefined = byId('trinket-salvation')?.grants;
+    expect(salvation).toEqual({ type: 'contingency.revive', hp: 1 });
+    if (salvation?.type === 'contingency.revive') expect(salvation.hp).toBe(1);
+
+    const absorb: TriggerGrant | undefined = byId('trinket-absorb')?.grants;
+    expect(absorb).toEqual({ type: 'spell.absorb', maxLevels: 50 });
+    if (absorb?.type === 'spell.absorb') expect(absorb.maxLevels).toBe(50);
+
+    // Canonical events only — no unknown-trigger-event warnings.
+    expect(d.validations.some((v) => v.code === 'unknown-trigger-event')).toBe(false);
+  });
+
   it("per-entry requires: 'equipped:attuned' gates a trigger on a non-attunement item", () => {
     const gated: ContentRow = {
       ...RIDER_BLADE,
