@@ -228,8 +228,16 @@ export async function buildEncounterPageData(
   type PcActionChoice = { id: string; name: string; cost: ActionCost; attackCount?: number };
   const participantPcActions: Record<string, PcActionChoice[]> = {};
   /** Derived trigger list per PC participant — drives the reaction queue so
-   *  the DM is prompted when a PC trigger fires during turn resolution. */
-  type PcTriggerChoice = { id: string; name: string; on: string[] };
+   *  the DM is prompted when a PC trigger fires during turn resolution.
+   *  `grants` carries the trigger's structured grant payload so the prompt
+   *  can render its one-line summary (grantSummary in
+   *  $lib/rules/grant-summary) instead of a bare trigger name. */
+  type PcTriggerChoice = {
+    id: string;
+    name: string;
+    on: string[];
+    grants?: { type: string; [k: string]: unknown };
+  };
   const participantPcTriggers: Record<string, PcTriggerChoice[]> = {};
   /** PC concentration sourced from the character document. Null when the
    *  PC isn't concentrating. Lets the DM see what each PC is concentrating
@@ -323,7 +331,8 @@ export async function buildEncounterPageData(
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({
             id: t.id,
             name: t.name,
-            on: t.on
+            on: t.on,
+            ...(t.grants ? { grants: t.grants as { type: string; [k: string]: unknown } } : {})
           }));
           participantPcStats[participant.id] = {
             ac: s.ac,

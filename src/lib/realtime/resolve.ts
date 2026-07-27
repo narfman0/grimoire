@@ -206,6 +206,10 @@ export interface ReactionTrigger {
   id: string;
   name: string;
   on: string[];
+  /** Structured grant payload from the TriggerDeclaration — carried
+   *  through so the prompt UI can render its one-line summary
+   *  ($lib/rules/grant-summary). */
+  grants?: { type: string; [k: string]: unknown };
 }
 
 export interface ReactionPrompt {
@@ -213,6 +217,8 @@ export interface ReactionPrompt {
   participantName: string;
   triggerId: string;
   triggerName: string;
+  /** The matched trigger's grants, verbatim (see ReactionTrigger.grants). */
+  grants?: { type: string; [k: string]: unknown };
 }
 
 /** Build reaction prompts for PCs whose triggers intersect the fired events,
@@ -236,7 +242,8 @@ export function reactionPromptsForResolution(input: {
           participantId: p.id,
           participantName: p.name,
           triggerId: t.id,
-          triggerName: t.name
+          triggerName: t.name,
+          ...(t.grants ? { grants: t.grants } : {})
         });
         break;
       }

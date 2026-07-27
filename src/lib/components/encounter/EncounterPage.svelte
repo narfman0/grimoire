@@ -35,6 +35,7 @@
     type HitOutcome,
     type ResolveTarget
   } from '$lib/realtime/resolve';
+  import { grantSummary } from '$lib/rules/grant-summary';
   import type { EncounterPageData } from '$lib/server/encounter-page';
 
   export let data: EncounterPageData;
@@ -872,6 +873,7 @@
     participantName: string;
     triggerId: string;
     triggerName: string;
+    grants?: { type: string; [k: string]: unknown };
   }> = [];
 
   /** Which participant is selected (detail panel shown below). Auto-advances
@@ -2157,6 +2159,9 @@
   <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-600 bg-amber-950/40 px-4 py-3 text-sm">
     <span class="text-amber-200">
       ⚡ <strong>{prompt.participantName}</strong> can use <strong>{prompt.triggerName}</strong> — use their reaction?
+      {#if grantSummary(prompt.grants)}
+        <span class="mt-0.5 block text-xs text-amber-200/80">{grantSummary(prompt.grants)}</span>
+      {/if}
     </span>
     <button
       class="rounded border border-emerald-700 bg-emerald-900/40 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/70"

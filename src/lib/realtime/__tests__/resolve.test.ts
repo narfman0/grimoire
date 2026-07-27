@@ -435,6 +435,28 @@ describe('reactionPromptsForResolution', () => {
     ]);
   });
 
+  it('carries the matched trigger grants onto the prompt verbatim', () => {
+    const grants = { type: 'save.convert-fail-to-success' };
+    const prompts = reactionPromptsForResolution({
+      firedEvents: ['save.failed'],
+      participants,
+      triggersByParticipantId: {
+        pc1: [{ id: 'r1', name: 'Ring of Evasion', on: ['save.failed'], grants }]
+      },
+      reactionUsedByParticipantId: {}
+    });
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0].grants).toEqual(grants);
+    // Grant-less triggers keep the key absent, not undefined-valued.
+    const bare = reactionPromptsForResolution({
+      firedEvents: ['attack.hit'],
+      participants,
+      triggersByParticipantId: { pc1: [{ id: 'r2', name: 'Shield', on: ['attack.hit'] }] },
+      reactionUsedByParticipantId: {}
+    });
+    expect('grants' in bare[0]).toBe(false);
+  });
+
   it('skips NPCs even with matching triggers', () => {
     const prompts = reactionPromptsForResolution({
       firedEvents: ['attack.hit'],
