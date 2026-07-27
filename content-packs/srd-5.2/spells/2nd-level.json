@@ -832,7 +832,7 @@
             "creatureType": "humanoid"
           },
           "scalesWithSlotLevel": {
-            "perSlotAbove": 1,
+            "perSlotAbove": 2,
             "addTargets": 1
           },
           "note": "Target humanoid must succeed on a WIS save or be paralyzed for the duration. Repeats the save at the end of each of its turns."

@@ -443,7 +443,7 @@
               }
             ],
             "scalesWithSlotLevel": {
-              "perSlotAbove": 1,
+              "perSlotAbove": 3,
               "addDice": "1d6"
             }
           },

@@ -138,4 +138,18 @@ describe('derive(): upcastScaling flows through from spell row to Action', () =>
     const cast = d.actions.find((a) => a.sourceContent.slug === 'test-fixed-spell')!;
     expect(cast.upcastScaling).toBeUndefined();
   });
+
+  // Regression: the real SRD fireball / hold-person rows shipped
+  // `perSlotAbove: 1` — the engine reads perSlotAbove as the BASE slot
+  // level (see realizeActivity), so both derived with baseSlotLevel 1
+  // and applyUpcast added phantom steps (Fireball "at L3" rolled 10d6).
+  it('real SRD rows: perSlotAbove matches the spell level (fireball 3, hold-person 2)', () => {
+    const lookup = chronurgy.makeLookup(PACKS);
+    const d = derive(chronurgy.CHARACTER, lookup); // both spells are prepared
+    const fireball = d.actions.find((a) => a.sourceContent.slug === 'fireball')!;
+    expect(fireball.upcastScaling?.baseSlotLevel).toBe(3);
+    expect(applyUpcast(fireball, 3).damageRolls?.[0].formula).toBe('8d6');
+    const holdPerson = d.actions.find((a) => a.sourceContent.slug === 'hold-person')!;
+    expect(holdPerson.upcastScaling?.baseSlotLevel).toBe(2);
+  });
 });
