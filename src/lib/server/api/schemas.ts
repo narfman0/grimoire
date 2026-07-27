@@ -107,6 +107,11 @@ const ContentRefSchema = z.object({
   kind: z.string(),
   slug: z.string(),
   version: z.number().int().positive().optional(),
+  /** Homebrew author disambiguator — mirrors ContentRef.authorUserId in
+   *  src/lib/rules/types.ts. Missing from the schema meant Zod stripped
+   *  the stamp on every PATCH, so same-slug homebrew resolution silently
+   *  degraded to the fallback path. */
+  authorUserId: z.string().nullable().optional(),
   choices: z.record(z.string(), z.unknown()).optional()
 });
 
@@ -121,6 +126,9 @@ const InventorySlotSchema = z.object({
   contentKind: z.string(),
   contentSlug: z.string(),
   version: z.number().int().positive().optional(),
+  /** Homebrew author stamp — mirrors InventorySlot.authorUserId. Same
+   *  Zod-strip hazard as ContentRefSchema.authorUserId above. */
+  authorUserId: z.string().nullable().optional(),
   equipped: z.boolean(),
   attuned: z.boolean(),
   charges: z.number().int().nonnegative().optional(),

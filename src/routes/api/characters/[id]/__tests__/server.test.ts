@@ -151,6 +151,11 @@ describe('PATCH /api/characters/[id]', () => {
       ...minDoc(characterId),
       // Optional fields the client sets and expects back:
       alignment: 'Lawful Good',
+      // Regression: authorUserId (homebrew author stamp on refs + slots)
+      // was missing from ContentRefSchema / InventorySlotSchema, so every
+      // PATCH silently stripped it and same-slug homebrew resolution
+      // degraded to the fallback path.
+      feats: [{ kind: 'feat', slug: 'my-homebrew-feat', version: 1, authorUserId: 'author-1' }],
       subspecies: { kind: 'subspecies', slug: 'hill-dwarf', version: 1, choices: {} },
       background: { kind: 'background', slug: 'sage', version: 1, choices: {} },
       currentHp: 7,
@@ -166,6 +171,7 @@ describe('PATCH /api/characters/[id]', () => {
           contentKind: 'item',
           contentSlug: 'test-parametric-scroll',
           version: 1,
+          authorUserId: 'author-1',
           equipped: true,
           attuned: false,
           choices: { spell: 'fireball', baseWeapon: 'longsword' }
@@ -234,6 +240,7 @@ describe('PATCH /api/characters/[id]', () => {
     expect(body.document.polymorphForm).toEqual(docIn.polymorphForm);
     expect(body.document.companions).toEqual(docIn.companions);
     expect(body.document.inventory).toEqual(docIn.inventory);
+    expect(body.document.feats).toEqual(docIn.feats);
 
     // And the same survives a re-fetch (no DB-side stripping).
     const reread = await GET(makeEvent({ user: ownerOf(owner), params: { id: characterId } }));
