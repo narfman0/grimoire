@@ -823,6 +823,9 @@ export const KNOWN_TRIGGER_EVENTS = [
   // Specialized save.declare: a save/check made to end the grappled
   // condition (Goliath Powerful Build advantage rider)
   'save.to-end-grappled',
+  // A death saving throw is about to be rolled — gambler's-blade
+  // death-save penalty / periapt-style death-save riders
+  'death-save.declare',
   // Condition lifecycle: fires when the named condition is applied to a
   // participant (Goliath Hill's Tumble knock-prone rider)
   'condition.apply.prone',
@@ -837,6 +840,14 @@ export const KNOWN_TRIGGER_EVENTS = [
   'spell.cast',
   'spell.cast.within-5ft',
   'spell.slot-spent',
+  // A spell targeting the wearer was absorbed via a `spell.absorb`
+  // trigger grant (rod of absorption / ioun stone of absorption) —
+  // downstream riders can key off the absorption having happened
+  'spell.absorbed',
+  // The participant spends sorcery points on a Metamagic option —
+  // Tasha's sorcerer shards (astral / feywild / far-realm / shadowfell
+  // shard, elemental- and outer-essence shards) ride it
+  'metamagic.used',
   // Turn / round lifecycle
   'turn.start',
   'turn.end',

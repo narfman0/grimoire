@@ -597,7 +597,13 @@ describe('C.8 — damage-taken trigger events + soft validation', () => {
 		// SRD Cutting Words enemy-POV lifecycle
 		['c8-enemy-attack-declare', 'enemy.attack.declare'],
 		['c8-enemy-check-declare', 'enemy.check.declare'],
-		['c8-enemy-damage-dealt', 'enemy.damage.dealt']
+		['c8-enemy-damage-dealt', 'enemy.damage.dealt'],
+		// Long-tail item riders: Tasha's sorcerer shards (metamagic.used),
+		// gambler's-blade / periapt death-save patterns (death-save.declare),
+		// rod-of-absorption downstream riders (spell.absorbed)
+		['c8-metamagic-used', 'metamagic.used'],
+		['c8-death-save-declare', 'death-save.declare'],
+		['c8-spell-absorbed', 'spell.absorbed']
 	];
 
 	it.each(NEW_EVENT_FIXTURES)(

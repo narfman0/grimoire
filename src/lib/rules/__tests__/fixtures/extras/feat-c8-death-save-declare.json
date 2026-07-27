@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-death-save-declare",
+  "version": 1,
+  "name": "C.8 death-save.declare (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-death-save-declare",
+        "name": "C.8 death-save.declare",
+        "on": [
+          "death-save.declare"
+        ],
+        "grants": {
+          "type": "force-reroll"
+        }
+      }
+    ]
+  }
+}

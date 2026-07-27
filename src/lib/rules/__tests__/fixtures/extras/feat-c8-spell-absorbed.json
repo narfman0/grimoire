@@ -1,0 +1,23 @@
+{
+  "kind": "feat",
+  "slug": "c8-spell-absorbed",
+  "version": 1,
+  "name": "C.8 spell.absorbed (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-spell-absorbed",
+        "name": "C.8 spell.absorbed",
+        "on": [
+          "spell.absorbed"
+        ],
+        "grants": {
+          "type": "force-reroll"
+        }
+      }
+    ]
+  }
+}

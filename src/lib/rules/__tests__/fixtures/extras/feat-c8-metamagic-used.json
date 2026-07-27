@@ -1,0 +1,25 @@
+{
+  "kind": "feat",
+  "slug": "c8-metamagic-used",
+  "version": 1,
+  "name": "C.8 metamagic.used (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-metamagic-used",
+        "name": "C.8 metamagic.used",
+        "on": [
+          "metamagic.used"
+        ],
+        "grants": {
+          "type": "damage.rider",
+          "amount": "1d4",
+          "damageType": "psychic"
+        }
+      }
+    ]
+  }
+}
