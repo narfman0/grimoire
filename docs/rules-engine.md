@@ -231,9 +231,11 @@ Activities may declare `grants.removeConditions` (Lesser Restoration shape); `re
 }
 ```
 
-`stacks` is numeric-only (no evaluateValue formulas). Like `grants.tempHp`, this is **display-only** today — the sheet renders a "removes:" line; there is no auto-apply path for action grants yet.
+`stacks` is numeric-only (no evaluateValue formulas).
 
-`grants.restoreSpellSlots: { level, count? }` (spell-refueling ring) follows the same posture: `level` is the maximum restorable slot level, `count` defaults to 1, both numeric-only. The sheet renders a "restores: 1 spell slot of level 3 or lower" line; the player un-spends the slot manually.
+`grants.restoreSpellSlots: { level, count? }` (spell-refueling ring): `level` is the maximum restorable slot level, `count` defaults to 1, both numeric-only.
+
+Action grants are **applied at use time** by `applyActionUse` (`src/lib/rules/apply-grants.ts`): one draft-mutating call debits the action's `spendsResource` pool by `resourceCost` and folds the grants into the document — numeric temp HP with take-the-max (no stacking, RAW), condition removal / stack decrement, and slot restoration with pick-best semantics (each restore un-spends the highest-level spent slot ≤ `level`, `count` times, clamped at 0). Dice-formula temp HP (`'1d4+4'`) is surfaced as a manual follow-up — the engine has no RNG. The sheet wires this in two places, each a single `patchDocument` write with toast feedback: the Use button on grant-carrying action rows (grant-carrying spell casts surface in the Actions section for this purpose; the spell-slot spend itself stays manual) and the encounter-planner resolve flow. The DM-side encounter resolve does **not** auto-apply grants to PC documents — the player's sheet is the apply surface.
 
 ### Source-qualified save advantage from items
 

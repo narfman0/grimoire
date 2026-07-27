@@ -22,6 +22,14 @@ export {
   type SpendResourceResult
 } from './class-resources';
 export {
+  applyActionUse,
+  hasResourceBudget,
+  type ApplyActionUseContext,
+  type ApplyActionUseResult,
+  type ResourcePoolView,
+  type UsableActionBits
+} from './apply-grants';
+export {
   restRefreshPeriods,
   refreshSpentResourcesOnRest,
   type RestKind

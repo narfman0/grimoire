@@ -774,14 +774,15 @@ export interface ActionGrants {
    *  (Lesser Restoration, a paladin's Restoring Touch, potions). A plain
    *  string removes the condition entirely; the object form with `stacks`
    *  decrements `conditionStacks` by N, removing the condition at 0.
-   *  `stacks` is numeric-only (no evaluateValue formulas). Currently
-   *  display-only on the sheet — grants have no auto-apply path yet. */
+   *  `stacks` is numeric-only (no evaluateValue formulas). Applied at
+   *  use time by `applyActionUse` (apply-grants.ts). */
   removeConditions?: Array<string | { condition: string; stacks?: number }>;
   /** Expended spell slots restored when the activity resolves
    *  (spell-refueling ring: one slot of level ≤ 3). `level` is the
    *  maximum slot level restorable; `count` is how many slots (default
-   *  1). Display-only like tempHp / removeConditions — the player
-   *  un-spends the slot on the sheet. */
+   *  1). Applied at use time by `applyActionUse` with pick-best
+   *  semantics: each restore un-spends the highest-level spent slot
+   *  ≤ `level`. */
   restoreSpellSlots?: { level: number; count?: number };
 }
 

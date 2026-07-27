@@ -22,6 +22,8 @@
     pickRestVariant,
     applyAutoCancelOnStateChange,
     toggleActivation,
+    applyActionUse,
+    hasResourceBudget,
     type RestKind
   } from '$lib/rules';
   import { SKILLS } from '$lib/rules/skills';
@@ -548,15 +550,26 @@
         }
       }
 
-      // Consume the action-economy slot the resolved action takes.
-      const resolvedAction = (derived?.actions ?? []).find((a) => a.id === myPlan.actionId);
+      // Consume the action-economy slot the resolved action takes, debit
+      // its spendsResource pool (resourceCost units), and apply its grants
+      // (temp HP / condition removal / slot restore) — one document write.
+      const der = derived;
+      const resolvedAction = (der?.actions ?? []).find((a) => a.id === myPlan.actionId);
       const slot = resolvedAction ? slotForCost(resolvedAction.cost) : null;
-      if (slot) {
+      if (slot || resolvedAction?.grants || resolvedAction?.spendsResource) {
+        let grantResult = { applied: [] as string[], manual: [] as string[] };
         await patchDocument((d) => {
           if (slot === 'action') d.actionUsedThisRound = true;
           else if (slot === 'bonus') d.bonusActionUsedThisRound = true;
           else if (slot === 'reaction') d.reactionUsedThisRound = true;
+          if (der && resolvedAction && (resolvedAction.grants || resolvedAction.spendsResource)) {
+            grantResult = applyActionUse(d, resolvedAction, {
+              resources: der.resources,
+              spellSlots: der.stats.spellSlots
+            });
+          }
         });
+        if (resolvedAction) actionUseFeedback(resolvedAction, grantResult);
       }
       // Clear the plan now that the action has been resolved.
       encConn.clearPlan(selfId).catch(() => {});
@@ -1202,6 +1215,41 @@
     const r = derived?.resources.find((x) => x.id === id);
     if (!r) return;
     return adjustResource(id, delta, r.max);
+  }
+
+  // ---- action use: resource debit + grants application ----
+  // Clicking Use on a grant-carrying action (Sheet's Actions section) or
+  // resolving a planned action applies the action's side effects in ONE
+  // document write: debit its spendsResource pool by resourceCost and fold
+  // grants.tempHp / removeConditions / restoreSpellSlots into the doc.
+  // Confirm-free; the toast lists what changed and what stays manual
+  // (dice-formula temp HP has no auto-roll; leveled-spell slot spends
+  // stay on the SpellSlotsPanel).
+  function actionUseFeedback(
+    action: Action,
+    result: { applied: string[]; manual: string[] }
+  ) {
+    if (result.applied.length === 0 && result.manual.length === 0) return;
+    const parts = [...result.applied, ...result.manual];
+    if (action.sourceContent.kind === 'spell' && !action.spendsResource) {
+      parts.push('spend the spell slot on the sheet if this cast used one');
+    }
+    toasts.add({ type: 'info', message: `${action.name}: ${parts.join('; ')}` });
+  }
+
+  async function useActionById(actionId: string) {
+    const der = derived;
+    const action = der?.actions.find((a) => a.id === actionId);
+    if (!action || !der) return;
+    if (!hasResourceBudget(action, der.resources)) return;
+    let result = { applied: [] as string[], manual: [] as string[] };
+    await patchDocument((d) => {
+      result = applyActionUse(d, action, {
+        resources: der.resources,
+        spellSlots: der.stats.spellSlots
+      });
+    });
+    actionUseFeedback(action, result);
   }
 
   // ---- companions & summons ----
@@ -2118,8 +2166,8 @@
     </section>
   {/if}
 
-  <!-- ===== Stats / saves / skills / actions (read-only) ===== -->
-  <Sheet derived={derived} />
+  <!-- ===== Stats / saves / skills / actions ===== -->
+  <Sheet derived={derived} onUseAction={useActionById} useDisabled={busy} />
 
   <!-- ===== Edit panel: HP / hit dice / conditions / toggles / rest ===== -->
   <section class="mb-6 grid gap-4 rounded-lg border border-slate-800 bg-slate-900/30 p-4 md:grid-cols-2">

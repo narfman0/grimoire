@@ -59,6 +59,8 @@
         removeConditions?: Array<string | { condition: string; stacks?: number }>;
         restoreSpellSlots?: { level: number; count?: number };
       };
+      spendsResource?: string;
+      resourceCost?: number;
       teleport?: { distanceFt?: number; mode?: string };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
       description?: string;
@@ -77,16 +79,28 @@
   };
 
   import { costLabel } from '$lib/rules/action-cost';
+  import { hasResourceBudget } from '$lib/rules/apply-grants';
 
   export let derived: SerializedDerived;
+  /** When set, actions that carry grants or a spendsResource debit render
+   *  a Use button dispatching the action id. Left null on read-only
+   *  surfaces (fixture previews) — no button renders at all. */
+  export let onUseAction: ((actionId: string) => void) | null = null;
+  export let useDisabled = false;
 
   $: stats = derived.stats;
   $: actions = derived.actions;
   $: triggers = derived.triggers;
   $: resources = derived.resources;
   $: validations = derived.validations;
+  // Spell-sourced actions normally stay out of the Actions section (the
+  // spell manager owns that list), but grant-carrying casts (Armor of
+  // Agathys temp HP, Lesser Restoration cleanses) surface here when a Use
+  // handler is wired — this is the only sheet surface that can apply them.
   $: nonSpellActions = actions.filter(
-    (a) => a.sourceContent.kind !== 'spell' && a.type !== 'cast-spell'
+    (a) =>
+      (a.sourceContent.kind !== 'spell' && a.type !== 'cast-spell') ||
+      (onUseAction != null && a.grants != null)
   );
 
   const abilityOrder = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
@@ -221,7 +235,24 @@
                 {action.type} &middot; {costLabel(action.cost)}
               </span>
             </div>
-            <span class="text-xs text-slate-500">{action.sourceContent.kind}/{action.sourceContent.slug}</span>
+            <span class="flex items-center gap-2">
+              <span class="text-xs text-slate-500">{action.sourceContent.kind}/{action.sourceContent.slug}</span>
+              {#if onUseAction && (action.grants || action.spendsResource)}
+                {@const insufficient = !hasResourceBudget(action, resources)}
+                <button
+                  class="rounded border border-emerald-700 bg-emerald-950/40 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/50 disabled:opacity-40"
+                  disabled={useDisabled || insufficient}
+                  title={insufficient
+                    ? `Not enough ${resources.find((r) => r.id === action.spendsResource)?.name ?? 'uses'} left`
+                    : action.spendsResource
+                      ? `Spends ${action.resourceCost ?? 1} × ${resources.find((r) => r.id === action.spendsResource)?.name ?? action.spendsResource}`
+                      : 'Apply this action’s grants'}
+                  on:click={() => onUseAction?.(action.id)}
+                >
+                  Use
+                </button>
+              {/if}
+            </span>
           </div>
           {#if action.attackBonus != null}
             <div class="mt-1 text-sm">
