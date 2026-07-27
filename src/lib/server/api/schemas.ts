@@ -128,7 +128,20 @@ const InventorySlotSchema = z.object({
   /** Player picks for the item row's `data.choices` slots — per-inventory-
    *  slot state (two copies of a Spell Scroll hold different spells).
    *  Mirrors InventorySlot.choices in src/lib/rules/types.ts. */
-  choices: z.record(z.string(), z.unknown()).optional()
+  choices: z.record(z.string(), z.unknown()).optional(),
+  /** Spells held by a spell-storage item (Ring of Spell Storing). Mirrors
+   *  InventorySlot.stored / StoredSpell in src/lib/rules/types.ts. */
+  stored: z
+    .array(
+      z.object({
+        slug: z.string(),
+        level: z.number().int().min(0).max(9),
+        dc: z.number().int().positive().optional(),
+        attackBonus: z.number().int().optional(),
+        label: z.string().optional()
+      })
+    )
+    .optional()
 });
 
 export const CharacterDocument = z

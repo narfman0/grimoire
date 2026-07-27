@@ -169,6 +169,17 @@ describe('PATCH /api/characters/[id]', () => {
           equipped: true,
           attuned: false,
           choices: { spell: 'fireball', baseWeapon: 'longsword' }
+        },
+        {
+          contentKind: 'item',
+          contentSlug: 'test-ring-of-spell-storing',
+          version: 1,
+          equipped: true,
+          attuned: true,
+          stored: [
+            { slug: 'fireball', level: 4, dc: 17, label: 'from Vortha' },
+            { slug: 'guiding-bolt', level: 1, attackBonus: 9 }
+          ]
         }
       ],
       resourcesSpent: { 'rage:uses': 1 },

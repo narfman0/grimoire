@@ -18,6 +18,7 @@ import { monsterDerive } from './monster-derive';
 import { predicateMatches, validatePredicateBlock, type PredicateContext } from './predicates';
 import { SKILLS, SKILL_ABILITY } from './skills';
 import { slugify } from './slug';
+import { applyUpcast } from './upcast';
 import type {
   AbilityCell,
   AbilityKey,
@@ -48,6 +49,7 @@ import type {
   SaveCell,
   SkillCell,
   StatBlock,
+  StoredSpell,
   TriggerDeclaration,
   TriggerGrant,
   ValidationIssue
@@ -70,6 +72,7 @@ interface ActiveContent {
     attuned: boolean;
     index: number;
     choices?: Record<string, unknown>;
+    stored?: StoredSpell[];
   };
 }
 
@@ -473,7 +476,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         equipped: slot.equipped,
         attuned: slot.attuned === true,
         index: slotIndex,
-        ...(slot.choices && typeof slot.choices === 'object' ? { choices: slot.choices } : {})
+        ...(slot.choices && typeof slot.choices === 'object' ? { choices: slot.choices } : {}),
+        ...(Array.isArray(slot.stored) ? { stored: slot.stored } : {})
       }
     });
   }
@@ -2032,6 +2036,23 @@ function assembleActivities(s: DerivePhaseState): void {
       }
       actions.push(action);
     }
+
+    // Spell storage (Ring of Spell Storing): an equipped, gate-passing
+    // item with `data.spellStorage` emits one cast Action per entry in
+    // its inventory slot's `stored[]` — the spell row inlined at the
+    // stored level, with the storer's DC / attack bonus overriding the
+    // wearer's own when recorded. Capacity is enforced only as the
+    // spell-storage-over-capacity soft warning (phase 6).
+    if (
+      a.row.kind === 'item' &&
+      a.data.spellStorage &&
+      a.inventorySlot?.stored?.length &&
+      itemRequirementMet(a, undefined)
+    ) {
+      for (const action of realizeStoredSpells(a, character, stats, content, ctx)) {
+        actions.push(action);
+      }
+    }
   }
 
   // Aggregate extraAttacks from active features and set attackCount on
@@ -2246,6 +2267,28 @@ function runSoftValidations(s: DerivePhaseState): void {
           }
         }
       }
+    }
+  }
+
+  // Spell-storage capacity — Σ stored levels vs data.spellStorage.maxLevels.
+  // Soft warning only (never blocks a save, never gates the cast actions),
+  // and deliberately NOT an unknown-* code (the packs QC gate hard-fails
+  // T3 rows on unknown-*; this is character-state, not pack authoring).
+  for (const a of active) {
+    if (a.row.kind !== 'item' || !a.inventorySlot) continue;
+    const storage = a.data.spellStorage as { maxLevels?: unknown } | undefined;
+    if (!storage || typeof storage.maxLevels !== 'number') continue;
+    const stored = a.inventorySlot.stored ?? [];
+    const total = stored.reduce(
+      (acc, st) => acc + (typeof st?.level === 'number' && st.level > 0 ? Math.floor(st.level) : 0),
+      0
+    );
+    if (total > storage.maxLevels) {
+      validations.push({
+        severity: 'warning',
+        code: 'spell-storage-over-capacity',
+        message: `${a.row.name} holds ${total} spell levels (capacity ${storage.maxLevels}).`
+      });
     }
   }
 
@@ -3943,6 +3986,71 @@ function resolveBoundWeaponSynthesis(
   }
   const synth = synthesizeWeaponActivity(a.row.slug, a.row.name, merged);
   return synth ? { activity: synth, source } : null;
+}
+
+/** Spell-storage cast actions (see the spellStorage block in
+ *  assembleActivities). Each `InventorySlot.stored[]` entry inlines the
+ *  referenced spell's primary activity — exactly like a cast-spell
+ *  activity would — then:
+ *    - upcasts to the stored level (a Fireball stored at L5 is 10d6),
+ *      and strips upcastScaling so the planner can't re-scale a cast
+ *      whose level is fixed by the storer;
+ *    - overrides save DC / attack bonus with the storer's recorded
+ *      numbers when present (else the wearer's own derived values
+ *      stand);
+ *    - notes the stored level (+ optional attribution label) on
+ *      Action.description — a validation-free summary.
+ *  Unresolvable spell slugs are skipped silently (character-state gap,
+ *  not a pack-authoring error). */
+function realizeStoredSpells(
+  a: ActiveContent,
+  character: CharacterDocument,
+  stats: StatBlock,
+  content: ContentLookup,
+  ctx: EvalContext
+): Action[] {
+  const out: Action[] = [];
+  const stored = a.inventorySlot?.stored ?? [];
+  for (let i = 0; i < stored.length; i++) {
+    const st = stored[i];
+    if (!st || typeof st.slug !== 'string' || st.slug.length === 0) continue;
+    const spellRow = content({ kind: 'spell', slug: st.slug });
+    if (!spellRow) continue;
+    const spellActs =
+      (spellRow.data.activities as Array<Record<string, unknown>> | undefined) ?? [];
+    const primary = spellActs[0];
+    if (!primary) continue;
+    const inlined = realizeActivity(
+      primary,
+      { ref: { kind: spellRow.kind, slug: spellRow.slug }, row: spellRow, data: spellRow.data },
+      character,
+      stats,
+      content,
+      ctx
+    );
+    if (!inlined) continue;
+    const level = typeof st.level === 'number' && st.level > 0 ? Math.floor(st.level) : 0;
+    const cast = level > 0 ? applyUpcast(inlined, level) : inlined;
+    const action: Action = {
+      ...cast,
+      id: `item/${a.row.slug}/stored/${i}/${st.slug}`,
+      sourceContent: { kind: a.row.kind, slug: a.row.slug },
+      name: `${spellRow.name} (stored)`,
+      description: `Cast at level ${level} from ${a.row.name}${
+        st.label ? ` (${st.label})` : ''
+      }.`,
+      appliedModifiers: []
+    };
+    delete action.upcastScaling;
+    if (typeof st.dc === 'number' && action.saveDC) {
+      action.saveDC = { ...action.saveDC, value: st.dc };
+    }
+    if (typeof st.attackBonus === 'number' && action.attackBonus != null) {
+      action.attackBonus = st.attackBonus;
+    }
+    out.push(action);
+  }
+  return out;
 }
 
 function buildActionContext(

@@ -49,6 +49,25 @@ export interface InventorySlot {
    *    choices.spell      = '<spell slug>'   (parametric cast-spell)
    *    choices.baseWeapon = '<item slug>'    (generic-variant weapons) */
   choices?: Record<string, unknown>;
+  /** Spells currently held by this item (Ring of Spell Storing model —
+   *  the item row declares `data.spellStorage: { maxLevels }`). Each
+   *  entry casts at exactly `level`, using the storer's `dc` /
+   *  `attackBonus` when recorded (else the wearer's own numbers).
+   *  Per-inventory-slot state, like `choices`. */
+  stored?: StoredSpell[];
+}
+
+/** One spell held inside a spell-storage item (see InventorySlot.stored). */
+export interface StoredSpell {
+  slug: string;
+  /** Slot level the spell was stored at — it casts at exactly this level. */
+  level: number;
+  /** Storer's save DC. Absent → the wearer's own numbers apply. */
+  dc?: number;
+  /** Storer's spell attack bonus. Absent → the wearer's own. */
+  attackBonus?: number;
+  /** Free-text attribution ("from Vortha the cleric"). Display-only. */
+  label?: string;
 }
 
 export interface CharacterDocument {
