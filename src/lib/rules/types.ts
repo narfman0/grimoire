@@ -328,6 +328,12 @@ export interface SkillCell {
    *  just reports; they cancel at roll time (the runtime's business). */
   advantage: boolean;
   disadvantage: boolean;
+  /** Bonus dice added to checks with this skill ('1d4' from a
+   *  strixhaven primer / guidance-style item). Set by
+   *  `skill.bonusDice.<slug>` modifiers and by `check.bonusDice.<ab>`
+   *  on the governing ability. Display + roll-time contract — the
+   *  numeric `bonus` never folds these in. Absent when empty. */
+  bonusDice?: string[];
 }
 
 export interface StatBlock {
@@ -433,6 +439,12 @@ export interface StatBlock {
    *  raw (non-skill) checks. 'both' means both flags were granted — they
    *  cancel at roll time. Abilities with neither flag are absent. */
   abilityCheckAdvantage: Partial<Record<AbilityKey, 'advantage' | 'disadvantage' | 'both'>>;
+  /** Bonus dice on raw ability checks per ability, from
+   *  `check.bonusDice.<ab>` modifiers (value: a die string like '1d4').
+   *  Skill cells of the ability already fold these into their own
+   *  `bonusDice`; this record is for raw (non-skill) checks. Abilities
+   *  with no dice are absent. */
+  abilityCheckBonusDice: Partial<Record<AbilityKey, string[]>>;
   /** Curated capability flags from `trait.<slug>` modifiers (value true).
    *  Sorted + deduped. Any slug is allowed; canonical slugs are listed in
    *  docs/rules-engine.md (water-breathing, x-ray-vision, …). Consumers
@@ -1302,6 +1314,28 @@ export interface ActivationDeclaration {
   /** Optional display label for the rest-pick dropdown ("Damage type",
    *  "Target creature"). Defaults to the activation name in the UI. */
   restPickLabel?: string;
+  /** Creature-type protection ward the activation raises while active
+   *  (scrolls of protection, icon of ravenloft, condensed order).
+   *  Display contract — the DM adjudicates what the ward blocks; the
+   *  engine performs no creature-type validation (any slug is legal).
+   *  `radiusFt` is the ward's radius (default: the RAW 5-ft cylinder is
+   *  the usual authored value); `barrier: true` marks a physical
+   *  can't-cross barrier vs a mere-hindrance ward. */
+  ward?: ActivationWard;
+}
+
+/** Creature-type ward payload on an activation — see
+ *  `ActivationDeclaration.ward`. Mirrored verbatim onto
+ *  `AvailableActivation.ward` for the activation panel. */
+export interface ActivationWard {
+  /** Creature-type slugs the ward protects against ('aberration',
+   *  'fiend', …). Soft — no validation gate; homebrew slugs pass. */
+  creatureTypes: string[];
+  /** Ward radius in feet, when the source declares one. */
+  radiusFt?: number;
+  /** True when warded creatures physically cannot pass the barrier
+   *  (vs merely attacking/affecting at disadvantage). */
+  barrier?: boolean;
 }
 
 /** A condition slug, or an inventory-state predicate, that can appear
@@ -1357,6 +1391,10 @@ export interface AvailableActivation {
   restPickRequired?: 'short-rest' | 'long-rest';
   /** Display label for the rest-pick dropdown (e.g. "Damage type"). */
   restPickLabel?: string;
+  /** Creature-type ward raised while the activation is on, mirrored
+   *  from the declaration. Display contract (DM adjudicates); the
+   *  panel renders a compact "wards vs …" line. */
+  ward?: ActivationWard;
   /** Whether the activation is currently on. For rest-pick activations,
    *  derived from "variant recorded" rather than a stored boolean. */
   active: boolean;

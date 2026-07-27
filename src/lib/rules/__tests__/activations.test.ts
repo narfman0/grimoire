@@ -879,3 +879,89 @@ describe('receivedBuffs — recipient-side target-bounded buffs', () => {
     expect(d.stats.ac).toBe(base.stats.ac + 2);
   });
 });
+
+describe('creature-type ward on activations (display contract)', () => {
+  const SCROLL: ContentRow = {
+    kind: 'item',
+    slug: 'test-protection-scroll',
+    version: 1,
+    source: 'test',
+    name: 'Test Scroll of Protection',
+    data: {
+      category: 'scroll',
+      activations: [
+        {
+          id: 'protection-ward',
+          name: 'Protection Ward',
+          cost: 'action',
+          duration: { value: 5, units: 'minute' },
+          condition: 'protection-ward-active',
+          ward: { creatureTypes: ['aberration', 'fiend'], radiusFt: 5, barrier: true }
+        }
+      ]
+    }
+  };
+
+  function wardLookup(row: ContentRow): ContentLookup {
+    const base = makeLookup();
+    return (ref) => (ref.kind === row.kind && ref.slug === row.slug ? row : base(ref));
+  }
+
+  function withScroll(row: ContentRow): CharacterDocument {
+    return {
+      ...baseCharacter(),
+      inventory: [
+        { contentKind: 'item', contentSlug: row.slug, version: 1, equipped: true, attuned: false }
+      ]
+    };
+  }
+
+  it('mirrors the ward block onto AvailableActivation.ward', () => {
+    const d = derive(withScroll(SCROLL), wardLookup(SCROLL));
+    const a = d.availableActivations.find((x) => x.id === 'protection-ward');
+    expect(a).toBeDefined();
+    expect(a!.ward).toEqual({ creatureTypes: ['aberration', 'fiend'], radiusFt: 5, barrier: true });
+  });
+
+  it('accepts any creature-type slug without validation warnings', () => {
+    const homebrew: ContentRow = {
+      ...SCROLL,
+      data: {
+        ...SCROLL.data,
+        activations: [
+          {
+            id: 'protection-ward',
+            name: 'Protection Ward',
+            condition: 'protection-ward-active',
+            ward: { creatureTypes: ['snallygaster'] }
+          }
+        ]
+      }
+    };
+    const d = derive(withScroll(homebrew), wardLookup(homebrew));
+    const a = d.availableActivations.find((x) => x.id === 'protection-ward');
+    expect(a!.ward).toEqual({ creatureTypes: ['snallygaster'] });
+    expect(d.validations).toEqual([]);
+  });
+
+  it('drops a malformed ward block (no creatureTypes) instead of surfacing garbage', () => {
+    const malformed: ContentRow = {
+      ...SCROLL,
+      data: {
+        ...SCROLL.data,
+        activations: [
+          {
+            id: 'protection-ward',
+            name: 'Protection Ward',
+            condition: 'protection-ward-active',
+            ward: { radiusFt: 5 }
+          }
+        ]
+      }
+    };
+    const d = derive(withScroll(malformed), wardLookup(malformed));
+    const a = d.availableActivations.find((x) => x.id === 'protection-ward');
+    expect(a).toBeDefined();
+    expect(a!.ward).toBeUndefined();
+  });
+});

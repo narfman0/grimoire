@@ -16,6 +16,7 @@
           expertise: boolean;
           advantage?: boolean;
           disadvantage?: boolean;
+          bonusDice?: string[];
         }
       >;
       ac: number;
@@ -190,6 +191,9 @@
             {:else if skill.disadvantage && !skill.advantage}
               <span class="ml-1 rounded bg-red-900/50 px-1 text-[10px] uppercase text-red-300">dis</span>
             {/if}
+            {#each skill.bonusDice ?? [] as die}
+              <span class="ml-1 rounded bg-sky-900/50 px-1 font-mono text-[10px] text-sky-300">+{die}</span>
+            {/each}
           </span>
           <span class="font-mono">{fmt(skill.bonus)}</span>
         </li>

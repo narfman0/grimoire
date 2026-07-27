@@ -25,6 +25,7 @@ import type {
   Action,
   ActivationDeclaration,
   ActivationDuration,
+  ActivationWard,
   ActiveForm,
   AvailableActivation,
   AppliedModifier,
@@ -141,6 +142,25 @@ function coerceTriggerGrant(raw: unknown): TriggerGrant | undefined {
   if (raw == null || typeof raw !== 'object') return undefined;
   if (typeof (raw as { type?: unknown }).type !== 'string') return undefined;
   return raw as TriggerGrant;
+}
+
+/** Read an authored activation `ward` block into the canonical shape.
+ *  Deliberately soft: any non-empty string is a legal creature-type slug
+ *  (no validation gate — homebrew types pass); malformed blocks return
+ *  undefined and the activation simply has no ward line. */
+function coerceActivationWard(raw: unknown): ActivationWard | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const o = raw as { creatureTypes?: unknown; radiusFt?: unknown; barrier?: unknown };
+  if (!Array.isArray(o.creatureTypes)) return undefined;
+  const creatureTypes = o.creatureTypes.filter(
+    (t): t is string => typeof t === 'string' && t.length > 0
+  );
+  if (creatureTypes.length === 0) return undefined;
+  return {
+    creatureTypes,
+    ...(typeof o.radiusFt === 'number' ? { radiusFt: o.radiusFt } : {}),
+    ...(o.barrier === true ? { barrier: true } : {})
+  };
 }
 
 interface ActiveModifier {
@@ -1250,6 +1270,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             ? baseSlotLevel
             : undefined;
 
+      const ward = coerceActivationWard(decl.ward);
+
       availableActivations.push({
         id: decl.id,
         name: decl.name ?? decl.id,
@@ -1275,6 +1297,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         ...(state?.variant ? { activeVariant: state.variant } : {}),
         ...(restPickRequired ? { restPickRequired } : {}),
         ...(decl.restPickLabel ? { restPickLabel: decl.restPickLabel } : {}),
+        ...(ward ? { ward } : {}),
         active: isActive
       });
 
@@ -1584,6 +1607,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // Numeric target: check.bonus.<ab> — added to every skill of that
   // ability (initiative deliberately stays separate; it has its own
   // `initiative` target).
+  // Dice-valued targets (value: a die string like '1d4'):
+  //   check.bonusDice.<ab>    — bonus die on every check of that ability
+  //   skill.bonusDice.<slug>  — bonus die on one skill's checks
+  // (strixhaven primers, guidance-style items). These never fold into
+  // the numeric bonus — the roll-time consumer adds the die.
   // Both advantage and disadvantage can end up true — derive reports both;
   // cancellation is the roll-time runtime's business.
   const skillAdvantage = new Set<string>();
@@ -1591,6 +1619,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const checkAdvantage = new Set<AbilityKey>();
   const checkDisadvantage = new Set<AbilityKey>();
   const checkBonus: Partial<Record<AbilityKey, number>> = {};
+  const checkBonusDice: Partial<Record<AbilityKey, string[]>> = {};
+  const skillBonusDice: Record<string, string[]> = {};
   for (const m of allMods) {
     if (m.kind !== 'stat-modifier') continue;
     const t = m.raw.target;
@@ -1608,7 +1638,17 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         if ((ABILITIES as readonly string[]).includes(ab)) checkDisadvantage.add(ab);
       }
     }
-    if (t.startsWith('check.bonus.')) {
+    if (t.startsWith('check.bonusDice.')) {
+      const ab = t.slice('check.bonusDice.'.length) as AbilityKey;
+      if ((ABILITIES as readonly string[]).includes(ab) && typeof m.raw.value === 'string' && m.raw.value.length > 0) {
+        (checkBonusDice[ab] ??= []).push(m.raw.value);
+      }
+    } else if (t.startsWith('skill.bonusDice.')) {
+      const skill = t.slice('skill.bonusDice.'.length);
+      if (typeof m.raw.value === 'string' && m.raw.value.length > 0) {
+        (skillBonusDice[skill] ??= []).push(m.raw.value);
+      }
+    } else if (t.startsWith('check.bonus.')) {
       const ab = t.slice('check.bonus.'.length) as AbilityKey;
       if ((ABILITIES as readonly string[]).includes(ab)) {
         const v = evaluateValue(m.raw.value, ctx);
@@ -1637,13 +1677,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     const bonus =
       (applyTarget(allMods, character, `skill.${skill}`, base, ctx) as number) +
       (checkBonus[ability] ?? 0);
+    const bonusDice = [...(skillBonusDice[skill] ?? []), ...(checkBonusDice[ability] ?? [])];
     skills[skill] = {
       bonus,
       ability,
       proficient,
       expertise,
       advantage: skillAdvantage.has(skill) || checkAdvantage.has(ability),
-      disadvantage: skillDisadvantage.has(skill) || checkDisadvantage.has(ability)
+      disadvantage: skillDisadvantage.has(skill) || checkDisadvantage.has(ability),
+      ...(bonusDice.length > 0 ? { bonusDice } : {})
     };
   }
   const abilityCheckAdvantage: StatBlock['abilityCheckAdvantage'] = {};
@@ -1904,6 +1946,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         m.raw.value === true
     ),
     abilityCheckAdvantage,
+    abilityCheckBonusDice: checkBonusDice,
     traits: [...traits].sort(),
     incomingCritImmune: hasBooleanTarget(allMods, 'tag.incoming-crit-immune'),
     deathSaveAdvantage: hasBooleanTarget(allMods, 'deathsave.advantage')

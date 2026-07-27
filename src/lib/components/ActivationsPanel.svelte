@@ -171,6 +171,14 @@
           {#if a.description}
             <p class="mt-1 whitespace-pre-wrap text-xs text-slate-400">{a.description}</p>
           {/if}
+          {#if a.ward}
+            <p class="mt-1 text-[11px] text-sky-300/90">
+              Wards vs {a.ward.creatureTypes.map((t) => t.replace(/-/g, ' ')).join(', ')}{a.ward
+                .radiusFt != null
+                ? ` (${a.ward.radiusFt} ft radius)`
+                : ''}{a.ward.barrier ? ' · barrier' : ''} — DM adjudicates
+            </p>
+          {/if}
           {#if a.autoCancelOn && a.autoCancelOn.length > 0}
             <p class="mt-1 text-[11px] text-slate-500">
               Cancels if you become: {a.autoCancelOn.join(', ')}

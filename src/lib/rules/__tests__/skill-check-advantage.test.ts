@@ -189,3 +189,45 @@ describe('passive Perception advantage math', () => {
     expect(d.stats.passivePerception).toBe(10 + d.stats.skills.perception.bonus);
   });
 });
+
+describe('dice-valued check bonuses', () => {
+  it('check.bonusDice.int lands on every int skill and on abilityCheckBonusDice', () => {
+    const base = deriveWithMods([]);
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.bonusDice.int', value: '1d4' }
+    ]);
+    for (const s of SKILLS) {
+      if (SKILL_ABILITY[s] === 'int') {
+        expect(d.stats.skills[s].bonusDice).toEqual(['1d4']);
+      } else {
+        expect(d.stats.skills[s].bonusDice).toBeUndefined();
+      }
+      // Numeric bonus never folds the die in.
+      expect(d.stats.skills[s].bonus).toBe(base.stats.skills[s].bonus);
+    }
+    expect(d.stats.abilityCheckBonusDice.int).toEqual(['1d4']);
+    expect(d.stats.abilityCheckBonusDice.dex).toBeUndefined();
+  });
+
+  it('skill.bonusDice.arcana lands on arcana only, composing with ability-level dice', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'skill.bonusDice.arcana', value: '1d6' },
+      { kind: 'stat-modifier', target: 'check.bonusDice.int', value: '1d4' }
+    ]);
+    // Skill-scoped dice sort before the governing ability's dice.
+    expect(d.stats.skills.arcana.bonusDice).toEqual(['1d6', '1d4']);
+    expect(d.stats.skills.history.bonusDice).toEqual(['1d4']);
+    expect(d.stats.skills.stealth.bonusDice).toBeUndefined();
+    // Raw-check record only carries ability-level entries.
+    expect(d.stats.abilityCheckBonusDice.int).toEqual(['1d4']);
+  });
+
+  it('ignores non-string values and unknown ability slugs', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.bonusDice.int', value: 4 },
+      { kind: 'stat-modifier', target: 'check.bonusDice.luck', value: '1d4' }
+    ]);
+    for (const s of SKILLS) expect(d.stats.skills[s].bonusDice).toBeUndefined();
+    expect(Object.keys(d.stats.abilityCheckBonusDice)).toEqual([]);
+  });
+});
