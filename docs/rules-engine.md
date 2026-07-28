@@ -21,6 +21,7 @@ Type shapes are in `src/lib/rules/types.ts`.
 
 1. **Resolve active content** — walk every `ContentRef` on the character (species, background, classes, feats, inventory items, prepared spells, conditions). Determine which are currently applicable (equipped, level-gated, condition-gated, etc.).
 2. **Compose stat block** — apply `stat-modifier` entries in priority order (ADD / MULTIPLY / OVERRIDE / UPGRADE / DOWNGRADE / CUSTOM) per target path. Stats are frozen after this phase.
+2.5. **Cross-row upgrades** — apply `upgrade.<rowSlug>.<path>` modifiers into a copy-on-write clone of the target row's `data`, so phases 3+ read the upgraded declaration (see [Cross-row upgrades](#cross-row-upgrades)).
 3. **Assemble activities** — for each applicable content piece, build concrete `Action` objects with resolved numeric fields (attack bonus, damage formula, save DC, range).
 4. **Apply action modifiers** — match `action-modifier` predicates against each action's context; apply effects and tag the action for UI display.
 5. **Register triggers** — collect `trigger` declarations into `TriggerDeclaration` objects. No events are fired here.
@@ -379,7 +380,7 @@ Every `CharacterDocument` field must appear in the Zod `CharacterDocument` schem
 
 ## Known scope limits
 
-- **Polymorph / Wild Shape**: full statblock replacement is not modeled; tracked as a known gap.
+- **Polymorph / Wild Shape**: full statblock *replacement* is not modeled; tracked as a known gap. Rider mechanics on top of a form are covered — see [Form-scoped modifiers](#form-scoped-modifiers-appliestoform).
 - **Cover, lighting, terrain**: accepted as ad-hoc per-attack context at the UI layer; not stored in the engine.
 - **Reaction timing windows**: triggers are declared; players adjudicate timing with the DM.
 - **Auto-resolving trigger chains**: the engine surfaces pending triggers; players decide whether to invoke.
