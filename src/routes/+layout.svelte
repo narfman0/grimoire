@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { toasts } from '$lib/client/errors';
   import { api } from '$lib/client/api';
+  import ConfirmHost from '$lib/components/ui/ConfirmHost.svelte';
   import type { LayoutData } from './$types';
   export let data: LayoutData;
 
@@ -111,6 +112,7 @@
   <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
     <slot />
   </main>
+  <ConfirmHost />
   {#if $toasts.length > 0}
     <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       {#each $toasts as t (t.id)}
