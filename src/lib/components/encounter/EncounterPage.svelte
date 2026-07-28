@@ -9,6 +9,8 @@
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import ActionLogSection from './ActionLogSection.svelte';
   import AddParticipantModal from './AddParticipantModal.svelte';
+  import ConcentrationSavePrompt from './ConcentrationSavePrompt.svelte';
+  import ReactionPromptQueue from './ReactionPromptQueue.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
   import { COMMON_CONDITIONS, impliedBy, CONDITION_DESCRIPTIONS } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
@@ -37,7 +39,6 @@
     type HitOutcome,
     type ResolveTarget
   } from '$lib/realtime/resolve';
-  import { grantSummary } from '$lib/rules/grant-summary';
   import type { EncounterPageData } from '$lib/server/encounter-page';
 
   export let data: EncounterPageData;
@@ -1813,51 +1814,24 @@
 {/if}
 
 {#if concSavePrompt && data.role === 'dm'}
-  <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-600 bg-amber-950/40 px-4 py-3 text-sm">
-    <span class="text-amber-200">
-      ⚠ <strong>{concSavePrompt.participantName}</strong> is concentrating — CON save DC {concSavePrompt.dc}
-    </span>
-    <button
-      class="rounded border border-red-700 bg-red-900/40 px-2 py-0.5 text-xs text-red-200 hover:bg-red-900/70"
-      on:click={() => dropConcentration(concSavePrompt?.participantId ?? '')}
-    >
-      Fail save (drop)
-    </button>
-    <button
-      class="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
-      on:click={() => (concSavePrompt = null)}
-    >
-      Pass / dismiss
-    </button>
-  </div>
+  <ConcentrationSavePrompt
+    participantName={concSavePrompt.participantName}
+    dc={concSavePrompt.dc}
+    on:drop={() => dropConcentration(concSavePrompt?.participantId ?? '')}
+    on:dismiss={() => (concSavePrompt = null)}
+  />
 {/if}
 
-{#if reactionPrompts.length > 0 && data.role === 'dm'}
-  {@const prompt = reactionPrompts[0]}
-  <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-600 bg-amber-950/40 px-4 py-3 text-sm">
-    <span class="text-amber-200">
-      ⚡ <strong>{prompt.participantName}</strong> can use <strong>{prompt.triggerName}</strong> — use their reaction?
-      {#if grantSummary(prompt.grants)}
-        <span class="mt-0.5 block text-xs text-amber-200/80">{grantSummary(prompt.grants)}</span>
-      {/if}
-    </span>
-    <button
-      class="rounded border border-emerald-700 bg-emerald-900/40 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-900/70"
-      on:click={() => {
-        ensureEconomy(prompt.participantId).reactionUsed = true;
-        roundEconomy = roundEconomy;
-        reactionPrompts = reactionPrompts.slice(1);
-      }}
-    >
-      Use reaction
-    </button>
-    <button
-      class="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
-      on:click={() => (reactionPrompts = reactionPrompts.slice(1))}
-    >
-      Skip
-    </button>
-  </div>
+{#if data.role === 'dm'}
+  <ReactionPromptQueue
+    prompts={reactionPrompts}
+    on:use={(e) => {
+      ensureEconomy(e.detail.participantId).reactionUsed = true;
+      roundEconomy = roundEconomy;
+      reactionPrompts = reactionPrompts.slice(1);
+    }}
+    on:skip={() => (reactionPrompts = reactionPrompts.slice(1))}
+  />
 {/if}
 
 <ActionLogSection
