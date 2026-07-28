@@ -26,13 +26,37 @@
 
   let renameValue = name;
 
+  /** One user action must send exactly one PATCH. Enter submits and then
+   *  the input blurs as it unmounts, which used to submit a second time —
+   *  the parent's `trimmed === name` guard can't dedupe them because the
+   *  name only updates after the first PATCH resolves. Latched for the
+   *  lifetime of one rename; opening the editor again clears it.
+   *
+   *  The buttons additionally preventDefault their mousedown so clicking
+   *  them never blurs the input in the first place: that's what makes
+   *  `cancel` discard rather than save-then-close. */
+  let dispatched = false;
+
   function submitRename() {
+    if (dispatched) return;
+    dispatched = true;
     dispatch('rename', renameValue);
+  }
+
+  function startRename() {
+    renameValue = name;
+    dispatched = false;
+    renaming = true;
+  }
+
+  function cancelRename() {
+    dispatched = true;
+    renaming = false;
   }
 
   function onRenameKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') submitRename();
-    else if (e.key === 'Escape') renaming = false;
+    else if (e.key === 'Escape') cancelRename();
   }
 </script>
 
@@ -48,8 +72,14 @@
           on:blur={submitRename}
           autofocus
         />
-        <button class="text-xs text-slate-500 hover:text-slate-300" on:click={submitRename}>save</button>
-        <button class="text-xs text-slate-500 hover:text-slate-300" on:click={() => renaming = false}>cancel</button>
+        <button
+          class="text-xs text-slate-500 hover:text-slate-300"
+          on:mousedown|preventDefault
+          on:click={submitRename}>save</button>
+        <button
+          class="text-xs text-slate-500 hover:text-slate-300"
+          on:mousedown|preventDefault
+          on:click={cancelRename}>cancel</button>
       </div>
     {:else}
       <h1 class="group flex items-center gap-2 text-2xl font-semibold">
@@ -57,7 +87,7 @@
         {#if role === 'dm'}
           <button
             class="opacity-0 group-hover:opacity-100 text-sm text-slate-500 hover:text-slate-300 transition-opacity"
-            on:click={() => { renameValue = name; renaming = true; }}
+            on:click={startRename}
             aria-label="Rename encounter"
           >✎</button>
         {/if}
