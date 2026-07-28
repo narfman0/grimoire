@@ -673,6 +673,25 @@ Activities may declare `grants.removeConditions` (Lesser Restoration shape); `re
 
 Action grants are **applied at use time** by `applyActionUse` (`src/lib/rules/apply-grants.ts`): one draft-mutating call debits the action's `spendsResource` pool by `resourceCost` and folds the grants into the document — numeric temp HP with take-the-max (no stacking, RAW), condition removal / stack decrement, and slot restoration with pick-best semantics (each restore un-spends the highest-level spent slot ≤ `level`, `count` times, clamped at 0). Dice-formula temp HP (`'1d4+4'`) is surfaced as a manual follow-up — the engine has no RNG. The sheet wires this in two places, each a single `patchDocument` write with toast feedback: the Use button on grant-carrying action rows (grant-carrying spell casts surface in the Actions section for this purpose; the spell-slot spend itself stays manual) and the encounter-planner resolve flow. The DM-side encounter resolve does **not** auto-apply grants to PC documents — the player's sheet is the apply surface.
 
+### Downtime cost declarations
+
+The 2014 wizard Savant features halve the gold **and** time to copy their school's spells into the spellbook; the Crafter feat discounts purchases; Quicksmithing prices later masteries. `data.downtime` on any active row declares that:
+
+```jsonc
+"downtime": [
+  {
+    "activity": "copy-spell",       // free-form slug; canonical: copy-spell, scribe-scroll,
+    "goldMultiplier": 0.5,          //   craft-item, craft-magic-item, buy-item, research, train
+    "timeMultiplier": 0.5,
+    "scope": "Abjuration spells"    // free text — there is no downtime-scope predicate
+  }
+]
+```
+
+A single object is accepted in place of the array. `goldDelta` (flat, applied after the multiplier), `name` and `description` are the remaining fields; an entry with no `activity` is dropped. Item rows honour the usual `appliesWhen.requires` attunement gate. Entries land on `Derived.downtimeEffects` (absent when nothing is declared) with source attribution.
+
+This is a **declaration, not a simulation**: the engine has no downtime economy, no spellbook-copying ledger and no calendar. The sheet renders the line beside the feature and the table does the arithmetic.
+
 ### Source-qualified save advantage from items
 
 A `save.advantage.*` stat-modifier with a `sourcePredicate` (see `src/lib/rules/damage-source.ts`) works identically on items as on feats/features — the entry lands on `stats.savesAdvantageSourceQualified` with item attribution, and the attunement gate (`appliesWhen.requires: "equipped:attuned"`) keeps unattuned entries out. Mantle of Spell Resistance is `save.advantage.all` + `sourcePredicate: { "kind": "spell" }`.

@@ -1491,6 +1491,12 @@ export interface Derived {
    *  no position model and no cross-creature write path — the DM applies
    *  them to the mount. Empty when nothing is flagged. */
   mountEffects: MountEffect[];
+  /** Declared gold / time changes to downtime activities (the 2014 wizard
+   *  Savant features' halved spell-copying cost, crafting discounts).
+   *  Collected from active rows' `data.downtime` declarations. Display
+   *  contract — the engine runs no downtime economy. Absent when nothing
+   *  is declared. See `DowntimeEffect`. */
+  downtimeEffects?: DowntimeEffect[];
 }
 
 /** Polymorph form snapshot emitted by derive() — see `Derived.activeForm`. */
@@ -1540,6 +1546,36 @@ export interface DerivedCompanion {
   sharesInitiative: boolean;
   /** Mirrored from `CompanionState.isMount`. */
   isMount: boolean;
+}
+
+/** A declared change to the gold / time price of a downtime activity —
+ *  see `Derived.downtimeEffects`.
+ *
+ *  The 2014 wizard Savant features halve the gold and time to copy their
+ *  school's spells into the spellbook; the Crafter feat discounts
+ *  purchases and speeds crafting; Quicksmithing prices later masteries.
+ *  There is no downtime *simulator* in the engine and this does not add
+ *  one — the declaration is what the sheet renders beside the feature so
+ *  the player and DM price the activity correctly. */
+export interface DowntimeEffect {
+  sourceContent: { kind: string; slug: string };
+  name: string;
+  /** Downtime activity the multipliers apply to. Free-form slug — no
+   *  validation gate (homebrew activities pass). Canonical values:
+   *  `copy-spell`, `scribe-scroll`, `craft-item`, `craft-magic-item`,
+   *  `buy-item`, `research`, `train`. */
+  activity: string;
+  /** Multiplier on the gold cost (0.5 halves it). Absent → unchanged. */
+  goldMultiplier?: number;
+  /** Multiplier on the time cost (0.5 halves it). Absent → unchanged. */
+  timeMultiplier?: number;
+  /** Flat gold added/subtracted after the multiplier. */
+  goldDelta?: number;
+  /** Free-text narrowing of what the change applies to ("Abjuration
+   *  spells", "items you have a tool proficiency for"). The engine has
+   *  no downtime-scope predicate — this reads out to the table. */
+  scope?: string;
+  description?: string;
 }
 
 /** A modifier scoped to the character's mount rather than the character —

@@ -48,6 +48,7 @@ import type {
   CreatureSize,
   Derived,
   DerivedCompanion,
+  DowntimeEffect,
   ManeuverDecl,
   ManeuverEffect,
   ManeuverRider,
@@ -2491,6 +2492,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const pendingFeatureChoices = collectPendingFeatureChoices(phase);
   const pendingItemChoices = collectPendingItemChoices(phase);
   const overlayHpPools = collectOverlayHpPools(phase);
+  const downtimeEffects = collectDowntimeEffects(phase);
   const activeForm = resolveActiveForm(phase);
   const companions = resolveCompanions(phase);
   const classResources = resolveClassResources(phase);
@@ -2511,6 +2513,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     equipped,
     spellModifiers,
     mountEffects,
+    ...(downtimeEffects.length > 0 ? { downtimeEffects } : {}),
     ...(activeForm !== undefined ? { activeForm } : {}),
     ...(companions !== undefined ? { companions } : {}),
     ...(classResources !== undefined ? { classResources } : {})
@@ -3466,6 +3469,45 @@ function collectPendingItemChoices(s: DerivePhaseState): PendingItemChoice[] {
         declaration,
         ...(picked !== undefined ? { picked } : {})
       });
+    }
+  }
+  return out;
+}
+
+/** Downtime cost declarations (`data.downtime`) off active rows — the
+ *  2014 wizard Savant features' halved gold+time to copy their school's
+ *  spells, crafting discounts. Accepts a single object or an array.
+ *  Display contract: derive() runs no downtime economy, it just carries
+ *  the declaration for the sheet to render beside the feature. */
+function collectDowntimeEffects(s: DerivePhaseState): DowntimeEffect[] {
+  const out: DowntimeEffect[] = [];
+  for (const a of s.active) {
+    const raw = a.data.downtime;
+    const list = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+    for (const entry of list) {
+      if (entry == null || typeof entry !== 'object') continue;
+      const o = entry as Record<string, unknown>;
+      if (!itemRequirementMet(a, o.appliesWhen)) continue;
+      if (typeof o.activity !== 'string' || o.activity.length === 0) continue;
+      const effect: DowntimeEffect = {
+        sourceContent: { kind: a.row.kind, slug: a.row.slug },
+        name: typeof o.name === 'string' && o.name.length > 0 ? o.name : a.row.name,
+        activity: o.activity
+      };
+      if (typeof o.goldMultiplier === 'number' && Number.isFinite(o.goldMultiplier) && o.goldMultiplier >= 0) {
+        effect.goldMultiplier = o.goldMultiplier;
+      }
+      if (typeof o.timeMultiplier === 'number' && Number.isFinite(o.timeMultiplier) && o.timeMultiplier >= 0) {
+        effect.timeMultiplier = o.timeMultiplier;
+      }
+      if (typeof o.goldDelta === 'number' && Number.isFinite(o.goldDelta)) {
+        effect.goldDelta = o.goldDelta;
+      }
+      if (typeof o.scope === 'string' && o.scope.length > 0) effect.scope = o.scope;
+      if (typeof o.description === 'string' && o.description.length > 0) {
+        effect.description = o.description;
+      }
+      out.push(effect);
     }
   }
   return out;
