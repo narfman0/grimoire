@@ -20,6 +20,104 @@ describe('GET /api/encounters/[id]/state', () => {
   let db: Db;
   beforeEach(() => { db = setupTestDb(); });
 
+  // ---- combat economy (WS2 phase 4) --------------------------------------
+  //
+  // The planner's spent-slot flags and the legendary counter must ride the
+  // poll or a second DM tab (and a reload) disagrees about what's been used.
+
+  it('projects PC action economy from the character document', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const charId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: dmId,
+      name: 'Hero',
+      document: {
+        ...minCharDoc('hero-econ'),
+        actionUsedThisRound: true,
+        bonusActionUsedThisRound: false,
+        reactionUsedThisRound: true,
+        movementUsedThisRound: 20
+      },
+      linkToCampaign: true
+    });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Hero'
+    });
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantEconomy[pcId]).toEqual({
+      actionUsed: true,
+      bonusUsed: false,
+      reactionUsed: true,
+      movementUsed: 20,
+      legendaryUsed: 0
+    });
+  });
+
+  it('projects non-PC economy (incl. legendary uses) from plan_json.combat', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    await db
+      .update(schema.encounters)
+      .set({ round: 3 })
+      .where(eq(schema.encounters.id, encounterId));
+    const mobId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Ancient Wyrm'
+    });
+    await db
+      .update(schema.participants)
+      .set({
+        planJson: JSON.stringify({
+          actionId: '',
+          actionLabel: '',
+          targetParticipantIds: [],
+          notes: '',
+          updatedAt: 1,
+          combat: { reactionUsed: true, legendaryUsed: 2, round: 3 }
+        })
+      })
+      .where(eq(schema.participants.id, mobId));
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantEconomy[mobId]).toEqual({
+      actionUsed: false,
+      bonusUsed: false,
+      reactionUsed: true,
+      movementUsed: 0,
+      legendaryUsed: 2,
+      round: 3
+    });
+    // The plan itself still round-trips the blob for the mutation path.
+    expect(body.plans[mobId].combat.legendaryUsed).toBe(2);
+  });
+
+  it('emits an all-clear economy for a participant that has never written one', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantEconomy[mobId]).toEqual({
+      actionUsed: false,
+      bonusUsed: false,
+      reactionUsed: false,
+      movementUsed: 0,
+      legendaryUsed: 0
+    });
+  });
+
   // Locks the regression that hit the polling-realtime branch: PC HP / temp /
   // conditions on the participants row would silently override the char
   // document's actual values in the poll snapshot. After a heal, the doc

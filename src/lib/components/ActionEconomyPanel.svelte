@@ -15,6 +15,14 @@
     targetMode?: 'self' | 'single' | 'multi';
     targetCount?: number;
     description?: string;
+    /** Set by the encounter planner: the pick can't be taken right now
+     *  (slot already spent, pool drained). Rendered greyed + disabled. */
+    unavailable?: boolean;
+    /** Short why ("no action left", "out of uses", "not enough charges").
+     *  Shown in the option label — `<option>` has no tooltip affordance. */
+    unavailableReason?: string | null;
+    /** "— 2/3 Ki left" style annotation appended to the option label. */
+    resourceNote?: string;
   };
   type Participant = { id: string; name: string; kind?: string };
 
@@ -85,7 +93,12 @@
       >
         <option value="">{actionChoices.length === 0 ? '— none available —' : '— pick action —'}</option>
         {#each actionChoices as a}
-          <option value={a.id}>{a.name}{a.isFavorite ? ' ★' : ''}</option>
+          <option
+            value={a.id}
+            disabled={a.unavailable === true}
+            class={a.unavailable ? 'text-slate-600' : ''}
+            data-unavailable={a.unavailable ? 'true' : undefined}
+          >{a.name}{a.isFavorite ? ' ★' : ''}{a.resourceNote ?? ''}{a.unavailable && a.unavailableReason ? ` — ${a.unavailableReason}` : ''}</option>
         {/each}
       </select>
       {#if plannedAction?.description}
@@ -128,7 +141,12 @@
       >
         <option value="">{bonusChoices.length === 0 ? '— none available —' : '— pick bonus —'}</option>
         {#each bonusChoices as a}
-          <option value={a.id}>{a.name}{a.isFavorite ? ' ★' : ''}</option>
+          <option
+            value={a.id}
+            disabled={a.unavailable === true}
+            class={a.unavailable ? 'text-slate-600' : ''}
+            data-unavailable={a.unavailable ? 'true' : undefined}
+          >{a.name}{a.isFavorite ? ' ★' : ''}{a.resourceNote ?? ''}{a.unavailable && a.unavailableReason ? ` — ${a.unavailableReason}` : ''}</option>
         {/each}
       </select>
       {#if plannedBonus?.description}

@@ -26,18 +26,20 @@ export function toggleArrayValue<T>(arr: readonly T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-/** Read the current character document, splice `field` to `value`, and PATCH
- *  it back. Used for PC condition + concentration updates. Returns ok. */
-export async function patchCharacterDocField(
+/** Read the current character document, splice `fields` onto it, and PATCH
+ *  it back. The single write path for PC-document mutations made from the
+ *  encounter surface (conditions, concentration, action economy) — one
+ *  read-modify-write instead of N, so a multi-field update can't tear.
+ *  Returns ok. */
+export async function patchCharacterDocFields(
   characterId: string,
-  field: string,
-  value: unknown
+  fields: Record<string, unknown>
 ): Promise<boolean> {
   try {
     const res = await fetch(`/api/characters/${characterId}`);
     if (!res.ok) return false;
     const char = (await res.json()) as { document: Record<string, unknown> | null };
-    const doc = { ...(char.document ?? {}), [field]: value };
+    const doc = { ...(char.document ?? {}), ...fields };
     const patch = await fetch(`/api/characters/${characterId}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -47,6 +49,16 @@ export async function patchCharacterDocField(
   } catch {
     return false;
   }
+}
+
+/** Single-field convenience over `patchCharacterDocFields`. Used for PC
+ *  condition + concentration updates. */
+export function patchCharacterDocField(
+  characterId: string,
+  field: string,
+  value: unknown
+): Promise<boolean> {
+  return patchCharacterDocFields(characterId, { [field]: value });
 }
 
 /** Optimistic PC mutation: flip the local mirror, PATCH the document, revert

@@ -241,6 +241,176 @@ describe('connectEncounter (polling)', () => {
     expect(get(conn.state).plans['mob-7']).toEqual(plan);
   });
 
+  // ---- combat economy (WS2 phase 4) --------------------------------------
+  //
+  // The action / bonus / reaction / movement flags and the legendary counter
+  // used to be client-only and vanished on reload. They now go to the
+  // server: character document for PCs, plan_json.combat for everyone else.
+
+  const economy = {
+    actionUsed: true,
+    bonusUsed: false,
+    reactionUsed: false,
+    movementUsed: 15,
+    legendaryUsed: 2,
+    round: 3
+  };
+
+  it('setEconomy updates the local snapshot synchronously', async () => {
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    const promise = conn.setEconomy('mob-7', null, economy);
+    expect(get(conn.state).participantEconomy['mob-7']).toEqual(economy);
+    await promise;
+  });
+
+  it('setEconomy on a non-PC merges into the participant plan POST', async () => {
+    const calls: Array<{ url: string; body: unknown }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : null });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await conn.setPlan('mob-7', {
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: ['pc-1'],
+      notes: 'chomp',
+      updatedAt: 1
+    });
+    await conn.setEconomy('mob-7', null, economy);
+
+    const last = calls.at(-1)!;
+    expect(last.url).toContain('/participants/mob-7/plan');
+    const plan = (last.body as { plan: TurnPlan }).plan;
+    // The declared intent survives the economy write.
+    expect(plan.actionId).toBe('bite');
+    expect(plan.targetParticipantIds).toEqual(['pc-1']);
+    expect(plan.combat).toEqual(economy);
+  });
+
+  it('setEconomy on a PC writes the character document fields', async () => {
+    const patches: Array<Record<string, unknown>> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      if (url.includes('/api/characters/')) {
+        if (init?.method === 'PATCH') {
+          patches.push(JSON.parse(init.body as string).document);
+          return jsonResponse({ ok: true });
+        }
+        return jsonResponse({ document: { name: 'Hero' } });
+      }
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await conn.setEconomy('pc-row', 'char-1', economy);
+
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toMatchObject({
+      name: 'Hero',
+      actionUsedThisRound: true,
+      bonusActionUsedThisRound: false,
+      reactionUsedThisRound: false,
+      movementUsedThisRound: 15
+    });
+  });
+
+  it('setEconomy rolls back when the write fails', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      return jsonResponse({ error: 'nope' }, 500);
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await expect(conn.setEconomy('mob-7', null, economy)).rejects.toBeTruthy();
+    expect(get(conn.state).participantEconomy['mob-7']).toBeUndefined();
+  });
+
+  // Clearing the *intent* must not clear the *counters* that share the
+  // column — a DM clearing a monster's plan mid-round would otherwise reset
+  // its legendary-action tally.
+  it('clearPlan keeps the combat blob by writing an empty plan', async () => {
+    const calls: Array<{ url: string; method?: string; body: unknown }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({
+        url,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body as string) : null
+      });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await conn.setPlan('mob-7', {
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: [],
+      notes: '',
+      updatedAt: 1
+    });
+    await conn.setEconomy('mob-7', null, economy);
+    await conn.clearPlan('mob-7');
+
+    const last = calls.at(-1)!;
+    expect(last.method).toBe('POST');
+    const plan = (last.body as { plan: TurnPlan }).plan;
+    expect(plan.actionId).toBe('');
+    expect(plan.combat).toEqual(economy);
+    // The store still reports "no plan" to the UI (empty actionId).
+    expect(get(conn.state).plans['mob-7']?.actionId).toBe('');
+  });
+
+  it('clearPlan still DELETEs when there is no combat state to keep', async () => {
+    const calls: Array<{ method?: string }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({ method: init?.method });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await conn.setPlan('mob-7', {
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: [],
+      notes: '',
+      updatedAt: 1
+    });
+    await conn.clearPlan('mob-7');
+    expect(calls.at(-1)!.method).toBe('DELETE');
+    expect(get(conn.state).plans['mob-7']).toBeUndefined();
+  });
+
+  it('normalizes participantEconomy off the poll payload', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state'))
+        return jsonResponse({
+          ...stateSnapshot(),
+          participantEconomy: { 'mob-7': { actionUsed: true, legendaryUsed: 'bogus' } }
+        });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await vi.waitFor(() => expect(get(conn.state).participantEconomy['mob-7']).toBeDefined());
+    expect(get(conn.state).participantEconomy['mob-7']).toEqual({
+      actionUsed: true,
+      bonusUsed: false,
+      reactionUsed: false,
+      movementUsed: 0,
+      legendaryUsed: 0
+    });
+  });
+
   // applyDamage / applyHeal are the pure local helpers used by the resolve
   // modal. Temp HP soaks damage first; current never goes below 0; heal
   // is capped at maxHp when provided.

@@ -7,6 +7,7 @@ import {
   seedParticipant,
   seedCharacter,
   seedActionLog,
+  seedContent,
   seedMinimumContent,
   minCharDoc
 } from '$lib/server/__tests__/fixtures';
@@ -89,6 +90,8 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
     'participantSpells',
     'participantPcStats',
     'participantPcActions',
+    'participantPcEconomy',
+    'myParticipantIds',
     'participantPcConcentrating',
     'participantPcReceivedBuffs',
     'participantPlans',
@@ -482,6 +485,201 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
       params: { code, id: encounterId }
     }));
     expect(data.encounter.id).toBe(encounterId);
+  });
+
+  // ---- WS2 phase 4: action legality on the encounter planner -------------
+  //
+  // The planner has to be able to say *why* a pick is unavailable. That
+  // needs the resource bits, which only exist while the loader still holds
+  // the full Derived, so they ride SSR page data on participantPcActions.
+
+  /** A PC holding an equipped, attuned wand with a 3-charge pool and two
+   *  activities: a 1-charge blast and a 3-charge blast. `spentCharges`
+   *  drains the pool so the affordability verdicts diverge. */
+  async function wandFixture(db: Db, spentCharges: number) {
+    await seedMinimumContent(db);
+    await seedContent(db, [
+      {
+        kind: 'item',
+        slug: 'test-charged-wand',
+        name: 'Test Charged Wand',
+        data: {
+          category: 'wondrous',
+          rarity: 'rare',
+          charges: { max: 3, recharge: { per: 'dawn' } },
+          activities: [
+            {
+              id: 'wand-blast-small',
+              type: 'save',
+              name: 'Small Blast',
+              cost: 'action',
+              chargeCost: 1,
+              save: { ability: 'dex', dc: { value: 15 } }
+            },
+            {
+              id: 'wand-blast-big',
+              type: 'save',
+              name: 'Big Blast',
+              cost: 'action',
+              chargeCost: 3,
+              save: { ability: 'dex', dc: { value: 15 } }
+            },
+            {
+              id: 'wand-flourish',
+              type: 'utility',
+              name: 'Flourish',
+              cost: 'bonus'
+            }
+          ]
+        }
+      }
+    ]);
+    const dmId = await seedUser(db, { username: 'dm' });
+    const playerId = await seedUser(db, { username: 'player' });
+    const { campaignId, code } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: playerId,
+      name: 'Hero',
+      document: {
+        ...minCharDoc('hero-wand'),
+        inventory: [
+          {
+            contentKind: 'item',
+            contentSlug: 'test-charged-wand',
+            version: 1,
+            equipped: true,
+            attuned: true
+          }
+        ],
+        resourcesSpent: { 'item/test-charged-wand/charges': spentCharges },
+        actionUsedThisRound: true,
+        bonusActionUsedThisRound: false,
+        reactionUsedThisRound: true,
+        movementUsedThisRound: 15
+      },
+      linkToCampaign: true
+    });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId,
+      name: 'Hero'
+    });
+    return { dmId, playerId, code, encounterId, pcId };
+  }
+
+  const dmUser = (id: string) => ({
+    id,
+    username: 'dm',
+    isAdmin: false,
+    email: null,
+    emailVerified: false
+  });
+
+  it('ships resource legality bits on participantPcActions', async () => {
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 0);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    const actions = data.participantPcActions[pcId];
+    expect(actions).toBeDefined();
+    const small = actions.find((a: { id: string }) => a.id.endsWith('/wand-blast-small'));
+    expect(small).toBeDefined();
+    expect(small.spendsResource).toBe('item/test-charged-wand/charges');
+    expect(small.resourceCost).toBe(1);
+    expect(small.resourceName).toBe('Test Charged Wand Charges');
+    expect(small.resourceRemaining).toBe(3);
+    expect(small.resourceMax).toBe(3);
+    expect(small.affordable).toBe(true);
+  });
+
+  it('marks an action unaffordable when its pool cannot cover the cost', async () => {
+    // 2 of 3 charges spent → 1 left: the 1-charge blast still fits, the
+    // 3-charge one does not.
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 2);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    const actions = data.participantPcActions[pcId];
+    const small = actions.find((a: { id: string }) => a.id.endsWith('/wand-blast-small'));
+    const big = actions.find((a: { id: string }) => a.id.endsWith('/wand-blast-big'));
+    expect(small.affordable).toBe(true);
+    expect(small.resourceRemaining).toBe(1);
+    expect(big.affordable).toBe(false);
+    expect(big.resourceCost).toBe(3);
+    expect(big.resourceRemaining).toBe(1);
+  });
+
+  it('marks every pool action unaffordable when the pool is empty', async () => {
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 3);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    const actions = data.participantPcActions[pcId];
+    const small = actions.find((a: { id: string }) => a.id.endsWith('/wand-blast-small'));
+    expect(small.affordable).toBe(false);
+    expect(small.resourceRemaining).toBe(0);
+  });
+
+  it('actions that spend nothing are always affordable and carry no pool bits', async () => {
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 3);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    const plain = data.participantPcActions[pcId].filter(
+      (a: { spendsResource?: string }) => !a.spendsResource
+    );
+    expect(plain.length).toBeGreaterThan(0);
+    for (const a of plain) {
+      expect(a.affordable).toBe(true);
+      expect(a.resourceRemaining).toBeUndefined();
+    }
+  });
+
+  // Action-economy flags come straight off the character document, so the
+  // encounter planner's "used" toggles survive a reload.
+  it('projects the character document action-economy flags', async () => {
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 0);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    expect(data.participantPcEconomy[pcId]).toEqual({
+      actionUsed: true,
+      bonusUsed: false,
+      reactionUsed: true,
+      movementUsed: 15
+    });
+  });
+
+  it('myParticipantIds names only the viewer\'s own characters', async () => {
+    const { dmId, playerId, code, encounterId, pcId } = await wandFixture(db, 0);
+    const dmData = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    expect(dmData.myParticipantIds).toEqual([]);
+
+    const playerData = await runLoad(
+      load,
+      loadEvent({
+        user: {
+          id: playerId,
+          username: 'player',
+          isAdmin: false,
+          email: null,
+          emailVerified: false
+        },
+        params: { code, id: encounterId }
+      })
+    );
+    expect(playerData.myParticipantIds).toEqual([pcId]);
   });
 
   it('redirects to /login when not signed in', async () => {

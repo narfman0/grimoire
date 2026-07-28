@@ -102,6 +102,23 @@ export const UpdateParticipantRequest = z
 
 // ---- Turn plans (live channel) ----
 
+/** Per-participant combat economy carried alongside the plan. PCs keep
+ *  these on the character document instead (`actionUsedThisRound` & co.);
+ *  this slot exists for non-PC participants, which have no document — the
+ *  legendary-action counter above all. `round` scopes `legendaryUsed` so a
+ *  stale counter expires without a write. */
+export const CombatEconomyJson = z
+  .object({
+    actionUsed: z.boolean().optional(),
+    bonusUsed: z.boolean().optional(),
+    reactionUsed: z.boolean().optional(),
+    movementUsed: z.number().int().nonnegative().optional(),
+    legendaryUsed: z.number().int().nonnegative().optional(),
+    round: z.number().int().nonnegative().optional()
+  })
+  .openapi('CombatEconomyJson');
+export type TCombatEconomyJson = z.infer<typeof CombatEconomyJson>;
+
 /** A player's broadcast intent for their next turn. Mirrors the in-app
  *  TurnPlan type — kept here so both the request validator and any
  *  TurnPlan-shaped server payloads share one source of truth. */
@@ -114,7 +131,8 @@ export const PlanJson = z
     targetParticipantIds: z.array(z.string()),
     bonusTargetParticipantIds: z.array(z.string()).optional(),
     notes: z.string().max(500),
-    updatedAt: z.number().int().nonnegative()
+    updatedAt: z.number().int().nonnegative(),
+    combat: CombatEconomyJson.optional()
   })
   .openapi('PlanJson');
 export type TPlanJson = z.infer<typeof PlanJson>;

@@ -15,6 +15,12 @@
 
 import { writable, type Readable } from 'svelte/store';
 import type { LiveParticipant } from './participants';
+import {
+  economyToCharacterDocFields,
+  normalizeEconomy,
+  type CombatEconomy
+} from './economy';
+import { patchCharacterDocFields } from '$lib/encounter/conditions';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
 import { computeIncomingDamage, type DamageResolutionStats } from '../rules/incoming-damage';
 import type { DamageSourceContext } from '../rules/damage-source';
@@ -44,6 +50,11 @@ export interface TurnPlan {
   bonusTargetParticipantIds?: string[];
   notes: string;
   updatedAt: number;
+  /** Non-PC combat economy (used-slot flags + legendary counter). Rides
+   *  plan_json because participants have no combat-state column of their
+   *  own; PCs keep the same state on the character document instead. See
+   *  $lib/realtime/economy. */
+  combat?: Partial<CombatEconomy>;
 }
 
 export interface ParticipantHp {
@@ -68,6 +79,10 @@ export interface EncounterSnapshot {
   participants: LiveParticipant[] | null;
   plans: Record<string, TurnPlan>;
   participantHp: Record<string, ParticipantHp>;
+  /** Per-participant action / bonus / reaction / movement flags plus the
+   *  legendary-action counter, server-projected so a second DM tab agrees
+   *  and a reload doesn't forget what's been spent. */
+  participantEconomy: Record<string, CombatEconomy>;
 }
 
 export interface ConnectedEncounter {
@@ -77,6 +92,16 @@ export interface ConnectedEncounter {
    *  back local state if the server rejects. */
   setPlan(participantId: string, plan: TurnPlan): Promise<void>;
   clearPlan(participantId: string): Promise<void>;
+  /** Persist this participant's combat economy. PCs (pass their
+   *  `characterId`) round-trip the character document's *UsedThisRound
+   *  fields; everyone else merges into plan_json.combat. Optimistic and
+   *  covered by the stale-poll guard, so an in-flight poll can't briefly
+   *  un-mark a slot the user just marked. */
+  setEconomy(
+    participantId: string,
+    characterId: string | null,
+    next: CombatEconomy
+  ): Promise<void>;
   /** Replace HP fields on a non-PC participant. Use undefined to keep a
    *  field unchanged. PCs are rejected server-side (their HP lives on
    *  the character document). */
@@ -139,7 +164,8 @@ const EMPTY: EncounterSnapshot = {
   activeParticipantId: null,
   participants: null,
   plans: {},
-  participantHp: {}
+  participantHp: {},
+  participantEconomy: {}
 };
 
 export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncounter {
@@ -149,7 +175,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     activeParticipantId: opts.seed?.activeParticipantId ?? EMPTY.activeParticipantId,
     participants: opts.seed?.participants ?? EMPTY.participants,
     plans: opts.seed?.plans ?? {},
-    participantHp: opts.seed?.participantHp ?? {}
+    participantHp: opts.seed?.participantHp ?? {},
+    participantEconomy: opts.seed?.participantEconomy ?? {}
   };
 
   const state = writable<EncounterSnapshot>(initial);
@@ -230,7 +257,13 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
         activeParticipantId: data.activeParticipantId,
         participants: data.participants ?? null,
         plans: (data.plans ?? {}) as Record<string, TurnPlan>,
-        participantHp: (data.participantHp ?? {}) as Record<string, ParticipantHp>
+        participantHp: (data.participantHp ?? {}) as Record<string, ParticipantHp>,
+        participantEconomy: Object.fromEntries(
+          Object.entries(data.participantEconomy ?? {}).map(([pid, e]) => [
+            pid,
+            normalizeEconomy(e)
+          ])
+        )
       });
       lastEtag = res.headers.get('etag');
       status.set('open');
@@ -293,20 +326,97 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     async clearPlan(participantId) {
       const endMutation = beginMutation();
       const prev = readPlan(state, participantId);
+      // Clearing the *intent* must not clear the *counters* that share the
+      // column. When the plan carries combat state, rewrite it as an empty
+      // plan (no actionId ⇒ "no plan" to every reader) instead of deleting
+      // the row's plan_json outright.
+      const keptCombat = prev?.combat;
+      const emptied: TurnPlan | null = keptCombat
+        ? {
+            actionId: '',
+            actionLabel: '',
+            targetParticipantIds: [],
+            notes: '',
+            updatedAt: Date.now(),
+            combat: keptCombat
+          }
+        : null;
       state.update((s) => {
         const plans = { ...s.plans };
-        delete plans[participantId];
+        if (emptied) plans[participantId] = emptied;
+        else delete plans[participantId];
         return { ...s, plans };
       });
       try {
         await send(
           `/api/encounters/${opts.encounterId}/participants/${participantId}/plan`,
-          { method: 'DELETE' }
+          emptied
+            ? { method: 'POST', body: JSON.stringify({ plan: emptied }) }
+            : { method: 'DELETE' }
         );
       } catch (err) {
         if (prev) {
           state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: prev } }));
         }
+        throw err;
+      } finally {
+        endMutation();
+      }
+    },
+
+    async setEconomy(participantId, characterId, next) {
+      const endMutation = beginMutation();
+      const snap = readSnap(state);
+      const prev = snap.participantEconomy[participantId];
+      const prevPlan = snap.plans[participantId];
+      state.update((s) => ({
+        ...s,
+        participantEconomy: { ...s.participantEconomy, [participantId]: next }
+      }));
+      try {
+        if (characterId) {
+          // PC: the character document owns these fields. Same write path
+          // the encounter page uses for conditions / concentration.
+          const ok = await patchCharacterDocFields(
+            characterId,
+            economyToCharacterDocFields(next)
+          );
+          if (!ok) throw new Error('character economy update failed');
+        } else {
+          // Non-PC: merge into the participant's plan_json blob. An empty
+          // plan is a valid plan (no actionId ⇒ the UI reads "no plan"),
+          // so a monster with no declared intent can still carry counters.
+          const plan: TurnPlan = {
+            actionId: prevPlan?.actionId ?? '',
+            actionLabel: prevPlan?.actionLabel ?? '',
+            ...(prevPlan?.bonusActionId ? { bonusActionId: prevPlan.bonusActionId } : {}),
+            ...(prevPlan?.bonusActionLabel
+              ? { bonusActionLabel: prevPlan.bonusActionLabel }
+              : {}),
+            targetParticipantIds: prevPlan?.targetParticipantIds ?? [],
+            ...(prevPlan?.bonusTargetParticipantIds
+              ? { bonusTargetParticipantIds: prevPlan.bonusTargetParticipantIds }
+              : {}),
+            notes: prevPlan?.notes ?? '',
+            updatedAt: Date.now(),
+            combat: next
+          };
+          state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: plan } }));
+          await send(
+            `/api/encounters/${opts.encounterId}/participants/${participantId}/plan`,
+            { method: 'POST', body: JSON.stringify({ plan }) }
+          );
+        }
+      } catch (err) {
+        state.update((s) => {
+          const participantEconomy = { ...s.participantEconomy };
+          if (prev) participantEconomy[participantId] = prev;
+          else delete participantEconomy[participantId];
+          const plans = { ...s.plans };
+          if (prevPlan) plans[participantId] = prevPlan;
+          else delete plans[participantId];
+          return { ...s, participantEconomy, plans };
+        });
         throw err;
       } finally {
         endMutation();

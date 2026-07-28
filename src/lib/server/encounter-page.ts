@@ -17,13 +17,19 @@ import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/r
 import { initiativeCompare, makePlaceholderNamer } from '$lib/realtime/participants';
 import { buildRedactionMap, redactActionLog } from '$lib/realtime/action-log';
 import { derive } from '$lib/rules';
+import { hasResourceBudget } from '$lib/rules/apply-grants';
 import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 
 export async function buildEncounterPageData(
   campaign: { id: string },
   encounterId: string,
-  isDM: boolean
+  isDM: boolean,
+  /** Viewing user's id. Used only to compute `myParticipantIds` — which rows
+   *  on this page are the viewer's own characters — so the page can raise a
+   *  "your turn" callout for the player whose PC is active without showing
+   *  it to everyone watching the same active row. */
+  viewerUserId?: string
 ) {
   const encRows = await db
     .select()
@@ -249,9 +255,44 @@ export async function buildEncounterPageData(
   const participantPcStats: Record<string, CompactPcStats> = {};
   /** Derived action list per PC participant — drives the DM-side action
    *  chooser so custom/homebrew actions (e.g. racial features) show up in
-   *  the encounter UI, not just on the character sheet. */
-  type PcActionChoice = { id: string; name: string; cost: ActionCost; attackCount?: number };
+   *  the encounter UI, not just on the character sheet.
+   *
+   *  Each row also carries the *legality* bits the encounter planner needs
+   *  to grey out a pick it can't offer: which resource pool the action
+   *  debits, how much it costs, how much is left, and the server's
+   *  `hasResourceBudget` verdict (the same helper the character sheet
+   *  uses). Computed here because it needs the full `Derived`, which never
+   *  leaves the server; the client folds it together with the live
+   *  action-economy flags in $lib/encounter/action-availability. */
+  type PcActionChoice = {
+    id: string;
+    name: string;
+    cost: ActionCost;
+    attackCount?: number;
+    spendsResource?: string;
+    resourceCost?: number;
+    resourceName?: string;
+    resourceRemaining?: number;
+    resourceMax?: number;
+    /** hasResourceBudget(action, derived.resources) at load time. */
+    affordable: boolean;
+  };
   const participantPcActions: Record<string, PcActionChoice[]> = {};
+  /** Per-PC action-economy flags, read straight off the character document
+   *  (the same `*UsedThisRound` fields the character sheet writes). SSR seed
+   *  for the encounter planner's used-toggles; the 2s poll keeps them fresh
+   *  afterwards so a second DM tab agrees. */
+  type EconomyState = {
+    actionUsed: boolean;
+    bonusUsed: boolean;
+    reactionUsed: boolean;
+    movementUsed: number;
+  };
+  const participantPcEconomy: Record<string, EconomyState> = {};
+  /** Participant ids whose linked character is owned by the viewing user.
+   *  Drives the "it's your turn" callout — distinct from "this is the
+   *  active row", which every viewer sees. */
+  const myParticipantIds: string[] = [];
   /** Derived trigger list per PC participant — drives the reaction queue so
    *  the DM is prompted when a PC trigger fires during turn resolution.
    *  `grants` carries the trigger's structured grant payload so the prompt
@@ -335,7 +376,11 @@ export async function buildEncounterPageData(
 
     for (const char of spellCharRows) {
       const participant = pcParticipants.find(p => p.characterId === char.id);
-      if (!participant || !char.document) continue;
+      if (!participant) continue;
+      if (viewerUserId && char.ownerUserId === viewerUserId) {
+        myParticipantIds.push(participant.id);
+      }
+      if (!char.document) continue;
       try {
         const doc = JSON.parse(char.document) as CharacterDocument;
         const prepared = new Set(doc.spells?.prepared ?? []);
@@ -344,18 +389,38 @@ export async function buildEncounterPageData(
           .filter(k => prepared.has(k.slug))
           .map(k => ({ slug: k.slug, name: k.slug, level: 0 }));
         participantPcConditions[participant.id] = [...(doc.conditions ?? [])];
+        participantPcEconomy[participant.id] = {
+          actionUsed: doc.actionUsedThisRound === true,
+          bonusUsed: doc.bonusActionUsedThisRound === true,
+          reactionUsed: doc.reactionUsedThisRound === true,
+          movementUsed: doc.movementUsedThisRound ?? 0
+        };
         participantPcConcentrating[participant.id] = doc.concentrating ?? null;
         participantPcReceivedBuffs[participant.id] = [...(doc.receivedBuffs ?? [])];
         try {
           const lookup = await lookupForOwner(char.ownerUserId ?? null);
           const d = serializeDerived(derive(doc, lookup));
           const s = d.stats;
-          participantPcActions[participant.id] = (d.actions ?? []).map((a) => ({
-            id: a.id,
-            name: a.name,
-            cost: a.cost,
-            ...(a.attackCount != null && a.attackCount > 1 ? { attackCount: a.attackCount } : {})
-          }));
+          const pools = d.resources ?? [];
+          participantPcActions[participant.id] = (d.actions ?? []).map((a) => {
+            const pool = a.spendsResource ? pools.find((r) => r.id === a.spendsResource) : undefined;
+            return {
+              id: a.id,
+              name: a.name,
+              cost: a.cost,
+              ...(a.attackCount != null && a.attackCount > 1 ? { attackCount: a.attackCount } : {}),
+              ...(a.spendsResource ? { spendsResource: a.spendsResource } : {}),
+              ...(a.resourceCost != null ? { resourceCost: a.resourceCost } : {}),
+              ...(pool
+                ? {
+                    resourceName: pool.name,
+                    resourceRemaining: Math.max(0, pool.max - pool.used),
+                    resourceMax: pool.max
+                  }
+                : {}),
+              affordable: hasResourceBudget(a, pools)
+            };
+          });
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({
             id: t.id,
             name: t.name,
@@ -571,6 +636,8 @@ export async function buildEncounterPageData(
     participantPcConditions,
     participantPcStats,
     participantPcActions,
+    participantPcEconomy,
+    myParticipantIds,
     participantPcTriggers,
     participantPcConcentrating,
     participantPcReceivedBuffs,

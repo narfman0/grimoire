@@ -64,4 +64,63 @@ describe('ActionEconomyPanel', () => {
     });
     expect(actionSelect(container).disabled).toBe(true);
   });
+
+  // WS2 phase 4: the planner greys out picks the participant can't take
+  // and says why, instead of silently offering them.
+  it('disables an unavailable choice and shows the reason in its label', () => {
+    const { container } = render(ActionEconomyPanel, {
+      props: {
+        ...baseProps,
+        actionChoices: [
+          { id: 'bite', name: 'Bite' },
+          {
+            id: 'breath',
+            name: 'Fire Breath',
+            unavailable: true,
+            unavailableReason: 'out of uses',
+            resourceNote: ' — 0/1 Recharge left'
+          }
+        ]
+      }
+    });
+    const options = Array.from(actionSelect(container).options);
+    const bite = options.find((o) => o.value === 'bite')!;
+    const breath = options.find((o) => o.value === 'breath')!;
+    expect(bite.disabled).toBe(false);
+    expect(breath.disabled).toBe(true);
+    expect(breath.textContent).toContain('out of uses');
+    expect(breath.textContent).toContain('0/1 Recharge left');
+  });
+
+  it('leaves a choice enabled when it carries a resource note but no blocker', () => {
+    const { container } = render(ActionEconomyPanel, {
+      props: {
+        ...baseProps,
+        actionChoices: [
+          { id: 'ki-strike', name: 'Flurry', resourceNote: ' — 2/5 Ki left' }
+        ]
+      }
+    });
+    const option = Array.from(actionSelect(container).options).find(
+      (o) => o.value === 'ki-strike'
+    )!;
+    expect(option.disabled).toBe(false);
+    expect(option.textContent).toContain('2/5 Ki left');
+  });
+
+  it('disables an unavailable bonus-action choice too', () => {
+    const { container } = render(ActionEconomyPanel, {
+      props: {
+        ...baseProps,
+        bonusChoices: [
+          { id: 'dash', name: 'Dash', unavailable: true, unavailableReason: 'no bonus action left' }
+        ]
+      }
+    });
+    const selects = container.querySelectorAll('select');
+    const bonus = selects[1] as HTMLSelectElement;
+    const option = Array.from(bonus.options).find((o) => o.value === 'dash')!;
+    expect(option.disabled).toBe(true);
+    expect(option.textContent).toContain('no bonus action left');
+  });
 });

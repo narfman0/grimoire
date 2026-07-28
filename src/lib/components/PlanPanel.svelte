@@ -30,6 +30,11 @@
     isFavorite?: boolean;
     targetMode?: 'self' | 'single' | 'multi';
     targetCount?: number;
+    /** Legality bits computed by the parent (see
+     *  $lib/encounter/action-availability) — greys the pick out. */
+    unavailable?: boolean;
+    unavailableReason?: string | null;
+    resourceNote?: string;
   };
   type Participant = { id: string; name: string; kind?: string };
 

@@ -27,6 +27,14 @@
   import ResolvePanel from './ResolvePanel.svelte';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
+  import { actionAvailability, resourceSuffix } from '$lib/encounter/action-availability';
+  import {
+    EMPTY_ECONOMY,
+    economyIsClear,
+    legendaryUsedForRound,
+    resetTurnEconomy,
+    type CombatEconomy
+  } from '$lib/realtime/economy';
   import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
   import {
     conditionsForParticipant,
@@ -428,8 +436,8 @@
         resolutions.length > 0 ? resolutions : [{ outcome: singleOutcome }]
       );
       const reactionUsedByParticipantId: Record<string, boolean> = {};
-      for (const [pid, econ] of Object.entries(roundEconomy)) {
-        if (econ?.reactionUsed) reactionUsedByParticipantId[pid] = true;
+      for (const q of liveParticipants) {
+        if (economyFor(q.id).reactionUsed) reactionUsedByParticipantId[q.id] = true;
       }
       const newPrompts = reactionPromptsForResolution({
         firedEvents,
@@ -1002,46 +1010,82 @@
     }
   }
 
-  // ---- Action economy foldout (client-side display state only) ----
-  interface RoundEconomyEntry {
-    action: string;
-    bonusAction: string;
-    movement: number;
-    reaction: string;
+  // ---- Action economy foldout ----
+  //
+  // Two layers. The *scratch* layer (free-actions text, cast-at-slot pick)
+  // is display-only and stays client-side; its presence in `econOpen` also
+  // gates whether the foldout renders at all. The *spent* layer (action /
+  // bonus / reaction / movement, plus the legendary counter below) is
+  // server state — see $lib/realtime/economy — so it survives a reload and
+  // a second DM tab agrees.
+  interface EconomyScratch {
     freeActions: string;
     slotLevel: number;
-    /** Per-turn used flags surfaced by the ActionEconomyPanel. Client-only
-     *  for v1 — not persisted across reloads. */
-    actionUsed: boolean;
-    bonusUsed: boolean;
-    reactionUsed: boolean;
   }
-  let roundEconomy: Record<string, RoundEconomyEntry> = {};
+  let econOpen: Record<string, EconomyScratch> = {};
 
-  function blankEconomy(): RoundEconomyEntry {
-    return {
-      action: '',
-      bonusAction: '',
-      movement: 0,
-      reaction: '',
-      freeActions: '',
-      slotLevel: 1,
-      actionUsed: false,
-      bonusUsed: false,
-      reactionUsed: false
-    };
-  }
-
-  function ensureEconomy(id: string): RoundEconomyEntry {
-    if (!roundEconomy[id]) {
-      roundEconomy[id] = blankEconomy();
+  function ensureEconomy(id: string): EconomyScratch {
+    if (!econOpen[id]) {
+      econOpen[id] = { freeActions: '', slotLevel: 1 };
+      econOpen = econOpen;
     }
-    return roundEconomy[id];
+    return econOpen[id];
   }
 
-  function resetEconomy(id: string) {
-    roundEconomy[id] = blankEconomy();
-    roundEconomy = roundEconomy;
+  /** Server-projected spent state, poll-fresh. Falls back to the SSR seed
+   *  for PCs before the first poll lands, then to all-clear.
+   *
+   *  `economyByParticipant` is the template-facing form: Svelte only tracks
+   *  *variables* named in a markup expression, so a bare `economyFor(id)`
+   *  call would never re-render when the poll moved. Handlers use
+   *  `economyFor` directly — they run after the fact and read live values. */
+  $: liveEconomy = liveState?.participantEconomy ?? {};
+  function economyFor(participantId: string): CombatEconomy {
+    const live = liveEconomy[participantId];
+    if (live) return live;
+    const ssr = data.participantPcEconomy?.[participantId];
+    if (ssr) return { ...ssr, legendaryUsed: 0 };
+    return { ...EMPTY_ECONOMY };
+  }
+  $: economyByParticipant = ((
+    rows: typeof liveParticipants,
+    live: typeof liveEconomy,
+    ssr: EncounterPageData['participantPcEconomy'] | undefined
+  ) => {
+    const out: Record<string, CombatEconomy> = {};
+    for (const q of rows) {
+      const l = live[q.id];
+      const seed = ssr?.[q.id];
+      out[q.id] = l ?? (seed ? { ...seed, legendaryUsed: 0 } : { ...EMPTY_ECONOMY });
+    }
+    return out;
+  })(liveParticipants, liveEconomy, data.participantPcEconomy);
+
+  /** Persist a participant's spent state. PCs write the character document
+   *  (the fields the sheet already owns); everyone else writes
+   *  plan_json.combat. Fire-and-forget: the channel rolls back and toasts. */
+  function writeEconomy(
+    p: { id: string; kind: string; characterId: string | null },
+    next: CombatEconomy
+  ) {
+    if (!conn) return;
+    conn.setEconomy(p.id, p.kind === 'pc' ? p.characterId : null, next).catch(() => {});
+  }
+
+  function mutateEconomy(
+    p: { id: string; kind: string; characterId: string | null },
+    fn: (e: CombatEconomy) => CombatEconomy
+  ) {
+    writeEconomy(p, fn(economyFor(p.id)));
+  }
+
+  /** Turn-rise reset: every slot replenishes. Gated to the DM so two open
+   *  tabs don't both race a write, and skipped when nothing is spent. */
+  function resetEconomy(p: { id: string; kind: string; characterId: string | null }) {
+    if (data.role !== 'dm') return;
+    const cur = economyFor(p.id);
+    if (economyIsClear(cur)) return;
+    writeEconomy(p, resetTurnEconomy(cur));
   }
 
   function isSpellAction(participantId: string): boolean {
@@ -1121,18 +1165,38 @@
     id: string;
     name: string;
     targetMode?: 'self' | 'single' | 'multi';
+    unavailable?: boolean;
+    unavailableReason?: string | null;
+    resourceNote?: string;
   };
 
+  /** Turn one derived PC action into a picker row, greyed + explained when
+   *  the participant can't actually take it. The resource verdict is
+   *  precomputed server-side (`affordable`, from the same
+   *  `hasResourceBudget` the character sheet uses); the economy half comes
+   *  from the live spent flags. */
+  function pcChoice(
+    economy: CombatEconomy | undefined,
+    a: NonNullable<EncounterPageData['participantPcActions']>[string][number]
+  ): PlanChoice {
+    const avail = actionAvailability(a, economy);
+    return {
+      id: a.id,
+      name: `${a.name}${a.attackCount != null && a.attackCount > 1 ? ` ×${a.attackCount}` : ''} (${costLabel(a.cost)})`,
+      unavailable: avail.unavailable,
+      unavailableReason: avail.reason,
+      resourceNote: resourceSuffix(a)
+    };
+  }
+
   function actionChoicesFor(
-    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string; attackBonus?: number }> } | null }
+    p: { id: string; kind: string; statblock: { actions?: Array<{ name: string; attackBonus?: number }> } | null },
+    economy?: CombatEconomy
   ): PlanChoice[] {
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'action')
-        .map((a) => ({
-          id: a.id,
-          name: `${a.name}${a.attackCount != null && a.attackCount > 1 ? ` ×${a.attackCount}` : ''} (${costLabel(a.cost)})`
-        }));
+        .map((a) => pcChoice(economy, a));
     }
     const choices: PlanChoice[] = [];
     for (const a of p.statblock?.actions ?? []) {
@@ -1156,12 +1220,13 @@
   }
 
   function bonusChoicesFor(
-    p: { id: string; kind: string }
+    p: { id: string; kind: string },
+    economy?: CombatEconomy
   ): PlanChoice[] {
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'bonus')
-        .map((a) => ({ id: a.id, name: `${a.name} (${costLabel(a.cost)})` }));
+        .map((a) => pcChoice(economy, a));
     }
     return COMMON_BONUS_ACTIONS.map((b) => ({ id: b, name: b, targetMode: 'single' as const }));
   }
@@ -1174,7 +1239,10 @@
   $: {
     const current = liveActive;
     if (current !== prevActive) {
-      if (prevActive != null) resetEconomy(prevActive);
+      if (prevActive != null) {
+        const leaving = liveParticipants.find((q) => q.id === prevActive);
+        if (leaving) resetEconomy(leaving);
+      }
       prevActive = current;
     }
   }
@@ -1241,18 +1309,22 @@
     }, 800);
   }
 
-  // Legendary action tracker (client-only, per participant per round)
-  // Map<participantId, usedCount>. Resets when liveRound changes.
-  let legendaryUsed: Record<string, number> = {};
-  let trackedRound = -1;
-  $: if (liveRound !== trackedRound) {
-    legendaryUsed = {};
-    trackedRound = liveRound;
+  // Legendary action tracker. Persisted on the monster participant (see
+  // $lib/realtime/economy) with the round it was written in, so it survives
+  // a reload, agrees across DM tabs, and reads as spent-nothing again on
+  // the next round without needing a write to clear it.
+  function toggleLegendaryAction(
+    p: { id: string; kind: string; characterId: string | null },
+    max: number
+  ) {
+    const used = legendaryUsedForRound(economyFor(p.id), liveRound);
+    setLegendaryUsed(p, used >= max ? 0 : used + 1);
   }
-  function toggleLegendaryAction(pid: string, max: number) {
-    const used = legendaryUsed[pid] ?? 0;
-    legendaryUsed[pid] = used >= max ? 0 : used + 1;
-    legendaryUsed = legendaryUsed;
+  function setLegendaryUsed(
+    p: { id: string; kind: string; characterId: string | null },
+    used: number
+  ) {
+    writeEconomy(p, { ...economyFor(p.id), legendaryUsed: used, round: liveRound });
   }
 
   // NPC spell slot tracker (client-only, per participant)
@@ -1473,10 +1545,10 @@
         {@const legMax = 3}
         <LegendaryActionTracker
           legendaryActions={p.statblock?.legendaryActions ?? []}
-          used={legendaryUsed[p.id] ?? 0}
+          used={legendaryUsedForRound(economyByParticipant[p.id], liveRound)}
           max={legMax}
-          on:toggle={() => toggleLegendaryAction(p.id, legMax)}
-          on:reset={() => { legendaryUsed[p.id] = 0; legendaryUsed = legendaryUsed; }}
+          on:toggle={() => toggleLegendaryAction(p, legMax)}
+          on:reset={() => setLegendaryUsed(p, 0)}
         />
       {/if}
 
@@ -1504,30 +1576,38 @@
       {/if}
 
       <!-- Plan / action economy -->
-      {#if roundEconomy[p.id] && (data.role === 'dm' || isPc)}
+      {#if econOpen[p.id] && (data.role === 'dm' || isPc)}
+        {@const eco = economyByParticipant[p.id] ?? EMPTY_ECONOMY}
         <div class="mb-3">
           <PlanPanel
             participant={p}
             plan={plan ?? null}
             role={data.role}
             participants={liveParticipants}
-            actionChoices={actionChoicesFor(p)}
-            bonusChoices={bonusChoicesFor(p)}
+            actionChoices={actionChoicesFor(p, eco)}
+            bonusChoices={bonusChoicesFor(p, eco)}
             {walkSpeed}
             {busy}
-            economy={roundEconomy[p.id]}
+            economy={{
+              freeActions: econOpen[p.id].freeActions,
+              slotLevel: econOpen[p.id].slotLevel,
+              movement: eco.movementUsed,
+              actionUsed: eco.actionUsed,
+              bonusUsed: eco.bonusUsed,
+              reactionUsed: eco.reactionUsed
+            }}
             showSlotLevel={!isPc && isSpellAction(p.id)}
             on:actionPick={(e) => persistPlan(p, { actionId: e.detail })}
             on:bonusPick={(e) => persistPlan(p, { bonusActionId: e.detail })}
             on:targetPick={(e) => persistPlan(p, { targetParticipantIds: e.detail })}
             on:bonusTargetPick={(e) => persistPlan(p, { bonusTargetParticipantIds: e.detail })}
-            on:toggleActionUsed={() => { roundEconomy[p.id].actionUsed = !roundEconomy[p.id].actionUsed; roundEconomy = roundEconomy; }}
-            on:toggleBonusUsed={() => { roundEconomy[p.id].bonusUsed = !roundEconomy[p.id].bonusUsed; roundEconomy = roundEconomy; }}
-            on:toggleReactionUsed={() => { roundEconomy[p.id].reactionUsed = !roundEconomy[p.id].reactionUsed; roundEconomy = roundEconomy; }}
-            on:movementDelta={(e) => { roundEconomy[p.id].movement = Math.max(0, Math.min(walkSpeed, roundEconomy[p.id].movement + e.detail)); roundEconomy = roundEconomy; }}
-            on:movementReset={() => { roundEconomy[p.id].movement = 0; roundEconomy = roundEconomy; }}
-            on:slotLevelChange={(e) => { roundEconomy[p.id].slotLevel = e.detail; roundEconomy = roundEconomy; }}
-            on:freeActionsChange={(e) => { roundEconomy[p.id].freeActions = e.detail; roundEconomy = roundEconomy; }}
+            on:toggleActionUsed={() => mutateEconomy(p, (c) => ({ ...c, actionUsed: !c.actionUsed }))}
+            on:toggleBonusUsed={() => mutateEconomy(p, (c) => ({ ...c, bonusUsed: !c.bonusUsed }))}
+            on:toggleReactionUsed={() => mutateEconomy(p, (c) => ({ ...c, reactionUsed: !c.reactionUsed }))}
+            on:movementDelta={(e) => mutateEconomy(p, (c) => ({ ...c, movementUsed: Math.max(0, Math.min(walkSpeed, c.movementUsed + e.detail)) }))}
+            on:movementReset={() => mutateEconomy(p, (c) => ({ ...c, movementUsed: 0 }))}
+            on:slotLevelChange={(e) => { econOpen[p.id].slotLevel = e.detail; econOpen = econOpen; }}
+            on:freeActionsChange={(e) => { econOpen[p.id].freeActions = e.detail; econOpen = econOpen; }}
             on:resolve={() => openResolve(p)}
             on:clear={() => clearPlan(p.id)}
           />
@@ -1610,8 +1690,8 @@
   <ReactionPromptQueue
     prompts={reactionPrompts}
     on:use={(e) => {
-      ensureEconomy(e.detail.participantId).reactionUsed = true;
-      roundEconomy = roundEconomy;
+      const actor = liveParticipants.find((q) => q.id === e.detail.participantId);
+      if (actor) mutateEconomy(actor, (c) => ({ ...c, reactionUsed: true }));
       reactionPrompts = reactionPrompts.slice(1);
     }}
     on:skip={() => (reactionPrompts = reactionPrompts.slice(1))}

@@ -23,6 +23,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     campaign,
     user: locals.user,
     role: m.role,
-    ...(await buildEncounterPageData(campaign, params.id, m.role === 'dm'))
+    ...(await buildEncounterPageData(campaign, params.id, m.role === 'dm', locals.user.id))
   };
 };

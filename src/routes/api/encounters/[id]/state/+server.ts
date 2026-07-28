@@ -9,6 +9,7 @@ import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
 import { buildLiveParticipantList } from '$lib/realtime/participants';
+import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
@@ -57,13 +58,28 @@ const LiveParticipantSchema = z.object({
   reveals: RevealsSchema
 });
 
+/** Per-participant combat economy: the action / bonus / reaction / movement
+ *  flags plus the legendary-action counter. Sourced from the character
+ *  document for PCs and from `plan_json.combat` for everyone else, so both
+ *  DM tabs (and the acting player) see the same spent state after a reload.
+ *  See $lib/realtime/economy. */
+const ParticipantEconomySchema = z.object({
+  actionUsed: z.boolean(),
+  bonusUsed: z.boolean(),
+  reactionUsed: z.boolean(),
+  movementUsed: z.number().int().nonnegative(),
+  legendaryUsed: z.number().int().nonnegative(),
+  round: z.number().int().nonnegative().optional()
+});
+
 const EncounterStateResponse = z.object({
   round: z.number().int().nonnegative(),
   status: z.enum(['staging', 'live', 'ended']),
   activeParticipantId: Uuid.nullable(),
   participants: z.array(LiveParticipantSchema),
   plans: z.record(z.string(), PlanJson.nullable()),
-  participantHp: z.record(z.string(), ParticipantHpSchema)
+  participantHp: z.record(z.string(), ParticipantHpSchema),
+  participantEconomy: z.record(z.string(), ParticipantEconomySchema)
 });
 
 export type TEncounterStateResponse = z.infer<typeof EncounterStateResponse>;
@@ -243,13 +259,18 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
   const plans: Record<string, z.infer<typeof PlanJson> | null> = {};
   const participantHp: Record<string, z.infer<typeof ParticipantHpSchema>> = {};
+  const participantEconomy: Record<string, z.infer<typeof ParticipantEconomySchema>> = {};
 
   for (const p of partRows) {
     // Plans
+    let planCombat: unknown;
     if (p.planJson) {
       try {
         const parsed = PlanJson.safeParse(JSON.parse(p.planJson));
-        if (parsed.success) plans[p.id] = parsed.data;
+        if (parsed.success) {
+          plans[p.id] = parsed.data;
+          planCombat = parsed.data.combat;
+        }
       } catch (err) {
         // best-effort: drop malformed plan, but leave a trail
         logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed plan_json');
@@ -308,6 +329,14 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     }
 
     participantHp[p.id] = { currentHp, tempHp, maxHp, conditions, concentrating };
+
+    // Combat economy: PCs read the character document's *UsedThisRound
+    // fields (the same ones the character sheet writes); non-PCs read the
+    // `combat` slot on plan_json. Always emitted so a cleared participant
+    // is distinguishable from one the poll simply skipped.
+    participantEconomy[p.id] = isPc
+      ? economyFromCharacterDoc(doc)
+      : normalizeEconomy(planCombat);
   }
 
   const body: TEncounterStateResponse = {
@@ -316,7 +345,8 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     activeParticipantId: enc.activeParticipantId ?? null,
     participants,
     plans,
-    participantHp
+    participantHp,
+    participantEconomy
   };
 
   return json(body, { headers: { etag } });
@@ -325,7 +355,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 export const _openapi = {
   GET: {
     summary:
-      'Fetch the live encounter snapshot (round, status, turn, redacted participant list, HP, plans) for polling',
+      'Fetch the live encounter snapshot (round, status, turn, redacted participant list, HP, plans, combat economy) for polling',
     description:
       'The 200 response carries an `ETag` header derived from the encounter state. ' +
       'Pollers should echo it back via `If-None-Match`; when nothing changed the server ' +
