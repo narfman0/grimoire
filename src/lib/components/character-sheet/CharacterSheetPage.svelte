@@ -1289,6 +1289,27 @@
       };
     });
 
+  /** One-line reading of an open CR summon budget (the 2014 conjure
+   *  family). The engine carries the constraint and picks nothing — the
+   *  player/DM chooses the stat block and adds it as a companion. */
+  function summonBudgetLabel(budget: NonNullable<Action['summons']>['budget']): string {
+    if (!budget) return '';
+    const lines = budget.options.map((o) => {
+      const parts: string[] = [];
+      if (o.count != null && o.count > 1) parts.push(`${o.count}×`);
+      if (o.crMax != null) parts.push(`CR ≤ ${o.crMax}`);
+      if (o.sizeMax) parts.push(`${o.sizeMax} or smaller`);
+      if (o.totalCr != null) parts.push(`total CR ≤ ${o.totalCr}`);
+      return parts.join(' ') || 'any';
+    });
+    const bits: string[] = [];
+    if (budget.creatureTypes?.length) bits.push(budget.creatureTypes.join(' / '));
+    if (lines.length > 0) bits.push(lines.join(' or '));
+    if (budget.dmChoice) bits.push("DM's choice");
+    if (budget.note) bits.push(budget.note);
+    return bits.join(' · ');
+  }
+
   /** Max HP for a monster slug from the shipped content map ({max} /
    *  {average} / bare-number hp shapes). 0 when the row is missing or
    *  shapeless — the companion lands as a 0-HP shell the DM edits. */
@@ -2555,6 +2576,13 @@
               </span>
             {/each}
           </div>
+          {#if row.action.summons?.budget}
+            <div class="mt-1 text-xs text-slate-400">
+              <span class="text-slate-500">budget:</span>
+              {summonBudgetLabel(row.action.summons.budget)}
+              <span class="text-slate-600">— pick the stat block, then add it as a companion</span>
+            </div>
+          {/if}
         </div>
       {/each}
     </section>
