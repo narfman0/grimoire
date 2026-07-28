@@ -142,9 +142,13 @@ test('DM and player share a live encounter: realtime HP, reveals, hidden redacti
   await expect(playerPage.getByText('Participants (2)')).toBeVisible();
   await expect(playerPage.getByText('Shadow Lurker')).toHaveCount(0);
   await expect(playerPage.getByText('Enemy 2')).toHaveCount(0);
-  // …while the DM does see it.
+  // …while the DM does see it. Scope to the participant row: the DM-only
+  // difficulty panel also names the creature (in its "no CR or XP" list), so
+  // an unscoped getByText matches twice and trips strict mode. The player
+  // assertion above stays unscoped on purpose — there, "this name appears
+  // nowhere on the page" is the whole point.
   await dmPage.reload();
-  await expect(dmPage.getByText('Shadow Lurker')).toBeVisible();
+  await expect(dmPage.locator('li').filter({ hasText: 'Shadow Lurker' }).first()).toBeVisible();
   await expect(dmPage.getByText('Participants (3)')).toBeVisible();
 
   // ---- the hidden participant's ACTIONS stay hidden too -------------------
