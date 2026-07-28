@@ -451,6 +451,22 @@ Targets with a `MonsterDerived` slot are applied to the snapshot by `applyFormMo
 
 Standard modes and `evaluateValue` apply, priority-ascending like everywhere else — the PC's own `ctx` is used, so `wisMod` means the *druid's* Wisdom, not the bear's. Every flagged modifier — including riders with no statblock slot, like a form-attack damage-type substitution — also rides `formModifiers` verbatim for the encounter runtime. `formModifiers` is `[]` when nothing is flagged; the shared/cached monster row is never mutated.
 
+### Mount-scoped modifiers (`appliesToMount`)
+
+Horseshoes of speed raise the **mount's** walking speed by 30 ft, not the rider's. Authoring that unflagged puts +30 ft on the character, which is why the whole horseshoes / saddle family sat blocked. `appliesToMount: true` is the third member of the `persistsInForm` / `appliesToForm` family:
+
+```jsonc
+{ "kind": "stat-modifier", "name": "Horseshoes of Speed",
+  "target": "speed.walk", "mode": "ADD", "value": 30, "appliesToMount": true }
+{ "kind": "stat-modifier", "target": "trait.no-fall-damage", "value": true, "appliesToMount": true }
+```
+
+derive() pulls flagged modifiers out of the base modifier set *before* phase 2 — exactly like `appliesToForm` — so no base-stat consumer ever sees them, and lists them on **`Derived.mountEffects`** as `{ sourceContent, name, modifier }`. Targets reuse the PC stat-block vocabulary; the DM applies them to the mount.
+
+`CompanionState.isMount: true` designates which companion is the mount; it mirrors onto `DerivedCompanion.isMount`. There is no position model, so "mounted" is a player-declared state and nothing is written across creatures automatically — this is a display contract, deliberately.
+
+**Not covered**: piloted vehicles (apparatus of Kwalish, spelljamming helms, the wheel of wind and water). Those want a vehicle entity with its own AC/HP/crew stations and lever actions, which is a different model from "a companion that carries you"; they stay cataloged.
+
 ### Skill / ability-check advantage
 
 | target | effect |

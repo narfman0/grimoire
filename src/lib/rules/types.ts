@@ -212,6 +212,12 @@ export interface CompanionState {
    *  question #1: the recommendation is a data field defaulting to
    *  true. derive() defaults missing values to `true`. */
   sharesInitiative?: boolean;
+  /** This companion is the character's mount — it carries the rider.
+   *  Modifiers flagged `appliesToMount: true` are collected for it on
+   *  `Derived.mountEffects` (horseshoes of speed, horseshoes of a
+   *  zephyr, saddle of the cavalier). There is no position model, so
+   *  "mounted" is a player-declared state, not a computed one. */
+  isMount?: boolean;
 }
 
 export interface ReceivedBuff {
@@ -1358,6 +1364,15 @@ export interface Derived {
    *  (each Action lists the matching ids on `availableSpellModifiers`).
    *  See docs/rules-engine.md § Spell-parameter modifiers. */
   spellModifiers: SpellModifier[];
+  /** Modifiers the character's gear/features project onto their **mount**
+   *  rather than onto themselves — horseshoes of speed (+30 ft to the
+   *  mount's walking speed), horseshoes of a zephyr, saddle of the
+   *  cavalier. Collected from modifiers flagged `appliesToMount: true`,
+   *  which derive() pulls out of the base modifier set before phase 2 so
+   *  they never leak onto the rider's sheet. Display contract: there is
+   *  no position model and no cross-creature write path — the DM applies
+   *  them to the mount. Empty when nothing is flagged. */
+  mountEffects: MountEffect[];
 }
 
 /** Polymorph form snapshot emitted by derive() — see `Derived.activeForm`. */
@@ -1405,6 +1420,21 @@ export interface DerivedCompanion {
   status: 'summoned';
   /** Defaulted to true when omitted on the underlying `CompanionState`. */
   sharesInitiative: boolean;
+  /** Mirrored from `CompanionState.isMount`. */
+  isMount: boolean;
+}
+
+/** A modifier scoped to the character's mount rather than the character —
+ *  see `Derived.mountEffects`. */
+export interface MountEffect {
+  /** Content row that declared it (the horseshoes, the saddle, the feat). */
+  sourceContent: { kind: string; slug: string };
+  name: string;
+  /** The raw stat-modifier entry, verbatim. Targets use the same
+   *  vocabulary the PC stat block does (`speed.walk`, `trait.<slug>`,
+   *  `save.advantage.*`); the DM applies them to the mount's statblock.
+   *  Display contract — the engine has no cross-creature write path. */
+  modifier: Record<string, unknown>;
 }
 
 export interface EquippedInventory {

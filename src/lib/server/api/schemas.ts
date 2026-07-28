@@ -261,7 +261,9 @@ export const CharacterDocument = z
           currentHp: z.number().int().nonnegative(),
           maxHp: z.number().int().nonnegative(),
           status: z.enum(['summoned', 'dismissed']),
-          sharesInitiative: z.boolean().optional()
+          sharesInitiative: z.boolean().optional(),
+          /** This companion carries the rider — see Derived.mountEffects. */
+          isMount: z.boolean().optional()
         })
       )
       .optional(),

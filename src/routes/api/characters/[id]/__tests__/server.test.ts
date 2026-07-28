@@ -215,6 +215,15 @@ describe('PATCH /api/characters/[id]', () => {
           maxHp: 1,
           status: 'summoned',
           sharesInitiative: false
+        },
+        {
+          slug: 'warhorse',
+          name: 'Bayard',
+          sourceContent: { kind: 'item', slug: 'saddle-of-the-cavalier' },
+          currentHp: 19,
+          maxHp: 19,
+          status: 'summoned',
+          isMount: true
         }
       ]
     };

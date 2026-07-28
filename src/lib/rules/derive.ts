@@ -61,6 +61,7 @@ import type {
   SaveCell,
   SkillCell,
   ExtraTurn,
+  MountEffect,
   StatBlock,
   StoredSpell,
   TriggerDeclaration,
@@ -1390,6 +1391,25 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     allMods.splice(i, 1);
   }
 
+  // Mount-scoped modifiers — the `appliesToMount: true` flag, mirroring
+  // `appliesToForm`. Horseshoes of speed raise the MOUNT's walking speed,
+  // not the rider's; authoring them unflagged would put +30 ft on the
+  // character. Pulled out before phase 2 so no base-stat consumer sees
+  // them; they land on Derived.mountEffects for the DM to apply.
+  const mountEffects: MountEffect[] = [];
+  for (let i = allMods.length - 1; i >= 0; i--) {
+    const m = allMods[i];
+    if (m.raw.appliesToMount !== true) continue;
+    if (m.kind === 'stat-modifier') {
+      mountEffects.unshift({
+        sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
+        name: (m.raw.name as string | undefined) ?? m.source.row.name,
+        modifier: m.raw
+      });
+    }
+    allMods.splice(i, 1);
+  }
+
   // -------------------------------------------------------------------------
   // PHASE 2 — compose stat block
   // -------------------------------------------------------------------------
@@ -2363,6 +2383,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     availableActivations,
     equipped,
     spellModifiers,
+    mountEffects,
     ...(activeForm !== undefined ? { activeForm } : {}),
     ...(companions !== undefined ? { companions } : {}),
     ...(classResources !== undefined ? { classResources } : {})
@@ -3437,7 +3458,8 @@ function resolveCompanions(s: DerivePhaseState): DerivedCompanion[] | undefined 
         currentHp: c.currentHp,
         maxHp: c.maxHp,
         status: 'summoned',
-        sharesInitiative: c.sharesInitiative ?? true
+        sharesInitiative: c.sharesInitiative ?? true,
+        isMount: c.isMount === true
       });
     }
     if (out.length > 0) companions = out;
