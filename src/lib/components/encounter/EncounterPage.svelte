@@ -841,23 +841,16 @@
 
   /** Initiative cell edit mode. */
   let initiativeEditFor: string | null = null;
-  /** Monster edit drafts for the detail panel. */
-  let editMonsterNameDraft = '';
-  let editMonsterSlugDraft = '';
-
-  function openMonsterEdit(p: { id: string; name: string; statblockSlug: string | null }) {
-    editMonsterNameDraft = p.name;
-    editMonsterSlugDraft = p.statblockSlug ?? '';
-    selectedId = p.id;
-  }
 
   /** Save the rename + statblock swap. If the slug changed, also reset HP to
-   *  the new monster's max so the row reflects the swap. */
+   *  the new monster's max so the row reflects the swap. Drafts come from
+   *  MonsterEditForm, which seeds them from the selected participant. */
   async function saveMonsterEdit(
-    p: { id: string; name: string; statblockSlug: string | null; maxHp: number | null }
+    p: { id: string; name: string; statblockSlug: string | null; maxHp: number | null },
+    draft: { name: string; slug: string }
   ) {
-    const nextName = editMonsterNameDraft.trim();
-    const nextSlug = editMonsterSlugDraft.trim();
+    const nextName = draft.name.trim();
+    const nextSlug = draft.slug.trim();
     if (!nextName) return;
     const slugChanged = nextSlug !== (p.statblockSlug ?? '');
     const body: Record<string, unknown> = { name: nextName };
@@ -1438,11 +1431,10 @@
       <!-- Monster edit (DM only, non-PC) -->
       {#if data.role === 'dm' && !isPc}
         <MonsterEditForm
+          participant={p}
           monsterOptions={data.monsterOptions}
-          bind:nameDraft={editMonsterNameDraft}
-          bind:slugDraft={editMonsterSlugDraft}
           {busy}
-          on:save={() => saveMonsterEdit(p)}
+          on:save={(e) => saveMonsterEdit(p, e.detail)}
           on:remove={() => removeParticipant(p.id)}
         />
       {/if}

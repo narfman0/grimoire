@@ -1,16 +1,33 @@
 <script lang="ts">
   // Rename + statblock swap + remove for a non-PC participant (DM only — the
-  // parent gates on both). Drafts are two-way bound so the parent keeps
-  // owning them (they're seeded from the participant, and the parent's save
-  // handler compares the slug draft against the current statblockSlug).
+  // parent gates on both).
+  //
+  // The drafts live here and are seeded from `participant`, re-seeding
+  // whenever the selection changes. They used to be parent-owned two-way
+  // bindings fed by an `openMonsterEdit()` the detail panel never called, so
+  // the form opened blank: save stayed disabled until the DM retyped the
+  // name, and switching participants kept the previous monster's draft.
   import { createEventDispatcher } from 'svelte';
 
+  export let participant: { id: string; name: string; statblockSlug: string | null };
   export let monsterOptions: Array<{ slug: string; name: string; cr: string | number }> = [];
-  export let nameDraft = '';
-  export let slugDraft = '';
   export let busy = false;
 
-  const dispatch = createEventDispatcher<{ save: void; remove: void }>();
+  const dispatch = createEventDispatcher<{
+    save: { name: string; slug: string };
+    remove: void;
+  }>();
+
+  let nameDraft = '';
+  let slugDraft = '';
+  /** Which participant the drafts were seeded from. Guards the reactive
+   *  re-seed so DM keystrokes aren't overwritten on every parent update. */
+  let seededFor: string | null = null;
+  $: if (participant.id !== seededFor) {
+    seededFor = participant.id;
+    nameDraft = participant.name;
+    slugDraft = participant.statblockSlug ?? '';
+  }
 </script>
 
 <div>
@@ -39,7 +56,7 @@
     <button
       class="rounded bg-emerald-700/70 px-2 py-0.5 text-[11px] hover:bg-emerald-700 disabled:opacity-40"
       disabled={busy || !nameDraft.trim()}
-      on:click={() => dispatch('save')}
+      on:click={() => dispatch('save', { name: nameDraft, slug: slugDraft })}
     >save</button>
     <button
       class="ml-auto rounded border border-red-800 bg-red-950/40 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-900/60 disabled:opacity-40"
