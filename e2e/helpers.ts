@@ -78,13 +78,38 @@ export async function createLiveEncounter(dm: ApiUser, campaignCode: string, nam
 export async function addNpc(
   dm: ApiUser,
   encounterId: string,
-  npc: { name: string; initiative?: number; currentHp?: number; maxHp?: number }
+  npc: {
+    name: string;
+    initiative?: number;
+    currentHp?: number;
+    maxHp?: number;
+    /** Pack monster slug — needed by anything that reads CR/XP (the
+     *  difficulty budget) or the statblock (the resolve panel). */
+    statblockSlug?: string;
+  }
 ): Promise<string> {
   const body = await ok(
     await dm.api.post(`/api/encounters/${encounterId}/participants`, {
       data: { kind: 'npc', ...npc }
     }),
     `add npc ${npc.name}`
+  );
+  return body.id as string;
+}
+
+/** Add a PC participant linked to a character. The character must already be
+ *  joined to the campaign (createCharacter with `campaignCode`) or the party
+ *  side of the difficulty budget won't see it. */
+export async function addPc(
+  dm: ApiUser,
+  encounterId: string,
+  pc: { name: string; characterId: string; initiative?: number }
+): Promise<string> {
+  const body = await ok(
+    await dm.api.post(`/api/encounters/${encounterId}/participants`, {
+      data: { kind: 'pc', ...pc }
+    }),
+    `add pc ${pc.name}`
   );
   return body.id as string;
 }

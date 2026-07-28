@@ -9,8 +9,12 @@ import {
   signup,
   newPageAs,
   createCampaign,
+  createCharacter,
   createLiveEncounter,
   addNpc,
+  addPc,
+  joinAndApprove,
+  patchReveals,
   setConcentration
 } from './helpers';
 
@@ -187,4 +191,161 @@ test('multi-target save raises a queued CON save per concentrating target', asyn
   await expect(callout).not.toContainText('more');
   await callout.getByRole('button', { name: 'Pass / dismiss' }).click();
   await expect(page.getByText(/is concentrating — CON save DC/)).toHaveCount(0);
+});
+
+// "Run it again": the header clone button copies the prep (roster, notes) and
+// resets the run (HP, status, log, reveals). The reveal reset is the part
+// that cannot be fixed after the fact — inheriting them would spoil an ambush
+// the DM re-staged — so it is asserted against the poll snapshot, not just
+// the UI.
+test('DM clones an encounter into a fresh staging copy', async ({ browser, baseURL }) => {
+  const dm = await signup(baseURL!, 'e2e_clone');
+  const { code } = await createCampaign(dm, 'Clone Check');
+  const encounterId = await createLiveEncounter(dm, code, 'Goblin Ambush');
+  await dm.api.patch(`/api/encounters/${encounterId}`, {
+    data: { notesJson: 'they attack from the treeline' }
+  });
+  const goblinId = await addNpc(dm, encounterId, {
+    name: 'Goblin',
+    statblockSlug: 'goblin',
+    initiative: 12,
+    // Mid-fight state: bloodied, and long since spotted by the party.
+    currentHp: 3,
+    maxHp: 7
+  });
+  await patchReveals(dm, goblinId, { identity: true, vitals: true, combat: true });
+
+  const page = await newPageAs(browser, dm);
+  await page.goto(`/c/${code}/encounters/${encounterId}`);
+  await expect(page.locator('li').filter({ hasText: 'Goblin' }).first()).toContainText('3 / 7');
+
+  // No confirm dialog — a clone is additive, so the button navigates straight
+  // to the copy.
+  await page.getByRole('button', { name: 'Run it again' }).click();
+  await page.waitForURL((url) => /\/encounters\/[0-9a-f-]{36}$/.test(url.pathname) && !url.pathname.endsWith(encounterId));
+  const cloneId = page.url().split('/').pop() as string;
+  expect(cloneId).not.toBe(encounterId);
+
+  await expect(page.getByRole('heading', { name: /Goblin Ambush \(copy\)/ })).toBeVisible();
+  // Back in staging: the start button is the tell, and the round counter and
+  // action log are gone with it.
+  await expect(page.getByRole('button', { name: '▶ Start encounter' })).toBeVisible();
+  // Roster carried over at full HP.
+  await expect(page.getByRole('heading', { name: /Participants \(1\)/ })).toBeVisible();
+  await expect(page.locator('li').filter({ hasText: 'Goblin' }).first()).toContainText('7 / 7');
+  // Prep carried over.
+  await expect(page.getByPlaceholder('Encounter notes, lore, secret triggers…')).toHaveValue(
+    'they attack from the treeline'
+  );
+
+  const state = (await (await dm.api.get(`/api/encounters/${cloneId}/state`)).json()) as {
+    status: string;
+    round: number;
+    participants: Array<{ name: string; initiative: number | null; reveals: Record<string, boolean> }>;
+  };
+  expect(state.status).toBe('staging');
+  expect(state.round).toBe(0);
+  expect(state.participants).toHaveLength(1);
+  expect(state.participants[0].initiative).toBeNull();
+  // Hidden again — the whole point of the reveal reset.
+  expect(state.participants[0].reveals).toMatchObject({
+    identity: false,
+    vitals: false,
+    combat: false
+  });
+
+  // The source encounter is untouched.
+  const src = (await (await dm.api.get(`/api/encounters/${encounterId}/state`)).json()) as {
+    status: string;
+    participants: Array<{ reveals: Record<string, boolean> }>;
+  };
+  expect(src.status).toBe('live');
+  expect(src.participants[0].reveals.identity).toBe(true);
+});
+
+// The difficulty readout replaced a client-side `sum(statblock.xp)` that had
+// no multiplier and no thresholds. Two things this pins: the band is the real
+// 2014 DMG math, and it refetches when the roster changes — including the
+// "incomplete estimate" warning for a monster with no CR/XP, which still
+// drives the multiplier up while contributing nothing.
+test('difficulty readout bands the encounter for the DM and reacts to the roster', async ({
+  browser,
+  baseURL
+}) => {
+  const dm = await signup(baseURL!, 'e2e_diff');
+  const { code } = await createCampaign(dm, 'Budget Check');
+  const encounterId = await createLiveEncounter(dm, code, 'Budget Enc');
+  const { characterId } = await createCharacter(dm, 'Solo Fighter', { campaignCode: code });
+  await addPc(dm, encounterId, { name: 'Solo Fighter', characterId, initiative: 10 });
+  await addNpc(dm, encounterId, {
+    name: 'Goblin',
+    statblockSlug: 'goblin',
+    initiative: 12,
+    currentHp: 7,
+    maxHp: 7
+  });
+
+  const page = await newPageAs(browser, dm);
+  await page.goto(`/c/${code}/encounters/${encounterId}`);
+
+  // One CR 1/4 goblin (50 XP) vs one level-1 character: ×1.5 for the
+  // sub-3-person party = 75 adjusted, exactly the level-1 hard threshold.
+  const readout = page.getByTestId('difficulty-readout');
+  await expect(readout.getByTestId('difficulty-band')).toHaveText('hard');
+  await expect(readout).toContainText('75 adjusted XP');
+  await expect(readout).toContainText('deadly 100');
+  await expect(page.getByTestId('difficulty-unrated')).toHaveCount(0);
+
+  // Adding a statblock-less NPC through the UI must refetch: it contributes 0
+  // XP but pushes the multiplier to ×2 (2 monsters, small party), so the band
+  // moves to deadly *and* the estimate is flagged incomplete.
+  await page.getByRole('button', { name: '+ Add' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add participant' });
+  await dialog.getByPlaceholder('Captured noble, etc.').fill('Mystery Blob');
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(readout.getByTestId('difficulty-band')).toHaveText('deadly');
+  await expect(readout).toContainText('100 adjusted XP');
+  const unrated = page.getByTestId('difficulty-unrated');
+  await expect(unrated).toContainText('Mystery Blob');
+  await expect(unrated).toContainText('incomplete');
+});
+
+// The /difficulty endpoint 403s players by design (it sees hidden monsters).
+// The page must not request it for them at all — no readout, no error toast.
+test('a player sees no difficulty readout and no error', async ({ browser, baseURL }) => {
+  const dm = await signup(baseURL!, 'e2e_diffdm');
+  const player = await signup(baseURL!, 'e2e_diffpl');
+  const { code } = await createCampaign(dm, 'Player View');
+  await joinAndApprove(dm, player, code);
+  const encounterId = await createLiveEncounter(dm, code, 'Player View Enc');
+  const { characterId } = await createCharacter(player, 'Party Rogue', { campaignCode: code });
+  await addPc(dm, encounterId, { name: 'Party Rogue', characterId, initiative: 10 });
+  const goblinId = await addNpc(dm, encounterId, {
+    name: 'Goblin',
+    statblockSlug: 'goblin',
+    initiative: 12,
+    currentHp: 7,
+    maxHp: 7
+  });
+  await patchReveals(dm, goblinId, { identity: true });
+
+  const page = await newPageAs(browser, player);
+  const failed: string[] = [];
+  page.on('response', (res) => {
+    if (res.url().includes('/difficulty')) failed.push(`${res.status()} ${res.url()}`);
+  });
+  await page.goto(`/c/${code}/encounters/${encounterId}`);
+
+  // The page renders normally…
+  await expect(page.getByRole('heading', { name: /Player View Enc/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Participants \(2\)/ })).toBeVisible();
+  // …with no readout and no toast, because the request was never made.
+  await expect(page.getByTestId('difficulty-readout')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Run it again' })).toHaveCount(0);
+  await page.waitForTimeout(2500); // one poll interval — a refetch would land here
+  expect(failed).toEqual([]);
+  // The 403's message would land in the shared error toast if it were fetched.
+  await expect(page.getByText(/only the DM can see the difficulty rating/i)).toHaveCount(0);
 });
