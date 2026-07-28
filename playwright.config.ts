@@ -33,8 +33,12 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: false,
   // Specs share one server + one DB; usernames are unique per run, but keep
-  // workers=1 so the in-memory auth rate limits (5 signups/hour/IP) and the
-  // realtime timing assertions stay deterministic.
+  // workers=1 so the realtime timing assertions stay deterministic. (The
+  // auth rate limits used to be a second reason: every signup comes from
+  // one loopback address, so the suite outgrew the 5/hour production
+  // ceiling as specs were added. The webServer env below raises the
+  // ceilings for the harness instead of capping how many accounts the
+  // suite may create.)
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -59,7 +63,17 @@ export default defineConfig({
       DATABASE_URL: dbPath,
       PORT: String(PORT),
       // adapter-node needs ORIGIN for correct origin checks on form POSTs.
-      ORIGIN: BASE_URL
+      ORIGIN: BASE_URL,
+      // Every request in the suite originates from one loopback address, so
+      // the production per-IP auth ceilings (5 signups/hour, 5 logins/15min)
+      // cap the whole run rather than any one client. Raise them here — the
+      // limiters still run, they just aren't the thing under test. Keep these
+      // well above the suite's needs so adding a spec never reopens this.
+      AUTH_RATE_LIMIT_SIGNUP: '1000',
+      AUTH_RATE_LIMIT_LOGIN: '1000',
+      AUTH_RATE_LIMIT_FORGOT: '1000',
+      AUTH_RATE_LIMIT_RESEND_VERIFY: '1000',
+      AUTH_RATE_LIMIT_RESET_PASSWORD: '1000'
     }
   }
 });

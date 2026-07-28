@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { OkResponse } from '$lib/server/api/responses';
-import { isRateLimited } from '$lib/server/auth/rate-limit';
+import { isRateLimited, rateLimitMax } from '$lib/server/auth/rate-limit';
 import { hashPassword } from '$lib/server/auth/passwords';
 import { destroyAllSessions } from '$lib/server/auth/sessions';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
@@ -18,7 +18,7 @@ const ResetRequest = z.object({
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   // Tokens are high-entropy but unauthenticated — throttle guessing.
   const ip = getClientAddress();
-  if (isRateLimited(`reset-password:${ip}`, 10, 15 * 60 * 1000)) {
+  if (isRateLimited(`reset-password:${ip}`, rateLimitMax('reset-password', 10), 15 * 60 * 1000)) {
     throw error(429, 'too many attempts — try again later');
   }
   const { token, password } = await parseJson(request, ResetRequest);

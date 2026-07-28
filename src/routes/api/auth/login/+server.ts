@@ -5,7 +5,7 @@ import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
 import { verifyPassword } from '$lib/server/auth/passwords';
 import { createSession, SESSION_COOKIE } from '$lib/server/auth/sessions';
-import { isRateLimited } from '$lib/server/auth/rate-limit';
+import { isRateLimited, rateLimitMax } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
 import { AuthUserResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   const ip = getClientAddress();
   const ua = request.headers.get('user-agent') ?? undefined;
 
-  if (isRateLimited(`login:${ip}`, 5, 15 * 60 * 1000)) {
+  if (isRateLimited(`login:${ip}`, rateLimitMax('login', 5), 15 * 60 * 1000)) {
     throw error(429, 'too many requests');
   }
 

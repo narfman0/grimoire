@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
-import { isRateLimited } from '$lib/server/auth/rate-limit';
+import { isRateLimited, rateLimitMax } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
 import { sendEmail, verificationEmail } from '$lib/server/email';
 import type { RequestHandler } from './$types';
@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
   if (locals.user.emailVerified) return new Response(null, { status: 204 });
 
   const ip = getClientAddress();
-  if (isRateLimited(`resend-verify:${locals.user.id}`, 3, 60 * 60 * 1000)) {
+  if (isRateLimited(`resend-verify:${locals.user.id}`, rateLimitMax('resend-verify', 3), 60 * 60 * 1000)) {
     throw error(429, 'too many requests');
   }
 

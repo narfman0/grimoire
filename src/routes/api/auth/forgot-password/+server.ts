@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import { parseJson } from '$lib/server/api/validate';
-import { isRateLimited } from '$lib/server/auth/rate-limit';
+import { isRateLimited, rateLimitMax } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
 import { sendEmail, passwordResetEmail } from '$lib/server/email';
 import type { RequestHandler } from './$types';
@@ -13,7 +13,7 @@ const ForgotRequest = z.object({ email: z.string().email().max(254) });
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   const ip = getClientAddress();
 
-  if (isRateLimited(`forgot:${ip}`, 3, 60 * 60 * 1000)) {
+  if (isRateLimited(`forgot:${ip}`, rateLimitMax('forgot', 3), 60 * 60 * 1000)) {
     throw error(429, 'too many requests');
   }
 

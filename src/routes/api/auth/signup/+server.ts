@@ -6,7 +6,7 @@ import { handleDbError } from '$lib/server/db/errors';
 import { parseJson } from '$lib/server/api/validate';
 import { hashPassword } from '$lib/server/auth/passwords';
 import { createSession } from '$lib/server/auth/sessions';
-import { isRateLimited } from '$lib/server/auth/rate-limit';
+import { isRateLimited, rateLimitMax } from '$lib/server/auth/rate-limit';
 import { logAuthEvent } from '$lib/server/auth/audit-log';
 import { sendEmail, verificationEmail } from '$lib/server/email';
 import { logger } from '$lib/server/logger';
@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   const ip = getClientAddress();
   const ua = request.headers.get('user-agent') ?? undefined;
 
-  if (isRateLimited(`signup:${ip}`, 5, 60 * 60 * 1000)) {
+  if (isRateLimited(`signup:${ip}`, rateLimitMax('signup', 5), 60 * 60 * 1000)) {
     throw error(429, 'too many requests');
   }
 
