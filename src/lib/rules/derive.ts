@@ -1651,6 +1651,22 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // would be circular, so those simply never fire (documented limit).
   for (const c of hpCircumstances(character.currentHp, hpMax)) circumstances.add(c);
 
+  // Eligibility snapshot for the flag / set collectors below (save +
+  // skill proficiency, save & skill advantage, bonus dice, d20 floors,
+  // languages/tools, senses, traits, and the boolean tag targets).
+  //
+  // `applyTarget` has always filtered its own numeric-target walks
+  // through `modifierIsEligible`, but every collector below read
+  // `allMods` raw — so an authored `appliesWhen` gate (or a
+  // `defaultEnabled: false` toggle) was silently ignored and, say,
+  // Circle of the Stars' form-gated d20 floor applied unconditionally.
+  // One filter, applied once, keeps every channel honest.
+  //
+  // Safe to snapshot here: `resolvedConditions` was finalized by the
+  // activation walk before phase 2(a), and the circumstance set is
+  // complete as of the line above.
+  const eligibleMods = allMods.filter((m) => modifierIsEligible(m, character, ctx));
+
   // (c) AC — armor formula from equipped armor, else best unarmored formula.
   const ac = computeAC(character, active, abilities, allMods, ctx);
 
@@ -1668,7 +1684,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (
       typeof strRequired === 'number' &&
       strRequired > abilities.str.score &&
-      !hasBooleanTarget(allMods, 'armor.ignore-str-requirement')
+      !hasBooleanTarget(eligibleMods, 'armor.ignore-str-requirement')
     ) {
       for (const key of Object.keys(speeds)) speeds[key] = Math.max(0, speeds[key] - 10);
     }
@@ -1693,25 +1709,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     const saves = (classRow.data.saves as AbilityKey[] | undefined) ?? [];
     for (const s of saves) saveProficiencies.add(s);
   }
-  for (const a of active) {
-    const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
-    for (const m of mods) {
-      if (
-        m.kind === 'stat-modifier' &&
-        typeof m.target === 'string' &&
-        m.value === true
-      ) {
-        if (m.target.startsWith('proficiency.save.')) {
-          saveProficiencies.add(m.target.slice('proficiency.save.'.length) as AbilityKey);
-        } else if (m.target.startsWith('expertise.save.')) {
-          const ab = m.target.slice('expertise.save.'.length) as AbilityKey;
-          saveExpertise.add(ab);
-          saveProficiencies.add(ab);
-        }
-      }
-    }
-  }
-  for (const m of allMods) {
+  // Every active row's `data.modifiers` is already in `eligibleMods` (the
+  // collection walk classifies them there, attunement-gated), alongside
+  // the synthesized feat-choice / background-choice picks. Reading the
+  // raw `a.data.modifiers` a second time here used to double as an
+  // appliesWhen bypass — a gated save proficiency landed anyway.
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target;
     if (typeof target !== 'string' || m.raw.value !== true) continue;
@@ -1742,7 +1745,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const savesAdvantageVs = new Set<string>();
   const savesDisadvantageVs = new Set<string>();
   const savesAdvantageSourceQualified: SaveAdvantageSourceQualified[] = [];
-  for (const m of allMods) {
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target;
     if (typeof target !== 'string' || m.raw.value !== true) continue;
@@ -1816,32 +1819,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const skillProficiencies = new Set<string>();
   const skillExpertise = new Set<string>();
   for (const skill of character.proficienciesChosen.skills ?? []) skillProficiencies.add(skill);
-  for (const a of active) {
-    // class/species/background/feat may grant fixed skill proficiencies via
-    // stat modifiers. Two prefixes:
-    //   `proficiency.skill.<slug>` — base proficiency
-    //   `expertise.skill.<slug>`   — expertise (doubles proficiency bonus)
-    // Both also flow through the synthesised stat-modifier list `allMods`,
-    // so feat-choice and background-choice picks (which live in allMods,
-    // not a.data.modifiers) are observed.
-    const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
-    for (const m of mods) {
-      if (
-        m.kind === 'stat-modifier' &&
-        typeof m.target === 'string' &&
-        m.value === true
-      ) {
-        if (m.target.startsWith('proficiency.skill.')) {
-          skillProficiencies.add(m.target.slice('proficiency.skill.'.length));
-        } else if (m.target.startsWith('expertise.skill.')) {
-          skillExpertise.add(m.target.slice('expertise.skill.'.length));
-        }
-      }
-    }
-  }
-  // Synthesised modifiers (from background-ASI / feat-choice loops) live in
-  // allMods rather than per-content data — pull skill grants from there too.
-  for (const m of allMods) {
+  // class/species/background/feat may grant fixed skill proficiencies via
+  // stat modifiers. Two prefixes:
+  //   `proficiency.skill.<slug>` — base proficiency
+  //   `expertise.skill.<slug>`   — expertise (doubles proficiency bonus)
+  // Both content-authored and synthesized (background-ASI / feat-choice)
+  // modifiers live in `eligibleMods`, so one walk covers everything —
+  // and honors appliesWhen, which the old raw pass over `a.data.modifiers`
+  // silently bypassed.
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target;
     if (typeof target !== 'string' || m.raw.value !== true) continue;
@@ -1852,7 +1838,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
   // Jack of All Trades: add floor(PB/2) to non-proficient skill checks.
-  const halfProfBonus = allMods.some(
+  const halfProfBonus = eligibleMods.some(
     (m) => m.kind === 'stat-modifier' && m.raw.target === 'skill.half-proficiency-bonus' && m.raw.value === true
   ) ? Math.floor(proficiencyBonus / 2) : 0;
   // Skill + ability-check advantage channels. Boolean targets (value true):
@@ -1887,7 +1873,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   let checkD20Floor = 0;
   let saveD20Floor = 0;
   const skillD20Floor: Record<string, number> = {};
-  for (const m of allMods) {
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier') continue;
     const t = m.raw.target;
     if (typeof t !== 'string') continue;
@@ -1937,7 +1923,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // modifier is active (the armor row itself usually authors it).
   if (
     equippedArmor?.data.stealthDisadvantage === true &&
-    !hasBooleanTarget(allMods, 'armor.ignore-stealth-disadvantage')
+    !hasBooleanTarget(eligibleMods, 'armor.ignore-stealth-disadvantage')
   ) {
     skillDisadvantage.add('stealth');
   }
@@ -1983,19 +1969,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const tools = new Set<string>(character.proficienciesChosen.tools ?? []);
   const armorProficiencies = new Set<string>();
   const weaponProficiencies = new Set<string>();
-  for (const a of active) {
-    const mods = (a.data.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
-    for (const m of mods) {
-      if (m.kind !== 'stat-modifier' || m.value !== true) continue;
-      const t = m.target;
-      if (typeof t !== 'string') continue;
-      if (t.startsWith('proficiency.language.')) languages.add(t.slice('proficiency.language.'.length));
-      else if (t.startsWith('proficiency.tool.')) tools.add(t.slice('proficiency.tool.'.length));
-      else if (t.startsWith('proficiency.armor.')) armorProficiencies.add(t.slice('proficiency.armor.'.length));
-      else if (t.startsWith('proficiency.weapon.')) weaponProficiencies.add(t.slice('proficiency.weapon.'.length));
-    }
-  }
-  for (const m of allMods) {
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier' || m.raw.value !== true) continue;
     const t = m.raw.target;
     if (typeof t !== 'string') continue;
@@ -2122,7 +2096,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
 
   // (i) Senses
   const senses: Record<string, number> = {};
-  for (const m of allMods) {
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target as string;
     if (!target) continue;
@@ -2141,7 +2115,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // slug. Any slug is allowed (no validation gate); canonical slugs are
   // documented in docs/rules-engine.md.
   const traits = new Set<string>();
-  for (const m of allMods) {
+  for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier' || m.raw.value !== true) continue;
     const t = m.raw.target;
     if (typeof t === 'string' && t.startsWith('trait.')) {
@@ -2168,7 +2142,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     speeds,
     proficiencyBonus,
     initiative: applyTarget(allMods, character, 'initiative', abilities.dex.mod, ctx) as number,
-    initiativeAdvantage: allMods.some(
+    initiativeAdvantage: eligibleMods.some(
       (m) =>
         m.kind === 'stat-modifier' &&
         m.raw.target === 'initiative.advantage' &&
@@ -2197,23 +2171,23 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     tools: [...tools].sort(),
     armorProficiencies: [...armorProficiencies].sort(),
     weaponProficiencies: [...weaponProficiencies].sort(),
-    attackedAdvantage: allMods.some(
+    attackedAdvantage: eligibleMods.some(
       (m) => m.kind === 'stat-modifier' && m.raw.target === 'attacked.advantage' && m.raw.value === true
     ),
-    attackedDisadvantage: allMods.some(
+    attackedDisadvantage: eligibleMods.some(
       (m) => m.kind === 'stat-modifier' && m.raw.target === 'attacked.disadvantage' && m.raw.value === true
     ),
-    attackedByMeleeAdvantage: allMods.some(
+    attackedByMeleeAdvantage: eligibleMods.some(
       (m) =>
         m.kind === 'stat-modifier' && m.raw.target === 'attacked-by-melee.advantage' && m.raw.value === true
     ),
-    attackedByRangedDisadvantage: allMods.some(
+    attackedByRangedDisadvantage: eligibleMods.some(
       (m) =>
         m.kind === 'stat-modifier' &&
         m.raw.target === 'attacked-by-ranged.disadvantage' &&
         m.raw.value === true
     ),
-    attackedWithin5ftAutoCrit: allMods.some(
+    attackedWithin5ftAutoCrit: eligibleMods.some(
       (m) =>
         m.kind === 'stat-modifier' &&
         m.raw.target === 'tag.attacked-within-5ft-auto-crit' &&
@@ -2224,9 +2198,9 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     ...(checkD20Floor > 0 ? { checkD20Floor } : {}),
     ...(saveD20Floor > 0 ? { saveD20Floor } : {}),
     traits: [...traits].sort(),
-    incomingCritImmune: hasBooleanTarget(allMods, 'tag.incoming-crit-immune'),
-    deathSaveAdvantage: hasBooleanTarget(allMods, 'deathsave.advantage'),
-    hitDiceMaximized: hasBooleanTarget(allMods, 'hitDice.maximize')
+    incomingCritImmune: hasBooleanTarget(eligibleMods, 'tag.incoming-crit-immune'),
+    deathSaveAdvantage: hasBooleanTarget(eligibleMods, 'deathsave.advantage'),
+    hitDiceMaximized: hasBooleanTarget(eligibleMods, 'hitDice.maximize')
   };
 
   const phase: DerivePhaseState = {
@@ -2616,11 +2590,17 @@ function applySpellParameterEffect(action: Action, eff: SpellParameterEffect): v
  *  warnings) and synthesize gated weapon-attack actions for grants that
  *  request one. Pushes onto s.triggers and s.actions. */
 function registerTriggers(s: DerivePhaseState): void {
-  const { allMods, validations, actions, triggers } = s;
+  const { character, allMods, ctx, validations, actions, triggers } = s;
 
   const knownEvents = new Set<string>(KNOWN_TRIGGER_EVENTS);
   for (const m of allMods) {
     if (m.kind !== 'trigger') continue;
+    // Same `appliesWhen` gate every other channel honors — a trigger
+    // declared inside an activation (Form of Dread's frighten rider)
+    // must not surface while the activation is off. The item
+    // attunement half of `appliesWhen` was already applied when the
+    // trigger was collected into allMods.
+    if (!modifierIsEligible(m, character, ctx)) continue;
     const on = ((m.raw.on as string[] | undefined) ?? []).slice();
     for (const ev of on) {
       if (!knownEvents.has(ev)) {
@@ -3211,7 +3191,7 @@ function collectPendingItemChoices(s: DerivePhaseState): PendingItemChoice[] {
 
 /** Overlay HP pools (Arcane Ward etc.) from overlay-hp-pool modifier rows. */
 function collectOverlayHpPools(s: DerivePhaseState): OverlayHpPool[] {
-  const { allMods, ctx, validations } = s;
+  const { character, allMods, ctx, validations } = s;
 
   // Overlay HP pools — independent HP buckets that absorb damage before
   // the character's main HP. Emitted from `overlay-hp-pool` modifier rows
@@ -3223,6 +3203,7 @@ function collectOverlayHpPools(s: DerivePhaseState): OverlayHpPool[] {
   for (const m of allMods) {
     const kind = (m.raw.kind as string | undefined) ?? '';
     if (kind !== 'overlay-hp-pool') continue;
+    if (!modifierIsEligible(m, character, ctx)) continue;
     const maxValue = evaluateValue(m.raw.max, ctx);
     if (typeof maxValue !== 'number') {
       validations.push({

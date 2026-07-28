@@ -379,7 +379,9 @@ Every entry in the list must hold — computed ones against the character's stat
 
 A slug **inside** a computed namespace that names no member (`hp.half` for `hp.below-half`) is a typo, not an adjudication — burying a broken gate behind a toggle nobody knows to flip is worse than saying so. It emits a `circumstance-unrecognized` soft warning, mints no toggle, and is ignored as a gate. Deliberately not an `unknown-*` code (the packs QC gate hard-fails T3 rows on those).
 
-**Where it applies.** Every modifier-application site shares one gate (`modifierIsEligible` in `derive.ts`): stat-modifiers in phase 2, the resistance/immunity walk, `speed.all`, action-modifiers in phase 4, and outbound-effect declarations.
+**Where it applies.** Every modifier-application site shares one gate (`modifierIsEligible` in `derive.ts`): stat-modifiers in phase 2, the resistance/immunity walk, `speed.all`, action-modifiers in phase 4, trigger registration in phase 5, overlay HP pools, and outbound-effect declarations.
+
+Historically only the *numeric* channel (`applyTarget`) consulted that gate. Every flag/set collector — save & skill proficiency, save advantage, skill/check advantage, `check.bonus`, bonus dice, d20 floors, senses, languages/tools/armor/weapon proficiencies, curated traits, the boolean `tag.*` targets, overlay pools and trigger registration — read `allMods` raw, so an authored `appliesWhen` (or a `defaultEnabled: false` toggle) was **silently ignored** and the grant applied unconditionally. Three of them (save proficiency, skill proficiency, languages/tools) additionally re-walked each row's raw `data.modifiers`, which bypassed the item attunement gate too. Phase 2 now snapshots one `eligibleMods` list right after the HP maximum is composed and every collector reads it.
 
 **Scope limit.** The `hp.*` members are populated right after phase 2(b) composes the HP maximum, so a circumstance gate on `ability.*` or `hp.max` itself would be circular and simply never fires. `wielding.*` / `armor.*` depend on nothing phase 2 composes and work on every target.
 
