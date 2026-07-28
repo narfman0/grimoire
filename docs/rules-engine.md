@@ -171,6 +171,19 @@ An item row can declare per-inventory-slot player picks via `data.choices` — t
 
 The allow-list fields are declaration metadata for the picker UI; the engine records the pick without validating it (same posture as feature choices). Any other slot name is a generic pass-through — declared, surfaced, and stored, but not interpreted.
 
+Item slots also drive the **same proficiency-pick synthesis feature rows use** (living gloves' attunement-time skill/tool proficiency + expertise pick). Declare the slot in the item's `data.choices` and record the pick on the inventory slot in the feature-choice pick shape:
+
+```jsonc
+"choices": {
+  "skillProficiency": { "allowedSkills": ["acrobatics", "sleight-of-hand"] },
+  "expertise":        { "allowedSkills": "proficient" }
+}
+// slot.choices.skillProficiency = { "skill": "sleight-of-hand" }
+// slot.choices.expertise        = { "skill": "sleight-of-hand" }
+```
+
+All six pick kinds work (`asi`, `skillProficiency`, `expertise`, `savingThrow`, `language`, `toolProficiency`), including the `elseAlready` conditional-routing path, as do `modifierFromChoice` menus. Attunement gates the **effect**, not the pick: an unattuned attunement item synthesizes nothing, while `pendingItemChoices` still surfaces the slot so the player can record the pick before attuning.
+
 A `cast-spell` activity references a pick parametrically: `spell: { "fromChoice": "spell" }` resolves the picked slug at realize time and composes with `spellOverrides` and `chargeCost` exactly like a literal ref. With no pick recorded, the action still realizes as a stub carrying `Action.needsChoice: '<slot name>'` (no inlined attack/save/damage, **no warning**).
 
 `Derived.pendingItemChoices` is the manifest: one entry per (inventory slot, choice slot) pair on every equipped item with a `data.choices` declaration — `{ slotIndex, itemSlug, itemName, choice, declaration, picked? }`. `slotIndex` is the position in `character.inventory` where the sheet writes the pick back; `picked` is absent when unresolved. Entries surface regardless of attunement (recording a pick is setup, not effect); unequipped items surface nothing.
@@ -551,6 +564,12 @@ Semantics are implicitly **UPGRADE**: the highest floor wins, a declared `mode` 
 Same display + roll-time contract as bonus dice — the numeric `bonus` and passive Perception are untouched. The skills panel renders a `min 10` chip beside the adv/dis and `+1d4` chips; `saveD20Floor` renders once beside the Saves heading.
 
 Both flags can be true at once; derive reports both and the roll-time consumer cancels them. **Passive Perception** applies RAW: advantage on the check → +5, disadvantage → −5, both → ±0.
+
+### Forced check failure
+
+`skill.autoFail.<slug>` and `check.autoFail.<ability>` (boolean) mark a check as failing automatically, whatever the roll — crown of the forest's Intelligence (Investigation) checks to see through illusions. They land on `SkillCell.autoFail` (absent when false) and, for the ability-scoped target, also on `stats.abilityCheckAutoFail` for raw checks.
+
+Deliberately **not** modeled as disadvantage: RAW says the check fails, and disadvantage would be a different rule. RAW usually scopes forced failure by check *purpose*, for which there is no predicate, so these are normally gated behind an adjudicated circumstance (see [Circumstance gates](#circumstance-gates-applieswhencircumstances)) rather than declared unconditionally.
 
 ### Option menus: multi-pick + per-option uses
 

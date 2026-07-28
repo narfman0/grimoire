@@ -349,6 +349,14 @@ export interface SkillCell {
    *  roll-time contract — the numeric `bonus` is unaffected. Absent when
    *  no floor applies. */
   d20Floor?: number;
+  /** This check fails automatically, whatever the roll (crown of the
+   *  forest's Intelligence (Investigation) checks to see through
+   *  illusions). Set by `skill.autoFail.<slug>` and by
+   *  `check.autoFail.<ability>` on every skill of that ability.
+   *  Deliberately distinct from `disadvantage` — RAW says "fails", and
+   *  approximating it as disadvantage would be a different rule. Absent
+   *  when false. */
+  autoFail?: boolean;
 }
 
 /** Rider on ability checks made *using a tool* — see
@@ -467,6 +475,11 @@ export interface StatBlock {
    *  raw (non-skill) checks. 'both' means both flags were granted — they
    *  cancel at roll time. Abilities with neither flag are absent. */
   abilityCheckAdvantage: Partial<Record<AbilityKey, 'advantage' | 'disadvantage' | 'both'>>;
+  /** Abilities whose raw checks fail automatically, from
+   *  `check.autoFail.<ab>`. Skill cells of the ability already fold this
+   *  in via `SkillCell.autoFail`; this record is for raw (non-skill)
+   *  checks. Abilities without the flag are absent. */
+  abilityCheckAutoFail: Partial<Record<AbilityKey, true>>;
   /** Bonus dice on raw ability checks per ability, from
    *  `check.bonusDice.<ab>` modifiers (value: a die string like '1d4').
    *  Skill cells of the ability already fold these into their own

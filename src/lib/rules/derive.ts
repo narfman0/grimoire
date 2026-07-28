@@ -766,6 +766,16 @@ function resolveChoicePicks(
     case 'subclass':
       picksRaw = character.subclassChoices?.[a.row.slug];
       break;
+    case 'item':
+      // Item picks live on the inventory slot, not the row — two copies
+      // of the same gloves hold different proficiencies. Attunement
+      // gates the *effect*: an unattuned attunement item synthesizes
+      // nothing, though `pendingItemChoices` still surfaces the slot so
+      // the pick can be recorded before attuning.
+      picksRaw = itemRequirementMet(a, undefined)
+        ? (a.inventorySlot?.choices as Record<string, unknown> | undefined)
+        : undefined;
+      break;
     default:
       picksRaw = undefined;
   }
@@ -2111,6 +2121,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const skillDisadvantage = new Set<string>();
   const checkAdvantage = new Set<AbilityKey>();
   const checkDisadvantage = new Set<AbilityKey>();
+  // Forced failure — "you automatically fail this check". A distinct
+  // outcome from disadvantage, which is why it needs its own channel
+  // (crown of the forest). Usually gated behind an adjudicated
+  // circumstance, since RAW scopes it by check purpose.
+  const skillAutoFail = new Set<string>();
+  const checkAutoFail = new Set<AbilityKey>();
   const checkBonus: Partial<Record<AbilityKey, number>> = {};
   const checkBonusDice: Partial<Record<AbilityKey, string[]>> = {};
   const skillBonusDice: Record<string, string[]> = {};
@@ -2160,6 +2176,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       } else if (t.startsWith('check.disadvantage.')) {
         const ab = t.slice('check.disadvantage.'.length) as AbilityKey;
         if ((ABILITIES as readonly string[]).includes(ab)) checkDisadvantage.add(ab);
+      } else if (t.startsWith('skill.autoFail.')) {
+        const slug = t.slice('skill.autoFail.'.length);
+        if (slug) skillAutoFail.add(slug);
+      } else if (t.startsWith('check.autoFail.')) {
+        const ab = t.slice('check.autoFail.'.length) as AbilityKey;
+        if ((ABILITIES as readonly string[]).includes(ab)) checkAutoFail.add(ab);
       }
     }
     if (t.startsWith('check.bonusDice.')) {
@@ -2221,7 +2243,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       advantage: skillAdvantage.has(skill) || checkAdvantage.has(ability),
       disadvantage: skillDisadvantage.has(skill) || checkDisadvantage.has(ability),
       ...(bonusDice.length > 0 ? { bonusDice } : {}),
-      ...(floor > 0 ? { d20Floor: floor } : {})
+      ...(floor > 0 ? { d20Floor: floor } : {}),
+      ...(skillAutoFail.has(skill) || checkAutoFail.has(ability) ? { autoFail: true } : {})
     };
   }
   const toolChecks: Record<string, ToolCheckCell> = {};
@@ -2245,6 +2268,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     else if (adv) abilityCheckAdvantage[ab] = 'advantage';
     else if (dis) abilityCheckAdvantage[ab] = 'disadvantage';
   }
+  const abilityCheckAutoFail: StatBlock['abilityCheckAutoFail'] = {};
+  for (const ab of checkAutoFail) abilityCheckAutoFail[ab] = true;
 
   // (f.5) Languages + tools + armor/weapon proficiencies — explicit picks
   // plus any modifier targeting `proficiency.language.<slug>` /
@@ -2541,6 +2566,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         m.raw.value === true
     ),
     abilityCheckAdvantage,
+    abilityCheckAutoFail,
     abilityCheckBonusDice: checkBonusDice,
     ...(checkD20Floor > 0 ? { checkD20Floor } : {}),
     ...(saveD20Floor > 0 ? { saveD20Floor } : {}),
