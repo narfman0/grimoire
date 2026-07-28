@@ -21,6 +21,7 @@ import {
   type DamageSourcePredicate
 } from './damage-source';
 import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor, type EvalContext } from './evaluate';
+import { applyFormModifiers, isFormScoped } from './form-modifiers';
 import { applyNumericMode, defaultPriority, type Mode } from './modes';
 import { monsterDerive } from './monster-derive';
 import { predicateMatches, validatePredicateBlock, type PredicateContext } from './predicates';
@@ -241,6 +242,10 @@ interface DerivePhaseState {
   content: ContentLookup;
   active: ActiveContent[];
   allMods: ActiveModifier[];
+  /** Modifiers flagged `appliesToForm: true` — pulled out of `allMods`
+   *  before phase 2 so they never touch the base sheet. Folded into the
+   *  polymorph form snapshot by resolveActiveForm. */
+  formScopedMods: ActiveModifier[];
   ctx: EvalContext;
   validations: ValidationIssue[];
   resolvedConditions: Set<string>;
@@ -1156,6 +1161,19 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   }
   for (const synth of itemBonusSynthesized) allMods.push(synth);
 
+  // Form-scoped modifiers (`appliesToForm: true`) are pulled OUT of the
+  // base modifier set before phase 2 composes anything — a druid in human
+  // shape must not get Circle of the Moon's in-form AC floor. They land on
+  // `Derived.activeForm.formModifiers` and are folded into the form
+  // snapshot instead (see resolveActiveForm / applyFormModifiers).
+  // `persistsInForm: true` is the opposite flag and stays in allMods.
+  const formScopedMods: ActiveModifier[] = [];
+  for (let i = allMods.length - 1; i >= 0; i--) {
+    if (!isFormScoped(allMods[i].raw)) continue;
+    formScopedMods.unshift(allMods[i]);
+    allMods.splice(i, 1);
+  }
+
   // -------------------------------------------------------------------------
   // PHASE 2 — compose stat block
   // -------------------------------------------------------------------------
@@ -1965,6 +1983,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     content,
     active,
     allMods,
+    formScopedMods,
     ctx,
     validations,
     resolvedConditions,
@@ -2809,7 +2828,7 @@ function computeEquippedState(active: ActiveContent[]): Derived['equipped'] {
 
 /** Polymorph / Wild Shape form snapshot via monsterDerive. */
 function resolveActiveForm(s: DerivePhaseState): ActiveForm | undefined {
-  const { character, content, active, validations } = s;
+  const { character, content, active, formScopedMods, ctx, validations } = s;
 
   // Polymorph form snapshot. When the character has stepped into a
   // beast / aberration / angel via Wild Shape, Polymorph spell, Form
@@ -2842,10 +2861,29 @@ function resolveActiveForm(s: DerivePhaseState): ActiveForm | undefined {
           }
         }
       }
+      // Form-scoped modifiers (`appliesToForm: true`): surfaced verbatim
+      // for the runtime, and — for targets with a MonsterDerived slot —
+      // folded into the snapshot here, where monsterDerive's output is
+      // composed. This is the inverse of persistsInForm: these never
+      // touched the base sheet (they were pulled out before phase 2).
+      const formModifiers = formScopedMods.map((m) => m.raw);
+      const statblock = applyFormModifiers(
+        monsterDerive(monsterRow.data),
+        formScopedMods
+          .filter((m) => m.kind === 'stat-modifier' && typeof m.raw.target === 'string')
+          .map((m) => ({
+            target: m.raw.target as string,
+            value: m.raw.value,
+            mode: m.raw.mode as Mode | undefined,
+            priority: m.raw.priority as number | undefined
+          })),
+        ctx
+      );
       activeForm = {
         sourceContent: formState.sourceContent,
-        statblock: monsterDerive(monsterRow.data),
+        statblock,
         persistentModifiers,
+        formModifiers,
         formSaveSource: formState.formSaveSource ?? 'form',
         currentHp: formState.currentHp,
         maxHp: formState.maxHp,

@@ -306,6 +306,135 @@ describe('derive() persistsInForm modifier marker', () => {
   });
 });
 
+// --- derive(): appliesToForm (form-scoped modifiers) -----------------
+
+// The inverse of persistsInForm: modifiers that apply ONLY to the form's
+// statblock. Circle of the Moon's in-form AC floor, Primal Strike's
+// "beast-form attacks count as magical", Improved Circle Forms'
+// WIS-mod-to-CON-saves-while-in-form. Authoring these unflagged would
+// leak them onto the base sheet.
+const FORM_SCOPED_FEATURE: ContentRow = {
+  kind: 'feature',
+  slug: 'combat-wild-shape-riders',
+  version: 1,
+  source: 'test',
+  name: 'Combat Wild Shape Riders',
+  data: {
+    ownerKind: 'class',
+    ownerSlug: 'test-druid',
+    minLevel: 1,
+    modifiers: [
+      // "While in form your AC is at least 13" — the bear's own 11 loses.
+      { kind: 'stat-modifier', target: 'ac', mode: 'UPGRADE', value: 13, appliesToForm: true },
+      // "Add your WIS modifier to the form's CON saves" (WIS 18 → +4).
+      { kind: 'stat-modifier', target: 'save.con', mode: 'ADD', value: 'wisMod', appliesToForm: true },
+      // Primal Strike, scoped to the form rather than corpus-wide.
+      {
+        kind: 'stat-modifier',
+        target: 'trait.attacks-count-as-magical',
+        value: true,
+        appliesToForm: true
+      },
+      // A rider with no MonsterDerived slot — must still surface raw.
+      {
+        kind: 'stat-modifier',
+        target: 'form-attack.damage-type',
+        value: 'radiant',
+        appliesToForm: true
+      }
+    ]
+  }
+};
+
+/** The same class row, wired to the form-scoped feature instead. */
+const FORM_SCOPED_CLASS: ContentRow = {
+  ...TEST_CLASS,
+  data: { ...TEST_CLASS.data, features: ['combat-wild-shape-riders'] }
+};
+
+const IN_BEAR = {
+  slug: 'brown-bear',
+  sourceContent: { kind: 'spell', slug: 'polymorph' },
+  currentHp: 34,
+  maxHp: 34
+};
+
+describe('derive() appliesToForm modifier marker', () => {
+  it('never applies form-scoped modifiers to the base sheet', () => {
+    const baseline = derive(baseCharacter(), makeLookup([TEST_CLASS, TEST_SPECIES]));
+    const withRiders = derive(
+      baseCharacter(),
+      makeLookup([FORM_SCOPED_CLASS, TEST_SPECIES, FORM_SCOPED_FEATURE])
+    );
+    // AC UPGRADE 13, CON save +4 and the trait flag are all form-only.
+    expect(withRiders.stats.ac).toBe(baseline.stats.ac);
+    expect(withRiders.stats.saves.con.bonus).toBe(baseline.stats.saves.con.bonus);
+    expect(withRiders.stats.traits).not.toContain('attacks-count-as-magical');
+  });
+
+  it('is inert in base form (no activeForm, no leak)', () => {
+    const d = derive(
+      baseCharacter(),
+      makeLookup([FORM_SCOPED_CLASS, TEST_SPECIES, FORM_SCOPED_FEATURE, BROWN_BEAR])
+    );
+    expect(d.activeForm).toBeUndefined();
+  });
+
+  it('folds statblock-slotted targets into the form snapshot', () => {
+    const d = derive(
+      baseCharacter({ polymorphForm: IN_BEAR }),
+      makeLookup([FORM_SCOPED_CLASS, TEST_SPECIES, FORM_SCOPED_FEATURE, BROWN_BEAR])
+    );
+    expect(d.activeForm).toBeDefined();
+    // Bear AC 11 → UPGRADE floor of 13.
+    expect(d.activeForm!.statblock.ac).toBe(13);
+    // Bear CON mod +3, plus the druid's WIS mod +4 = +7.
+    expect(d.activeForm!.statblock.saves.con).toBe(7);
+    // trait.<slug> lands as a named trait on the form.
+    expect(d.activeForm!.statblock.traits.map((t) => t.name)).toContain(
+      'attacks-count-as-magical'
+    );
+    // The bear's own statblock is otherwise untouched.
+    expect(d.activeForm!.statblock.maxHp).toBe(34);
+    expect(d.activeForm!.statblock.speeds.walk).toBe(40);
+  });
+
+  it('surfaces every flagged modifier raw on activeForm.formModifiers', () => {
+    const d = derive(
+      baseCharacter({ polymorphForm: IN_BEAR }),
+      makeLookup([FORM_SCOPED_CLASS, TEST_SPECIES, FORM_SCOPED_FEATURE, BROWN_BEAR])
+    );
+    expect(d.activeForm!.formModifiers).toHaveLength(4);
+    // Riders with no MonsterDerived slot ride through verbatim for the
+    // encounter runtime.
+    expect(d.activeForm!.formModifiers).toContainEqual({
+      kind: 'stat-modifier',
+      target: 'form-attack.damage-type',
+      value: 'radiant',
+      appliesToForm: true
+    });
+  });
+
+  it('leaves formModifiers empty when nothing is flagged', () => {
+    const d = derive(
+      baseCharacter({ polymorphForm: IN_BEAR }),
+      makeLookup([TEST_CLASS, TEST_SPECIES, BROWN_BEAR, PERSISTING_FEATURE])
+    );
+    expect(d.activeForm!.formModifiers).toEqual([]);
+    // …and persistsInForm keeps working alongside it.
+    expect(d.activeForm!.persistentModifiers).toHaveLength(1);
+  });
+
+  it('does not mutate the cached monster row — derive is repeatable', () => {
+    const look = makeLookup([FORM_SCOPED_CLASS, TEST_SPECIES, FORM_SCOPED_FEATURE, BROWN_BEAR]);
+    const a = derive(baseCharacter({ polymorphForm: IN_BEAR }), look);
+    const b = derive(baseCharacter({ polymorphForm: IN_BEAR }), look);
+    expect(a.activeForm!.statblock.saves.con).toBe(7);
+    expect(b.activeForm!.statblock.saves.con).toBe(7);
+    expect(BROWN_BEAR.data.ac).toBe(11);
+  });
+});
+
 // --- derive(): companions -------------------------------------------
 
 describe('derive() companion walk', () => {

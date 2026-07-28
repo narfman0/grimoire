@@ -1203,6 +1203,17 @@ export interface ActiveForm {
    *  top of `statblock` when rendering form actions / saves. Without
    *  the flag, base PC modifiers don't propagate to the form snapshot. */
   persistentModifiers: Array<Record<string, unknown>>;
+  /** Modifiers from base rows carrying `appliesToForm: true` — the
+   *  inverse of `persistsInForm`. These are form-ONLY: derive() pulls
+   *  them out of the base modifier set before phase 2, so they never
+   *  touch the base sheet (Circle of the Moon's in-form AC floor,
+   *  Primal Strike's form-attack magical flag, Improved Circle Forms'
+   *  WIS-to-CON-saves-while-in-form). Every target with a slot on
+   *  `MonsterDerived` is already folded into `statblock`; the raw
+   *  entries stay here so the runtime can render the riders that have
+   *  no statblock slot (form-attack damage-type substitution, 1/turn
+   *  bonus dice). Empty in base form and whenever nothing is flagged. */
+  formModifiers: Array<Record<string, unknown>>;
   /** Mirrored from `PolymorphFormState.formSaveSource`, defaulted to
    *  'form' when omitted on the source state. */
   formSaveSource: 'base' | 'form';

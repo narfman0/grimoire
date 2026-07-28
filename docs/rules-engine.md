@@ -226,6 +226,30 @@ A large slice of the 5e class chassis is features whose whole job is to raise an
 
 A modifier that names an inactive row, or a path that doesn't resolve, emits a soft `cross-row-upgrade-unresolved` warning (deliberately **not** an `unknown-*` code — the packs QC gate hard-fails those, and a legitimately level-gated target row is simply not active yet).
 
+### Form-scoped modifiers (`appliesToForm`)
+
+Two flags decide how a base row's modifier interacts with a polymorph form:
+
+| flag | base sheet | form snapshot |
+| --- | --- | --- |
+| *(none)* | applies | ignored |
+| `persistsInForm: true` | applies | surfaced on `ActiveForm.persistentModifiers` for the runtime to overlay |
+| `appliesToForm: true` | **never applies** | folded into `ActiveForm.statblock` + surfaced on `ActiveForm.formModifiers` |
+
+`appliesToForm` is the Wild Shape rider channel — Circle of the Moon's in-form AC floor, Primal Strike making beast-form attacks count as magical, Improved Circle Forms' WIS-mod-to-CON-saves-while-transformed. Authoring those unflagged would leak them onto the druid's human-shape sheet, which is why the catalog listed the whole family as blocked. derive() pulls flagged modifiers out of the base modifier set *before* phase 2, so they are invisible to every base-stat consumer.
+
+```jsonc
+{ "kind": "stat-modifier", "target": "ac",      "mode": "UPGRADE", "value": 13,       "appliesToForm": true }
+{ "kind": "stat-modifier", "target": "save.con", "mode": "ADD",    "value": "wisMod", "appliesToForm": true }
+{ "kind": "stat-modifier", "target": "trait.attacks-count-as-magical", "value": true, "appliesToForm": true }
+```
+
+Targets with a `MonsterDerived` slot are applied to the snapshot by `applyFormModifiers` (`src/lib/rules/form-modifiers.ts`), reusing the PC stat-block vocabulary:
+
+`ac` · `hp.max` · `proficiencyBonus` · `speed.<key>` · `sense.<key>` · `save.<ability>` · `skill.<slug>` · `resistance|immunity|vulnerability.<type>` (boolean) · `trait.<slug>` (boolean, lands as a named form trait)
+
+Standard modes and `evaluateValue` apply, priority-ascending like everywhere else — the PC's own `ctx` is used, so `wisMod` means the *druid's* Wisdom, not the bear's. Every flagged modifier — including riders with no statblock slot, like a form-attack damage-type substitution — also rides `formModifiers` verbatim for the encounter runtime. `formModifiers` is `[]` when nothing is flagged; the shared/cached monster row is never mutated.
+
 ### Skill / ability-check advantage
 
 | target | effect |
