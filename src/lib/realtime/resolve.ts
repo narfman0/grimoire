@@ -57,6 +57,58 @@ export function firedEventsFor(outcome: HitOutcome): string[] {
   return events;
 }
 
+/** What one target of a resolution ended up with. The DM resolve flow builds
+ *  one of these per target — single-target resolutions produce a
+ *  one-element list, multi-target saves one per checked target — so every
+ *  post-resolution consequence (concentration checks, reaction triggers) is
+ *  computed from the outcome that actually landed on each target rather
+ *  than from the form's Outcome dropdown. */
+export interface TargetResolution {
+  participantId: string;
+  participantName: string;
+  /** The per-target outcome after any crit downgrade / save comparison. */
+  outcome: HitOutcome;
+  damage: number | null;
+  /** Whether the target was concentrating when the action resolved. */
+  concentrating: boolean;
+}
+
+/** Outcomes that put damage on a target (heal excluded — it's an HP outcome
+ *  but never breaks concentration or triggers an attack reaction). */
+const DAMAGING_OUTCOMES: ReadonlySet<HitOutcome> = new Set<HitOutcome>([
+  'hit',
+  'crit',
+  'saved',
+  'failed-save'
+]);
+
+export interface ConcentrationCheck {
+  participantId: string;
+  participantName: string;
+  dc: number;
+}
+
+/** Concentration saves raised by one resolution: one per concentrating
+ *  target that actually took damage, in target order. DC is 10 or half the
+ *  damage that landed, whichever is higher — `saved` targets took half, so
+ *  their DC is computed off the halved number. */
+export function concentrationChecksForResolution(
+  results: TargetResolution[]
+): ConcentrationCheck[] {
+  const checks: ConcentrationCheck[] = [];
+  for (const r of results) {
+    if (!r.concentrating) continue;
+    if (!DAMAGING_OUTCOMES.has(r.outcome)) continue;
+    if (typeof r.damage !== 'number' || r.damage <= 0) continue;
+    checks.push({
+      participantId: r.participantId,
+      participantName: r.participantName,
+      dc: Math.max(10, Math.floor(effectiveDamage(r.outcome, r.damage) / 2))
+    });
+  }
+  return checks;
+}
+
 export interface ResolveTarget {
   id: string;
   kind: string;

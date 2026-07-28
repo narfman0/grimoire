@@ -1,11 +1,14 @@
 <script lang="ts">
   // Post-resolve callout: the target of a damaging action is concentrating,
   // so the DM needs a CON save. DM-only — the parent gates on role. Stateless;
-  // the parent owns the prompt and clears it on either choice.
+  // the parent owns the queue, renders its head here, and shifts it on
+  // either choice.
   import { createEventDispatcher } from 'svelte';
 
   export let participantName: string;
   export let dc: number;
+  /** How many further checks the same resolution queued behind this one. */
+  export let remaining = 0;
 
   const dispatch = createEventDispatcher<{ drop: void; dismiss: void }>();
 </script>
@@ -26,4 +29,7 @@
   >
     Pass / dismiss
   </button>
+  {#if remaining > 0}
+    <span class="text-xs text-amber-200/70">+{remaining} more</span>
+  {/if}
 </div>

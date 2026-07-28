@@ -183,3 +183,20 @@ export function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+/** Put a non-PC participant into concentration (same endpoint the encounter
+ *  channel's `setConcentration` posts to). */
+export async function setConcentration(
+  dm: ApiUser,
+  encounterId: string,
+  participantId: string,
+  label: string
+) {
+  await ok(
+    await dm.api.post(
+      `/api/encounters/${encounterId}/participants/${participantId}/concentration`,
+      { data: { concentrating: { label } } }
+    ),
+    `set concentration on ${participantId}`
+  );
+}

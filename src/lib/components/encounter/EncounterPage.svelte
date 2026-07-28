@@ -42,11 +42,13 @@
     applyHpAndLog,
     revertPriorHpChange,
     firedEventsFor,
-    effectiveDamage,
     downgradeCritForTarget,
     reactionPromptsForResolution,
+    concentrationChecksForResolution,
+    type ConcentrationCheck,
     type HitOutcome,
-    type ResolveTarget
+    type ResolveTarget,
+    type TargetResolution
   } from '$lib/realtime/resolve';
   import type { EncounterPageData } from '$lib/server/encounter-page';
 
@@ -278,15 +280,15 @@
     resolveTargetSaveRolls = {};
   }
 
-  /** Single-target apply: HP delta via participant API + one log entry. Returns ok. */
+  /** Single-target apply: HP delta via participant API + one log entry. */
   async function dmApplyToTarget(
     targetId: string | null,
     outcome: HitOutcome,
     damage: number | null,
     attack: number | null,
     round: number
-  ): Promise<boolean> {
-    if (!conn || !resolveForParticipantId) return false;
+  ): Promise<{ ok: boolean }> {
+    if (!conn || !resolveForParticipantId) return { ok: false };
     const target = (targetId
       ? liveParticipants.find((p) => p.id === targetId) ?? null
       : null) as ResolveTarget | null;
@@ -303,7 +305,14 @@
       actionLabel: resolveActionLabel,
       notes: resolveNotes
     });
-    return result.ok;
+    return { ok: result.ok };
+  }
+
+  /** Was this participant concentrating when the action resolved? PCs mirror
+   *  their character document into the poll snapshot, so the live HP map is
+   *  the single source for both kinds. */
+  function isConcentrating(participantId: string): boolean {
+    return !!liveHpMap[participantId]?.concentrating;
   }
 
   /** True when the participant is a PC whose derived stats carry
@@ -321,6 +330,10 @@
     // while 'crit' is selected against such a target.
     const singleOutcome = downgradeCritForTarget(resolveHit, pcCritImmune(resolveTargetId));
     resolveSubmitting = true;
+    // One entry per target the action landed on, carrying the outcome that
+    // actually applied there. Everything downstream (concentration checks,
+    // reaction triggers) reads this instead of the form's dropdown.
+    const resolutions: TargetResolution[] = [];
     try {
       if (resolveMultiTargetIds.length > 0 && resolveSaveDC != null) {
         // Multi-target save: per-target pass/fail from save roll vs DC.
@@ -334,37 +347,41 @@
                 ? 'saved'
                 : 'failed-save'
               : resolveHit || 'failed-save';
-          const ok = await dmApplyToTarget(tid, perTargetOutcome, resolveDamage, saveRoll ?? null, round);
+          const { ok } = await dmApplyToTarget(tid, perTargetOutcome, resolveDamage, saveRoll ?? null, round);
           if (!ok) {
             resolveError = `log entry failed for ${t.name}`;
             return;
           }
+          resolutions.push({
+            participantId: tid,
+            participantName: t.name,
+            outcome: perTargetOutcome,
+            damage: resolveDamage,
+            concentrating: isConcentrating(tid)
+          });
         }
       } else {
-        const ok = await dmApplyToTarget(resolveTargetId, singleOutcome, resolveDamage, resolveAttack, round);
+        const { ok } = await dmApplyToTarget(resolveTargetId, singleOutcome, resolveDamage, resolveAttack, round);
         if (!ok) {
           resolveError = 'log entry failed';
           return;
         }
-        // Check if single target is concentrating and took real damage.
-        if (
-          resolveTargetId &&
-          (singleOutcome === 'hit' || singleOutcome === 'crit' || singleOutcome === 'failed-save' || singleOutcome === 'saved') &&
-          typeof resolveDamage === 'number' &&
-          resolveDamage > 0
-        ) {
-          const targetHpEntry = liveHpMap[resolveTargetId];
-          if (targetHpEntry?.concentrating) {
-            const targetParticipant = liveParticipants.find((p) => p.id === resolveTargetId);
-            const effective = effectiveDamage(singleOutcome, resolveDamage);
-            concSavePrompt = {
-              participantName: targetParticipant?.name ?? 'Target',
-              dc: Math.max(10, Math.floor(effective / 2)),
-              participantId: resolveTargetId
-            };
-          }
+        if (resolveTargetId) {
+          resolutions.push({
+            participantId: resolveTargetId,
+            participantName:
+              liveParticipants.find((p) => p.id === resolveTargetId)?.name ?? 'Target',
+            outcome: singleOutcome,
+            damage: resolveDamage,
+            concentrating: isConcentrating(resolveTargetId)
+          });
         }
       }
+      // Concentrating targets that took damage owe a CON save. Multi-target
+      // saves can raise several at once, so they queue and the DM answers
+      // them one at a time.
+      const checks = concentrationChecksForResolution(resolutions);
+      if (checks.length > 0) concSavePrompts = [...concSavePrompts, ...checks];
       // Build the set of events that fired from this resolution.
       const firedEvents = firedEventsFor(
         resolveMultiTargetIds.length > 0 ? resolveHit : singleOutcome
@@ -400,12 +417,14 @@
     }
   }
 
-  /** Drop concentration for a participant (called from the CON save callout). */
+  /** Drop concentration for the head-of-queue CON save callout. Either
+   *  answer (drop or dismiss) shifts the queue so the next check surfaces. */
   function dropConcentration(participantId: string) {
     const p = liveParticipants.find((q) => q.id === participantId);
-    if (!p || !conn || connStatus !== 'open') return;
-    conn.setConcentration(participantId, null).catch(() => {});
-    concSavePrompt = null;
+    if (p && conn && connStatus === 'open') {
+      conn.setConcentration(participantId, null).catch(() => {});
+    }
+    concSavePrompts = concSavePrompts.slice(1);
   }
 
   // ---- DM amend / delete ----
@@ -821,8 +840,11 @@
     }
   }
 
-  // Concentration save callout state: set after a resolve completes, cleared when dismissed.
-  let concSavePrompt: { participantName: string; dc: number; participantId: string } | null = null;
+  // Concentration save callouts raised by the last resolve. A multi-target
+  // save can damage several concentrating PCs at once, so this is a queue
+  // rendered one at a time (same slot as the reaction queue below) and each
+  // answer shifts the head.
+  let concSavePrompts: ConcentrationCheck[] = [];
 
   // Reaction queue: one entry per PC trigger that fires from the resolved action.
   // Shown one at a time (same position as concSavePrompt) so DM can confirm or skip.
@@ -1478,12 +1500,14 @@
   />
 {/if}
 
-{#if concSavePrompt && data.role === 'dm'}
+{#if concSavePrompts.length > 0 && data.role === 'dm'}
+  {@const check = concSavePrompts[0]}
   <ConcentrationSavePrompt
-    participantName={concSavePrompt.participantName}
-    dc={concSavePrompt.dc}
-    on:drop={() => dropConcentration(concSavePrompt?.participantId ?? '')}
-    on:dismiss={() => (concSavePrompt = null)}
+    participantName={check.participantName}
+    dc={check.dc}
+    remaining={concSavePrompts.length - 1}
+    on:drop={() => dropConcentration(check.participantId)}
+    on:dismiss={() => (concSavePrompts = concSavePrompts.slice(1))}
   />
 {/if}
 

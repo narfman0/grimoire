@@ -6,7 +6,9 @@ import {
   effectiveDamage,
   downgradeCritForTarget,
   reactionPromptsForResolution,
-  type ResolveTarget
+  concentrationChecksForResolution,
+  type ResolveTarget,
+  type TargetResolution
 } from '../resolve';
 import type { ConnectedEncounter, ParticipantHp } from '../encounter-channel';
 
@@ -505,5 +507,67 @@ describe('reactionPromptsForResolution', () => {
       reactionUsedByParticipantId: {}
     });
     expect(prompts.map((p) => p.participantId)).toEqual(['pc1', 'pc2']);
+  });
+});
+
+describe('concentrationChecksForResolution', () => {
+  function res(over: Partial<TargetResolution> = {}): TargetResolution {
+    return {
+      participantId: 'pc1',
+      participantName: 'Alice',
+      outcome: 'hit',
+      damage: 9,
+      concentrating: true,
+      ...over
+    };
+  }
+
+  it('raises a check for a concentrating target that took damage', () => {
+    expect(concentrationChecksForResolution([res()])).toEqual([
+      { participantId: 'pc1', participantName: 'Alice', dc: 10 }
+    ]);
+  });
+
+  it('uses half the damage as the DC once that exceeds 10', () => {
+    expect(concentrationChecksForResolution([res({ damage: 25 })])[0].dc).toBe(12);
+    expect(concentrationChecksForResolution([res({ damage: 41 })])[0].dc).toBe(20);
+  });
+
+  it('computes a saved targets DC from the halved damage they actually took', () => {
+    // 30 damage, saved → 15 taken → DC 10 (not DC 15).
+    expect(concentrationChecksForResolution([res({ outcome: 'saved', damage: 30 })])[0].dc).toBe(10);
+    // 60 damage, saved → 30 taken → DC 15.
+    expect(concentrationChecksForResolution([res({ outcome: 'saved', damage: 60 })])[0].dc).toBe(15);
+  });
+
+  // The bug: the concentration callout lived inside the single-target branch
+  // of submitDmResolve, so an AoE that damaged three concentrating PCs
+  // raised nothing at all.
+  it('raises one check per concentrating target of a multi-target save', () => {
+    const checks = concentrationChecksForResolution([
+      res({ participantId: 'pc1', participantName: 'Alice', outcome: 'failed-save', damage: 22 }),
+      res({ participantId: 'pc2', participantName: 'Bob', outcome: 'saved', damage: 22 }),
+      res({ participantId: 'pc3', participantName: 'Carol', concentrating: false, outcome: 'failed-save', damage: 22 }),
+      res({ participantId: 'm1', participantName: 'Goblin', outcome: 'failed-save', damage: 22 })
+    ]);
+    expect(checks).toEqual([
+      { participantId: 'pc1', participantName: 'Alice', dc: 11 },
+      // Bob saved: 11 damage taken, so DC floors at 10.
+      { participantId: 'pc2', participantName: 'Bob', dc: 10 },
+      { participantId: 'm1', participantName: 'Goblin', dc: 11 }
+    ]);
+  });
+
+  it('skips non-damaging outcomes and zero/absent damage', () => {
+    expect(concentrationChecksForResolution([res({ outcome: 'miss' })])).toEqual([]);
+    expect(concentrationChecksForResolution([res({ outcome: 'fumble' })])).toEqual([]);
+    expect(concentrationChecksForResolution([res({ outcome: 'heal' })])).toEqual([]);
+    expect(concentrationChecksForResolution([res({ outcome: '' })])).toEqual([]);
+    expect(concentrationChecksForResolution([res({ damage: 0 })])).toEqual([]);
+    expect(concentrationChecksForResolution([res({ damage: null })])).toEqual([]);
+  });
+
+  it('is empty when nothing was targeted', () => {
+    expect(concentrationChecksForResolution([])).toEqual([]);
   });
 });

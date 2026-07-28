@@ -5,7 +5,14 @@
 // assertion drives the real UI.
 
 import { test, expect } from '@playwright/test';
-import { signup, newPageAs, createCampaign, createLiveEncounter, addNpc } from './helpers';
+import {
+  signup,
+  newPageAs,
+  createCampaign,
+  createLiveEncounter,
+  addNpc,
+  setConcentration
+} from './helpers';
 
 test('DM adds participants and resolves a turn through the encounter UI', async ({
   browser,
@@ -76,4 +83,76 @@ test('DM adds participants and resolves a turn through the encounter UI', async 
   await expect(log.locator('ol > li')).toHaveCount(0);
   await log.getByRole('button', { name: 'clear' }).click();
   await expect(log.locator('ol > li')).toHaveCount(1);
+});
+
+// Regression: the concentration callout used to live inside the
+// single-target branch of submitDmResolve, so an AoE that damaged several
+// concentrating creatures raised nothing at all. Now every damaged
+// concentrating target queues a check and the DM answers them in turn.
+test('multi-target save raises a queued CON save per concentrating target', async ({
+  browser,
+  baseURL
+}) => {
+  const dm = await signup(baseURL!, 'e2e_conc');
+  const { code } = await createCampaign(dm, 'Concentration Check');
+  const encounterId = await createLiveEncounter(dm, code, 'AoE Enc');
+  const caster = await addNpc(dm, encounterId, {
+    name: 'Evoker',
+    initiative: 20,
+    currentHp: 30,
+    maxHp: 30
+  });
+  const mage = await addNpc(dm, encounterId, {
+    name: 'Hobgoblin Mage',
+    initiative: 10,
+    currentHp: 40,
+    maxHp: 40
+  });
+  const druid = await addNpc(dm, encounterId, {
+    name: 'Awakened Shrub',
+    initiative: 8,
+    currentHp: 40,
+    maxHp: 40
+  });
+  await setConcentration(dm, encounterId, mage, 'Haste');
+  await setConcentration(dm, encounterId, druid, 'Entangle');
+  await dm.api.post(`/api/encounters/${encounterId}/participants/${caster}/plan`, {
+    data: {
+      plan: {
+        actionId: 'spell:fireball',
+        actionLabel: 'Fireball',
+        targetParticipantIds: [],
+        notes: '',
+        updatedAt: Date.now()
+      }
+    }
+  });
+
+  const page = await newPageAs(browser, dm);
+  await page.goto(`/c/${code}/encounters/${encounterId}`);
+  await page.locator('li').filter({ hasText: 'Evoker' }).first().click();
+  await page.getByRole('button', { name: 'resolve', exact: true }).click();
+  const resolve = page.locator('section').filter({ hasText: 'Resolve turn' });
+  await expect(resolve).toBeVisible();
+
+  // Multi-save: DC + one save roll per checked target. Both fail (rolls < DC),
+  // so both take the full 22 and both owe a DC 11 concentration save.
+  await resolve.getByPlaceholder('—').fill('15');
+  for (const name of ['Hobgoblin Mage', 'Awakened Shrub']) {
+    const row = resolve.locator('li').filter({ hasText: name });
+    await row.getByRole('checkbox').check();
+    await row.getByPlaceholder('save').fill('7');
+  }
+  await resolve.getByLabel('Damage').fill('22');
+  await resolve.getByRole('button', { name: 'Submit' }).click();
+
+  const callout = page.locator('div').filter({ hasText: /is concentrating — CON save DC/ }).last();
+  await expect(callout).toContainText('Hobgoblin Mage');
+  await expect(callout).toContainText('DC 11');
+  await expect(callout).toContainText('+1 more');
+  await callout.getByRole('button', { name: 'Pass / dismiss' }).click();
+  await expect(callout).toContainText('Awakened Shrub');
+  await expect(callout).not.toContainText('more');
+  await callout.getByRole('button', { name: 'Pass / dismiss' }).click();
+  await expect(page.getByText(/is concentrating — CON save DC/)).toHaveCount(0);
 });
