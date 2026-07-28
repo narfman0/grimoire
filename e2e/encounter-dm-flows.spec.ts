@@ -93,6 +93,28 @@ test('DM adds participants and resolves a turn through the encounter UI', async 
   await expect(log.locator('ol > li')).toHaveCount(0);
   await log.getByRole('button', { name: 'clear' }).click();
   await expect(log.locator('ol > li')).toHaveCount(1);
+
+  // ---- destructive actions go through the shared confirm modal ----------
+  // Not the browser's confirm(): Playwright auto-dismisses native dialogs,
+  // so this row would survive if the call site regressed to confirm().
+  await page
+    .locator('li')
+    .filter({ hasText: 'Kobold #2' })
+    .getByRole('button', { name: '✕' })
+    .click();
+  const confirmRemove = page.getByRole('dialog', { name: 'Remove this participant?' });
+  await expect(confirmRemove).toBeVisible();
+  await confirmRemove.getByRole('button', { name: 'Remove' }).click();
+  await expect(page.getByRole('heading', { name: /Participants \(2\)/ })).toBeVisible();
+  await expect(page.locator('li').filter({ hasText: 'Kobold #2' })).toHaveCount(0);
+
+  // Cancelling leaves the log row alone.
+  await log.locator('ol > li').first().getByRole('button', { name: 'remove' }).click();
+  const confirmLog = page.getByRole('dialog', { name: 'Remove this log entry?' });
+  await expect(confirmLog).toContainText('HP changes are not reverted.');
+  await confirmLog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirmLog).toBeHidden();
+  await expect(log.locator('ol > li')).toHaveCount(1);
 });
 
 // Regression: the concentration callout used to live inside the

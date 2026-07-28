@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/client/api';
+  import { confirmDialog } from '$lib/components/ui/confirm';
   import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
@@ -498,7 +499,13 @@
     data.party.size > 0 ? Math.round(encounterTotalXp / data.party.size) : encounterTotalXp;
   async function removeLogEntry(id: string) {
     if (data.role !== 'dm') return;
-    if (!confirm('Remove this log entry? HP changes are not reverted.')) return;
+    const ok = await confirmDialog({
+      title: 'Remove this log entry?',
+      message: 'HP changes are not reverted.',
+      confirmLabel: 'Remove',
+      danger: true
+    });
+    if (!ok) return;
     busy = true;
     try {
       await api.del(`/api/encounters/${data.encounter.id}/log/${id}`);
@@ -752,7 +759,8 @@
   }
 
   async function removeParticipant(id: string) {
-    if (!confirm('Remove this participant?')) return;
+    if (!(await confirmDialog({ title: 'Remove this participant?', confirmLabel: 'Remove', danger: true })))
+      return;
     busy = true;
     try {
       await api.del(`/api/participants/${id}`);
@@ -767,7 +775,15 @@
   /** Flip the encounter through its staging → live → ended state machine. */
   async function setEncounterStatus(status: 'staging' | 'live' | 'ended') {
     if (data.role !== 'dm') return;
-    if (status === 'ended' && !confirm('End this encounter? It becomes read-only history.')) return;
+    if (status === 'ended') {
+      const ok = await confirmDialog({
+        title: 'End this encounter?',
+        message: 'It becomes read-only history.',
+        confirmLabel: 'End encounter',
+        danger: true
+      });
+      if (!ok) return;
+    }
     busy = true;
     try {
       // Through the channel when connected: optimistic + stale-poll-guarded,
