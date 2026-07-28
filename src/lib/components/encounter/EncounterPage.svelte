@@ -41,7 +41,7 @@
   import {
     applyHpAndLog,
     revertPriorHpChange,
-    firedEventsFor,
+    firedEventsForResolution,
     downgradeCritForTarget,
     reactionPromptsForResolution,
     concentrationChecksForResolution,
@@ -382,9 +382,11 @@
       // them one at a time.
       const checks = concentrationChecksForResolution(resolutions);
       if (checks.length > 0) concSavePrompts = [...concSavePrompts, ...checks];
-      // Build the set of events that fired from this resolution.
-      const firedEvents = firedEventsFor(
-        resolveMultiTargetIds.length > 0 ? resolveHit : singleOutcome
+      // Build the set of events that fired from this resolution, from each
+      // target's own outcome. A targetless resolution has no per-target
+      // result, so it still keys off the form's outcome.
+      const firedEvents = firedEventsForResolution(
+        resolutions.length > 0 ? resolutions : [{ outcome: singleOutcome }]
       );
       // Add 'attack.reduce-to-zero' if any target hit 0 HP.
       const checkTargets = resolveMultiTargetIds.length > 0 ? resolveMultiTargetIds : (resolveTargetId ? [resolveTargetId] : []);

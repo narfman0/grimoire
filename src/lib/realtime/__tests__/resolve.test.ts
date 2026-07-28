@@ -7,6 +7,7 @@ import {
   downgradeCritForTarget,
   reactionPromptsForResolution,
   concentrationChecksForResolution,
+  firedEventsForResolution,
   type ResolveTarget,
   type TargetResolution
 } from '../resolve';
@@ -569,5 +570,45 @@ describe('concentrationChecksForResolution', () => {
 
   it('is empty when nothing was targeted', () => {
     expect(concentrationChecksForResolution([])).toEqual([]);
+  });
+});
+
+describe('firedEventsForResolution', () => {
+  // The bug: the AoE path passed the form's Outcome dropdown — normally
+  // blank for a save-based action — instead of the per-target save results,
+  // so a failed save never fired spell.hit / save.failed.
+  it('fires per-target save events for a multi-target save', () => {
+    expect(
+      firedEventsForResolution([
+        { outcome: 'saved' },
+        { outcome: 'failed-save' },
+        { outcome: 'saved' }
+      ])
+    ).toEqual(['spell.hit', 'save.failed']);
+  });
+
+  it('fires nothing when every target saved', () => {
+    expect(firedEventsForResolution([{ outcome: 'saved' }, { outcome: 'saved' }])).toEqual([]);
+  });
+
+  it('does not leak the form outcome onto targets that saved', () => {
+    // Dropdown left on 'crit' while every target made their save: the crit
+    // events must not fire.
+    expect(firedEventsForResolution([{ outcome: 'saved' }])).toEqual([]);
+  });
+
+  it('unions and dedupes across mixed outcomes', () => {
+    expect(
+      firedEventsForResolution([
+        { outcome: 'hit' },
+        { outcome: 'crit' },
+        { outcome: 'miss' },
+        { outcome: 'failed-save' }
+      ])
+    ).toEqual(['attack.hit', 'attack.crit', 'spell.hit', 'save.failed']);
+  });
+
+  it('is empty for an empty resolution', () => {
+    expect(firedEventsForResolution([])).toEqual([]);
   });
 });

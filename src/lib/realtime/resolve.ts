@@ -109,6 +109,25 @@ export function concentrationChecksForResolution(
   return checks;
 }
 
+/** Reaction-trigger events fired by a whole resolution: the union of what
+ *  each target's *own* outcome fired, deduplicated, in first-seen order.
+ *
+ *  The multi-target path used to pass the form's Outcome dropdown here,
+ *  which for an AoE save is usually blank — so `save.failed` / `spell.hit`
+ *  never fired for the targets that actually blew their save, and a stray
+ *  dropdown value could fire `attack.hit` for targets that saved. */
+export function firedEventsForResolution(
+  results: Array<{ outcome: HitOutcome }>
+): string[] {
+  const events: string[] = [];
+  for (const r of results) {
+    for (const ev of firedEventsFor(r.outcome)) {
+      if (!events.includes(ev)) events.push(ev);
+    }
+  }
+  return events;
+}
+
 export interface ResolveTarget {
   id: string;
   kind: string;
