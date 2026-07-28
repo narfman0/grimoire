@@ -112,7 +112,7 @@
               "value": true
             }
           ],
-          "note": "Once per turn when you hit with a weapon, roll the weapon's damage dice twice and use either roll. v0 evaluator does not implement the 'damage.reroll-and-keep-higher' target \u2014 this surfaces as a tagged modifier only."
+          "note": "Once per turn when you hit with a weapon, roll the weapon's damage dice twice and use either roll. v0 evaluator does not implement the 'damage.reroll-and-keep-higher' target — this surfaces as a tagged modifier only."
         }
       ]
     }
@@ -328,7 +328,7 @@
           "value": 1
         }
       ],
-      "note": "2024 SRD 5.2 Sharpshooter. The 2014 -5/+10 toggle was removed in 2024. v0 evaluator does not implement the cover / range / melee-proximity targets \u2014 these surface as tagged modifiers only."
+      "note": "2024 SRD 5.2 Sharpshooter. The 2014 -5/+10 toggle was removed in 2024. v0 evaluator does not implement the cover / range / melee-proximity targets — these surface as tagged modifiers only."
     }
   },
   {
@@ -566,7 +566,7 @@
           "value": 0.2
         }
       ],
-      "note": "2024 SRD 5.2 Crafter. Gain proficiency with three Artisan's Tools of your choice. Nonmagical items bought from a shop cost 20% less. Craft items in half the time during a Long Rest. v0 evaluator does not implement shopping/crafting hooks \u2014 surfaces as a tagged modifier only. The three tool choices live on the character document (character.feats[].choices.tools)."
+      "note": "2024 SRD 5.2 Crafter. Gain proficiency with three Artisan's Tools of your choice. Nonmagical items bought from a shop cost 20% less. Craft items in half the time during a Long Rest. v0 evaluator does not implement shopping/crafting hooks — surfaces as a tagged modifier only. The three tool choices live on the character document (character.feats[].choices.tools)."
     }
   },
   {
@@ -602,7 +602,7 @@
           "note": "As a Utilize action, spend one charge of a Healer's Kit to restore 1d6 + 4 HP + your character level. A creature can't be healed by this again until it finishes a Short or Long Rest."
         }
       ],
-      "note": "2024 SRD 5.2 Healer. Two uses of a Healer's Kit charge. v0 cannot track Short Rest gating on a per-creature basis \u2014 Healer's Mend surfaces as a note.",
+      "note": "2024 SRD 5.2 Healer. Two uses of a Healer's Kit charge. v0 cannot track Short Rest gating on a per-creature basis — Healer's Mend surfaces as a note.",
       "modifiers": []
     }
   },
@@ -626,7 +626,7 @@
           "note": "At the end of a Short or Long Rest, you can give a Musical Instrument performance and bestow Heroic Inspiration on a number of allies up to your Proficiency Bonus who heard the performance."
         }
       ],
-      "note": "2024 SRD 5.2 Musician. Gain proficiency with three Musical Instruments. v0 does not track Heroic Inspiration \u2014 surfaces as a note.",
+      "note": "2024 SRD 5.2 Musician. Gain proficiency with three Musical Instruments. v0 does not track Heroic Inspiration — surfaces as a note.",
       "modifiers": []
     }
   },
@@ -818,7 +818,7 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Dual Wielder. +1 AC while wielding a separate melee weapon in each hand \u2014 engine cannot detect weapon-hold state, so +1 AC applies unconditionally. Enhanced Dual Wielding: one-handed (non-Light) weapon allowance not enforced (engine limitation). Quick Draw: draw/stow two weapons when you'd normally draw/stow one."
+      "note": "2024 SRD 5.2 Dual Wielder. +1 AC while wielding a separate melee weapon in each hand — engine cannot detect weapon-hold state, so +1 AC applies unconditionally. Enhanced Dual Wielding: one-handed (non-Light) weapon allowance not enforced (engine limitation). Quick Draw: draw/stow two weapons when you'd normally draw/stow one."
     }
   },
   {
@@ -838,59 +838,275 @@
         "cha"
       ],
       "repeatable": true,
-      "choice": {
-        "from": [
-          "acid",
-          "cold",
-          "fire",
-          "lightning",
-          "thunder"
-        ],
-        "pick": 1
-      },
-      "modifiers": [
-        {
-          "kind": "action-modifier",
-          "id": "elemental-adept-bypass-resistance",
-          "name": "Ignore Resistance",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": [
-              "cast",
-              "save",
-              "attack"
-            ]
-          },
-          "effects": [
+      "note": "2024 SRD 5.2 Elemental Adept. Choose one of acid, cold, fire, lightning or thunder; the pick lives on character.feats[].choices.modifierFromChoice and records the type on trait.elemental-adept-damage-type. Only the picked type's two toggles are derived: Ignore Resistance (damage.ignore-resistance) and Damage Floor (damage.die.min UPGRADE 2), both defaultEnabled:false because the engine has no spell-damage-type predicate — the player enables them when casting a spell of the chosen type. The feat is repeatable, so a second copy is a second feat entry with its own pick.",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Damage type",
+          "picks": 1,
+          "options": [
             {
-              "target": "damage.ignore-resistance",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "elemental-adept-minimum-die",
-          "name": "Damage Floor",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": [
-              "cast",
-              "save",
-              "attack"
-            ]
-          },
-          "effects": [
+              "id": "acid",
+              "label": "Acid",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-bypass-resistance-acid",
+                  "name": "Ignore Resistance (Acid)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.ignore-resistance",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                },
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-minimum-die-acid",
+                  "name": "Damage Floor (Acid)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.die.min",
+                      "mode": "UPGRADE",
+                      "value": 2
+                    }
+                  ]
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.elemental-adept-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "acid"
+                }
+              ]
+            },
             {
-              "target": "damage.die.min",
-              "mode": "UPGRADE",
-              "value": 2
+              "id": "cold",
+              "label": "Cold",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-bypass-resistance-cold",
+                  "name": "Ignore Resistance (Cold)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.ignore-resistance",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                },
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-minimum-die-cold",
+                  "name": "Damage Floor (Cold)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.die.min",
+                      "mode": "UPGRADE",
+                      "value": 2
+                    }
+                  ]
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.elemental-adept-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "cold"
+                }
+              ]
+            },
+            {
+              "id": "fire",
+              "label": "Fire",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-bypass-resistance-fire",
+                  "name": "Ignore Resistance (Fire)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.ignore-resistance",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                },
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-minimum-die-fire",
+                  "name": "Damage Floor (Fire)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.die.min",
+                      "mode": "UPGRADE",
+                      "value": 2
+                    }
+                  ]
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.elemental-adept-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "fire"
+                }
+              ]
+            },
+            {
+              "id": "lightning",
+              "label": "Lightning",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-bypass-resistance-lightning",
+                  "name": "Ignore Resistance (Lightning)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.ignore-resistance",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                },
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-minimum-die-lightning",
+                  "name": "Damage Floor (Lightning)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.die.min",
+                      "mode": "UPGRADE",
+                      "value": 2
+                    }
+                  ]
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.elemental-adept-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "lightning"
+                }
+              ]
+            },
+            {
+              "id": "thunder",
+              "label": "Thunder",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-bypass-resistance-thunder",
+                  "name": "Ignore Resistance (Thunder)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.ignore-resistance",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                },
+                {
+                  "kind": "action-modifier",
+                  "id": "elemental-adept-minimum-die-thunder",
+                  "name": "Damage Floor (Thunder)",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": [
+                      "cast",
+                      "save",
+                      "attack"
+                    ]
+                  },
+                  "effects": [
+                    {
+                      "target": "damage.die.min",
+                      "mode": "UPGRADE",
+                      "value": 2
+                    }
+                  ]
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.elemental-adept-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "thunder"
+                }
+              ]
             }
           ]
         }
-      ],
-      "note": "2024 SRD 5.2 Elemental Adept. Choose one of: acid, cold, fire, lightning, or thunder. Ignore Resistance and Damage Floor toggles (off by default) \u2014 player enables them when casting spells of the chosen type. The spell.damage-type predicate was removed as it has no evaluator support; player management is the correct v0 pattern. damage.ignore-resistance and damage.die.min now resolve in applyActionEffect."
+      }
     }
   },
   {
@@ -942,7 +1158,7 @@
           }
         }
       ],
-      "note": "2024 SRD 5.2 Mobile. +10 walking speed. Dashing through Difficult Terrain doesn't cost extra movement on your turn. After making a melee attack vs a creature, you don't provoke Opportunity Attacks from that creature for the rest of your turn. v0 does not model dash-difficult-terrain target \u2014 surfaces as tagged modifier."
+      "note": "2024 SRD 5.2 Mobile. +10 walking speed. Dashing through Difficult Terrain doesn't cost extra movement on your turn. After making a melee attack vs a creature, you don't provoke Opportunity Attacks from that creature for the rest of your turn. v0 does not model dash-difficult-terrain target — surfaces as tagged modifier."
     }
   },
   {
@@ -1104,7 +1320,7 @@
           }
         }
       ],
-      "note": "SRD 5.2 Grappler. +1 STR or DEX. Punch and Grab: on hit with Unarmed Strike as part of Attack action, free Grapple option simultaneously. Attack Advantage: Advantage on attacks against a creature Grappled by you (trait.grappler-advantage-vs-grappled \u2014 engine cannot check target's grapple state, surfaced as trait tag for UI tracking). Fast Wrestler: no extra movement to move a Grappled creature of your size or smaller (Out of Scope \u2014 encounter-layer movement rule)."
+      "note": "SRD 5.2 Grappler. +1 STR or DEX. Punch and Grab: on hit with Unarmed Strike as part of Attack action, free Grapple option simultaneously. Attack Advantage: Advantage on attacks against a creature Grappled by you (trait.grappler-advantage-vs-grappled — engine cannot check target's grapple state, surfaced as trait tag for UI tracking). Fast Wrestler: no extra movement to move a Grappled creature of your size or smaller (Out of Scope — encounter-layer movement rule)."
     }
   },
   {
@@ -1206,7 +1422,7 @@
           ]
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat. Modeled as damage.die.min UPGRADE 3 (minimum 3 on each damage die, equivalent to SRD reroll-1s-and-2s; weapon.held: two-hands predicate removed \u2014 engine cannot detect hand state)."
+      "note": "SRD 5.2 Fighting Style: Great Weapon Fighting. Prerequisite: must have a class feature that grants a Fighting Style feat. Modeled as damage.die.min UPGRADE 3 (minimum 3 on each damage die, equivalent to SRD reroll-1s-and-2s; weapon.held: two-hands predicate removed — engine cannot detect hand state)."
     }
   },
   {
@@ -1282,7 +1498,7 @@
               "value": 2
             }
           ],
-          "note": "+2 damage with melee attacks. SRD: only when wielding in one hand with no other weapons \u2014 engine cannot check weapon-hold state (weapon.held was invalid context key). Fixed: now applies to all melee attacks unconditionally."
+          "note": "+2 damage with melee attacks. SRD: only when wielding in one hand with no other weapons — engine cannot check weapon-hold state (weapon.held was invalid context key). Fixed: now applies to all melee attacks unconditionally."
         }
       ],
       "note": "SRD 5.2 Fighting Style: Dueling. +2 damage when wielding a Melee weapon in one hand and no other weapons."
@@ -1306,7 +1522,7 @@
           "value": true
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Interception. Reaction to reduce damage to an ally within 5 ft by 1d10 + Proficiency Bonus. Reaction trigger and damage reduction are encounter-layer mechanics not supported by the engine \u2014 surfaced as a trait flag."
+      "note": "SRD 5.2 Fighting Style: Interception. Reaction to reduce damage to an ally within 5 ft by 1d10 + Proficiency Bonus. Reaction trigger and damage reduction are encounter-layer mechanics not supported by the engine — surfaced as a trait flag."
     }
   },
   {
@@ -1327,7 +1543,7 @@
           "value": true
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Protection. Reaction to impose disadvantage on an attack against an ally within 5 ft (requires shield). Reaction and disadvantage imposition are encounter-layer mechanics not supported by the engine \u2014 surfaced as a trait flag."
+      "note": "SRD 5.2 Fighting Style: Protection. Reaction to impose disadvantage on an attack against an ally within 5 ft (requires shield). Reaction and disadvantage imposition are encounter-layer mechanics not supported by the engine — surfaced as a trait flag."
     }
   },
   {
@@ -1445,7 +1661,7 @@
           ]
         }
       ],
-      "note": "SRD 5.2 Fighting Style: Unarmed Fighting. Unarmed strikes deal 1d6 + STR bludgeoning damage (1d8 if two free hands \u2014 engine cannot detect free-hand status; 1d6 applied unconditionally). Start of each turn: deal 1d4 to one creature you are grappling (Out of Scope \u2014 no turn-start grapple-damage evaluator target)."
+      "note": "SRD 5.2 Fighting Style: Unarmed Fighting. Unarmed strikes deal 1d6 + STR bludgeoning damage (1d8 if two free hands — engine cannot detect free-hand status; 1d6 applied unconditionally). Start of each turn: deal 1d4 to one creature you are grappling (Out of Scope — no turn-start grapple-damage evaluator target)."
     }
   },
   {
@@ -1590,7 +1806,7 @@
               "value": true
             }
           ],
-          "note": "Bludgeoning, Piercing, and Slashing damage you deal always ignores Resistance. v0 evaluator does not implement damage.ignore-resistance \u2014 surfaces as a tagged modifier only."
+          "note": "Bludgeoning, Piercing, and Slashing damage you deal always ignores Resistance. v0 evaluator does not implement damage.ignore-resistance — surfaces as a tagged modifier only."
         }
       ],
       "triggers": [
@@ -1691,7 +1907,7 @@
           "note": "While within Dim Light or Darkness, give yourself the Invisible condition as a Bonus Action. The condition ends immediately after you take an Action, Bonus Action, or Reaction."
         }
       ],
-      "note": "SRD 5.2 Epic Boon of the Night Spirit. +1 to any ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, bonus action to become Invisible (ends on Action/Bonus Action/Reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant \u2014 engine cannot gate resistances on lighting state; surfaced as trait.shadowy-form-resistance-in-dim-light for GM/UI tracking. Radiant non-resistance is also conditional (Out of Scope)."
+      "note": "SRD 5.2 Epic Boon of the Night Spirit. +1 to any ability score (max 30). Merge with Shadows: while in Dim Light or Darkness, bonus action to become Invisible (ends on Action/Bonus Action/Reaction). Shadowy Form: while in Dim Light or Darkness, Resistance to all damage except Psychic and Radiant — engine cannot gate resistances on lighting state; surfaced as trait.shadowy-form-resistance-in-dim-light for GM/UI tracking. Radiant non-resistance is also conditional (Out of Scope)."
     }
   },
   {
@@ -1720,7 +1936,7 @@
           "value": 60
         }
       ],
-      "note": "SRD 5.2 Epic Boon of Truesight. Ability Score Increase: +1 to one ability score (max 30). Truesight: you have Truesight with a range of 60 feet. The sense.truesight target is modeled analogously to sense.darkvision \u2014 v0 evaluator may need a matching evaluator path added if truesight is not yet wired."
+      "note": "SRD 5.2 Epic Boon of Truesight. Ability Score Increase: +1 to one ability score (max 30). Truesight: you have Truesight with a range of 60 feet. The sense.truesight target is modeled analogously to sense.darkvision — v0 evaluator may need a matching evaluator path added if truesight is not yet wired."
     }
   },
   {
@@ -1774,21 +1990,191 @@
           "value": 2
         }
       ],
-      "choice": {
-        "kind": "metamagic",
-        "pick": 2,
-        "from": [
-          "careful-spell",
-          "distant-spell",
-          "empowered-spell",
-          "extended-spell",
-          "heightened-spell",
-          "quickened-spell",
-          "subtle-spell",
-          "twinned-spell"
-        ]
-      },
-      "note": "TCoE p.80. For characters who don't have Sorcerous Origin, Metamagic Adept gives access to 2 metamagic options. For sorcerers, it adds 2 extra sorcery points and 2 more metamagic picks (beyond the base 2). The resource.sorcery-points ADD modifier stacks with Font of Magic's activity-based pool."
+      "note": "TCoE p.80 / SRD 5.2. For characters without Sorcerous Origin, Metamagic Adept grants access to 2 Metamagic options; for sorcerers it adds 2 extra sorcery points and 2 more picks beyond the base 2. The resource.sorcery-points ADD modifier stacks with Font of Magic's activity-based pool. Picks live on character.feats[].choices.modifierFromChoice.options; each picked option synthesizes the same defaultEnabled:false cast-tagging action-modifier the sorcerer Metamagic row uses (ids namespaced metamagic-adept-* so a sorcerer holding both does not collide). Sorcery-point cost accounting and the spell-modification mechanics themselves are still not simulated.",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Metamagic options",
+          "picks": 2,
+          "options": [
+            {
+              "id": "careful-spell",
+              "label": "Careful Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-careful",
+                  "name": "Metamagic Adept: Careful Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.careful",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "distant-spell",
+              "label": "Distant Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-distant",
+                  "name": "Metamagic Adept: Distant Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.distant",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "empowered-spell",
+              "label": "Empowered Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-empowered",
+                  "name": "Metamagic Adept: Empowered Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.empowered",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "extended-spell",
+              "label": "Extended Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-extended",
+                  "name": "Metamagic Adept: Extended Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.extended",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "heightened-spell",
+              "label": "Heightened Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-heightened",
+                  "name": "Metamagic Adept: Heightened Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.heightened",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "quickened-spell",
+              "label": "Quickened Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-quickened",
+                  "name": "Metamagic Adept: Quickened Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.quickened",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "subtle-spell",
+              "label": "Subtle Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-subtle",
+                  "name": "Metamagic Adept: Subtle Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.subtle",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "twinned-spell",
+              "label": "Twinned Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-adept-twinned",
+                  "name": "Metamagic Adept: Twinned Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.twinned",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
     }
   }
 ]

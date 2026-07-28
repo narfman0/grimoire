@@ -210,7 +210,12 @@
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: Perform the Pact of the Blade ritual (1 hour) to create a melee pact weapon. The weapon counts as magical; its damage type is chosen at creation. When attacking with the pact weapon, use your spellcasting ability modifier instead of STR or DEX for attack and damage rolls. Weapon creation and modifier override are encounter-layer; surfaced as a trait flag.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.pact-of-the-blade", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.pact-of-the-blade",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -225,7 +230,12 @@
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: You can cast Find Familiar as a ritual, choosing from special familiar forms (Imp, Pseudodragon, Quasit, Skeleton, Slaad Tadpole, Sphinx of Wonder, Sprite, Venomous Snake). You can communicate with the familiar telepathically at any range. Familiar summoning is encounter-layer; surfaced as a ritual activity.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.pact-of-the-chain", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.pact-of-the-chain",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "activities": [
         {
@@ -249,7 +259,21 @@
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: Your Book of Shadows contains 3 cantrips from any spell list. You can cast them using CHA. If you lose the book, you can recreate it during a long rest.",
       "choices": {
-        "spell": { "allowedSpells": ["fire-bolt","mage-hand","sacred-flame","eldritch-blast","toll-the-dead","guidance","light","vicious-mockery","shillelagh","prestidigitation"], "pick": 3 }
+        "spell": {
+          "allowedSpells": [
+            "fire-bolt",
+            "mage-hand",
+            "sacred-flame",
+            "eldritch-blast",
+            "toll-the-dead",
+            "guidance",
+            "light",
+            "vicious-mockery",
+            "shillelagh",
+            "prestidigitation"
+          ],
+          "pick": 3
+        }
       }
     }
   },
@@ -264,7 +288,12 @@
       "ownerSlug": "pact-boon",
       "note": "SRD 5.2: When the wearer fails an ability check, they can add 1d4 to the roll. PB uses per long rest. The +1d4 rider on failed checks is encounter-layer; surfaced as a trait flag and resource.",
       "modifiers": [
-        { "kind": "stat-modifier", "target": "trait.pact-of-the-talisman", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "trait.pact-of-the-talisman",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ],
       "activities": [
         {
@@ -272,7 +301,10 @@
           "type": "utility",
           "name": "Talisman (+1d4 to failed check)",
           "cost": "free",
-          "uses": { "max": "proficiencyBonus", "per": "long-rest" },
+          "uses": {
+            "max": "proficiencyBonus",
+            "per": "long-rest"
+          },
           "note": "When wearer fails an ability check, add 1d4 to the roll. PB uses per long rest."
         }
       ]
@@ -306,23 +338,27 @@
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 11,
-      "note": "SRD 5.2: At Warlock 11, choose one 6th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest. You can also cast the spell using a Pact Magic slot if you have one of sufficient level. NOTE: This slug (mystic-arcanum-6) is not yet listed in warlock.json classes features[]; the class JSON will need entries at levels 11, 13, 15, and 17 for the four arcanum tiers.",
-      "choice": {
-        "kind": "mystic-arcanum",
-        "spellLevel": 6,
-        "pick": 1,
-        "from": "warlock-spells-level-6"
-      },
+      "note": "SRD 5.2: At Warlock 11, choose one 6th-level spell from the Warlock spell list as your arcanum. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest. You can also cast the spell using a Pact Magic slot if you have one of sufficient level. NOTE: This slug (mystic-arcanum-6) is not yet listed in warlock.json classes features[]; the class JSON will need entries at levels 11, 13, 15, and 17 for the four arcanum tiers. Pick lives on character.featureChoices['mystic-arcanum-6'].spell.spells; the engine loads the chosen spell row as active content so its cast action is realized. `allowedSpells` is omitted because SRD spell rows carry no reliable `classes` array — the picker filters to warlock spells of level 6.",
       "activities": [
         {
           "id": "mystic-arcanum-6",
           "type": "utility",
           "name": "Mystic Arcanum (6th-level spell)",
           "cost": "action",
-          "uses": { "max": 1, "per": "long-rest" },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Cast your chosen 6th-level arcanum spell without expending a spell slot."
         }
-      ]
+      ],
+      "choices": {
+        "spell": {
+          "label": "Mystic Arcanum (level 6)",
+          "picks": 1,
+          "level": 6
+        }
+      }
     }
   },
   {
@@ -335,23 +371,27 @@
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 13,
-      "note": "SRD 5.2: At Warlock 13, choose one 7th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-13 entry for this slug.",
-      "choice": {
-        "kind": "mystic-arcanum",
-        "spellLevel": 7,
-        "pick": 1,
-        "from": "warlock-spells-level-7"
-      },
+      "note": "SRD 5.2: At Warlock 13, choose one 7th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-13 entry for this slug. Pick lives on character.featureChoices['mystic-arcanum-7'].spell.spells; the engine loads the chosen spell row as active content so its cast action is realized. `allowedSpells` is omitted because SRD spell rows carry no reliable `classes` array — the picker filters to warlock spells of level 7.",
       "activities": [
         {
           "id": "mystic-arcanum-7",
           "type": "utility",
           "name": "Mystic Arcanum (7th-level spell)",
           "cost": "action",
-          "uses": { "max": 1, "per": "long-rest" },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Cast your chosen 7th-level arcanum spell without expending a spell slot."
         }
-      ]
+      ],
+      "choices": {
+        "spell": {
+          "label": "Mystic Arcanum (level 7)",
+          "picks": 1,
+          "level": 7
+        }
+      }
     }
   },
   {
@@ -364,23 +404,27 @@
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 15,
-      "note": "SRD 5.2: At Warlock 15, choose one 8th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-15 entry for this slug.",
-      "choice": {
-        "kind": "mystic-arcanum",
-        "spellLevel": 8,
-        "pick": 1,
-        "from": "warlock-spells-level-8"
-      },
+      "note": "SRD 5.2: At Warlock 15, choose one 8th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-15 entry for this slug. Pick lives on character.featureChoices['mystic-arcanum-8'].spell.spells; the engine loads the chosen spell row as active content so its cast action is realized. `allowedSpells` is omitted because SRD spell rows carry no reliable `classes` array — the picker filters to warlock spells of level 8.",
       "activities": [
         {
           "id": "mystic-arcanum-8",
           "type": "utility",
           "name": "Mystic Arcanum (8th-level spell)",
           "cost": "action",
-          "uses": { "max": 1, "per": "long-rest" },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Cast your chosen 8th-level arcanum spell without expending a spell slot."
         }
-      ]
+      ],
+      "choices": {
+        "spell": {
+          "label": "Mystic Arcanum (level 8)",
+          "picks": 1,
+          "level": 8
+        }
+      }
     }
   },
   {
@@ -393,23 +437,27 @@
       "ownerKind": "class",
       "ownerSlug": "warlock",
       "minLevel": 17,
-      "note": "SRD 5.2: At Warlock 17, choose one 9th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-17 entry for this slug.",
-      "choice": {
-        "kind": "mystic-arcanum",
-        "spellLevel": 9,
-        "pick": 1,
-        "from": "warlock-spells-level-9"
-      },
+      "note": "SRD 5.2: At Warlock 17, choose one 9th-level spell from the Warlock spell list as your arcanum. Cast it once per Long Rest without expending a spell slot. Class JSON will need a level-17 entry for this slug. Pick lives on character.featureChoices['mystic-arcanum-9'].spell.spells; the engine loads the chosen spell row as active content so its cast action is realized. `allowedSpells` is omitted because SRD spell rows carry no reliable `classes` array — the picker filters to warlock spells of level 9.",
       "activities": [
         {
           "id": "mystic-arcanum-9",
           "type": "utility",
           "name": "Mystic Arcanum (9th-level spell)",
           "cost": "action",
-          "uses": { "max": 1, "per": "long-rest" },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Cast your chosen 9th-level arcanum spell without expending a spell slot."
         }
-      ]
+      ],
+      "choices": {
+        "spell": {
+          "label": "Mystic Arcanum (level 9)",
+          "picks": 1,
+          "level": 9
+        }
+      }
     }
   },
   {
@@ -430,7 +478,10 @@
           "name": "Eldritch Master",
           "cost": "free",
           "trigger": "short-rest-completed",
-          "uses": { "max": 1, "per": "long-rest" },
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          },
           "note": "Recover all expended Pact Magic spell slots. Once used, must finish a Long Rest before using again."
         }
       ]

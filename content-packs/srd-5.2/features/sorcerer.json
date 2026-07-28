@@ -140,187 +140,261 @@
       "ownerKind": "class",
       "ownerSlug": "sorcerer",
       "minLevel": 2,
-      "note": "At Sorcerer 2 the sorcerer picks 2 Metamagic options (and may change one on a long rest). Additional picks at Sorcerer 10 (3 total) and Sorcerer 17 (4 total). Each option spends a different number of Sorcery Points when applied to a spell. v0 models each option as a defaultEnabled:false action-modifier toggle that tags the cast; the Sorcery Point cost accounting and the spell-modification mechanics (extra target, no components, ignore resistance, etc.) are NOT simulated — engine extension needed. SRD 5.2 options: Careful, Distant, Empowered, Extended, Heightened, Quickened, Seeking, Subtle, Transmuted, Twinned.",
-      "choice": {
-        "kind": "metamagic",
-        "pick": 2,
-        "from": [
-          "careful-spell",
-          "distant-spell",
-          "empowered-spell",
-          "extended-spell",
-          "heightened-spell",
-          "quickened-spell",
-          "seeking-spell",
-          "subtle-spell",
-          "transmuted-spell",
-          "twinned-spell"
-        ]
-      },
-      "modifiers": [
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-careful",
-          "name": "Metamagic: Careful Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
+      "note": "At Sorcerer 2 the sorcerer picks 2 Metamagic options (and may change one on a long rest); the count rises to 3 at Sorcerer 10 and 4 at Sorcerer 17, expressed as the perClass picks table. Picks live on character.featureChoices['metamagic'].modifierFromChoice.options and only the picked options' toggles are derived. Each option is a defaultEnabled:false action-modifier that tags the cast; the Sorcery Point cost accounting and the spell-modification mechanics (extra target, no components, ignore resistance, etc.) are NOT simulated — engine extension needed.",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Metamagic options",
+          "picks": {
+            "perClass": "sorcerer",
+            "table": [
+              0,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              3,
+              3,
+              3,
+              3,
+              3,
+              3,
+              3,
+              4,
+              4,
+              4,
+              4
+            ]
           },
-          "effects": [
+          "options": [
             {
-              "target": "tag.metamagic.careful",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-distant",
-          "name": "Metamagic: Distant Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "careful-spell",
+              "label": "Careful Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-careful",
+                  "name": "Metamagic: Careful Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.careful",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.distant",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-empowered",
-          "name": "Metamagic: Empowered Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "distant-spell",
+              "label": "Distant Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-distant",
+                  "name": "Metamagic: Distant Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.distant",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.empowered",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-extended",
-          "name": "Metamagic: Extended Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "empowered-spell",
+              "label": "Empowered Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-empowered",
+                  "name": "Metamagic: Empowered Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.empowered",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.extended",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-heightened",
-          "name": "Metamagic: Heightened Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "extended-spell",
+              "label": "Extended Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-extended",
+                  "name": "Metamagic: Extended Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.extended",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.heightened",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-quickened",
-          "name": "Metamagic: Quickened Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "heightened-spell",
+              "label": "Heightened Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-heightened",
+                  "name": "Metamagic: Heightened Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.heightened",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.quickened",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-subtle",
-          "name": "Metamagic: Subtle Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "quickened-spell",
+              "label": "Quickened Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-quickened",
+                  "name": "Metamagic: Quickened Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.quickened",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.subtle",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ]
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-seeking",
-          "name": "Metamagic: Seeking Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "seeking-spell",
+              "label": "Seeking Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-seeking",
+                  "name": "Metamagic: Seeking Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.seeking",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ],
+                  "note": "Cost: 2 Sorcery Points. If you make an attack roll for a spell and miss, you can spend 2 Sorcery Points to reroll the d20, using the new roll. You can use Seeking Spell even if you've already used a Metamagic option during the casting. Engine does not yet support mid-resolution reroll triggers; tag only."
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.seeking",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ],
-          "note": "Cost: 2 Sorcery Points. If you make an attack roll for a spell and miss, you can spend 2 Sorcery Points to reroll the d20, using the new roll. You can use Seeking Spell even if you've already used a Metamagic option during the casting. Engine does not yet support mid-resolution reroll triggers; tag only."
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-transmuted",
-          "name": "Metamagic: Transmuted Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "subtle-spell",
+              "label": "Subtle Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-subtle",
+                  "name": "Metamagic: Subtle Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.subtle",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.transmuted",
-              "mode": "OVERRIDE",
-              "value": true
-            }
-          ],
-          "note": "Cost: 1 Sorcery Point. When you cast a spell that deals a type of damage from the following list, you can spend 1 Sorcery Point to change that damage type to one of the other listed types: Acid, Cold, Fire, Lightning, Poison, Thunder. Engine does not yet swap damage types at resolution; tag only."
-        },
-        {
-          "kind": "action-modifier",
-          "id": "metamagic-twinned",
-          "name": "Metamagic: Twinned Spell",
-          "defaultEnabled": false,
-          "appliesTo": {
-            "activityType": "cast"
-          },
-          "effects": [
+              "id": "transmuted-spell",
+              "label": "Transmuted Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-transmuted",
+                  "name": "Metamagic: Transmuted Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.transmuted",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ],
+                  "note": "Cost: 1 Sorcery Point. When you cast a spell that deals a type of damage from the following list, you can spend 1 Sorcery Point to change that damage type to one of the other listed types: Acid, Cold, Fire, Lightning, Poison, Thunder. Engine does not yet swap damage types at resolution; tag only."
+                }
+              ]
+            },
             {
-              "target": "tag.metamagic.twinned",
-              "mode": "OVERRIDE",
-              "value": true
+              "id": "twinned-spell",
+              "label": "Twinned Spell",
+              "modifiers": [
+                {
+                  "kind": "action-modifier",
+                  "id": "metamagic-twinned",
+                  "name": "Metamagic: Twinned Spell",
+                  "defaultEnabled": false,
+                  "appliesTo": {
+                    "activityType": "cast"
+                  },
+                  "effects": [
+                    {
+                      "target": "tag.metamagic.twinned",
+                      "mode": "OVERRIDE",
+                      "value": true
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
-      ]
+      }
     }
   },
   {

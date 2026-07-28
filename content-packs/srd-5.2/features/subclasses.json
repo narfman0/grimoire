@@ -329,7 +329,7 @@
             "value": 30,
             "units": "ft"
           },
-          "note": "Healing pool = 5 \u00d7 cleric level. Distribute among visible creatures within 30 ft; each creature may only recover up to half its HP maximum from this pool.",
+          "note": "Healing pool = 5 × cleric level. Distribute among visible creatures within 30 ft; each creature may only recover up to half its HP maximum from this pool.",
           "damage": {
             "parts": [
               {
@@ -354,7 +354,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "life-domain",
       "minLevel": 6,
-      "note": "When you cast a spell of level 1+ that restores HP to a creature other than yourself, you also regain HP equal to 2 + the spell's level. v0 surfaces as a tagged action-modifier on heal-typed activities targeting others; the self-heal credit isn't applied automatically \u2014 'self.heal-on-heal-other' is not in the evaluator.",
+      "note": "When you cast a spell of level 1+ that restores HP to a creature other than yourself, you also regain HP equal to 2 + the spell's level. v0 surfaces as a tagged action-modifier on heal-typed activities targeting others; the self-heal credit isn't applied automatically — 'self.heal-on-heal-other' is not in the evaluator.",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -383,7 +383,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "life-domain",
       "minLevel": 17,
-      "note": "When you would normally roll one or more dice to restore hit points with a spell, you instead use the highest number possible for each die. For example, instead of restoring 2d6 hit points to a creature, you restore 12. v0 surfaces as a tagged action-modifier on heal-typed spell casts; the dice-maximization isn't applied automatically \u2014 'damage.die.min' (maximize dice) is not in the evaluator.",
+      "note": "When you would normally roll one or more dice to restore hit points with a spell, you instead use the highest number possible for each die. For example, instead of restoring 2d6 hit points to a creature, you restore 12. v0 surfaces as a tagged action-modifier on heal-typed spell casts; the dice-maximization isn't applied automatically — 'damage.die.min' (maximize dice) is not in the evaluator.",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -412,29 +412,159 @@
       "ownerKind": "subclass",
       "ownerSlug": "circle-of-the-land",
       "minLevel": 3,
-      "note": "You always have the following Druid spells always-prepared (selected from your chosen land's spell list \u2014 Arctic, Coast, Desert, Forest, Grassland, Mountain, Swamp, or Underdark). Choose your land at L3; spells don't count against your prepared limit. v0 surfaces this as a flag + a choice; auto-prep injection isn't wired.",
-      "choice": {
-        "kind": "circle-land",
-        "pick": 1,
-        "from": [
-          "arctic",
-          "coast",
-          "desert",
-          "forest",
-          "grassland",
-          "mountain",
-          "swamp",
-          "underdark"
-        ]
-      },
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.circle-land-spells",
-          "mode": "OVERRIDE",
-          "value": "unset"
+      "note": "Choose your land at L3 (Arctic, Coast, Desert, Forest, Grassland, Mountain, Swamp, or Underdark); the associated circle spells are always prepared and don't count against your prepared limit. The pick is modelled as a modifierFromChoice menu that records the land on trait.circle-land. DATA gap: the eight per-land spell tables are not present in this repo, so the always-prepared spell injection (data.spellListAdditions) cannot be authored without inventing the lists. Second blocker even once the data lands: modifierFromChoice options carry modifiers/activities/triggers/outboundEffects only — there is no per-option spellListAdditions channel, so eight different always-prepared sets would need eight sub-feature rows behind a choices.feature slot AND a deferred-ref pass that collects spellListAdditions (derive() collects them from the phase-1 active set only).",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Land type",
+          "picks": 1,
+          "options": [
+            {
+              "id": "arctic",
+              "label": "Arctic",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "arctic"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-arctic",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "coast",
+              "label": "Coast",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "coast"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-coast",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "desert",
+              "label": "Desert",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "desert"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-desert",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "forest",
+              "label": "Forest",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "forest"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-forest",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "grassland",
+              "label": "Grassland",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "grassland"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-grassland",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "mountain",
+              "label": "Mountain",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "mountain"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-mountain",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "swamp",
+              "label": "Swamp",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "swamp"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-swamp",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "underdark",
+              "label": "Underdark",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land",
+                  "mode": "OVERRIDE",
+                  "value": "underdark"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.circle-land-underdark",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            }
+          ]
         }
-      ]
+      }
     }
   },
   {
@@ -446,7 +576,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "circle-of-the-land",
       "minLevel": 3,
-      "note": "Magic action, expend Wild Shape use. CON save (Spell DC). Failure: 2d6 necrotic (half on success). Also heal selected creatures 2d6. Scales by druid level: L10\u21923d6, L14\u21924d6, L17\u21925d6. Dice expressed via perClass druid table.",
+      "note": "Magic action, expend Wild Shape use. CON save (Spell DC). Failure: 2d6 necrotic (half on success). Also heal selected creatures 2d6. Scales by druid level: L10→3d6, L14→4d6, L17→5d6. Dice expressed via perClass druid table.",
       "activities": [
         {
           "id": "lands-aid",
@@ -653,7 +783,7 @@
           "value": "walkSpeed"
         }
       ],
-      "note": "When you roll Initiative, add your Strength modifier to the roll. You also have a Climb Speed and Swim Speed equal to your Speed (dynamically equals walkSpeed via evaluateValue). When you make a running long jump, add your STR modifier to the distance \u2014 jump math is not modelled in v0."
+      "note": "When you roll Initiative, add your Strength modifier to the roll. You also have a Climb Speed and Swim Speed equal to your Speed (dynamically equals walkSpeed via evaluateValue). When you make a running long jump, add your STR modifier to the distance — jump math is not modelled in v0."
     }
   },
   {
@@ -665,22 +795,24 @@
       "ownerKind": "subclass",
       "ownerSlug": "champion",
       "minLevel": 10,
-      "note": "You can choose a second option from the Fighting Style class feature. v0 surfaces the choice; picks live on character.classes[].choices.additionalFightingStyle.",
-      "choice": {
-        "kind": "fighting-style",
-        "pick": 1,
-        "from": [
-          "fighting-style-defense",
-          "fighting-style-dueling",
-          "fighting-style-great-weapon-fighting",
-          "fighting-style-archery",
-          "fighting-style-two-weapon-fighting",
-          "fighting-style-protection",
-          "fighting-style-blind-fighting",
-          "fighting-style-interception",
-          "fighting-style-thrown-weapon-fighting",
-          "fighting-style-unarmed-fighting"
-        ]
+      "note": "You can choose a second option from the Fighting Style class feature. The pick is stored in character.featureChoices['additional-fighting-style'].feature.feature; the engine loads the chosen fighting-style feature row and derives its modifiers.",
+      "choices": {
+        "feature": {
+          "picks": 1,
+          "category": "Fighting Style",
+          "allowedFeatures": [
+            "fighting-style-defense",
+            "fighting-style-dueling",
+            "fighting-style-great-weapon-fighting",
+            "fighting-style-archery",
+            "fighting-style-two-weapon-fighting",
+            "fighting-style-protection",
+            "fighting-style-blind-fighting",
+            "fighting-style-interception",
+            "fighting-style-thrown-weapon-fighting",
+            "fighting-style-unarmed-fighting"
+          ]
+        }
       }
     }
   },
@@ -701,7 +833,7 @@
           "value": 18
         }
       ],
-      "note": "Your weapon attacks now score a critical hit on a roll of 18\u201320. This supersedes Improved Critical (19-20) gained at L3."
+      "note": "Your weapon attacks now score a critical hit on a roll of 18–20. This supersedes Improved Critical (19-20) gained at L3."
     }
   },
   {
@@ -765,7 +897,7 @@
               }
             ]
           },
-          "note": "Costs 3 Focus Points per use \u2014 player must deduct from their focus pool manually."
+          "note": "Costs 3 Focus Points per use — player must deduct from their focus pool manually."
         }
       ]
     }
@@ -799,7 +931,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "way-of-the-open-hand",
       "minLevel": 17,
-      "note": "When you hit a creature with an unarmed strike, you can spend 4 Focus Points to start imperceptible vibrations in the target's body. The vibrations last for a number of days equal to your monk level. The vibrations are harmless unless you use your action to end them \u2014 at that point the target must make a CON saving throw (Focus Save DC). On a failed save the target drops to 0 HP. On a success the target takes 10d10 necrotic damage. You can have only one creature under this effect at a time. v0 surfaces as a tagged utility activity; CON save resolution is handled by the DM.",
+      "note": "When you hit a creature with an unarmed strike, you can spend 4 Focus Points to start imperceptible vibrations in the target's body. The vibrations last for a number of days equal to your monk level. The vibrations are harmless unless you use your action to end them — at that point the target must make a CON saving throw (Focus Save DC). On a failed save the target drops to 0 HP. On a success the target takes 10d10 necrotic damage. You can have only one creature under this effect at a time. v0 surfaces as a tagged utility activity; CON save resolution is handled by the DM.",
       "activities": [
         {
           "id": "quivering-palm-activate",
@@ -871,7 +1003,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "oath-of-devotion",
       "minLevel": 3,
-      "note": "As a Bonus Action, expend a use of Channel Divinity to imbue one weapon you're holding with positive energy for 1 minute. For the duration, attacks with the weapon gain a bonus to attack rolls equal to your CHA modifier (minimum +1), and the weapon emits bright light in a 20-ft radius and dim light 20 ft beyond that. The attack bonus applies to attack rolls only \u2014 Sacred Weapon does not grant extra damage. Consumes a Channel Divinity use from the paladin class row.",
+      "note": "As a Bonus Action, expend a use of Channel Divinity to imbue one weapon you're holding with positive energy for 1 minute. For the duration, attacks with the weapon gain a bonus to attack rolls equal to your CHA modifier (minimum +1), and the weapon emits bright light in a 20-ft radius and dim light 20 ft beyond that. The attack bonus applies to attack rolls only — Sacred Weapon does not grant extra damage. Consumes a Channel Divinity use from the paladin class row.",
       "activities": [
         {
           "id": "channel-divinity-sacred-weapon",
@@ -960,7 +1092,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "oath-of-devotion",
       "minLevel": 6,
-      "note": "You and allies within 10 ft are immune to Charmed (expanded to 30 ft at L18 via class Aura Expansion). Aura suppressed while Incapacitated \u2014 engine cannot gate outboundEffects on !condition, so that edge case requires manual handling.",
+      "note": "You and allies within 10 ft are immune to Charmed (expanded to 30 ft at L18 via class Aura Expansion). Aura suppressed while Incapacitated — engine cannot gate outboundEffects on !condition, so that edge case requires manual handling.",
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -1041,7 +1173,7 @@
       "ownerKind": "feature",
       "ownerSlug": "hunters-prey",
       "minLevel": 3,
-      "note": "Once per turn when you hit a creature with a weapon and the target is below its HP maximum, deal an extra 1d8 damage of the weapon's type. Engine cannot check target HP \u2014 player enables toggle only when applicable. Fixed: weapon.classification (invalid, now attack.classification) and damage.bonus string (now damage.dice).",
+      "note": "Once per turn when you hit a creature with a weapon and the target is below its HP maximum, deal an extra 1d8 damage of the weapon's type. Engine cannot check target HP — player enables toggle only when applicable. Fixed: weapon.classification (invalid, now attack.classification) and damage.bonus string (now damage.dice).",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -1162,38 +1294,58 @@
       "ownerKind": "subclass",
       "ownerSlug": "hunter",
       "minLevel": 7,
-      "note": "Choose one of the following at L7 (pick lives on character.classes[].choices.defensiveTactics):\n\u2022 Escape the Horde: Opportunity attacks against you are made with Disadvantage.\n\u2022 Multiattack Defense: When a creature hits you with an attack, you gain +4 to AC against all subsequent attacks made by that creature for the rest of the turn.\n\u2022 Steel Will: You have Advantage on saving throws against the Frightened condition.\nv0 implements Escape the Horde and Steel Will as stat-modifiers; Multiattack Defense is a trigger-based effect that can't be fully expressed in the evaluator.",
-      "choice": {
-        "kind": "defensive-tactics",
-        "pick": 1,
-        "from": [
-          "escape-the-horde",
-          "multiattack-defense",
-          "steel-will"
-        ]
-      },
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "tag.escape-the-horde",
-          "mode": "OVERRIDE",
-          "value": true,
-          "note": "Opportunity attacks against you are made with Disadvantage. Not a supported target in the evaluator \u2014 surfaced as a tag."
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "save.advantage.vs-condition.frightened",
-          "mode": "OVERRIDE",
-          "value": true
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "tag.multiattack-defense",
-          "mode": "OVERRIDE",
-          "value": true,
-          "note": "Multiattack Defense: +4 AC vs. subsequent attacks from the same attacker this turn. Not expressible in the evaluator \u2014 surfaced as a tag."
+      "note": "Choose one of the following at L7; the pick lives on character.featureChoices['defensive-tactics'].modifierFromChoice and only the chosen option's payload is derived.\n• Escape the Horde: Opportunity attacks against you are made with Disadvantage — attacked.disadvantage narrowed by the adjudicated `opportunity-attack` circumstance, so it rides a player toggle rather than applying to every incoming attack.\n• Multiattack Defense: +4 AC against all subsequent attacks from a creature that hit you this turn. No TriggerGrant expresses a scoped AC bump, so it stays a tag.\n• Steel Will: Advantage on saving throws against the Frightened condition.",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Defensive Tactics",
+          "picks": 1,
+          "options": [
+            {
+              "id": "escape-the-horde",
+              "label": "Escape the Horde (Opportunity Attacks against you have Disadvantage)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "name": "Escape the Horde",
+                  "target": "attacked.disadvantage",
+                  "mode": "OVERRIDE",
+                  "value": true,
+                  "appliesWhen": {
+                    "circumstances": [
+                      "opportunity-attack"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "multiattack-defense",
+              "label": "Multiattack Defense (+4 AC vs. subsequent attacks from the same attacker this turn)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "tag.multiattack-defense",
+                  "mode": "OVERRIDE",
+                  "value": true,
+                  "note": "Multiattack Defense: +4 AC vs. subsequent attacks from the same attacker this turn. No TriggerGrant expresses a scoped AC bump — surfaced as a tag."
+                }
+              ]
+            },
+            {
+              "id": "steel-will",
+              "label": "Steel Will (Advantage on saves against Frightened)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "save.advantage.vs-condition.frightened",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            }
+          ]
         }
-      ]
+      }
     }
   },
   {
@@ -1205,39 +1357,49 @@
       "ownerKind": "subclass",
       "ownerSlug": "hunter",
       "minLevel": 11,
-      "note": "Choose one of the following at L11 (pick lives on character.classes[].choices.hunterMultiattack):\n\u2022 Volley: As an action, make ranged attacks against any number of creatures within 10 ft of a point you can see within your ranged weapon's range. You make a separate attack roll for each target, using the same ammunition or thrown weapon for all attacks.\n\u2022 Whirlwind Attack: As an action, make melee attacks against any number of creatures within 5 ft of you, with a separate attack roll for each target.\nv0 surfaces both as action attack activities; target selection is left to play.",
-      "choice": {
-        "kind": "hunter-multiattack",
-        "pick": 1,
-        "from": [
-          "volley",
-          "whirlwind-attack"
-        ]
-      },
-      "activities": [
-        {
-          "id": "volley",
-          "type": "attack",
-          "name": "Volley",
-          "cost": "action",
-          "range": {
-            "value": "weapon",
-            "units": "special"
-          },
-          "note": "Ranged attack against any number of targets within 10 ft of a chosen point within your ranged weapon's range. Separate attack roll per target."
-        },
-        {
-          "id": "whirlwind-attack",
-          "type": "attack",
-          "name": "Whirlwind Attack",
-          "cost": "action",
-          "range": {
-            "value": 5,
-            "units": "ft"
-          },
-          "note": "Melee attack against any number of targets within 5 ft. Separate attack roll per target."
+      "note": "Choose one of the following at L11; the pick lives on character.featureChoices['hunter-multiattack'].modifierFromChoice and only the chosen option's attack activity is realized.\n• Volley: As an action, make ranged attacks against any number of creatures within 10 ft of a point you can see within your ranged weapon's range. Separate attack roll per target, same ammunition or thrown weapon for all.\n• Whirlwind Attack: As an action, make melee attacks against any number of creatures within 5 ft of you, with a separate attack roll for each target.\nTarget selection is left to play (the engine has no position model).",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Multiattack",
+          "picks": 1,
+          "options": [
+            {
+              "id": "volley",
+              "label": "Volley (ranged attacks against any number of targets near a point)",
+              "activities": [
+                {
+                  "id": "volley",
+                  "type": "attack",
+                  "name": "Volley",
+                  "cost": "action",
+                  "range": {
+                    "value": "weapon",
+                    "units": "special"
+                  },
+                  "note": "Ranged attack against any number of targets within 10 ft of a chosen point within your ranged weapon's range. Separate attack roll per target."
+                }
+              ]
+            },
+            {
+              "id": "whirlwind-attack",
+              "label": "Whirlwind Attack (melee attacks against any number of targets within 5 ft)",
+              "activities": [
+                {
+                  "id": "whirlwind-attack",
+                  "type": "attack",
+                  "name": "Whirlwind Attack",
+                  "cost": "action",
+                  "range": {
+                    "value": 5,
+                    "units": "ft"
+                  },
+                  "note": "Melee attack against any number of targets within 5 ft. Separate attack roll per target."
+                }
+              ]
+            }
+          ]
         }
-      ]
+      }
     }
   },
   {
@@ -1249,39 +1411,67 @@
       "ownerKind": "subclass",
       "ownerSlug": "hunter",
       "minLevel": 15,
-      "note": "Choose one of the following at L15 (pick lives on character.classes[].choices.superiorHuntersDefense):\n\u2022 Evasion: When you are subjected to an effect that allows a DEX saving throw to take only half damage, you instead take no damage on a success and only half on a failure.\n\u2022 Stand Against the Tide: When a hostile creature misses you with a melee attack, you can use your reaction to force the creature to repeat the attack against another creature of your choice (other than itself) within the attacker's reach.\n\u2022 Uncanny Dodge: When an attacker you can see hits you with an attack roll, use your reaction to halve the damage (already on rogue at L5 \u2014 this provides it to rangers at L15).\nv0 surfaces Evasion as a tag (evaluator can't express the full DEX save flip); Stand Against the Tide as a trigger tag; Uncanny Dodge as a tag.",
-      "choice": {
-        "kind": "superior-hunters-defense",
-        "pick": 1,
-        "from": [
-          "evasion",
-          "stand-against-the-tide",
-          "uncanny-dodge"
-        ]
-      },
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "tag.hunter-evasion",
-          "mode": "OVERRIDE",
-          "value": true,
-          "note": "Evasion: no damage on successful DEX save, half on failure. Not expressible in the evaluator \u2014 surfaced as a tag."
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "tag.stand-against-the-tide",
-          "mode": "OVERRIDE",
-          "value": true,
-          "note": "Stand Against the Tide: redirect missed attack to another creature within attacker's reach. Not expressible in the evaluator."
-        },
-        {
-          "kind": "stat-modifier",
-          "target": "tag.hunter-uncanny-dodge",
-          "mode": "OVERRIDE",
-          "value": true,
-          "note": "Uncanny Dodge: halve damage from a seen attacker as a reaction. Not expressible in the evaluator."
+      "note": "Choose one of the following at L15; the pick lives on character.featureChoices['superior-hunters-defense'].modifierFromChoice and only the chosen option's payload is derived.\n• Evasion: A DEX save for half damage instead deals none on a success and half on a failure. The evaluator has no save-outcome rewrite — tag only.\n• Stand Against the Tide: Reaction on a missed melee attack, redirecting it at another creature. Blocked twice over: KNOWN_TRIGGER_EVENTS has no `attack.targets-self.miss`, and no TriggerGrant re-aims an attack — tag only.\n• Uncanny Dodge: Reaction to halve the damage of a hit from an attacker you can see (mirrors the rogue L5 declaration).",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Superior Hunter's Defense",
+          "picks": 1,
+          "options": [
+            {
+              "id": "evasion",
+              "label": "Evasion (DEX save for half becomes none/half)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.evasion",
+                  "mode": "OVERRIDE",
+                  "value": true,
+                  "note": "Evasion: no damage on successful DEX save, half on failure. The evaluator has no save-outcome rewrite — surfaced as the same trait.evasion capability flag the rogue L7 row sets."
+                }
+              ]
+            },
+            {
+              "id": "stand-against-the-tide",
+              "label": "Stand Against the Tide (redirect a missed melee attack)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "tag.stand-against-the-tide",
+                  "mode": "OVERRIDE",
+                  "value": true,
+                  "note": "Stand Against the Tide: redirect missed attack to another creature within attacker's reach. No `attack.targets-self.miss` event and no re-aim grant — surfaced as a tag."
+                }
+              ]
+            },
+            {
+              "id": "uncanny-dodge",
+              "label": "Uncanny Dodge (reaction to halve a hit's damage)",
+              "modifiers": [],
+              "triggers": [
+                {
+                  "kind": "trigger",
+                  "id": "hunter-uncanny-dodge",
+                  "name": "Uncanny Dodge",
+                  "on": [
+                    "attack.targets-self.hit"
+                  ],
+                  "scope": {
+                    "predicates": [
+                      {
+                        "attack.attacker.visible": true
+                      }
+                    ]
+                  },
+                  "grants": {
+                    "effect": "damage.halve-incoming",
+                    "cost": "reaction"
+                  }
+                }
+              ]
+            }
+          ]
         }
-      ]
+      }
     }
   },
   {
@@ -1293,7 +1483,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "thief",
       "minLevel": 3,
-      "note": "You can use the bonus action granted by Cunning Action to take the Utilize action, to make a Sleight of Hand check, or to use Thieves' Tools to disarm a trap or pick a lock. v0 surfaces this as a tagged trait \u2014 the underlying bonus-action grant is on the rogue Cunning Action feature row.",
+      "note": "You can use the bonus action granted by Cunning Action to take the Utilize action, to make a Sleight of Hand check, or to use Thieves' Tools to disarm a trap or pick a lock. v0 surfaces this as a tagged trait — the underlying bonus-action grant is on the rogue Cunning Action feature row.",
       "modifiers": [
         {
           "kind": "stat-modifier",
@@ -1327,7 +1517,7 @@
           "value": true
         }
       ],
-      "note": "You gain a Climb Speed equal to your Speed (dynamically equals walkSpeed via evaluateValue). When you make a running jump, your jump distance increases by your DEX modifier \u2014 jump math is not modelled in v0."
+      "note": "You gain a Climb Speed equal to your Speed (dynamically equals walkSpeed via evaluateValue). When you make a running jump, your jump distance increases by your DEX modifier — jump math is not modelled in v0."
     }
   },
   {
@@ -1354,7 +1544,7 @@
           "target": "tag.supreme-sneak-stealth-advantage",
           "mode": "OVERRIDE",
           "value": true,
-          "note": "Advantage on Stealth checks when moving no more than half Speed this turn. Conditional advantage isn't expressible in the evaluator \u2014 surfaced as a tag."
+          "note": "Advantage on Stealth checks when moving no more than half Speed this turn. Conditional advantage isn't expressible in the evaluator — surfaced as a tag."
         }
       ]
     }
@@ -1395,7 +1585,7 @@
           "target": "tag.thiefs-reflexes",
           "mode": "OVERRIDE",
           "value": true,
-          "note": "Two turns in the first round of combat (first at normal initiative, second at initiative \u2212 10). Multi-turn initiative logic isn't expressible in the evaluator \u2014 surfaced as a tag."
+          "note": "Two turns in the first round of combat (first at normal initiative, second at initiative − 10). Multi-turn initiative logic isn't expressible in the evaluator — surfaced as a tag."
         }
       ]
     }
@@ -1441,22 +1631,194 @@
       "ownerKind": "subclass",
       "ownerSlug": "draconic-sorcery",
       "minLevel": 3,
-      "note": "Choose a dragon type at L3 (black: acid; blue: lightning; brass: fire; bronze: lightning; copper: acid; gold: fire; green: poison; red: fire; silver: cold; white: cold). You gain the ability to speak, read, and write Draconic. The chosen dragon's damage type governs Elemental Affinity (L6) and Dragon Wings (L14). Pick lives on character.classes[].choices.dragonAncestry.",
-      "choice": {
-        "kind": "dragon-ancestry",
-        "pick": 1,
-        "from": [
-          "black",
-          "blue",
-          "brass",
-          "bronze",
-          "copper",
-          "gold",
-          "green",
-          "red",
-          "silver",
-          "white"
-        ]
+      "note": "Choose a dragon type at L3 (black: acid; blue: lightning; brass: fire; bronze: lightning; copper: acid; gold: fire; green: poison; red: fire; silver: cold; white: cold). Every ancestry grants Draconic, so that modifier stays on the row; the pick lives on character.featureChoices['dragon-ancestry'].modifierFromChoice and records the ancestry's damage type on trait.draconic-damage-type, which Elemental Affinity (L6) and Dragon Wings (L14) read.",
+      "choices": {
+        "modifierFromChoice": {
+          "label": "Dragon Ancestry",
+          "picks": 1,
+          "options": [
+            {
+              "id": "black",
+              "label": "Black (acid)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "acid"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-black",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "blue",
+              "label": "Blue (lightning)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "lightning"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-blue",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "brass",
+              "label": "Brass (fire)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "fire"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-brass",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "bronze",
+              "label": "Bronze (lightning)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "lightning"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-bronze",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "copper",
+              "label": "Copper (acid)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "acid"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-copper",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "gold",
+              "label": "Gold (fire)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "fire"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-gold",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "green",
+              "label": "Green (poison)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "poison"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-green",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "red",
+              "label": "Red (fire)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "fire"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-red",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "silver",
+              "label": "Silver (cold)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "cold"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-silver",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "white",
+              "label": "White (cold)",
+              "modifiers": [
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.draconic-damage-type",
+                  "mode": "OVERRIDE",
+                  "value": "cold"
+                },
+                {
+                  "kind": "stat-modifier",
+                  "target": "trait.dragon-ancestry-white",
+                  "mode": "OVERRIDE",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        }
       },
       "modifiers": [
         {
@@ -1477,7 +1839,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "draconic-sorcery",
       "minLevel": 6,
-      "note": "Toggle is off by default \u2014 player enables it when casting a spell of their ancestry's damage type. The ancestry-type predicate (damage.type.matches-dragon-ancestry) was removed as it has no evaluator support; player management is the correct v0 pattern. The CHA-mod damage bonus resolves correctly via evaluateValue(chaMod). Resistance must be wired separately at character-build time (trait.elemental-affinity-resistance is a flag; actual resistance added via the draconic-ancestry sub-feature).",
+      "note": "Toggle is off by default — player enables it when casting a spell of their ancestry's damage type. The ancestry-type predicate (damage.type.matches-dragon-ancestry) was removed as it has no evaluator support; player management is the correct v0 pattern. The CHA-mod damage bonus resolves correctly via evaluateValue(chaMod). Resistance must be wired separately at character-build time (trait.elemental-affinity-resistance is a flag; actual resistance added via the draconic-ancestry sub-feature).",
       "modifiers": [
         {
           "kind": "action-modifier",
@@ -1763,11 +2125,12 @@
       "ownerKind": "subclass",
       "ownerSlug": "evocation",
       "minLevel": 3,
-      "note": "When you adopt this subclass at L3, you gain two free Evocation spells of your choice from the Wizard spell list, added to your spellbook. Whenever you gain a Wizard level after L3, you can add one Evocation spell to your spellbook for free (no gold cost). v0 surfaces the L3 picks as a choice; ongoing per-level bonus picks aren't tracked.",
-      "choice": {
-        "kind": "spell",
-        "pick": 2,
-        "from": "wizard-evocation"
+      "note": "When you adopt this subclass at L3, you gain two free Evocation spells of your choice from the Wizard spell list, added to your spellbook. Picks live on character.featureChoices['evocation-savant'].spell.spells and the engine loads each picked spell row as active content. `allowedSpells` is deliberately omitted: most SRD spell rows carry no `classes` array, so a school+class allow-list would be wrong rather than restrictive — the picker filters by school/class. Ongoing per-level bonus picks after L3 aren't tracked.",
+      "choices": {
+        "spell": {
+          "label": "Evocation spell (Wizard list)",
+          "picks": 2
+        }
       }
     }
   },
@@ -1884,7 +2247,7 @@
       "ownerKind": "subclass",
       "ownerSlug": "evocation",
       "minLevel": 14,
-      "note": "When you cast a Wizard spell of level 1\u20135 that deals damage, you can deal maximum damage with that spell \u2014 even if it normally allows a saving throw for half damage. The first time you do so, you suffer no ill effect. If you use this feature again before finishing a Long Rest, you take 2d12 necrotic damage per level of the spell, immediately after casting it. Each additional use before a long rest adds another 2d12 necrotic per spell level (so second time: 2d12\u00d7level, third time: 4d12\u00d7level, etc.). v0 surfaces as a tagged action-modifier on Wizard evocation casts of level 1\u20135; the self-damage escalation is tracked by the player.",
+      "note": "When you cast a Wizard spell of level 1–5 that deals damage, you can deal maximum damage with that spell — even if it normally allows a saving throw for half damage. The first time you do so, you suffer no ill effect. If you use this feature again before finishing a Long Rest, you take 2d12 necrotic damage per level of the spell, immediately after casting it. Each additional use before a long rest adds another 2d12 necrotic per spell level (so second time: 2d12×level, third time: 4d12×level, etc.). v0 surfaces as a tagged action-modifier on Wizard evocation casts of level 1–5; the self-damage escalation is tracked by the player.",
       "modifiers": [
         {
           "kind": "action-modifier",

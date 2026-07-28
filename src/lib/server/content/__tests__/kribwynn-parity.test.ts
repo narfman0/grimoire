@@ -133,17 +133,26 @@ describe('Kribwynn content parity (Sorcerer 9 / Divine Soul / Aasimar)', () => {
       expect(sp!.value).toBe(2);
     });
 
+    // The pick must be declared under `data.choices` (plural) — the record
+    // of slot-name → declaration derive() actually reads. The row used to
+    // carry a `data.choice` (singular) block, an older single-declaration
+    // schema no code path consumes, so the feat offered no picker at all.
     it('grants 2 metamagic picks from the standard list', async () => {
       const row = await getRow('metamagic-adept', 'feat');
       const data = row!.data as Record<string, unknown>;
-      const choice = data.choice as Record<string, unknown>;
-      expect(choice.kind).toBe('metamagic');
-      expect(choice.pick).toBe(2);
-      const from = choice.from as string[];
-      expect(from).toContain('quickened-spell');
-      expect(from).toContain('twinned-spell');
-      expect(from).toContain('extended-spell');
-      expect(from).toContain('heightened-spell');
+      expect(data.choice).toBeUndefined();
+      const choices = data.choices as Record<string, Record<string, unknown>>;
+      const menu = choices.modifierFromChoice;
+      expect(menu).toBeDefined();
+      expect(menu.picks).toBe(2);
+      const options = menu.options as Array<{ id: string; modifiers?: unknown[] }>;
+      const ids = options.map((o) => o.id);
+      expect(ids).toContain('quickened-spell');
+      expect(ids).toContain('twinned-spell');
+      expect(ids).toContain('extended-spell');
+      expect(ids).toContain('heightened-spell');
+      // Every option must carry a payload, or the menu synthesizes nothing.
+      for (const o of options) expect(o.modifiers?.length ?? 0).toBeGreaterThan(0);
     });
   });
 

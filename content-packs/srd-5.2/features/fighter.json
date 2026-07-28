@@ -9,22 +9,24 @@
       "ownerKind": "class",
       "ownerSlug": "fighter",
       "minLevel": 1,
-      "note": "Choose one Fighting Style. The chosen style is a separate `kind:feature` row; the engine pulls it in via character.classes[].choices.fightingStyle. v0 surfaces the choice; the picked style's modifiers apply automatically.",
-      "choice": {
-        "kind": "fighting-style",
-        "pick": 1,
-        "from": [
-          "fighting-style-defense",
-          "fighting-style-dueling",
-          "fighting-style-great-weapon-fighting",
-          "fighting-style-archery",
-          "fighting-style-two-weapon-fighting",
-          "fighting-style-protection",
-          "fighting-style-blind-fighting",
-          "fighting-style-interception",
-          "fighting-style-thrown-weapon-fighting",
-          "fighting-style-unarmed-fighting"
-        ]
+      "note": "Choose one Fighting Style. The chosen style is a separate `kind:feature` row; the pick is stored in character.featureChoices['fighting-style-fighter'].feature.feature and the engine loads that row so its modifiers derive normally.",
+      "choices": {
+        "feature": {
+          "picks": 1,
+          "category": "Fighting Style",
+          "allowedFeatures": [
+            "fighting-style-defense",
+            "fighting-style-dueling",
+            "fighting-style-great-weapon-fighting",
+            "fighting-style-archery",
+            "fighting-style-two-weapon-fighting",
+            "fighting-style-protection",
+            "fighting-style-blind-fighting",
+            "fighting-style-interception",
+            "fighting-style-thrown-weapon-fighting",
+            "fighting-style-unarmed-fighting"
+          ]
+        }
       }
     }
   },

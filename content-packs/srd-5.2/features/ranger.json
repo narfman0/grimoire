@@ -100,18 +100,20 @@
       "ownerKind": "class",
       "ownerSlug": "ranger",
       "minLevel": 2,
-      "note": "At Ranger 2 the ranger gains a fighting style feat. The 2024 SRD options for ranger are Archery, Blind Fighting, Defense, Druidic Warrior, Thrown Weapon Fighting, and Two-Weapon Fighting. v0 stores the choice; effects are emitted by the chosen fighting-style feat row.",
-      "choice": {
-        "kind": "fighting-style",
-        "pick": 1,
-        "from": [
-          "fighting-style-archery",
-          "fighting-style-blind-fighting",
-          "fighting-style-defense",
-          "fighting-style-druidic-warrior",
-          "fighting-style-thrown-weapon-fighting",
-          "fighting-style-two-weapon-fighting"
-        ]
+      "note": "At Ranger 2 the ranger gains a Fighting Style. The 2024 SRD options for ranger are Archery, Blind Fighting, Defense, Druidic Warrior, Thrown Weapon Fighting, and Two-Weapon Fighting. The pick is stored in character.featureChoices['fighting-style-ranger'].feature.feature and the engine loads the chosen fighting-style feature row so its effects derive normally.",
+      "choices": {
+        "feature": {
+          "picks": 1,
+          "category": "Fighting Style",
+          "allowedFeatures": [
+            "fighting-style-archery",
+            "fighting-style-blind-fighting",
+            "fighting-style-defense",
+            "fighting-style-druidic-warrior",
+            "fighting-style-thrown-weapon-fighting",
+            "fighting-style-two-weapon-fighting"
+          ]
+        }
       }
     }
   },

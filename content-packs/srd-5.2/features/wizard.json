@@ -10,7 +10,12 @@
       "ownerSlug": "wizard",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ability", "mode": "OVERRIDE", "value": "int" }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ability",
+          "mode": "OVERRIDE",
+          "value": "int"
+        }
       ]
     }
   },
@@ -25,7 +30,12 @@
       "ownerSlug": "wizard",
       "minLevel": 1,
       "modifiers": [
-        { "kind": "stat-modifier", "target": "spellcasting.ritual-without-prep", "mode": "OVERRIDE", "value": true }
+        {
+          "kind": "stat-modifier",
+          "target": "spellcasting.ritual-without-prep",
+          "mode": "OVERRIDE",
+          "value": true
+        }
       ]
     }
   },
@@ -47,7 +57,10 @@
           "name": "Arcane Recovery",
           "cost": "free",
           "trigger": "short-rest-completed",
-          "uses": { "max": 1, "per": "long-rest" }
+          "uses": {
+            "max": 1,
+            "per": "long-rest"
+          }
         }
       ]
     }
@@ -65,7 +78,14 @@
       "note": "Choose one skill from Arcana, History, Investigation, Medicine, Nature, or Religion in which you have proficiency. You gain Expertise in that skill (doubled proficiency bonus). Engine emits expertise.skill.<slug> from choices.expertise pick.",
       "choices": {
         "expertise": {
-          "allowedSkills": ["arcana", "history", "investigation", "medicine", "nature", "religion"]
+          "allowedSkills": [
+            "arcana",
+            "history",
+            "investigation",
+            "medicine",
+            "nature",
+            "religion"
+          ]
         }
       }
     }
@@ -123,8 +143,16 @@
       "choice": {
         "kind": "spell-mastery",
         "slots": [
-          { "level": 1, "pick": 1, "from": "wizard-spells-level-1" },
-          { "level": 2, "pick": 1, "from": "wizard-spells-level-2" }
+          {
+            "level": 1,
+            "pick": 1,
+            "from": "wizard-spells-level-1"
+          },
+          {
+            "level": 2,
+            "pick": 1,
+            "from": "wizard-spells-level-2"
+          }
         ]
       },
       "modifiers": [
@@ -147,19 +175,17 @@
       "ownerKind": "class",
       "ownerSlug": "wizard",
       "minLevel": 20,
-      "note": "SRD 5.2: Choose two 3rd-level Wizard spells in your spellbook as your signature spells. You always have these spells prepared, they don't count against the number of spells you can prepare, and you can cast each of them once without expending a spell slot. When you do so, you can't cast them in this way again until you finish a Short Rest. You can also cast them normally using a spell slot. Modelled as a choice of two 3rd-level spells plus two activities (one per signature spell slot) with 1/short-rest uses. The engine does not yet suppress slot consumption for specific prepared spells; activities track the free uses only.",
-      "choice": {
-        "kind": "signature-spells",
-        "pick": 2,
-        "from": "wizard-spells-level-3"
-      },
+      "note": "SRD 5.2: Choose two 3rd-level Wizard spells in your spellbook as your signature spells. You always have these spells prepared, they don't count against the number of spells you can prepare, and you can cast each of them once without expending a spell slot. When you do so, you can't cast them in this way again until you finish a Short Rest. You can also cast them normally using a spell slot. Modelled as a choice of two 3rd-level spells plus two activities (one per signature spell slot) with 1/short-rest uses. The engine does not yet suppress slot consumption for specific prepared spells; activities track the free uses only. Picks live on character.featureChoices['signature-spells'].spell.spells; the engine loads each chosen spell row as active content. `allowedSpells` is omitted because SRD spell rows carry no reliable `classes` array — the picker filters to level-3 wizard spells. The free once-per-rest casting at level 3 without expending a slot is not modelled (no freeCasts channel keyed to a player-chosen spell).",
       "activities": [
         {
           "id": "signature-spell-1",
           "type": "utility",
           "name": "Signature Spell (slot 1)",
           "cost": "free",
-          "uses": { "max": 1, "per": "short-rest" },
+          "uses": {
+            "max": 1,
+            "per": "short-rest"
+          },
           "note": "Free cast of your first chosen 3rd-level signature spell."
         },
         {
@@ -167,10 +193,20 @@
           "type": "utility",
           "name": "Signature Spell (slot 2)",
           "cost": "free",
-          "uses": { "max": 1, "per": "short-rest" },
+          "uses": {
+            "max": 1,
+            "per": "short-rest"
+          },
           "note": "Free cast of your second chosen 3rd-level signature spell."
         }
-      ]
+      ],
+      "choices": {
+        "spell": {
+          "label": "Signature Spell (level 3)",
+          "picks": 2,
+          "level": 3
+        }
+      }
     }
   }
 ]

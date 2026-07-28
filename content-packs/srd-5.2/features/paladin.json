@@ -110,18 +110,20 @@
       "ownerSlug": "paladin",
       "minLevel": 2,
       "note": "Choose one Fighting Style. Paladin's available styles in SRD 5.2: Blessed Warrior, Blind Fighting, Defense, Dueling, Great Weapon Fighting, Interception, Protection. Defense/Dueling/Great Weapon Fighting/Blind Fighting/Interception/Protection rows live in features/fighter.json; Blessed Warrior is paladin-specific (below).",
-      "choice": {
-        "kind": "fighting-style",
-        "pick": 1,
-        "from": [
-          "fighting-style-blessed-warrior",
-          "fighting-style-blind-fighting",
-          "fighting-style-defense",
-          "fighting-style-dueling",
-          "fighting-style-great-weapon-fighting",
-          "fighting-style-interception",
-          "fighting-style-protection"
-        ]
+      "choices": {
+        "feature": {
+          "picks": 1,
+          "category": "Fighting Style",
+          "allowedFeatures": [
+            "fighting-style-blessed-warrior",
+            "fighting-style-blind-fighting",
+            "fighting-style-defense",
+            "fighting-style-dueling",
+            "fighting-style-great-weapon-fighting",
+            "fighting-style-interception",
+            "fighting-style-protection"
+          ]
+        }
       }
     }
   },
