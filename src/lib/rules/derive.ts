@@ -65,6 +65,7 @@ import type {
   ValidationIssue
 } from './types';
 import { ABILITIES, KNOWN_TRIGGER_EVENTS } from './types';
+import { coerceRandomTable, validateRandomTable } from './random-tables';
 
 interface ActiveContent {
   ref: ContentRef;
@@ -2353,6 +2354,7 @@ function registerTriggers(s: DerivePhaseState): void {
         });
       }
     }
+    const triggerTable = coerceRandomTable(m.raw.randomTable);
     triggers.push({
       id: m.id,
       sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
@@ -2360,7 +2362,9 @@ function registerTriggers(s: DerivePhaseState): void {
       on,
       scope: m.raw.scope,
       grants: coerceTriggerGrant(m.raw.grants),
-      limit: m.raw.limit as { per: string; uses: number } | undefined
+      limit: m.raw.limit as { per: string; uses: number } | undefined,
+      ...(typeof m.raw.description === 'string' ? { description: m.raw.description } : {}),
+      ...(triggerTable ? { randomTable: triggerTable } : {})
     });
   }
 
@@ -2510,6 +2514,30 @@ function runSoftValidations(s: DerivePhaseState): void {
         code: 'spell-storage-over-capacity',
         message: `${a.row.name} holds ${total} spell levels (capacity ${storage.maxLevels}).`
       });
+    }
+  }
+
+  // Random-effect tables — every face of the declared die should land on
+  // exactly one entry. Gaps / overlaps / out-of-range rows are soft
+  // warnings only (deliberately NOT `unknown-*` codes: a table with a
+  // deliberate hole is legal authoring, and the packs QC gate hard-fails
+  // T3 rows on unknown-*). The table still surfaces on the Action /
+  // Trigger either way.
+  for (const a of active) {
+    const where = `${a.row.kind}/${a.row.slug}`;
+    for (const act of (a.data.activities as Array<Record<string, unknown>> | undefined) ?? []) {
+      const table = coerceRandomTable(act.randomTable);
+      if (!table) continue;
+      validations.push(
+        ...validateRandomTable(table, `${where} activity '${(act.id as string) ?? '?'}'`)
+      );
+    }
+    for (const t of (a.data.triggers as Array<Record<string, unknown>> | undefined) ?? []) {
+      const table = coerceRandomTable(t.randomTable);
+      if (!table) continue;
+      validations.push(
+        ...validateRandomTable(table, `${where} trigger '${(t.id as string) ?? '?'}'`)
+      );
     }
   }
 
@@ -3978,6 +4006,11 @@ function realizeActivity(
     };
     if (Object.keys(teleport).length > 0) action.teleport = teleport;
   }
+
+  // Random-effect table (Wand of Wonder, Deck of Many Things, Bag of
+  // Beans, Experimental Elixir). Declaration only — derive() has no RNG.
+  const randomTable = coerceRandomTable(act.randomTable);
+  if (randomTable) action.randomTable = randomTable;
 
   if (type === 'attack') {
     const attack = act.attack as

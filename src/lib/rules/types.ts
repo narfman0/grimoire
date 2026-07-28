@@ -3,6 +3,7 @@
 
 import type { DamageSourcePredicate } from './damage-source';
 import type { MonsterDerived } from './monster-derive';
+import type { RandomTable } from './random-tables';
 
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
@@ -619,6 +620,11 @@ export interface Action {
    *  `mode` 'line-of-sight' (default reading) vs 'unrestricted'
    *  (can pass barriers / no sight needed). */
   teleport?: { distanceFt?: number; mode?: 'line-of-sight' | 'unrestricted' };
+  /** Resolved random-effect table (Wand of Wonder, Deck of Many Things,
+   *  Bag of Beans, Experimental Elixir). derive() never rolls — this is
+   *  the declaration the UI/DM consults. See docs/rules-engine.md
+   *  § Random-effect tables. */
+  randomTable?: RandomTable;
   appliedModifiers: AppliedModifier[];
 }
 
@@ -1033,6 +1039,10 @@ export interface TriggerDeclaration {
    *  damage-reduction die + ability mod) so the planner can render the
    *  effect without parsing prose. */
   maneuverRider?: ManeuverRider;
+  /** Random-effect table consulted when the trigger fires (Wild Magic
+   *  Surge's d100, Unstable Backlash's reroll). Same declaration shape
+   *  as `Action.randomTable`; derive() never rolls. */
+  randomTable?: RandomTable;
 }
 
 export interface Resource {

@@ -189,6 +189,56 @@ Five more display-contract shapes cover the long-tail d20/save/death patterns �
 
 Item-sourced triggers respect the attunement gates (§ Attunement gating): a `requiresAttunement` item registers no triggers until attuned, and a per-entry `appliesWhen.requires: "equipped:attuned"` gates a single trigger on any item. Unknown grant `type` strings still pass through untyped (forward-compat).
 
+## Random-effect tables
+
+A slice of the corpus is pure "roll and see": Deck of Many Things, deck of illusions, bag of beans, wand of wonder, robe of useful items, the d100 Wild Magic Surge, Tasha's Experimental Elixir, the Book of Many Things card decks. An activity **or** a trigger may declare a `randomTable`; derive() coerces it and hands the resolved declaration to the UI on `Action.randomTable` / `TriggerDeclaration.randomTable`.
+
+**derive() never rolls.** It is pure and repeatable — there is no RNG in the pipeline and `Math.random()` is banned. The table is a declaration; the DM rolls a physical d100 or the UI picks a row.
+
+```jsonc
+{
+  "id": "wonder", "name": "Wand of Wonder", "type": "utility", "cost": "action", "chargeCost": 1,
+  "randomTable": {
+    "die": "1d100",                    // NdS or dS; 4d4 reads as 4..16
+    "label": "Wand of Wonder",
+    "rollTwiceChoose": true,           // Controlled Chaos / Controlled Surge / Mystical Connection
+    "entries": [
+      { "range": [1, 5],  "label": "Slow", "effect": { "kind": "cast-spell", "slug": "slow" } },
+      { "range": 6,       "label": "Faerie Fire", "description": "…" },
+      { "range": [7, 8],  "label": "Stunning gust",
+        "effect": { "kind": "condition", "condition": "stunned",
+                    "save": { "ability": "con", "dc": 15 },
+                    "duration": { "value": 1, "units": "round" } } },
+      { "range": [9, 10], "label": "Fireball",
+        "effect": { "kind": "damage", "parts": [{ "formula": "8d6", "type": "fire" }],
+                    "save": { "ability": "dex", "dc": 15, "half": true } } },
+      { "range": [11, 12], "label": "Rhinoceros",
+        "effect": { "kind": "summon", "creatures": [{ "slug": "rhinoceros", "count": 1 }] } },
+      { "range": [13, 100], "label": "Nothing happens", "effect": { "kind": "display" } }
+    ]
+  }
+}
+```
+
+`range` is a scalar (`6`) or an inclusive pair (`[1, 5]`); entries are sorted by `min` at coercion time. `label` defaults to the range when omitted.
+
+`effect` is optional and discriminated by `kind` — reuse the shapes the engine already understands, or leave it off (equivalently, `{"kind": "display"}`) when the outcome is prose-level:
+
+| kind | fields |
+| --- | --- |
+| `damage` | `parts: [{ formula \| dice, type }]`, `save?: { ability, dc, half? }` |
+| `condition` | `condition`, `save?`, `duration?` (`ActivationDuration`) |
+| `summon` | `creatures: [{ slug, count?, name? }]` |
+| `grants` | `tempHp?`, `removeConditions?`, `restoreSpellSlots?` — the `ActionGrants` vocabulary |
+| `cast-spell` | `slug`, `level?` |
+| `display` | *(none)* — the label/description is the whole outcome |
+
+Effect values are **verbatim display contracts** — no `evaluateValue`, same posture as trigger grants. A malformed entry or effect is dropped silently rather than throwing; a table with no `die` or no usable entries produces no `randomTable` at all.
+
+Phase 6 soft-validates coverage: every face of the declared die should land on exactly one entry. Three codes fire, all warnings and all deliberately **outside** the `unknown-*` family (the packs QC gate hard-fails T3 rows on those, and a table with a deliberate hole — "on any other result, nothing happens" left implicit — is legal authoring):
+
+`random-table-die-unparsed` · `random-table-entry-out-of-range` · `random-table-range-overlap` · `random-table-range-gap`
+
 ## Modifier-side capability targets
 
 Boolean targets take `value: true`; anything else is ignored. All feed `derive()` phase 2 and land on `Derived.stats`.
