@@ -2,13 +2,13 @@
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/client/api';
-  import MonsterPicker, { type MonsterOption } from '$lib/components/MonsterPicker.svelte';
   import RevealChip from '$lib/components/RevealChip.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
   import ActionLogSection from './ActionLogSection.svelte';
+  import AddParticipantModal from './AddParticipantModal.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
   import { COMMON_CONDITIONS, impliedBy, CONDITION_DESCRIPTIONS } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
@@ -592,9 +592,8 @@
     hpInputs = hpInputs;
   }
 
-  // Add-participant draft state
-  let newKind: 'pc' | 'npc' = 'npc';
   let showAddParticipantModal = false;
+  let addParticipantModal: AddParticipantModal | null = null;
   // ---- encounter rename ----
   let renamingEncounter = false;
   let renameValue = data.encounter.name;
@@ -620,46 +619,32 @@
     else if (e.key === 'Escape') renamingEncounter = false;
   }
 
-  // ---- monster picker ----
-  let showMonsterPicker = false;
-
-  let newName = '';
-  let newCharacterId = data.campaignCharacters[0]?.id ?? '';
-  let newMonsterSlug = '';
-  /** Default HP comes from the statblock; the picker passes it through so
-   *  the new participant row has a non-null currentHp/maxHp without the
-   *  DM needing an extra input. Plain NPCs without a statblock get nulls. */
-  let newDefaultMaxHp: number | null = null;
-  /** How many copies of the NPC to add. PCs can't be duplicated.  When > 1
-   *  the names are auto-suffixed "#1, #2, …" so they're distinguishable. */
-  let newQuantity = 1;
-
-  function onMonsterPicked(e: CustomEvent<MonsterOption>) {
-    const m = e.detail;
-    newMonsterSlug = m.slug;
-    newName = m.name;
-    newDefaultMaxHp = m.maxHp ?? null;
-    showMonsterPicker = false;
-  }
-
-  async function addParticipant() {
-    if (newKind === 'pc' && !newCharacterId) return;
-    const qty = newKind === 'pc' ? 1 : Math.max(1, Math.min(20, Math.floor(newQuantity || 1)));
+  async function addParticipant(draft: {
+    kind: 'pc' | 'npc';
+    name: string;
+    characterId: string;
+    statblockSlug: string;
+    defaultMaxHp: number | null;
+    quantity: number;
+  }) {
+    const { kind, name, characterId, statblockSlug, defaultMaxHp } = draft;
+    if (kind === 'pc' && !characterId) return;
+    const qty = kind === 'pc' ? 1 : Math.max(1, Math.min(20, Math.floor(draft.quantity || 1)));
     const baseName =
-      newKind === 'pc'
-        ? (data.campaignCharacters.find((c) => c.id === newCharacterId)?.name ?? newName)
-        : newName;
+      kind === 'pc'
+        ? (data.campaignCharacters.find((c) => c.id === characterId)?.name ?? name)
+        : name;
     busy = true;
     try {
       for (let i = 0; i < qty; i++) {
         const body: Record<string, unknown> = {
           name: qty > 1 ? `${baseName} #${i + 1}` : baseName,
-          kind: newKind,
-          maxHp: newDefaultMaxHp ?? undefined,
-          currentHp: newDefaultMaxHp ?? undefined
+          kind,
+          maxHp: defaultMaxHp ?? undefined,
+          currentHp: defaultMaxHp ?? undefined
         };
-        if (newKind === 'pc') body.characterId = newCharacterId;
-        if (newKind === 'npc' && newMonsterSlug) body.statblockSlug = newMonsterSlug;
+        if (kind === 'pc') body.characterId = characterId;
+        if (kind === 'npc' && statblockSlug) body.statblockSlug = statblockSlug;
         try {
           await api.post(`/api/encounters/${data.encounter.id}/participants`, body);
         } catch {
@@ -667,10 +652,7 @@
           break;
         }
       }
-      newName = '';
-      newMonsterSlug = '';
-      newDefaultMaxHp = null;
-      newQuantity = 1;
+      addParticipantModal?.resetDraft();
       showAddParticipantModal = false;
       await invalidateAll();
     } finally {
@@ -749,7 +731,6 @@
     return (e.target as HTMLInputElement).value;
   }
 
-  const KINDS: Array<'pc' | 'npc'> = ['pc', 'npc'];
   async function toggleCondition(
     p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
     cond: string
@@ -1795,103 +1776,15 @@
   {/if}
 {/if}
 
-{#if showAddParticipantModal && data.role === 'dm'}
-  <!-- Add-participant modal. Triggered by the "+ Add" button next to the
-       Participants header. Backdrop click + Escape both close. -->
-  <button
-    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-    aria-label="Close add-participant"
-    tabindex="-1"
-    on:click={() => (showAddParticipantModal = false)}
-  ></button>
-  <div
-    class="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Add participant"
-  >
-    <div class="mb-3 flex items-baseline justify-between gap-2">
-      <h2 class="text-sm font-semibold text-slate-200">Add participant</h2>
-      <button
-        class="text-xs text-slate-500 hover:text-slate-300"
-        on:click={() => (showAddParticipantModal = false)}
-      >
-        ✕
-      </button>
-    </div>
-    <div class="mb-3 flex gap-3 text-xs">
-      {#each KINDS as k}
-        <label class="flex items-center gap-1">
-          <input type="radio" bind:group={newKind} value={k} />
-          <span>{k.toUpperCase()}</span>
-        </label>
-      {/each}
-    </div>
-    <div class="flex flex-col gap-2">
-      {#if newKind === 'pc'}
-        {#if data.campaignCharacters.length === 0}
-          <p class="text-xs text-amber-300">No characters in this campaign yet.</p>
-        {:else}
-          <label class="text-xs">
-            <span class="block text-slate-400">Character</span>
-            <select class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm" bind:value={newCharacterId}>
-              {#each data.campaignCharacters as c}
-                <option value={c.id}>{c.name}</option>
-              {/each}
-            </select>
-          </label>
-        {/if}
-      {:else}
-        <div class="text-xs">
-          <span class="block text-slate-400 mb-1">Statblock (optional — leave blank for ad-hoc)</span>
-          <button
-            class="flex w-full items-center gap-1.5 rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100"
-            on:click={() => (showMonsterPicker = true)}
-          >
-            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            {newMonsterSlug ? newName : 'Search…'}
-          </button>
-        </div>
-        <label class="text-xs">
-          <span class="block text-slate-400">Name{newMonsterSlug ? ' (override)' : ''}</span>
-          <input
-            class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-            placeholder={newMonsterSlug ? '' : 'Captured noble, etc.'}
-            bind:value={newName}
-          />
-        </label>
-        <label class="text-xs">
-          <span class="block text-slate-400">Quantity</span>
-          <input
-            type="number"
-            min="1"
-            max="20"
-            class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-            bind:value={newQuantity}
-            title="Adding N copies suffixes the names #1, #2, …"
-          />
-        </label>
-      {/if}
-    </div>
-    <div class="mt-4 flex items-center justify-end gap-2">
-      <button
-        class="rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800"
-        on:click={() => (showAddParticipantModal = false)}
-        disabled={busy}
-      >
-        Cancel
-      </button>
-      <button
-        class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-        on:click={addParticipant}
-        disabled={busy || (newKind === 'npc' && !newName) || (newKind === 'pc' && !newCharacterId)}
-      >
-        {newKind === 'npc' && newQuantity > 1 ? `Add ${newQuantity}` : 'Add'}
-      </button>
-    </div>
-  </div>
+{#if data.role === 'dm'}
+  <AddParticipantModal
+    bind:this={addParticipantModal}
+    bind:open={showAddParticipantModal}
+    {busy}
+    campaignCharacters={data.campaignCharacters}
+    monsterOptions={data.monsterOptions}
+    on:add={(e) => addParticipant(e.detail)}
+  />
 {/if}
 
 {#if resolveForParticipantId && data.role === 'dm'}
@@ -1976,12 +1869,3 @@
   on:remove={(e) => removeLogEntry(e.detail)}
 />
 
-
-{#if showMonsterPicker}
-  <MonsterPicker
-    monsters={data.monsterOptions}
-    disabled={busy}
-    on:pick={onMonsterPicked}
-    on:close={() => (showMonsterPicker = false)}
-  />
-{/if}
