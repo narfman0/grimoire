@@ -160,17 +160,32 @@ export const FeatChoicesSchema = z
         category: z.string().optional()
       })
       .optional(),
-    /** Union-shape pick (derive.ts ~:859): the player picks one option and
-     *  that option's `modifiers[]` are synthesized as if declared on the row
-     *  directly (Aspect of the Wilds / Kobold Legacy / Dragonscarred). */
+    /** Union-shape pick: the player picks one option (or `picks` of them)
+     *  and each picked option's `modifiers[]` are synthesized as if declared
+     *  on the row directly (Aspect of the Wilds / Kobold Legacy /
+     *  Dragonscarred; Rune Knight runes for the multi-pick case).
+     *
+     *  `picks` accepts the evaluateValue shapes so a perClass table can
+     *  drive milestone growth. An option may declare its own `uses` pool,
+     *  which becomes a Resource keyed `<kind>/<slug>/choice/<optionId>`
+     *  when that option is picked. */
     modifierFromChoice: z
       .object({
         label: z.string().optional(),
+        picks: z.union([z.number().int().min(1).max(20), z.string(), z.object({}).passthrough()]).optional(),
         options: z.array(
           z.object({
             id: z.string().min(1),
             label: z.string().optional(),
-            modifiers: z.array(AnyModifierSchema).optional()
+            name: z.string().optional(),
+            description: z.string().max(4000).optional(),
+            modifiers: z.array(AnyModifierSchema).optional(),
+            uses: z
+              .object({
+                max: z.union([z.number(), z.string(), z.object({}).passthrough()]),
+                per: z.string().min(1).max(32)
+              })
+              .optional()
           })
         )
       })

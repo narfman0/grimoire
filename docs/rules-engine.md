@@ -279,6 +279,38 @@ Same display + roll-time contract as bonus dice — the numeric `bonus` and pass
 
 Both flags can be true at once; derive reports both and the roll-time consumer cancels them. **Passive Perception** applies RAW: advantage on the check → +5, disadvantage → −5, both → ±0.
 
+### Option menus: multi-pick + per-option uses
+
+`data.choices.modifierFromChoice` is the "pick one of these distinct modifier sets" slot (Aspect of the Wilds, Kobold Legacy, Transmuter's Stone). Two extensions make it carry the Rune Knight shape — 2–5 known runes, each with a passive rider **and** its own 1/short-rest invocation:
+
+```jsonc
+"choices": {
+  "modifierFromChoice": {
+    "label": "Runes Known",
+    // number, token, or a perClass table — milestone growth is authorable
+    "picks": { "perClass": "fighter", "table": [0,0,2,2,2,2,3,3,3,4, …] },
+    "options": [
+      { "id": "cloud-rune", "label": "Cloud Rune",
+        "modifiers": [ … ],
+        "uses": { "max": 1, "per": "short-rest" } },
+      { "id": "hill-rune", "label": "Hill Rune", "modifiers": [ … ] }   // passive only
+    ]
+  }
+}
+```
+
+Pick storage accepts both shapes; `option` and `options` union together:
+
+```jsonc
+"modifierFromChoice": { "option": "cloud-rune" }                    // single
+"modifierFromChoice": { "options": ["cloud-rune", "fire-rune"] }    // multi
+```
+
+- **Every** picked option's `modifiers[]` are synthesized as if declared on the row directly, in **declaration order** (not pick order) so the generated modifier ids are stable. Picks matching no option id drop silently.
+- An option's `uses: { max, per }` becomes an independent `Resource` with id `<kind>/<slug>/choice/<optionId>`, named from the option's `name` / `label`. `max` takes any `evaluateValue` shape. Options without `uses` contribute no pool. Each pool tracks separately through `character.resourcesSpent`.
+- `picks` is resolved through `evaluateValue`, so `PendingFeatureChoice.unresolved` flips only once the player has chosen that many options. It is a picker-UI cap, not an enforcement gate — derive() synthesizes whatever was picked.
+- The sheet's feature-choices panel renders a `<select>` for single-pick menus and a capped checkbox list for multi-pick ones.
+
 ### Curated trait flags
 
 `trait.<slug>` (boolean) appends the slug to `stats.traits` (sorted, deduped). Any slug is allowed — no validation gate. Canonical slugs:

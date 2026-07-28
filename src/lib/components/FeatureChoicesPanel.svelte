@@ -234,6 +234,43 @@
       .filter((o): o is { id: string; label?: string } => typeof o?.id === 'string')
       .map((o) => ({ id: o.id, label: o.label ?? o.id }));
   }
+  /** True when the menu is a multi-pick (Rune Knight runes). `picks` may be
+   *  an evaluateValue shape (perClass table) the panel can't resolve — any
+   *  non-scalar declaration is treated as multi and left uncapped here; the
+   *  engine's `unresolved` flag is what tells the player they still owe
+   *  picks. */
+  function mfcIsMulti(decl: Record<string, unknown> | undefined): boolean {
+    const picks = decl?.picks;
+    if (picks == null) return false;
+    if (typeof picks === 'number') return picks > 1;
+    return true;
+  }
+  function mfcNumericCap(decl: Record<string, unknown> | undefined): number | undefined {
+    const picks = decl?.picks;
+    return typeof picks === 'number' ? picks : undefined;
+  }
+  function mfcPickedFor(slug: string): string[] {
+    const v = drafts[slug]?.['modifierFromChoice'] as
+      | { option?: string; options?: string[] }
+      | undefined;
+    if (Array.isArray(v?.options)) return v.options.filter((x) => typeof x === 'string');
+    return typeof v?.option === 'string' && v.option ? [v.option] : [];
+  }
+  function toggleMfc(slug: string, optionId: string, checked: boolean, max?: number) {
+    const current = mfcPickedFor(slug);
+    let next: string[];
+    if (checked) {
+      if (current.includes(optionId)) return;
+      if (max != null && current.length >= max) return;
+      next = [...current, optionId];
+    } else {
+      next = current.filter((x) => x !== optionId);
+    }
+    const draft = { ...(drafts[slug] ?? {}) };
+    if (next.length > 0) draft.modifierFromChoice = { options: next };
+    else delete draft.modifierFromChoice;
+    drafts = { ...drafts, [slug]: draft };
+  }
 </script>
 
 {#if pendingChoices.length === 0}
@@ -409,7 +446,7 @@
             </label>
           {/if}
 
-          {#if p.declarations.modifierFromChoice}
+          {#if p.declarations.modifierFromChoice && !mfcIsMulti(p.declarations.modifierFromChoice)}
             <label class="text-xs">
               <span class="block text-slate-400">
                 {mfcLabelOf(p.declarations.modifierFromChoice)}
@@ -428,6 +465,34 @@
             </label>
           {/if}
         </div>
+
+        {#if p.declarations.modifierFromChoice && mfcIsMulti(p.declarations.modifierFromChoice)}
+          {@const mfcCap = mfcNumericCap(p.declarations.modifierFromChoice)}
+          {@const mfcPicked = mfcPickedFor(p.featureSlug)}
+          <div class="mt-2 border-t border-slate-800 pt-2">
+            <span class="text-[10px] uppercase tracking-wide text-slate-500">
+              {mfcLabelOf(p.declarations.modifierFromChoice)}{#if mfcCap} — pick {mfcCap}{/if}
+            </span>
+            <ul class="mt-1 grid grid-cols-2 gap-1">
+              {#each mfcOptionsOf(p.declarations.modifierFromChoice) as opt}
+                {@const checked = mfcPicked.includes(opt.id)}
+                {@const atCap = mfcCap != null && mfcPicked.length >= mfcCap && !checked}
+                <li>
+                  <label class="flex items-center gap-1 text-xs">
+                    <input
+                      type="checkbox"
+                      {checked}
+                      disabled={busy || atCap}
+                      on:change={(e) =>
+                        toggleMfc(p.featureSlug, opt.id, checkboxChecked(e), mfcCap)}
+                    />
+                    <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>{opt.label}</span>
+                  </label>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
 
         {#if p.declarations.spell}
           {@const spellAllowed = allowedSpellsOf(p.declarations.spell)}

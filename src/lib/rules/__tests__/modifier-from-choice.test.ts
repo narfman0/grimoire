@@ -228,3 +228,158 @@ describe('modifierFromChoice — synthesizes action-modifier shapes too', () => 
     expect(d.validations.filter((v) => v.severity === 'error')).toEqual([]);
   });
 });
+
+// --- multi-pick menus with per-option uses (Rune Knight runes) --------
+//
+// Rune Carver knows 2–5 runes (growing at fighter 3/7/10/15/18). Each rune
+// carries a passive rider AND its own 1/short-rest invocation, so a single
+// row-level pool would be wrong — every picked option gets its own
+// Resource keyed `<kind>/<slug>/choice/<optionId>`.
+
+const SUBCLASS_RUNES: ContentRow = {
+  kind: 'subclass',
+  slug: 'test-rune-knight',
+  version: 1,
+  source: 'test',
+  name: 'Test Rune Knight',
+  data: {
+    parentClass: 'test-class',
+    subclassFeatures: [{ level: 1, name: 'Rune Carver' }]
+  }
+};
+
+const FEATURE_RUNES: ContentRow = {
+  kind: 'feature',
+  slug: 'rune-carver',
+  version: 1,
+  source: 'test',
+  name: 'Rune Carver',
+  data: {
+    ownerKind: 'subclass',
+    ownerSlug: 'test-rune-knight',
+    minLevel: 1,
+    choices: {
+      modifierFromChoice: {
+        label: 'Runes Known',
+        // perClass table: 2 runes at test-class 1–9, 3 at 10+.
+        picks: { perClass: 'test-class', table: [2, 2, 2, 2, 2, 2, 2, 2, 2, 3] },
+        options: [
+          {
+            id: 'cloud-rune',
+            label: 'Cloud Rune',
+            modifiers: [
+              { kind: 'stat-modifier', target: 'proficiency.skill.sleight-of-hand', value: true }
+            ],
+            uses: { max: 1, per: 'short-rest' }
+          },
+          {
+            id: 'fire-rune',
+            label: 'Fire Rune',
+            modifiers: [{ kind: 'stat-modifier', target: 'proficiency.tool.smiths-tools', value: true }],
+            uses: { max: 1, per: 'short-rest' }
+          },
+          {
+            id: 'stone-rune',
+            label: 'Stone Rune',
+            modifiers: [{ kind: 'stat-modifier', target: 'sense.darkvision', mode: 'UPGRADE', value: 120 }],
+            uses: { max: 1, per: 'short-rest' }
+          },
+          {
+            // Passive-only option: no `uses`, so no Resource.
+            id: 'hill-rune',
+            label: 'Hill Rune',
+            modifiers: [{ kind: 'stat-modifier', target: 'resistance.poison', value: true }]
+          }
+        ]
+      }
+    }
+  }
+};
+
+function runeLookup(): ContentLookup {
+  const rows: ContentRow[] = [SYNTH_CLASS, SUBCLASS_RUNES, FEATURE_RUNES, SYNTH_SPECIES];
+  const map = new Map<string, ContentRow>(rows.map((r) => [`${r.kind}/${r.slug}`, r]));
+  return (ref) => map.get(`${ref.kind}/${ref.slug}`);
+}
+
+function runeCharacter(
+  picked: string[],
+  level = 1
+): CharacterDocument {
+  return {
+    ...baseCharacter({ 'rune-carver': { modifierFromChoice: { options: picked } } }),
+    classes: [
+      { slug: 'test-class', level, subclass: 'test-rune-knight', hpRolledPerLevel: [8] }
+    ]
+  };
+}
+
+describe('modifierFromChoice — multi-pick + per-option uses', () => {
+  it('synthesizes every picked option, not just the first', () => {
+    const d = derive(runeCharacter(['cloud-rune', 'fire-rune']), runeLookup());
+    expect(d.stats.skills['sleight-of-hand'].proficient).toBe(true);
+    expect(d.stats.tools).toContain('smiths-tools');
+    // Unpicked options stay inert.
+    expect(d.stats.senses.darkvision).toBeUndefined();
+    expect(d.stats.resistances.has('poison')).toBe(false);
+  });
+
+  it('emits one Resource per picked option that declares uses', () => {
+    const d = derive(runeCharacter(['cloud-rune', 'fire-rune', 'hill-rune']), runeLookup());
+    const ids = d.resources.map((r) => r.id);
+    expect(ids).toContain('feature/rune-carver/choice/cloud-rune');
+    expect(ids).toContain('feature/rune-carver/choice/fire-rune');
+    // Passive-only option contributes no pool.
+    expect(ids).not.toContain('feature/rune-carver/choice/hill-rune');
+    const cloud = d.resources.find((r) => r.id === 'feature/rune-carver/choice/cloud-rune')!;
+    expect(cloud).toMatchObject({ name: 'Cloud Rune', max: 1, used: 0, per: 'short-rest' });
+    expect(cloud.sourceContent).toEqual({ kind: 'feature', slug: 'rune-carver' });
+  });
+
+  it('tracks each option pool independently through resourcesSpent', () => {
+    const char = {
+      ...runeCharacter(['cloud-rune', 'fire-rune']),
+      resourcesSpent: { 'feature/rune-carver/choice/fire-rune': 1 }
+    };
+    const d = derive(char, runeLookup());
+    expect(d.resources.find((r) => r.id === 'feature/rune-carver/choice/fire-rune')!.used).toBe(1);
+    expect(d.resources.find((r) => r.id === 'feature/rune-carver/choice/cloud-rune')!.used).toBe(0);
+  });
+
+  it('still accepts the single-pick { option } shape', () => {
+    const char = {
+      ...baseCharacter({ 'rune-carver': { modifierFromChoice: { option: 'stone-rune' } } }),
+      classes: [
+        { slug: 'test-class', level: 1, subclass: 'test-rune-knight', hpRolledPerLevel: [8] }
+      ]
+    };
+    const d = derive(char, runeLookup());
+    expect(d.stats.senses.darkvision).toBe(120);
+    expect(d.resources.map((r) => r.id)).toContain('feature/rune-carver/choice/stone-rune');
+  });
+
+  it('reports the menu unresolved until `picks` options are chosen', () => {
+    const unresolvedAt = (picked: string[], level = 1) =>
+      derive(runeCharacter(picked, level), runeLookup()).pendingFeatureChoices.find(
+        (p) => p.featureSlug === 'rune-carver'
+      )!.unresolved;
+    expect(unresolvedAt([])).toBe(true);
+    expect(unresolvedAt(['cloud-rune'])).toBe(true);
+    expect(unresolvedAt(['cloud-rune', 'fire-rune'])).toBe(false);
+  });
+
+  it('scales the pick count off the perClass table (2 → 3 at level 10)', () => {
+    const unresolvedAt = (picked: string[], level: number) =>
+      derive(runeCharacter(picked, level), runeLookup()).pendingFeatureChoices.find(
+        (p) => p.featureSlug === 'rune-carver'
+      )!.unresolved;
+    expect(unresolvedAt(['cloud-rune', 'fire-rune'], 10)).toBe(true);
+    expect(unresolvedAt(['cloud-rune', 'fire-rune', 'stone-rune'], 10)).toBe(false);
+  });
+
+  it('drops picks that match no option id', () => {
+    const d = derive(runeCharacter(['cloud-rune', 'no-such-rune']), runeLookup());
+    expect(d.stats.skills['sleight-of-hand'].proficient).toBe(true);
+    expect(d.resources.filter((r) => r.id.startsWith('feature/rune-carver/choice/'))).toHaveLength(1);
+  });
+});

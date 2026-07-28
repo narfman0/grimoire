@@ -433,6 +433,28 @@ function isSlotUnresolved(
     const features = (pick as { features?: unknown[] } | undefined)?.features;
     return !Array.isArray(features) || features.length < cap;
   }
+  // Option-menu slot: choices.modifierFromChoice = { picks?, options: [...] }
+  // picks.modifierFromChoice = { option: 'x' } (cap 1) or
+  //                            { options: ['x','y'] } (cap > 1).
+  // `picks` accepts the evaluateValue shapes, so a perClass table drives
+  // milestone growth (Rune Knight: 2 runes at fighter 3 → 5 at 18).
+  if (slotKey === 'modifierFromChoice') {
+    const picksDeclared = decl?.picks;
+    let cap = 1;
+    if (typeof picksDeclared === 'number') {
+      cap = picksDeclared;
+    } else if (picksDeclared != null && ctx) {
+      const resolved = evaluateValue(picksDeclared, ctx);
+      if (typeof resolved === 'number') cap = Math.max(0, Math.floor(resolved));
+    }
+    const p = pick as { option?: string; options?: unknown[] } | undefined;
+    const chosen = new Set<string>();
+    if (typeof p?.option === 'string' && p.option) chosen.add(p.option);
+    if (Array.isArray(p?.options)) {
+      for (const o of p.options) if (typeof o === 'string' && o) chosen.add(o);
+    }
+    return chosen.size < Math.max(1, cap);
+  }
   // Scalar slot — any non-null pick counts as resolved. (The picker UI
   // is responsible for shape correctness; derive() just checks
   // presence.)
@@ -470,6 +492,53 @@ function resolveChoicePicks(
   }
   const picks = (picksRaw ?? {}) as Record<string, Record<string, unknown> | undefined>;
   return { decl, picks };
+}
+
+/** One option of a `choices.modifierFromChoice` menu. Beyond the
+ *  synthesized `modifiers[]`, an option may carry its own `uses` pool —
+ *  Rune Knight runes each have a 1/short-rest invocation on top of their
+ *  passive rider. */
+interface MenuOption {
+  id?: string;
+  label?: string;
+  name?: string;
+  modifiers?: Array<Record<string, unknown>>;
+  uses?: { max?: number | string | object; per?: string };
+  description?: string;
+}
+
+/** Resolve the picked options of a row's `choices.modifierFromChoice`
+ *  menu, in declaration order (NOT pick order) so the synthesized ids and
+ *  resources are stable regardless of the order the player clicked.
+ *
+ *  Pick shapes, both accepted:
+ *    picks.modifierFromChoice = { option: 'fire' }              — single
+ *    picks.modifierFromChoice = { options: ['fire', 'stone'] }  — multi
+ *
+ *  The declaration's `picks: N` is metadata for the picker UI; the engine
+ *  records what the player chose without enforcing the count (same
+ *  posture as every other allow-list in the choice DSL). */
+function resolvePickedMenuOptions(
+  a: ActiveContent,
+  character: CharacterDocument
+): MenuOption[] {
+  const declPicks = resolveChoicePicks(a, character);
+  if (!declPicks) return [];
+  const decl = declPicks.decl.modifierFromChoice as
+    | { options?: MenuOption[] }
+    | undefined;
+  if (!decl || !Array.isArray(decl.options)) return [];
+  const raw = declPicks.picks.modifierFromChoice as
+    | { option?: string; options?: string[] }
+    | undefined;
+  if (!raw) return [];
+  const picked = new Set<string>();
+  if (typeof raw.option === 'string' && raw.option) picked.add(raw.option);
+  if (Array.isArray(raw.options)) {
+    for (const o of raw.options) if (typeof o === 'string' && o) picked.add(o);
+  }
+  if (picked.size === 0) return [];
+  return decl.options.filter((o) => typeof o?.id === 'string' && picked.has(o.id));
 }
 
 export function derive(character: CharacterDocument, content: ContentLookup): Derived {
@@ -1004,32 +1073,30 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       //     ...
       //   ]
       // }
-      // picks.modifierFromChoice = { option: 'owl' }
-      // The picked option's `modifiers[]` are synthesized as if they had
+      // picks.modifierFromChoice = { option: 'owl' }              — single
+      // picks.modifierFromChoice = { options: ['fire', 'stone'] } — multi
+      // Every picked option's `modifiers[]` are synthesized as if they had
       // been declared on this row directly. Unblocks "pick one of these
       // distinct modifier sets" patterns (Aspect of the Wilds, Kobold
-      // Legacy, Transmuter's Stone, Shifter shifting variants).
-      const mfcDecl = decl.modifierFromChoice as
-        | { options?: Array<{ id?: string; modifiers?: Array<Record<string, unknown>> }> }
-        | undefined;
-      const mfcPick = (picks.modifierFromChoice as { option?: string } | undefined)?.option;
-      if (mfcDecl && mfcPick && Array.isArray(mfcDecl.options)) {
-        const chosen = mfcDecl.options.find((o) => o?.id === mfcPick);
-        if (chosen && Array.isArray(chosen.modifiers)) {
-          for (let i = 0; i < chosen.modifiers.length; i++) {
-            classifyModifier(
-              chosen.modifiers[i],
-              {
-                stat: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/${i}`,
-                action: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/amod/${i}`,
-                overlay: `${a.row.kind}/${a.row.slug}/mfc/${mfcPick}/overlay/${i}`
-              },
-              a,
-              allMods
-            );
-            // trigger / outbound shapes inside an option aren't synthesized
-            // in v0 — only modifier-kind effects. Add if/when needed.
-          }
+      // Legacy, Transmuter's Stone, Shifter shifting variants) and the
+      // multi-pick menus (Rune Knight runes). An option may also declare
+      // its own `uses` pool — collectResources emits one Resource per
+      // picked option that has one.
+      for (const chosen of resolvePickedMenuOptions(a, character)) {
+        if (!Array.isArray(chosen.modifiers)) continue;
+        for (let i = 0; i < chosen.modifiers.length; i++) {
+          classifyModifier(
+            chosen.modifiers[i],
+            {
+              stat: `${a.row.kind}/${a.row.slug}/mfc/${chosen.id}/${i}`,
+              action: `${a.row.kind}/${a.row.slug}/mfc/${chosen.id}/amod/${i}`,
+              overlay: `${a.row.kind}/${a.row.slug}/mfc/${chosen.id}/overlay/${i}`
+            },
+            a,
+            allMods
+          );
+          // trigger / outbound shapes inside an option aren't synthesized
+          // in v0 — only modifier-kind effects. Add if/when needed.
         }
       }
     }
@@ -2527,6 +2594,30 @@ function collectResources(
           });
         }
       }
+    }
+    // Per-option uses on a choice menu: each picked `modifierFromChoice`
+    // option that declares its own `uses: { max, per }` becomes an
+    // independent pool keyed by (row slug + option id). Rune Knight runes
+    // are the driver — every known rune carries a passive rider AND its
+    // own 1/short-rest invocation, so one shared row-level pool would be
+    // wrong.
+    for (const opt of resolvePickedMenuOptions(a, character)) {
+      const uses = opt.uses;
+      if (uses?.max == null || !uses.per) continue;
+      const maxRaw = evaluateValue(uses.max, ctx);
+      const max = typeof maxRaw === 'number' ? Math.floor(maxRaw) : 0;
+      if (max <= 0) continue;
+      const id = `${a.row.kind}/${a.row.slug}/choice/${opt.id}`;
+      if (resources.some((r) => r.id === id)) continue;
+      resources.push({
+        id,
+        name: opt.name ?? opt.label ?? (opt.id as string),
+        max,
+        used: Math.min(max, spent[id] ?? 0),
+        per: uses.per,
+        sourceContent: { kind: a.row.kind, slug: a.row.slug },
+        ...(typeof opt.description === 'string' ? { description: opt.description } : {})
+      });
     }
     // Triggers with a `limit` are functionally resources too — Relentless
     // Endurance "1/long rest", Chronal Shift "2/long rest", etc.
