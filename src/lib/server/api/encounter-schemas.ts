@@ -47,6 +47,15 @@ export const CreateEncounterRequest = z
   })
   .openapi('CreateEncounterRequest');
 
+/** POST /api/encounters/[id]/clone — every field optional, so an empty body
+ *  (`{}` or no body at all) is a valid "run it again" request. */
+export const CloneEncounterRequest = z
+  .object({
+    /** Defaults to `<source name> (copy)`, truncated to the 120-char limit. */
+    name: z.string().min(1).max(120).optional()
+  })
+  .openapi('CloneEncounterRequest');
+
 export const UpdateEncounterRequest = z
   .object({
     name: z.string().min(1).max(120).optional(),
@@ -229,6 +238,7 @@ export const UpdateActionLogRequest = z
 export type TEncounter = z.infer<typeof Encounter>;
 export type TParticipant = z.infer<typeof Participant>;
 export type TCreateEncounterRequest = z.infer<typeof CreateEncounterRequest>;
+export type TCloneEncounterRequest = z.infer<typeof CloneEncounterRequest>;
 export type TUpdateEncounterRequest = z.infer<typeof UpdateEncounterRequest>;
 export type TUpdateActionLogRequest = z.infer<typeof UpdateActionLogRequest>;
 export type TAddParticipantRequest = z.infer<typeof AddParticipantRequest>;

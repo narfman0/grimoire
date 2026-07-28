@@ -23,6 +23,28 @@ export async function parseJson<T extends z.ZodTypeAny>(
   return result.data;
 }
 
+/** Same as parseJson, but an absent/empty request body is parsed as `{}`
+ *  instead of failing. For POSTs whose fields are all optional — the caller
+ *  may legitimately send nothing (`api.post(url)` omits the body). A body
+ *  that is present but malformed still 400s. */
+export async function parseOptionalJson<T extends z.ZodTypeAny>(
+  request: Request,
+  schema: T
+): Promise<z.infer<T>> {
+  const text = await request.text();
+  let body: unknown = {};
+  if (text.trim() !== '') {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw error(400, 'invalid JSON');
+    }
+  }
+  const result = schema.safeParse(body);
+  if (!result.success) throw error(400, format(result.error));
+  return result.data;
+}
+
 export function parseParams<T extends z.ZodTypeAny>(
   params: Record<string, string | undefined>,
   schema: T
