@@ -78,6 +78,16 @@ test('DM adds participants and resolves a turn through the encounter UI', async 
   await expect(log).toContainText('refactor check');
   await expect(log).toContainText('dmg 4');
 
+  // The row's actionId must name the same action as its label. It used to
+  // keep whatever the plan seeded ('scimitar') no matter which action the DM
+  // picked, and the server classifies damage sources from that id.
+  const rows = (await (await dm.api.get(`/api/encounters/${encounterId}/log`)).json()) as {
+    entries: Array<{ actionId: string; actionLabel: string }>;
+  };
+  expect(rows.entries).toHaveLength(1);
+  expect(rows.entries[0].actionLabel).toBe('Dodge');
+  expect(rows.entries[0].actionId).toBe('Dodge');
+
   // ---- action-log filter (owned by the extracted section) ----------------
   await log.getByRole('combobox').selectOption({ label: 'Kobold #1' });
   await expect(log.locator('ol > li')).toHaveCount(0);

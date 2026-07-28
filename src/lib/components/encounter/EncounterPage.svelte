@@ -43,6 +43,8 @@
     revertPriorHpChange,
     firedEventsForResolution,
     downgradeCritForTarget,
+    resolvedActionId,
+    ADHOC_ACTION_ID,
     reactionPromptsForResolution,
     concentrationChecksForResolution,
     type ConcentrationCheck,
@@ -233,8 +235,13 @@
   // route through the same /log endpoint as players; submitter_role is set
   // server-side from the caller's membership.
   let resolveForParticipantId: string | null = null;
-  let resolveActionId = '';
   let resolveActionLabel = '';
+  /** What the draft was seeded with. The DM edits the label freely (typing,
+   *  or the panel's statblock / common-action buttons); `resolvedActionId`
+   *  compares against these so the id the log row carries never claims to be
+   *  an action the label no longer names. */
+  let resolveSeedActionId = '';
+  let resolveSeedActionLabel = '';
   let resolveTargetId: string | null = null;
   let resolveAttack: number | null = null;
   /** DM multi-target save state. DM types a save DC (no statblock saveDC plumbing
@@ -253,16 +260,17 @@
     resolveForParticipantId = p.id;
     const plan = livePlans[p.id];
     if (plan) {
-      resolveActionId = plan.actionId;
+      resolveSeedActionId = plan.actionId;
       resolveActionLabel = plan.actionLabel;
       resolveTargetId = plan.targetParticipantIds?.[0] ?? null;
       resolveNotes = plan.notes;
     } else {
-      resolveActionId = 'dm-adhoc';
+      resolveSeedActionId = ADHOC_ACTION_ID;
       resolveActionLabel = 'Ad-hoc';
       resolveTargetId = null;
       resolveNotes = '';
     }
+    resolveSeedActionLabel = resolveActionLabel;
     resolveAttack = null;
     resolveDamage = null;
     resolveHit = '';
@@ -301,7 +309,11 @@
       damage,
       attack,
       round,
-      actionId: resolveActionId,
+      actionId: resolvedActionId({
+        seededActionId: resolveSeedActionId,
+        seededActionLabel: resolveSeedActionLabel,
+        label: resolveActionLabel
+      }),
       actionLabel: resolveActionLabel,
       notes: resolveNotes
     });
@@ -462,8 +474,9 @@
   }) {
     amendingLogId = entry.id;
     resolveForParticipantId = entry.participantId;
-    resolveActionId = entry.actionId;
     resolveActionLabel = entry.actionLabel;
+    resolveSeedActionId = entry.actionId;
+    resolveSeedActionLabel = entry.actionLabel;
     resolveTargetId = entry.targetParticipantId;
     resolveAttack = entry.attackRoll;
     resolveDamage = entry.damageRoll;
@@ -524,7 +537,7 @@
         damage: resolveDamage,
         attack: resolveAttack,
         round,
-        actionId: resolveActionId,
+        actionId: resolveSeedActionId,
         actionLabel: resolveActionLabel,
         notes: resolveNotes,
         liveSeed,

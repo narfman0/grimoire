@@ -8,6 +8,8 @@ import {
   reactionPromptsForResolution,
   concentrationChecksForResolution,
   firedEventsForResolution,
+  resolvedActionId,
+  ADHOC_ACTION_ID,
   type ResolveTarget,
   type TargetResolution
 } from '../resolve';
@@ -652,5 +654,59 @@ describe('firedEventsForResolution', () => {
         { outcome: 'saved', hpBefore: 30, hpAfter: 19 }
       ])
     ).toEqual(['spell.hit', 'save.failed', 'attack.reduce-to-zero']);
+  });
+});
+
+describe('resolvedActionId', () => {
+  // The bug: the panel's statblock / common-action buttons set the label
+  // only, so a row resolved off a plan for "Fireball" but relabelled "Dodge"
+  // shipped actionId 'spell:fireball' — which is what the server classifies
+  // the damage source from.
+  it('takes the label as the id once the DM changes it', () => {
+    expect(
+      resolvedActionId({
+        seededActionId: 'spell:fireball',
+        seededActionLabel: 'Fireball (L3)',
+        label: 'Dodge'
+      })
+    ).toBe('Dodge');
+  });
+
+  it('keeps the richer seeded id while the label is untouched', () => {
+    expect(
+      resolvedActionId({
+        seededActionId: 'attack:longsword',
+        seededActionLabel: 'Longsword ×2 (action)',
+        label: 'Longsword ×2 (action)'
+      })
+    ).toBe('attack:longsword');
+  });
+
+  it('ignores surrounding whitespace when deciding the label changed', () => {
+    expect(
+      resolvedActionId({
+        seededActionId: 'attack:bite',
+        seededActionLabel: 'Bite',
+        label: '  Bite  '
+      })
+    ).toBe('attack:bite');
+  });
+
+  it('falls back to the ad-hoc id for an empty label', () => {
+    expect(
+      resolvedActionId({ seededActionId: 'attack:bite', seededActionLabel: 'Bite', label: '' })
+    ).toBe(ADHOC_ACTION_ID);
+    expect(
+      resolvedActionId({ seededActionId: '', seededActionLabel: '', label: '' })
+    ).toBe(ADHOC_ACTION_ID);
+  });
+
+  it('caps the derived id at the 120 chars the log API accepts', () => {
+    const id = resolvedActionId({
+      seededActionId: ADHOC_ACTION_ID,
+      seededActionLabel: 'Ad-hoc',
+      label: 'x'.repeat(300)
+    });
+    expect(id).toHaveLength(120);
   });
 });

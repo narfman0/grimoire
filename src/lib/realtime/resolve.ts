@@ -116,6 +116,38 @@ export function concentrationChecksForResolution(
   return checks;
 }
 
+/** Id stamped on a log row the DM resolved with no plan behind it. */
+export const ADHOC_ACTION_ID = 'dm-adhoc';
+
+/** Longest actionId the log API accepts (SubmitActionLogRequest). */
+const ACTION_ID_MAX = 120;
+
+/** The action id a resolved log row should carry.
+ *
+ *  The resolve form owns a free-text action *label*; the id is seeded from
+ *  the plan (or `dm-adhoc` when there is none) and used to be left alone
+ *  when the DM picked a statblock/common action or retyped the label — so
+ *  rows shipped an id naming one action and a label naming another. That
+ *  isn't cosmetic: the server classifies a damage source from the id's
+ *  `spell:` / `attack:` prefix ($lib/server/encounter/log-triggers) and the
+ *  character sheet's recently-used list keys off it.
+ *
+ *  Untouched label keeps the seeded id — it's the richer, prefixed form.
+ *  A changed label becomes the id itself, matching the bare-action-name
+ *  convention the plan chooser already uses for non-PC participants (an
+ *  unrecognized prefix classifies as undefined, which fails closed). */
+export function resolvedActionId(input: {
+  seededActionId: string;
+  seededActionLabel: string;
+  label: string;
+}): string {
+  const label = input.label.trim();
+  if (label === input.seededActionLabel.trim()) {
+    return input.seededActionId || ADHOC_ACTION_ID;
+  }
+  return label ? label.slice(0, ACTION_ID_MAX) : ADHOC_ACTION_ID;
+}
+
 /** Reaction-trigger events fired by a whole resolution: the union of what
  *  each target's *own* outcome fired, deduplicated, in first-seen order,
  *  plus `attack.reduce-to-zero` when the resolution actually dropped a
