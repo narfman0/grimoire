@@ -36,6 +36,7 @@ import type {
   ActivationDuration,
   ActivationWard,
   ActiveForm,
+  AlternativeCost,
   AvailableActivation,
   AppliedModifier,
   AvailableToggle,
@@ -152,6 +153,72 @@ function coerceTriggerGrant(raw: unknown): TriggerGrant | undefined {
   if (raw == null || typeof raw !== 'object') return undefined;
   if (typeof (raw as { type?: unknown }).type !== 'string') return undefined;
   return raw as TriggerGrant;
+}
+
+/** Pack-side spend annotations that predate the engine-read
+ *  `spendsResource` field. Every key names the same pool a
+ *  `ClassResourceDecl` already declares somewhere in the corpus; the
+ *  annotation's value is the amount spent (`true` reads as 1). There is
+ *  deliberately no separate `ki` pool — the monk's is declared as
+ *  `focus`. */
+const RESOURCE_SPEND_ALIASES: Readonly<Record<string, string>> = {
+  spendsSorceryPoints: 'sorcery-points',
+  spendsBardicInspiration: 'bardic-inspiration',
+  spendsKi: 'focus',
+  spendsFocusPoints: 'focus',
+  spendsWildShape: 'wild-shape',
+  spendsSuperiorityDice: 'superiority',
+  spendsPsionicEnergy: 'psionic-energy',
+  spendsChannelDivinity: 'channel-divinity',
+  spendsRage: 'rage'
+};
+
+/** Read a class-resource spend off an activity / trigger / activation
+ *  declaration. `spendsResource` + `resourceCost` is the canonical shape;
+ *  the pack-side aliases above are accepted so already-authored rows
+ *  light up without an edit. Returns undefined when nothing is declared. */
+function readResourceSpend(
+  o: Record<string, unknown>
+): { resource: string; cost: number } | undefined {
+  const explicit = o.spendsResource;
+  if (typeof explicit === 'string' && explicit.length > 0) {
+    const raw = o.resourceCost;
+    const cost = typeof raw === 'number' && raw > 0 ? Math.floor(raw) : 1;
+    return { resource: explicit, cost };
+  }
+  for (const [key, resource] of Object.entries(RESOURCE_SPEND_ALIASES)) {
+    const v = o[key];
+    if (v === true) return { resource, cost: 1 };
+    if (typeof v === 'number' && v > 0) return { resource, cost: Math.floor(v) };
+  }
+  return undefined;
+}
+
+/** Read an authored `alternativeCosts` / `alternativeCost` block. Soft:
+ *  malformed entries are dropped and an empty result reads as "no
+ *  alternative path". */
+function coerceAlternativeCosts(raw: unknown): AlternativeCost[] {
+  const list = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+  const out: AlternativeCost[] = [];
+  for (const e of list) {
+    if (e == null || typeof e !== 'object') continue;
+    const o = e as Record<string, unknown>;
+    if (o.kind === 'spell-slot') {
+      const min = o.minLevel;
+      out.push({
+        kind: 'spell-slot',
+        ...(typeof min === 'number' && min > 1 ? { minLevel: Math.floor(min) } : {})
+      });
+    } else if (o.kind === 'class-resource') {
+      if (typeof o.resource !== 'string' || o.resource.length === 0) continue;
+      const amount = typeof o.amount === 'number' && o.amount > 0 ? Math.floor(o.amount) : 1;
+      out.push({ kind: 'class-resource', resource: o.resource, amount });
+    } else if (o.kind === 'hit-dice') {
+      const amount = typeof o.amount === 'number' && o.amount > 0 ? Math.floor(o.amount) : 1;
+      out.push({ kind: 'hit-dice', amount });
+    }
+  }
+  return out;
 }
 
 /** Read an authored activation `ward` block into the canonical shape.
@@ -1365,6 +1432,14 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             : undefined;
 
       const ward = coerceActivationWard(decl.ward);
+      // Activation-time class-resource spend (Bastion of Law's 5 sorcery
+      // points, Draconic Presence's Channel Divinity) plus any
+      // alternative payment path (Aspect of the Wyrm's 3-Focus recreate).
+      const activationSpend = readResourceSpend(decl as unknown as Record<string, unknown>);
+      const activationAltCosts = coerceAlternativeCosts(
+        decl.alternativeCosts ??
+          (decl as unknown as { alternativeCost?: unknown }).alternativeCost
+      );
 
       availableActivations.push({
         id: decl.id,
@@ -1392,6 +1467,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         ...(restPickRequired ? { restPickRequired } : {}),
         ...(decl.restPickLabel ? { restPickLabel: decl.restPickLabel } : {}),
         ...(ward ? { ward } : {}),
+        ...(activationSpend
+          ? { spendsResource: activationSpend.resource, resourceCost: activationSpend.cost }
+          : {}),
+        ...(activationAltCosts.length > 0 ? { alternativeCosts: activationAltCosts } : {}),
         active: isActive
       });
 
@@ -2356,6 +2435,7 @@ function registerTriggers(s: DerivePhaseState): void {
       }
     }
     const triggerTable = coerceRandomTable(m.raw.randomTable);
+    const triggerSpend = readResourceSpend(m.raw);
     triggers.push({
       id: m.id,
       sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
@@ -2365,6 +2445,9 @@ function registerTriggers(s: DerivePhaseState): void {
       grants: coerceTriggerGrant(m.raw.grants),
       limit: m.raw.limit as { per: string; uses: number } | undefined,
       ...(typeof m.raw.description === 'string' ? { description: m.raw.description } : {}),
+      ...(triggerSpend
+        ? { spendsResource: triggerSpend.resource, resourceCost: triggerSpend.cost }
+        : {}),
       ...(triggerTable ? { randomTable: triggerTable } : {})
     });
   }
@@ -4207,6 +4290,23 @@ function realizeActivity(
           : 1;
     }
   }
+
+  // Class-resource spend declared on the activity itself (Tales from
+  // Beyond's Bardic Inspiration die, Touch of the Long Death's Focus
+  // points, Waxing and Waning's sorcery point). The item charge pool
+  // above already owns `spendsResource` when it fired, so it wins.
+  if (!action.spendsResource) {
+    const spend = readResourceSpend(act);
+    if (spend) {
+      action.spendsResource = spend.resource;
+      action.resourceCost = spend.cost;
+    }
+  }
+
+  // Alternative payment paths ("expend a spell slot of 1st level or
+  // higher to summon it again", "spend 2 Focus Points to use it again").
+  const altCosts = coerceAlternativeCosts(act.alternativeCosts ?? act.alternativeCost);
+  if (altCosts.length > 0) action.alternativeCosts = altCosts;
 
   // Any activity type may carry `act.damage.parts` for an associated die
   // that gets surfaced in the action panel (e.g. Bardic Inspiration's

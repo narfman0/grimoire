@@ -540,6 +540,12 @@ export interface Action {
    *  sibling activities author higher chargeCosts for bigger effects).
    *  Absent → the runtime debits 1 (legacy class-resource behavior). */
   resourceCost?: number;
+  /** Other ways to pay for one use of this Action, beside its own `uses`
+   *  pool / charge cost — "expend a spell slot of 1st level or higher to
+   *  summon it again", "spend 2 Focus Points to use it when you have no
+   *  uses left". Display contract: the planner offers the alternative,
+   *  the player debits the named pool. See `AlternativeCost`. */
+  alternativeCosts?: AlternativeCost[];
   /** Free-text label for an optional extra damage rider added to this
    *  Action by a maneuver / class-resource spend (e.g.
    *  `"+1 superiority die (d8)"`). Display-only; the runtime resolves the
@@ -645,6 +651,26 @@ export interface Action {
   randomTable?: RandomTable;
   appliedModifiers: AppliedModifier[];
 }
+
+/** An alternative way to pay for one use of an activity / activation,
+ *  beside its own `uses` pool or charge cost. Authored on the
+ *  declaration as `alternativeCosts: [...]` (singular `alternativeCost`
+ *  also accepted) and mirrored onto `Action.alternativeCosts` /
+ *  `AvailableActivation.alternativeCosts`.
+ *
+ *  Display contract — the engine debits nothing automatically; the
+ *  planner offers the alternative and the player spends the pool. */
+export type AlternativeCost =
+  /** "Expend a spell slot of `minLevel` or higher" (Drake Companion's
+   *  re-summon, Drake's Breath at 3rd level, Event Horizon's refresh).
+   *  `minLevel` defaults to 1. */
+  | { kind: 'spell-slot'; minLevel?: number }
+  /** "Spend N Focus Points / Sorcery Points / …" — `resource` is a
+   *  `ClassResourceDecl` id (Breath of the Dragon's 2 Focus, Aspect of
+   *  the Wyrm's 3, Lunar Phenomenon's 5 Sorcery Points). */
+  | { kind: 'class-resource'; resource: string; amount: number }
+  /** "Spend N Hit Dice". */
+  | { kind: 'hit-dice'; amount: number };
 
 /** Resolved summon payload on an Action (from a `type: 'summon'`
  *  activity's `summon` block). Creature counts are evaluateValue-resolved
@@ -1056,6 +1082,9 @@ export interface TriggerDeclaration {
    *  planner reads this to decide whether the player has budget left;
    *  the encounter runtime debits the pool on use. */
   spendsResource?: string;
+  /** How many units of `spendsResource` one invocation debits (XGtE
+   *  Drunkard's Luck spends 2 Focus). Defaults to 1 when absent. */
+  resourceCost?: number;
   /** Description prose surfaced to the encounter / planner UI when
    *  surfacing the trigger opportunity. */
   description?: string;
@@ -1418,6 +1447,13 @@ export interface ActivationDeclaration {
    *  the usual authored value); `barrier: true` marks a physical
    *  can't-cross barrier vs a mere-hindrance ward. */
   ward?: ActivationWard;
+  /** Class-resource id this activation debits when switched on, plus how
+   *  many units (`resourceCost`, default 1). The pack-side annotations
+   *  (`spendsSorceryPoints`, `spendsKi`, …) are accepted as aliases. */
+  spendsResource?: string;
+  resourceCost?: number;
+  /** Alternative payment paths for one activation — see `AlternativeCost`. */
+  alternativeCosts?: AlternativeCost[];
 }
 
 /** Creature-type ward payload on an activation — see
@@ -1492,6 +1528,15 @@ export interface AvailableActivation {
    *  from the declaration. Display contract (DM adjudicates); the
    *  panel renders a compact "wards vs …" line. */
   ward?: ActivationWard;
+  /** Class-resource id debited when the activation is switched on
+   *  (Bastion of Law's 5 Sorcery Points, Draconic Presence's Channel
+   *  Divinity). Mirrored from the declaration's `spendsResource`. */
+  spendsResource?: string;
+  /** Units of `spendsResource` one activation debits; defaults to 1. */
+  resourceCost?: number;
+  /** Other ways to pay for one activation (Aspect of the Wyrm's
+   *  "spend 3 Focus Points to recreate it"). See `AlternativeCost`. */
+  alternativeCosts?: AlternativeCost[];
   /** Whether the activation is currently on. For rest-pick activations,
    *  derived from "variant recorded" rather than a stored boolean. */
   active: boolean;

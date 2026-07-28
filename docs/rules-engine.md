@@ -151,6 +151,57 @@ An activity may declare `teleport: { distanceFt?, mode? }` (boots of the winding
 
 `ActionCost` accepts `{ "hitDice": N }` (crown of the wrath bringer, delver's claws). `costLabel` renders it as "N Hit Dice"; it maps to no action-economy slot. Display-only — there is no auto-spend path for action costs, so the player debits Hit Dice manually via the sheet's per-class hit-dice row (`character.hitDiceSpent`).
 
+## Class-resource spends and alternative costs
+
+`ClassResourceDecl` declares the pools (Focus, Sorcery Points, Bardic Inspiration, Superiority, Psionic Energy, Channel Divinity, Wild Shape, Rage) and `Derived.classResources` resolves them. **Spending** them used to reach the engine from exactly two places — a `ManeuverDecl` and an item charge pool — so a feature that spent a pool from an activity, a trigger, or an activation had nowhere to say so and the debit stayed manual.
+
+Any activity, trigger, or activation may now declare the spend directly; it mirrors onto the derived declaration:
+
+```jsonc
+// activity → Action.spendsResource / Action.resourceCost
+{ "id": "touch", "name": "Touch of the Long Death", "type": "save", "cost": "action",
+  "spendsResource": "focus", "resourceCost": 3 }
+
+// trigger → TriggerDeclaration.spendsResource / .resourceCost
+{ "kind": "trigger", "id": "drunkards-luck", "on": ["attack.declare"],
+  "spendsResource": "focus", "resourceCost": 2 }
+
+// activation → AvailableActivation.spendsResource / .resourceCost
+{ "id": "bastion-of-law", "condition": "bastion-of-law", "cost": "action",
+  "spendsResource": "sorcery-points", "resourceCost": 5 }
+```
+
+`resourceCost` defaults to 1. On an **item** activity the charge pool wins: an activity with `chargeCost` keeps `spendsResource: 'item/<slug>/charges'` and its own `spendsResource` is ignored (one debit per use).
+
+The pack-side annotations that predate the field are read as aliases of the pool the class rows already declare, so already-authored rows light up without an edit:
+
+| annotation | pool |
+| --- | --- |
+| `spendsSorceryPoints` | `sorcery-points` |
+| `spendsBardicInspiration` | `bardic-inspiration` |
+| `spendsKi` / `spendsFocusPoints` | `focus` (there is deliberately no separate `ki` pool) |
+| `spendsWildShape` | `wild-shape` |
+| `spendsSuperiorityDice` | `superiority` |
+| `spendsPsionicEnergy` | `psionic-energy` |
+| `spendsChannelDivinity` | `channel-divinity` |
+| `spendsRage` | `rage` |
+
+The annotation's value is the amount (`true` reads as 1). An explicit `spendsResource` always wins over an alias.
+
+### Alternative costs
+
+"Expend a spell slot of 1st level or higher to summon it again", "while you have no uses available, spend 2 Focus Points to use it again", "spend 5 Sorcery Points to use it again" — a second way to pay for a use that sits *beside* the declaration's own `uses` pool. Authored as `alternativeCosts` (singular `alternativeCost` also accepted) on an activity or an activation; mirrors onto `Action.alternativeCosts` / `AvailableActivation.alternativeCosts`.
+
+```jsonc
+"alternativeCosts": [
+  { "kind": "spell-slot", "minLevel": 3 },                       // minLevel defaults to 1
+  { "kind": "class-resource", "resource": "focus", "amount": 2 },
+  { "kind": "hit-dice", "amount": 1 }
+]
+```
+
+Display contract: the engine debits nothing automatically — the planner offers the alternative and the player spends the pool. Malformed entries are dropped silently (no warning; an empty result simply means "no alternative path").
+
 ## Trigger grants
 
 `TriggerDeclaration.grants` is a discriminated union (`TriggerGrant` in `types.ts`). Beyond the runtime-contract shapes (`force-reroll`, `damage.reduce`, `convert-hit-to-miss`, …), three canonical **on-hit rider** shapes exist as structured display contracts — the runtime stays DM-adjudicated; the planner/sheet renders the fields instead of parsing prose:
