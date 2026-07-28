@@ -351,6 +351,19 @@ export interface SkillCell {
   d20Floor?: number;
 }
 
+/** Rider on ability checks made *using a tool* — see
+ *  `StatBlock.toolChecks`. The engine's other check channels key on an
+ *  ability (`check.bonusDice.<ab>`) or a skill (`skill.bonusDice.<slug>`);
+ *  neither reaches "an ability check made with Thieves' Tools", which is
+ *  the tool half of the dragonmark 1d4 riders. */
+export interface ToolCheckCell {
+  /** Bonus dice added at roll time ('1d4'). Never folded into a numeric
+   *  bonus — tools have no fixed governing ability. Absent when empty. */
+  bonusDice?: string[];
+  advantage: boolean;
+  disadvantage: boolean;
+}
+
 export interface StatBlock {
   abilities: Record<AbilityKey, AbilityCell>;
   saves: Record<AbilityKey, SaveCell>;
@@ -488,6 +501,25 @@ export interface StatBlock {
    *  `'medium'`) and modifiable via the `size` target — Runic Juggernaut
    *  becomes Huge, Demiurgic Colossus Large/Huge. UPGRADE takes the
    *  larger of the two along the tiny→gargantuan ladder. */
+  /** How many magic items the character may be attuned to. RAW 3, raised
+   *  by the `attunement.max` modifier target (Artificer's Magic Item
+   *  Adept / Savant / Master, the 2024 Thief's Use Magic Device). Phase 6
+   *  emits `attunement-over-limit` against this number, not a constant. */
+  attunementMax: number;
+  /** The character ignores class / race / level / alignment requirements
+   *  on magic items (Magic Item Savant, the 2014 Thief's Use Magic
+   *  Device). Set by `attunement.ignore-requirements` (boolean). Display
+   *  + adjudication contract: the engine gates attunement on nothing but
+   *  the count, so nothing is unblocked mechanically — the flag is what
+   *  the sheet renders and the DM reads. */
+  attunementIgnoresRequirements: boolean;
+  /** Per-tool check riders, keyed by tool slug. Only tools named by a
+   *  `tool.bonusDice.<slug>` / `tool.advantage.<slug>` /
+   *  `tool.disadvantage.<slug>` modifier get a cell — proficiency itself
+   *  lives on `tools`. Tools have no fixed governing ability (a
+   *  Herbalism Kit check can be INT or WIS), so there is deliberately no
+   *  numeric bonus here; this is a roll-time contract. */
+  toolChecks: Record<string, ToolCheckCell>;
   size: CreatureSize;
   /** Melee reach in feet, base 5. Raised by the `reach.melee` target
    *  (Battering Roots +10, Demiurgic Colossus +10, Runic Juggernaut +5). */

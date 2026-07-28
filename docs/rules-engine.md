@@ -673,6 +673,33 @@ Activities may declare `grants.removeConditions` (Lesser Restoration shape); `re
 
 Action grants are **applied at use time** by `applyActionUse` (`src/lib/rules/apply-grants.ts`): one draft-mutating call debits the action's `spendsResource` pool by `resourceCost` and folds the grants into the document — numeric temp HP with take-the-max (no stacking, RAW), condition removal / stack decrement, and slot restoration with pick-best semantics (each restore un-spends the highest-level spent slot ≤ `level`, `count` times, clamped at 0). Dice-formula temp HP (`'1d4+4'`) is surfaced as a manual follow-up — the engine has no RNG. The sheet wires this in two places, each a single `patchDocument` write with toast feedback: the Use button on grant-carrying action rows (grant-carrying spell casts surface in the Actions section for this purpose; the spell-slot spend itself stays manual) and the encounter-planner resolve flow. The DM-side encounter resolve does **not** auto-apply grants to PC documents — the player's sheet is the apply surface.
 
+### Attunement cap and item requirements
+
+| target | value | lands on |
+| --- | --- | --- |
+| `attunement.max` | numeric (any mode) | `stats.attunementMax` (base 3) |
+| `attunement.ignore-requirements` | `true` | `stats.attunementIgnoresRequirements` |
+
+The `attunement-over-limit` soft warning fires against `stats.attunementMax`, not a constant, so Artificer's Magic Item Adept / Savant / Master (4 / 5 / 6) and the 2024 Thief's Use Magic Device (4) raise the number the sheet complains at. Author them as `{ "target": "attunement.max", "mode": "UPGRADE", "value": 5 }` — UPGRADE composes correctly when a character carries two such features.
+
+`attunement.ignore-requirements` (Magic Item Savant, the 2014 Thief's Use Magic Device) is a display + adjudication flag: the engine gates attunement on the count alone, so nothing is unblocked mechanically — the flag is what the sheet renders and the DM reads. Infusion-slot counts (Armor Modifications) are a **different** model and are not this target.
+
+### Prepared-spell cap
+
+The full-caster prepared limit (ability mod + class level) is composed through the `prepared-spells.max` target before phase 6 emits `prepared-spells-over-limit`, so "+1 wizard spell prepared" (grimoire infinitus) is expressible as `{ "target": "prepared-spells.max", "mode": "ADD", "value": 1 }`. The floor stays 1. The cap is a validation input only — the engine never truncates a prepared list.
+
+### Tool-check riders
+
+The ability-check dice channels key on an ability (`check.bonusDice.<ab>`) or a skill (`skill.bonusDice.<slug>`); neither reaches "an ability check made using Thieves' Tools", which is the tool half of the dragonmark 1d4 riders. Three targets do:
+
+| target | value | lands on |
+| --- | --- | --- |
+| `tool.bonusDice.<slug>` | die string (`'1d4'`) | `stats.toolChecks[slug].bonusDice[]` |
+| `tool.advantage.<slug>` | `true` | `stats.toolChecks[slug].advantage` |
+| `tool.disadvantage.<slug>` | `true` | `stats.toolChecks[slug].disadvantage` |
+
+`<slug>` is a tool slug from the same vocabulary as `proficiency.tool.<slug>`; no validation gate. Only tools named by one of these targets get a `toolChecks` cell — proficiency itself lives on `stats.tools`. There is deliberately **no** numeric bonus: a tool has no fixed governing ability (a Herbalism Kit check can be INT or WIS), so folding a number in would be guessing which modifier it stacks on. Roll-time contract, exactly like `skill.bonusDice`.
+
 ### Downtime cost declarations
 
 The 2014 wizard Savant features halve the gold **and** time to copy their school's spells into the spellbook; the Crafter feat discounts purchases; Quicksmithing prices later masteries. `data.downtime` on any active row declares that:

@@ -66,6 +66,7 @@ import type {
   MountEffect,
   StatBlock,
   StoredSpell,
+  ToolCheckCell,
   SummonBudget,
   SummonBudgetLine,
   TriggerDeclaration,
@@ -2034,10 +2035,32 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   let checkD20Floor = 0;
   let saveD20Floor = 0;
   const skillD20Floor: Record<string, number> = {};
+  // Tool-check riders. `check.bonusDice.<ab>` keys on an ability and
+  // `skill.bonusDice.<slug>` on a skill; neither reaches "an ability
+  // check made using Thieves' Tools", which is the tool half of the
+  // dragonmark 1d4 riders. `tool.<channel>.<slug>` does.
+  const toolBonusDice: Record<string, string[]> = {};
+  const toolAdvantage = new Set<string>();
+  const toolDisadvantage = new Set<string>();
   for (const m of eligibleMods) {
     if (m.kind !== 'stat-modifier') continue;
     const t = m.raw.target;
     if (typeof t !== 'string') continue;
+    if (m.raw.value === true) {
+      if (t.startsWith('tool.advantage.')) {
+        const slug = t.slice('tool.advantage.'.length);
+        if (slug) toolAdvantage.add(slug);
+      } else if (t.startsWith('tool.disadvantage.')) {
+        const slug = t.slice('tool.disadvantage.'.length);
+        if (slug) toolDisadvantage.add(slug);
+      }
+    }
+    if (t.startsWith('tool.bonusDice.')) {
+      const slug = t.slice('tool.bonusDice.'.length);
+      if (slug && typeof m.raw.value === 'string' && m.raw.value.length > 0) {
+        (toolBonusDice[slug] ??= []).push(m.raw.value);
+      }
+    }
     if (m.raw.value === true) {
       if (t === 'skill.advantage.all') for (const s of SKILLS) skillAdvantage.add(s);
       else if (t === 'skill.disadvantage.all') for (const s of SKILLS) skillDisadvantage.add(s);
@@ -2111,6 +2134,19 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       disadvantage: skillDisadvantage.has(skill) || checkDisadvantage.has(ability),
       ...(bonusDice.length > 0 ? { bonusDice } : {}),
       ...(floor > 0 ? { d20Floor: floor } : {})
+    };
+  }
+  const toolChecks: Record<string, ToolCheckCell> = {};
+  for (const slug of new Set([
+    ...Object.keys(toolBonusDice),
+    ...toolAdvantage,
+    ...toolDisadvantage
+  ])) {
+    const bonusDice = toolBonusDice[slug] ?? [];
+    toolChecks[slug] = {
+      ...(bonusDice.length > 0 ? { bonusDice } : {}),
+      advantage: toolAdvantage.has(slug),
+      disadvantage: toolDisadvantage.has(slug)
     };
   }
   const abilityCheckAdvantage: StatBlock['abilityCheckAdvantage'] = {};
@@ -2424,6 +2460,18 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     incomingCritImmune: hasBooleanTarget(eligibleMods, 'tag.incoming-crit-immune'),
     deathSaveAdvantage: hasBooleanTarget(eligibleMods, 'deathsave.advantage'),
     hitDiceMaximized: hasBooleanTarget(eligibleMods, 'hitDice.maximize'),
+    // Attunement cap: RAW 3, raised by `attunement.max` (Magic Item
+    // Adept / Savant / Master, the 2024 Thief's Use Magic Device).
+    // Phase 6 validates against this rather than a hardcoded 3.
+    attunementMax: Math.max(
+      0,
+      Math.floor((applyTarget(allMods, character, 'attunement.max', 3, ctx) as number) ?? 3)
+    ),
+    attunementIgnoresRequirements: hasBooleanTarget(
+      eligibleMods,
+      'attunement.ignore-requirements'
+    ),
+    toolChecks,
     size,
     meleeReachFt,
     actionCostOverrides,
@@ -2921,17 +2969,20 @@ const KNOWN_ACTIVITY_TYPES: ReadonlySet<string> = new Set([
 function runSoftValidations(s: DerivePhaseState): void {
   const { character, content, active, allMods, ctx, stats, validations } = s;
 
-  // Attunement
+  // Attunement — the cap is modifier-driven (`attunement.max`), not a
+  // constant, so Magic Item Adept / Savant / Master and Use Magic Device
+  // raise the number the warning fires against.
   const attunedCount = character.inventory.filter((i) => i.attuned).length;
-  if (attunedCount > 3) {
+  if (attunedCount > stats.attunementMax) {
     validations.push({
       severity: 'warning',
       code: 'attunement-over-limit',
-      message: `${attunedCount} items attuned (max 3)`
+      message: `${attunedCount} items attuned (max ${stats.attunementMax})`
     });
   }
 
-  // Prepared spell count (Wizard rule: INT mod + wizard level for prep limit)
+  // Prepared spell count (Wizard rule: INT mod + wizard level for prep
+  // limit), raised by the `prepared-spells.max` modifier target.
   for (const c of character.classes) {
     const classRow = content({ kind: 'class', slug: c.slug });
     if (!classRow) continue;
@@ -2940,7 +2991,11 @@ function runSoftValidations(s: DerivePhaseState): void {
       | null
       | undefined;
     if (!spellcasting || spellcasting.progression !== 'full') continue;
-    const limit = Math.max(1, stats.abilities[spellcasting.ability].mod + c.level);
+    const base = Math.max(1, stats.abilities[spellcasting.ability].mod + c.level);
+    const limit = Math.max(
+      1,
+      Math.floor((applyTarget(allMods, character, 'prepared-spells.max', base, ctx) as number) ?? base)
+    );
     if (character.spells.prepared.length > limit) {
       validations.push({
         severity: 'warning',
