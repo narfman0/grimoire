@@ -22,6 +22,7 @@ import {
   patchReveals,
   joinAndApprove,
   createCharacter,
+  submitActionLog,
   slugify
 } from './helpers';
 
@@ -145,6 +146,43 @@ test('DM and player share a live encounter: realtime HP, reveals, hidden redacti
   await dmPage.reload();
   await expect(dmPage.getByText('Shadow Lurker')).toBeVisible();
   await expect(dmPage.getByText('Participants (3)')).toBeVisible();
+
+  // ---- the hidden participant's ACTIONS stay hidden too -------------------
+  // The DM resolves an attack for the lurker. The action log is SSR data
+  // (no poll channel), so both pages reload to read it. The player's copy
+  // must survive as a neutral row — the log row exists, but nothing in it
+  // names the lurker, its action, its damage, or the target's exact HP.
+  await submitActionLog(dm, encounterId, {
+    participantId: lurkerId,
+    targetParticipantId: goblinId,
+    actionId: 'attack:shadow-claw',
+    actionLabel: 'Shadow Claw',
+    round: 1,
+    attackRoll: 19,
+    damageRoll: 9,
+    hit: 'hit',
+    targetHpBefore: 6,
+    targetHpAfter: 1,
+    notes: 'the Shadow Lurker strikes from behind'
+  });
+
+  await playerPage.reload();
+  const playerLog = playerPage.locator('section').filter({ hasText: 'Action log' });
+  await expect(playerLog).toBeVisible();
+  await expect(playerLog).toContainText('Something happens…');
+  await expect(playerLog).not.toContainText('Shadow Lurker');
+  await expect(playerLog).not.toContainText('Shadow Claw');
+  await expect(playerLog).not.toContainText('dmg 9');
+  await expect(playerLog).not.toContainText('atk 19');
+  await expect(playerLog).not.toContainText('6→1');
+  await expect(playerPage.getByText('Shadow Lurker')).toHaveCount(0);
+
+  // The DM's own log is untouched.
+  await dmPage.reload();
+  const dmLog = dmPage.locator('section').filter({ hasText: 'Action log' });
+  await expect(dmLog).toContainText('Shadow Claw');
+  await expect(dmLog).toContainText('dmg 9');
+  await expect(dmLog).toContainText('6→1');
 
   await dmPage.context().close();
   await playerPage.context().close();

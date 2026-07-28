@@ -338,3 +338,93 @@ describe('GET /api/encounters/[id]/log — pagination', () => {
     );
   });
 });
+
+// Regression: GET shipped raw rows to anyone in the campaign. A hidden
+// participant is redacted out of the participant list but its action-log
+// row still carried its real name (inside actionLabel), its action id, its
+// damage roll and the target's exact HP — a player with devtools open read
+// the ambush straight off the wire.
+describe('GET /api/encounters/[id]/log — hidden-participant redaction', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  async function fixture() {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const playerId = await seedUser(db, { username: 'p' });
+    const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const charId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: playerId,
+      name: 'Hero',
+      document: relentlessHalfOrcDoc('char-1'),
+      linkToCampaign: true
+    });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Hero'
+    });
+    const lurkerId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Shadow Lurker',
+      reveals: { identity: false, vitals: false, combat: false, hidden: true }
+    });
+    await seedActionLog(db, {
+      encounterId,
+      submittedByUserId: dmId,
+      submitterRole: 'dm',
+      participantId: lurkerId,
+      targetParticipantId: pcId,
+      actionId: 'attack:shadow-claw',
+      actionLabel: 'Shadow Lurker — Shadow Claw',
+      round: 1,
+      attackRoll: 18,
+      damageRoll: 9,
+      hit: 'hit',
+      targetHpBefore: 12,
+      targetHpAfter: 3,
+      notes: 'from the rafters'
+    });
+    return { dmId, playerId, encounterId, lurkerId, pcId };
+  }
+
+  it('neutralizes the hidden actor\'s row for a player, keeping the row count', async () => {
+    const { playerId, encounterId, pcId } = await fixture();
+    const res = await GET(
+      makeEvent({ user: userOf(playerId, 'p'), params: { id: encounterId } })
+    );
+    const body = await res.json();
+    expect(body.total).toBe(1);
+    expect(body.entries).toHaveLength(1);
+    const [entry] = body.entries;
+    expect(JSON.stringify(entry)).not.toContain('Shadow Lurker');
+    expect(JSON.stringify(entry)).not.toContain('shadow-claw');
+    expect(entry.redacted).toBe(true);
+    expect(entry.participantId).toBeNull();
+    expect(entry.actionLabel).toBe('Something happens…');
+    expect(entry.attackRoll).toBeNull();
+    expect(entry.damageRoll).toBeNull();
+    expect(entry.targetHpBefore).toBeNull();
+    expect(entry.targetHpAfter).toBeNull();
+    expect(entry.notes).toBeNull();
+    expect(entry.targetParticipantId).toBe(pcId);
+  });
+
+  it('leaves the row intact for the DM', async () => {
+    const { dmId, encounterId, lurkerId } = await fixture();
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    const [entry] = body.entries;
+    expect(entry.redacted).toBe(false);
+    expect(entry.participantId).toBe(lurkerId);
+    expect(entry.actionLabel).toBe('Shadow Lurker — Shadow Claw');
+    expect(entry.damageRoll).toBe(9);
+    expect(entry.targetHpAfter).toBe(3);
+    expect(entry.notes).toBe('from the rafters');
+  });
+});

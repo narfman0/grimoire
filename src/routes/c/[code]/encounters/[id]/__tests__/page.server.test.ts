@@ -6,6 +6,7 @@ import {
   seedEncounter,
   seedParticipant,
   seedCharacter,
+  seedActionLog,
   seedMinimumContent,
   minCharDoc
 } from '$lib/server/__tests__/fixtures';
@@ -234,6 +235,223 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
     }));
     const ids = data.participants.map((p: { id: string }) => p.id);
     expect(ids).not.toContain(monsterId);
+  });
+
+  // ---- action log redaction ------------------------------------------
+  // Regression: the loader used to SELECT the whole action_log with no role
+  // filter, so a hidden participant's real name (baked into actionLabel),
+  // action id, damage roll and the target's exact HP shipped to every
+  // player — the participant-list redaction above did nothing for the log.
+
+  /** DM + player campaign with a hidden lurker, a revealed-name goblin, and
+   *  the player's PC. Returns every id the log assertions need. */
+  async function logFixture(db: Db) {
+    const base = await dmPlusPlayerFixture(db);
+    const lurkerId = await seedParticipant(db, {
+      encounterId: base.encounterId,
+      kind: 'monster',
+      name: 'Shadow Lurker',
+      reveals: { identity: false, vitals: false, combat: false, hidden: true }
+    });
+    return { ...base, lurkerId };
+  }
+
+  const asPlayer = (playerId: string) => ({
+    id: playerId,
+    username: 'player',
+    isAdmin: false,
+    email: null,
+    emailVerified: false
+  });
+  const asDm = (dmId: string) => ({
+    id: dmId,
+    username: 'dm',
+    isAdmin: false,
+    email: null,
+    emailVerified: false
+  });
+
+  it('neutralizes a hidden actor\'s log entry for players, in full for the DM', async () => {
+    const { dmId, playerId, code, encounterId, lurkerId, pcId } = await logFixture(db);
+    await seedActionLog(db, {
+      encounterId,
+      submittedByUserId: dmId,
+      submitterRole: 'dm',
+      participantId: lurkerId,
+      targetParticipantId: pcId,
+      actionId: 'attack:shadow-claw',
+      actionLabel: 'Shadow Lurker — Shadow Claw',
+      round: 1,
+      attackRoll: 18,
+      damageRoll: 9,
+      hit: 'hit',
+      targetHpBefore: 24,
+      targetHpAfter: 15,
+      notes: 'Shadow Lurker drops from the rafters'
+    });
+
+    const player = await runLoad(load, loadEvent({
+      user: asPlayer(playerId),
+      params: { code, id: encounterId }
+    }));
+    // The row survives so log counts don't silently desync…
+    expect(player.actionLog).toHaveLength(1);
+    const redacted = player.actionLog[0];
+    expect(redacted.redacted).toBe(true);
+    // …but nothing identifying rides along. Assert on the whole serialized
+    // payload, not just the fields we remembered to null out.
+    expect(JSON.stringify(redacted)).not.toContain('Shadow Lurker');
+    expect(JSON.stringify(redacted)).not.toContain('shadow-claw');
+    expect(redacted.participantId).toBeNull();
+    expect(redacted.actionLabel).toBe('Something happens…');
+    expect(redacted.actionId).toBe('');
+    expect(redacted.attackRoll).toBeNull();
+    expect(redacted.damageRoll).toBeNull();
+    expect(redacted.hit).toBeNull();
+    expect(redacted.targetHpBefore).toBeNull();
+    expect(redacted.targetHpAfter).toBeNull();
+    expect(redacted.notes).toBeNull();
+    // The (visible) PC target stays — "something attacked Hero" leaks
+    // nothing about the actor and keeps the entry meaningful.
+    expect(redacted.targetParticipantId).toBe(pcId);
+
+    // DM sees the unredacted row.
+    const dm = await runLoad(load, loadEvent({
+      user: asDm(dmId),
+      params: { code, id: encounterId }
+    }));
+    const full = dm.actionLog[0];
+    expect(full.redacted).toBe(false);
+    expect(full.participantId).toBe(lurkerId);
+    expect(full.actionLabel).toBe('Shadow Lurker — Shadow Claw');
+    expect(full.damageRoll).toBe(9);
+    expect(full.targetHpBefore).toBe(24);
+    expect(full.targetHpAfter).toBe(15);
+    expect(full.notes).toBe('Shadow Lurker drops from the rafters');
+  });
+
+  it('redacts a hidden TARGET even when the actor is visible', async () => {
+    const { dmId, playerId, code, encounterId, lurkerId, pcId } = await logFixture(db);
+    await seedActionLog(db, {
+      encounterId,
+      submittedByUserId: playerId,
+      submitterRole: 'player',
+      participantId: pcId,
+      targetParticipantId: lurkerId,
+      actionId: 'attack:longsword',
+      actionLabel: 'Longsword',
+      round: 1,
+      attackRoll: 17,
+      damageRoll: 6,
+      hit: 'hit',
+      targetHpBefore: 20,
+      targetHpAfter: 14
+    });
+
+    const player = await runLoad(load, loadEvent({
+      user: asPlayer(playerId),
+      params: { code, id: encounterId }
+    }));
+    const entry = player.actionLog[0];
+    expect(entry.redacted).toBe(true);
+    // The PC's own action and roll are theirs to see…
+    expect(entry.participantId).toBe(pcId);
+    expect(entry.actionLabel).toBe('Longsword');
+    expect(entry.damageRoll).toBe(6);
+    // …but the hidden target and its HP are not.
+    expect(entry.targetParticipantId).toBeNull();
+    expect(entry.targetHpBefore).toBeNull();
+    expect(entry.targetHpAfter).toBeNull();
+  });
+
+  it('drops exact target HP when the target\'s vitals are unrevealed', async () => {
+    const { playerId, dmId, code, encounterId, pcId, monsterId } = await dmPlusPlayerFixture(db);
+    const { schema } = await import('$lib/server/__tests__/test-db');
+    const { eq } = await import('drizzle-orm');
+    // Identity revealed, vitals still secret — the player may read the
+    // goblin's name but not its HP totals.
+    await db
+      .update(schema.participants)
+      .set({
+        revealsJson: JSON.stringify({ identity: true, vitals: false, combat: false, hidden: false })
+      })
+      .where(eq(schema.participants.id, monsterId));
+    await seedActionLog(db, {
+      encounterId,
+      submittedByUserId: dmId,
+      participantId: pcId,
+      targetParticipantId: monsterId,
+      actionLabel: 'Longsword',
+      round: 1,
+      damageRoll: 6,
+      hit: 'hit',
+      targetHpBefore: 10,
+      targetHpAfter: 4
+    });
+
+    const player = await runLoad(load, loadEvent({
+      user: asPlayer(playerId),
+      params: { code, id: encounterId }
+    }));
+    const entry = player.actionLog[0];
+    expect(entry.targetParticipantId).toBe(monsterId); // not hidden, still listed
+    expect(entry.targetHpBefore).toBeNull();
+    expect(entry.targetHpAfter).toBeNull();
+    expect(entry.damageRoll).toBe(6);
+    expect(entry.redacted).toBe(true);
+  });
+
+  it('strips a legacy composite label naming an identity-unrevealed actor', async () => {
+    const { dmId, playerId, code, encounterId, monsterId } = await dmPlusPlayerFixture(db);
+    // Goblin is visible as "Enemy N" (identity false, not hidden). Rows
+    // written before the label fix carry "Goblin — Scimitar".
+    await seedActionLog(db, {
+      encounterId,
+      submittedByUserId: dmId,
+      participantId: monsterId,
+      actionId: 'attack:scimitar',
+      actionLabel: 'Goblin — Scimitar',
+      round: 1
+    });
+
+    const player = await runLoad(load, loadEvent({
+      user: asPlayer(playerId),
+      params: { code, id: encounterId }
+    }));
+    const entry = player.actionLog[0];
+    expect(entry.actionLabel).toBe('Scimitar');
+    expect(JSON.stringify(entry)).not.toContain('Goblin');
+  });
+
+  it('omits a hidden participant\'s plan from the player payload', async () => {
+    const { playerId, dmId, code, encounterId, lurkerId } = await logFixture(db);
+    const { schema } = await import('$lib/server/__tests__/test-db');
+    const { eq } = await import('drizzle-orm');
+    await db
+      .update(schema.participants)
+      .set({
+        planJson: JSON.stringify({
+          actionId: 'attack:shadow-claw',
+          actionLabel: 'Shadow Claw',
+          targetParticipantIds: [],
+          notes: 'ambush from the rafters',
+          updatedAt: 0
+        })
+      })
+      .where(eq(schema.participants.id, lurkerId));
+
+    const player = await runLoad(load, loadEvent({
+      user: asPlayer(playerId),
+      params: { code, id: encounterId }
+    }));
+    expect(player.participantPlans[lurkerId]).toBeUndefined();
+    expect(JSON.stringify(player.participantPlans)).not.toContain('Shadow Claw');
+
+    const dm = await runLoad(load, loadEvent({
+      user: asDm(dmId),
+      params: { code, id: encounterId }
+    }));
+    expect(dm.participantPlans[lurkerId]).toBeDefined();
   });
 
   // Locks: a player can't load a staging encounter (spoiler-safe). DM can.

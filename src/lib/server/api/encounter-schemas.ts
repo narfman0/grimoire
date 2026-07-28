@@ -177,6 +177,11 @@ export const ActionLogEntry = z
     targetHpBefore: z.number().int().nullable(),
     targetHpAfter: z.number().int().nullable(),
     notes: z.string().nullable(),
+    /** True when the viewer is a player and the row describes (or targets)
+     *  a participant they may not see: the actor, action, rolls and HP
+     *  snapshot are withheld and `actionLabel` is a neutral placeholder.
+     *  DM responses are never redacted. */
+    redacted: z.boolean().optional(),
     createdAt: z.number().int().nonnegative()
   })
   .openapi('ActionLogEntry');

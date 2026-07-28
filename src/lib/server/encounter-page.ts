@@ -15,6 +15,7 @@ import { db, schema } from '$lib/server/db';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import { initiativeCompare, makePlaceholderNamer } from '$lib/realtime/participants';
+import { buildRedactionMap, redactActionLog } from '$lib/realtime/action-log';
 import { derive } from '$lib/rules';
 import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
@@ -126,12 +127,36 @@ export async function buildEncounterPageData(
     return 10;
   }
 
-  // M3.5b: action log entries for this encounter — chronological.
+  // M3.5b: action log entries for this encounter — chronological. The rows
+  // are redacted per viewer role at serialization time below; a hidden
+  // participant's row otherwise ships its name, action, damage and the
+  // target's exact HP to every player (see $lib/realtime/action-log).
   const logRows = await db
     .select()
     .from(schema.actionLog)
     .where(eq(schema.actionLog.encounterId, enc.id))
     .orderBy(schema.actionLog.createdAt);
+
+  /** Real name + reveal flags per participant id — the input the log
+   *  redactor needs. Built from the unfiltered rows on purpose: it must
+   *  know about the hidden participants in order to redact them. */
+  const logRedaction = buildRedactionMap(
+    partRows.map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      name: p.name,
+      reveals: parseReveals(p.revealsJson)
+    }))
+  );
+
+  /** Participant ids a player viewer is allowed to know exist. Keyed
+   *  side-channels (plans, concentration) are filtered through this so they
+   *  don't reintroduce a hidden participant the list already dropped. */
+  const visibleToViewer = new Set(
+    partRows
+      .filter((p) => isDM || p.kind === 'pc' || !parseReveals(p.revealsJson).hidden)
+      .map((p) => p.id)
+  );
 
   // Characters linked to this campaign — for "add PC" picker and the
   // party-budget summary in the encounter header. JOIN through
@@ -265,6 +290,9 @@ export async function buildEncounterPageData(
    *  below. */
   const participantNonPcConcentrating: Record<string, { label: string; sinceRound?: number } | null> = {};
   for (const p of partRows) {
+    // A hidden participant is absent from the player's participant list —
+    // its plan / concentration must not ride along in these id-keyed maps.
+    if (!visibleToViewer.has(p.id)) continue;
     if (p.planJson) {
       try {
         participantPlans[p.id] = JSON.parse(p.planJson);
@@ -548,25 +576,32 @@ export async function buildEncounterPageData(
     participantPcReceivedBuffs,
     participantPlans,
     participantNonPcConcentrating,
-    actionLog: logRows.map((r) => ({
-      id: r.id,
-      round: r.round,
-      participantId: r.participantId,
-      targetParticipantId: r.targetParticipantId,
-      actionId: r.actionId,
-      actionLabel: r.actionLabel,
-      submittedByUserId: r.submittedByUserId,
-      submitterRole: r.submitterRole,
-      isAmendment: r.isAmendment,
-      amendsLogId: r.amendsLogId,
-      attackRoll: r.attackRoll,
-      damageRoll: r.damageRoll,
-      hit: r.hit,
-      targetHpBefore: r.targetHpBefore,
-      targetHpAfter: r.targetHpAfter,
-      notes: r.notes,
-      createdAt: r.createdAt.getTime()
-    }))
+    actionLog: redactActionLog(
+      logRows.map((r) => ({
+        id: r.id,
+        round: r.round,
+        participantId: r.participantId,
+        targetParticipantId: r.targetParticipantId,
+        actionId: r.actionId,
+        actionLabel: r.actionLabel,
+        submittedByUserId: r.submittedByUserId,
+        submitterRole: r.submitterRole,
+        isAmendment: r.isAmendment,
+        amendsLogId: r.amendsLogId,
+        attackRoll: r.attackRoll,
+        damageRoll: r.damageRoll,
+        hit: r.hit,
+        targetHpBefore: r.targetHpBefore,
+        targetHpAfter: r.targetHpAfter,
+        notes: r.notes,
+        // `as boolean` so the exported page-data type stays boolean — the
+        // redactor below flips this to true for player viewers.
+        redacted: false as boolean,
+        createdAt: r.createdAt.getTime()
+      })),
+      logRedaction,
+      isDM
+    )
   };
 }
 

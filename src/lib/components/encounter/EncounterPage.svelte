@@ -268,14 +268,20 @@
 
   /** Pre-fill the resolve form from a statblock action button. DM still
    *  rolls the dice — we just cache the label and surface the "+X / dXd…"
-   *  reminder so they don't have to scroll back to the statblock. */
+   *  reminder so they don't have to scroll back to the statblock.
+   *
+   *  The label is the *action name only*. It used to be baked as
+   *  `${actor.name} — ${action.name}`, which made the actor's identity part
+   *  of an opaque string the server couldn't redact — a hidden monster's
+   *  real name shipped to every player inside the log row. Actor identity
+   *  now comes from `entry.participantId` resolved against the (already
+   *  redacted) participant list at render time. */
   function pickStatblockAction(a: {
     name: string;
     attackBonus?: number;
     damage?: Array<{ dice: string; type: string }>;
   }) {
-    const acting = liveParticipants.find((q) => q.id === resolveForParticipantId);
-    resolveActionLabel = acting ? `${acting.name} — ${a.name}` : a.name;
+    resolveActionLabel = a.name;
     // Leave roll inputs blank so DM types what they actually rolled.
     resolveAttack = null;
     resolveDamage = null;
@@ -285,8 +291,7 @@
    *  pre-fills the label; no rolls or HP changes. */
   const COMMON_ACTIONS = ['Dodge', 'Dash', 'Disengage', 'Hide', 'Help', 'Ready', 'Use Object'];
   function pickCommonAction(label: string) {
-    const acting = liveParticipants.find((q) => q.id === resolveForParticipantId);
-    resolveActionLabel = acting ? `${acting.name} — ${label}` : label;
+    resolveActionLabel = label;
     resolveAttack = null;
     resolveDamage = null;
     resolveHit = '';
@@ -2215,10 +2220,21 @@
       {#each logEntries as entry (entry.id)}
         {@const actor = liveParticipants.find((p) => p.id === entry.participantId)}
         {@const target = liveParticipants.find((p) => p.id === entry.targetParticipantId)}
+        <!-- The server redacts rows whose actor a player may not see
+             ($lib/realtime/action-log) — `redacted` marks those. The extra
+             "actor id we can't resolve" clause is defence in depth only:
+             if a future surface ever ships an unredacted row, it still
+             renders as a neutral entry instead of leaking the label. -->
+        {@const withheld =
+          data.role !== 'dm' && (entry.redacted === true || (!!entry.participantId && !actor))}
         <li class="rounded border border-slate-800 bg-slate-950/50 p-2">
           <div class="flex flex-wrap items-baseline gap-2">
             <span class="font-semibold text-slate-200">{actor?.name ?? '—'}</span>
-            <span class="text-slate-400">{entry.actionLabel}</span>
+            {#if withheld && !actor}
+              <span class="text-slate-500 italic">Something happens…</span>
+            {:else}
+              <span class="text-slate-400">{entry.actionLabel}</span>
+            {/if}
             {#if target}
               <span class="text-slate-500">→</span>
               <span class="text-slate-200">{target.name}</span>
@@ -2226,13 +2242,13 @@
             {#if entry.hit}
               <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{entry.hit}</span>
             {/if}
-            {#if entry.attackRoll != null}
+            {#if entry.attackRoll != null && !withheld}
               <span class="text-slate-500">atk {entry.attackRoll}</span>
             {/if}
-            {#if entry.damageRoll != null}
+            {#if entry.damageRoll != null && !withheld}
               <span class="text-red-300">dmg {entry.damageRoll}</span>
             {/if}
-            {#if entry.targetHpBefore != null && entry.targetHpAfter != null}
+            {#if entry.targetHpBefore != null && entry.targetHpAfter != null && !withheld}
               <span class="font-mono text-[10px] text-slate-500">
                 hp {entry.targetHpBefore}→{entry.targetHpAfter}
               </span>
@@ -2257,7 +2273,7 @@
               </button>
             {/if}
           </div>
-          {#if entry.notes}
+          {#if entry.notes && !withheld}
             <p class="mt-1 text-slate-400 italic">“{entry.notes}”</p>
           {/if}
         </li>

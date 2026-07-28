@@ -354,6 +354,12 @@ export async function seedParticipant(
     /** Pointer to a content row of kind='monster' (matches `content.slug`). */
     statblockSlug?: string | null;
     initiative?: number | null;
+    /** DM secrecy flags (reveals_json). Omitted → `{}`, which parseReveals
+     *  reads as all-false for non-PCs. */
+    reveals?: Partial<{ identity: boolean; vitals: boolean; combat: boolean; hidden: boolean }>;
+    currentHp?: number | null;
+    maxHp?: number | null;
+    planJson?: string | null;
   }
 ): Promise<string> {
   const id = crypto.randomUUID();
@@ -366,13 +372,13 @@ export async function seedParticipant(
     statblockSlug: opts.statblockSlug ?? null,
     statblockJson: null,
     initiative: opts.initiative ?? null,
-    currentHp: opts.kind === 'pc' ? null : 10,
-    maxHp: opts.kind === 'pc' ? null : 10,
+    currentHp: opts.currentHp !== undefined ? opts.currentHp : opts.kind === 'pc' ? null : 10,
+    maxHp: opts.maxHp !== undefined ? opts.maxHp : opts.kind === 'pc' ? null : 10,
     tempHp: 0,
     conditionsJson: '[]',
-    planJson: null,
+    planJson: opts.planJson ?? null,
     concentratingJson: null,
-    revealsJson: '{}',
+    revealsJson: opts.reveals ? JSON.stringify(opts.reveals) : '{}',
     sortOrder: 0
   });
   return id;

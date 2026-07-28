@@ -63,6 +63,10 @@ export function serializeActionLogEntry(r: typeof schema.actionLog.$inferSelect)
     targetHpBefore: r.targetHpBefore,
     targetHpAfter: r.targetHpAfter,
     notes: r.notes,
+    /** Flipped to true by the per-viewer redactor in
+     *  $lib/realtime/action-log when a field was withheld from a player.
+     *  Always false straight out of the serializer. */
+    redacted: false,
     createdAt: r.createdAt.getTime()
   };
 }

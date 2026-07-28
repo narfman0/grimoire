@@ -23,6 +23,8 @@ import { parseJson, parseParams, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializeActionLogEntry } from '$lib/server/serializers';
+import { parseReveals } from '$lib/realtime/reveals';
+import { buildRedactionMap, redactActionLog } from '$lib/realtime/action-log';
 import { ActionLogList, ActionLogSubmitResponse } from '$lib/server/api/responses';
 import { logger } from '$lib/server/logger';
 import {
@@ -62,7 +64,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   const user = requireUser(locals);
   const { id: encounterId } = parseParams(params, Params);
   const { limit, offset } = parseSearch(url, LogListQuery);
-  await requireEncounter(user.id, encounterId);
+  const { role } = await requireEncounter(user.id, encounterId);
   const [{ total }] = await db
     .select({ total: sql<number>`count(*)` })
     .from(schema.actionLog)
@@ -74,7 +76,31 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     .orderBy(asc(schema.actionLog.createdAt))
     .limit(limit)
     .offset(offset);
-  return json({ entries: rows.map(serializeActionLogEntry), total: Number(total), limit, offset });
+
+  // Same privacy boundary the SSR encounter loader applies: a hidden
+  // participant's row would otherwise hand players its real name (baked
+  // into the label), its action, its damage roll and the target's exact HP.
+  // Rows are neutralized, never dropped, so `total` stays truthful.
+  const partRows = await db
+    .select({
+      id: schema.participants.id,
+      kind: schema.participants.kind,
+      name: schema.participants.name,
+      revealsJson: schema.participants.revealsJson
+    })
+    .from(schema.participants)
+    .where(eq(schema.participants.encounterId, encounterId));
+  const redaction = buildRedactionMap(
+    partRows.map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      name: p.name,
+      reveals: parseReveals(p.revealsJson)
+    }))
+  );
+
+  const entries = redactActionLog(rows.map(serializeActionLogEntry), redaction, role === 'dm');
+  return json({ entries, total: Number(total), limit, offset });
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {

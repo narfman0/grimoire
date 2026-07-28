@@ -101,6 +101,34 @@ export async function patchReveals(
   );
 }
 
+/** Append an action-log row the way the DM resolve panel does (same
+ *  endpoint, same body). `actionLabel` is the bare action name — the
+ *  composite "Actor — Action" form some legacy rows carry is redacted
+ *  server-side, see $lib/realtime/action-log. */
+export async function submitActionLog(
+  user: ApiUser,
+  encounterId: string,
+  body: {
+    participantId: string | null;
+    targetParticipantId?: string | null;
+    actionId: string;
+    actionLabel: string;
+    round: number;
+    attackRoll?: number;
+    damageRoll?: number;
+    hit?: string;
+    targetHpBefore?: number;
+    targetHpAfter?: number;
+    notes?: string;
+  }
+): Promise<string> {
+  const res = await ok(
+    await user.api.post(`/api/encounters/${encounterId}/log`, { data: body }),
+    'submit action log'
+  );
+  return res.id as string;
+}
+
 /** Player requests to join; DM approves the pending membership. */
 export async function joinAndApprove(dm: ApiUser, player: ApiUser, campaignCode: string) {
   await ok(await player.api.post(`/api/campaigns/${campaignCode}/join`), 'player join');
