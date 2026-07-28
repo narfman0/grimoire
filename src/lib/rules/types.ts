@@ -4,6 +4,7 @@
 import type { DamageSourcePredicate } from './damage-source';
 import type { MonsterDerived } from './monster-derive';
 import type { RandomTable } from './random-tables';
+import type { SpellModifier } from './spell-modifiers';
 
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
@@ -644,6 +645,16 @@ export interface Action {
    *  `mode` 'line-of-sight' (default reading) vs 'unrestricted'
    *  (can pass barriers / no sight needed). */
   teleport?: { distanceFt?: number; mode?: 'line-of-sight' | 'unrestricted' };
+  /** Spell components the character may skip on this cast, folded in
+   *  from a matching always-on `spell-modifier` (Improved Illusions'
+   *  Verbal waiver, Psychic Spells). Subset of `['v', 's', 'm']`. */
+  componentsWaived?: string[];
+  /** This spell may only be cast as a ritual — an always-prepared grant
+   *  RAW doesn't let you slot-cast (Animal Speaker, Spirit Seeker). */
+  ritualOnly?: boolean;
+  /** Ids of the optional `Derived.spellModifiers` entries that match this
+   *  cast — the Metamagic menu the planner offers on this action. */
+  availableSpellModifiers?: string[];
   /** Resolved random-effect table (Wand of Wonder, Deck of Many Things,
    *  Bag of Beans, Experimental Elixir). derive() never rolls — this is
    *  the declaration the UI/DM consults. See docs/rules-engine.md
@@ -1292,6 +1303,14 @@ export interface Derived {
    *  later declaration is dropped silently in v1; the runtime emits no
    *  validation since this is a vanishingly rare RAW collision). */
   classResources?: ResolvedClassResource[];
+  /** Spell-parameter modifiers the character can bring to a cast —
+   *  Metamagic, component waivers, damage-type substitutions,
+   *  ritual-only flags, "cast this with Sorcery Points instead of a
+   *  slot". Always-on entries are already folded into the matching spell
+   *  Actions; optional ones are the menu the planner offers per cast
+   *  (each Action lists the matching ids on `availableSpellModifiers`).
+   *  See docs/rules-engine.md § Spell-parameter modifiers. */
+  spellModifiers: SpellModifier[];
 }
 
 /** Polymorph form snapshot emitted by derive() — see `Derived.activeForm`. */

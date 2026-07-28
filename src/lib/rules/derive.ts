@@ -68,6 +68,12 @@ import type {
 import { ABILITIES, KNOWN_TRIGGER_EVENTS } from './types';
 import { coerceRandomTable, validateRandomTable } from './random-tables';
 import {
+  coerceSpellModifier,
+  validateSpellModifier,
+  type SpellModifier,
+  type SpellParameterEffect
+} from './spell-modifiers';
+import {
   adjudicatedCircumstances,
   computedCircumstancesSatisfied,
   equipmentCircumstances,
@@ -250,7 +256,7 @@ function coerceActivationWard(raw: unknown): ActivationWard | undefined {
 
 interface ActiveModifier {
   id: string; // for action modifiers; auto-generated for stat modifiers
-  kind: 'stat-modifier' | 'action-modifier' | 'trigger' | 'overlay-hp-pool';
+  kind: 'stat-modifier' | 'action-modifier' | 'spell-modifier' | 'trigger' | 'overlay-hp-pool';
   source: ActiveContent;
   raw: Record<string, unknown>;
 }
@@ -270,6 +276,13 @@ function classifyModifier(
   const kind = (m.kind as string | undefined) ?? 'stat-modifier';
   if (kind === 'stat-modifier') {
     sink.push({ id: ids.stat, kind: 'stat-modifier', source, raw: m });
+  } else if (kind === 'spell-modifier') {
+    sink.push({
+      id: (m.id as string | undefined) ?? ids.action,
+      kind: 'spell-modifier',
+      source,
+      raw: m
+    });
   } else if (kind === 'action-modifier') {
     sink.push({
       id: (m.id as string | undefined) ?? ids.action,
@@ -2250,6 +2263,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   applyActionModifiers(phase);
 
   // -------------------------------------------------------------------------
+  // PHASE 4.5 — spell-parameter modifiers. Always-on entries fold their
+  // computable targets into matching spell Actions; optional ones are
+  // listed per Action for the planner to offer at cast time.
+  // -------------------------------------------------------------------------
+  const spellModifiers = applySpellModifiers(phase);
+
+  // -------------------------------------------------------------------------
   // PHASE 5 — register triggers
   // -------------------------------------------------------------------------
   registerTriggers(phase);
@@ -2288,6 +2308,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     pendingItemChoices,
     availableActivations,
     equipped,
+    spellModifiers,
     ...(activeForm !== undefined ? { activeForm } : {}),
     ...(companions !== undefined ? { companions } : {}),
     ...(classResources !== undefined ? { classResources } : {})
@@ -2474,6 +2495,120 @@ function applyActionModifiers(s: DerivePhaseState): void {
         ...(limit ? { limit } : {})
       });
     }
+  }
+}
+
+/** PHASE 4.5 — spell-parameter modifiers.
+ *
+ *  Collects every eligible `kind: 'spell-modifier'` entry into the
+ *  `Derived.spellModifiers` manifest, then walks the assembled spell
+ *  Actions:
+ *
+ *  - an **always-on** modifier (no `cost`, no `optional: true`) whose
+ *    predicate matches folds its computable targets into the Action —
+ *    range, casting time, damage type, target count, component waivers,
+ *    the ritual-only flag.
+ *  - an **optional** one (Metamagic and friends) just records its id on
+ *    `Action.availableSpellModifiers`, because applying it is a per-cast
+ *    player decision the engine must not make.
+ *
+ *  Targets with no Action slot (duration multipliers, save waivers,
+ *  reroll counts, cast-without-slot) stay on the manifest as the display
+ *  contract — same posture as trigger grants. */
+function applySpellModifiers(s: DerivePhaseState): SpellModifier[] {
+  const { character, content, allMods, ctx, actions, validations } = s;
+
+  const mods: SpellModifier[] = [];
+  for (const m of allMods) {
+    if (m.kind !== 'spell-modifier') continue;
+    if (!modifierIsEligible(m, character, ctx)) continue;
+    const resolved = coerceSpellModifier(
+      m.raw,
+      m.id,
+      { kind: m.source.row.kind, slug: m.source.row.slug },
+      ctx
+    );
+    if (!resolved) continue;
+    mods.push(resolved);
+    validations.push(...validateSpellModifier(resolved));
+    for (const problem of validatePredicateBlock(resolved.appliesTo)) {
+      validations.push({
+        severity: 'warning',
+        code: 'unknown-predicate-operator',
+        message: `Spell modifier '${resolved.id}' ${problem}.`
+      });
+    }
+  }
+  if (mods.length === 0) return mods;
+
+  for (const action of actions) {
+    if (action.sourceContent.kind !== 'spell') continue;
+    const sourceRow = content(action.sourceContent);
+    const actionCtx = buildActionContext(action, sourceRow?.data);
+    for (const mod of mods) {
+      if (!predicateMatches(actionCtx, mod.appliesTo)) continue;
+      if (mod.optional) {
+        (action.availableSpellModifiers ??= []).push(mod.id);
+        continue;
+      }
+      for (const eff of mod.effects) applySpellParameterEffect(action, eff);
+    }
+  }
+  return mods;
+}
+
+/** Fold one always-on spell-parameter effect into an assembled Action.
+ *  Targets with no Action slot are no-ops here and live on the manifest. */
+function applySpellParameterEffect(action: Action, eff: SpellParameterEffect): void {
+  switch (eff.target) {
+    case 'spell.components.waive': {
+      if (!Array.isArray(eff.value)) break;
+      const merged = new Set([...(action.componentsWaived ?? []), ...(eff.value as string[])]);
+      action.componentsWaived = ['v', 's', 'm'].filter((c) => merged.has(c));
+      break;
+    }
+    case 'spell.range': {
+      if (typeof eff.value !== 'number' || !action.range) break;
+      if (action.range.units !== 'ft') break;
+      action.range = {
+        ...action.range,
+        value: Math.max(0, Math.round(applyNumericMode(action.range.value, eff.mode, eff.value)))
+      };
+      break;
+    }
+    case 'spell.range.touch-becomes': {
+      if (typeof eff.value !== 'number' || !action.range) break;
+      if (action.range.units !== 'touch') break;
+      action.range = { value: Math.max(0, Math.round(eff.value)), units: 'ft' };
+      break;
+    }
+    case 'spell.castingTime': {
+      if (eff.value === 'action' || eff.value === 'bonus' || eff.value === 'reaction') {
+        action.cost = eff.value;
+      }
+      break;
+    }
+    case 'spell.damageType': {
+      if (typeof eff.value !== 'string' || !action.damageRolls) break;
+      action.damageRolls = action.damageRolls.map((d) => ({ ...d, type: eff.value as string }));
+      break;
+    }
+    case 'spell.targets': {
+      if (typeof eff.value !== 'number') break;
+      action.targetCount = Math.max(
+        1,
+        Math.round(applyNumericMode(action.targetCount ?? 1, eff.mode, eff.value))
+      );
+      break;
+    }
+    case 'spell.ritual-only': {
+      if (eff.value === true) action.ritualOnly = true;
+      break;
+    }
+    default:
+      // duration multipliers, save waivers, reroll counts and
+      // cast-without-slot have no Action slot; the manifest carries them.
+      break;
   }
 }
 
@@ -4033,6 +4168,13 @@ function realizeActivity(
   };
   if (act.range && typeof act.range === 'object') {
     action.range = act.range as { value: number; units: string };
+  } else if (source.row.kind === 'spell' && source.data.range && typeof source.data.range === 'object') {
+    // Spell rows carry `range` at row level and most activities don't
+    // repeat it. The cast-spell path already back-filled from the row;
+    // a spell's own activity needs the same fallback, or a spell-range
+    // modifier (Improved Illusions, Distant Spell, Spell Sniper) has
+    // nothing to write into.
+    action.range = source.data.range as { value: number; units: string };
   }
 
   // Upcast scaling — merged from two pack shapes:

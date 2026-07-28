@@ -114,6 +114,30 @@ describe('StatModifierSchema', () => {
     }
   });
 
+  // Regression (engine batch 7): the schema stripped every sibling key,
+  // so a feat / item stat-modifier lost `appliesWhen`, `sourcePredicate`,
+  // `qualifier` and `defaultEnabled` on its way through /api/homebrew —
+  // which persists the parsed body. The engine reads all four.
+  it('keeps engine-read sibling fields instead of stripping them', () => {
+    const r = StatModifierSchema.safeParse({
+      kind: 'stat-modifier',
+      name: 'Mantle of Spell Resistance',
+      target: 'save.advantage.all',
+      value: true,
+      sourcePredicate: { kind: 'spell' },
+      qualifier: 'nonmagical',
+      defaultEnabled: false,
+      appliesWhen: { condition: 'raging', circumstances: ['hp.below-half'] }
+    });
+    expect(r.success).toBe(true);
+    const data = r.data as Record<string, unknown>;
+    expect(data.sourcePredicate).toEqual({ kind: 'spell' });
+    expect(data.qualifier).toBe('nonmagical');
+    expect(data.defaultEnabled).toBe(false);
+    expect(data.appliesWhen).toEqual({ condition: 'raging', circumstances: ['hp.below-half'] });
+    expect(data.name).toBe('Mantle of Spell Resistance');
+  });
+
   it('still rejects an array value', () => {
     expect(
       StatModifierSchema.safeParse({ kind: 'stat-modifier', target: 'ac', value: [1, 2] }).success

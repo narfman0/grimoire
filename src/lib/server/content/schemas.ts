@@ -93,20 +93,32 @@ export const ModifierMode = z.enum(['ADD', 'MULTIPLY', 'OVERRIDE', 'UPGRADE', 'D
  *  XGtE Dragon Hide's unarmored AC and PHB-2014 Medium Armor Master.
  *  `.passthrough()` on the object branch keeps the engine the authority
  *  on which keys a given target reads. */
-export const StatModifierSchema = z.object({
-  kind: z.literal('stat-modifier'),
-  target: z.string().min(1).max(128),
-  mode: ModifierMode.optional(),
-  value: z.union([z.number(), z.string(), z.boolean(), z.object({}).passthrough()]),
-  priority: z.number().int().optional()
-});
+export const StatModifierSchema = z
+  .object({
+    kind: z.literal('stat-modifier'),
+    target: z.string().min(1).max(128),
+    mode: ModifierMode.optional(),
+    value: z.union([z.number(), z.string(), z.boolean(), z.object({}).passthrough()]),
+    priority: z.number().int().optional()
+  })
+  /** The row itself is `.passthrough()` too: zod's default strip would
+   *  silently delete every engine-read sibling field on a feat / item
+   *  stat-modifier — `appliesWhen` (condition + circumstance gates),
+   *  `sourcePredicate`, `qualifier`, `defaultEnabled`, `persistsInForm` /
+   *  `appliesToForm`, `name`. The engine, not zod, is the authority on
+   *  which fields a target reads; the pack QC gate only validates, but the
+   *  /api/homebrew import persists the *parsed* body, so a stripped key is
+   *  data loss. */
+  .passthrough();
 
 /** Discriminated union that covers all modifier kinds the engine handles.
- *  `action-modifier` and `overlay-hp-pool` use `.passthrough()` so their
- *  full shapes are validated by the rules engine at the use site. */
+ *  `action-modifier`, `spell-modifier` and `overlay-hp-pool` use
+ *  `.passthrough()` so their full shapes are validated by the rules
+ *  engine at the use site. */
 export const AnyModifierSchema = z.discriminatedUnion('kind', [
   StatModifierSchema,
   z.object({ kind: z.literal('action-modifier') }).passthrough(),
+  z.object({ kind: z.literal('spell-modifier') }).passthrough(),
   z.object({ kind: z.literal('overlay-hp-pool') }).passthrough()
 ]);
 

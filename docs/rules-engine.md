@@ -240,6 +240,51 @@ Five more display-contract shapes cover the long-tail d20/save/death patterns �
 
 Item-sourced triggers respect the attunement gates (§ Attunement gating): a `requiresAttunement` item registers no triggers until attuned, and a per-entry `appliesWhen.requires: "equipped:attuned"` gates a single trigger on any item. Unknown grant `type` strings still pass through untyped (forward-compat).
 
+## Spell-parameter modifiers
+
+A large family of features changes neither a stat nor an action — it changes a *parameter of a spell the character casts*. "You can cast it without Verbal components." "Its range increases by 60 feet." "Its damage becomes Psychic." "You may cast it using Sorcery Points instead of a slot." "You may cast it only as a ritual." Metamagic is the whole family at once, one option per parameter.
+
+The authoring shape is a fourth modifier `kind`, so it inherits the existing collection walk, the `appliesWhen` gates (condition + circumstance) and the item attunement gates:
+
+```jsonc
+{ "kind": "spell-modifier",
+  "id": "subtle-spell",
+  "name": "Subtle Spell",
+  "description": "Cast without Somatic or Verbal components.",
+  "appliesTo": { "predicates": [{ "spell.school": "illusion" }] },   // optional — absent = every spell
+  "cost": { "resource": "sorcery-points", "amount": 1 },              // optional
+  "optional": true,                                                   // defaults to (cost != null)
+  "effects": [ { "target": "spell.components.waive", "value": ["v", "s"] } ] }
+```
+
+`appliesTo` reuses the action-modifier predicate DSL against the spell context — `spell.slug`, `spell.school`, `spell.level`, `spell.class`. `cost.amount` accepts a token string (Twinned Spell's "points equal to the spell's level") that the planner resolves at cast time.
+
+Everything eligible lands on **`Derived.spellModifiers`**. What happens next depends on `optional`:
+
+- **always-on** (`optional: false` — the default when there's no `cost`): derive() folds the computable targets straight into every matching spell Action.
+- **optional** (Metamagic, Split Enchantment's free-but-chosen extra target): derive() changes nothing and instead records the modifier's id on each matching `Action.availableSpellModifiers`. Applying it is a per-cast player decision the engine must not make for them.
+
+**Parameter vocabulary** (`src/lib/rules/spell-modifiers.ts`):
+
+| target | value | Action slot |
+| --- | --- | --- |
+| `spell.components.waive` | `'v' \| 's' \| 'm' \| 'all'` or an array (`'verbal'` etc. also accepted) | `componentsWaived` |
+| `spell.range` | numeric feet, ADD / MULTIPLY / OVERRIDE | `range.value` (only when `units` is `ft`) |
+| `spell.range.touch-becomes` | numeric feet | rewrites a `touch` range to `ft` |
+| `spell.castingTime` | `'action' \| 'bonus' \| 'reaction'` | `cost` |
+| `spell.damageType` | damage-type string | every entry in `damageRolls` |
+| `spell.targets` | numeric, ADD | `targetCount` |
+| `spell.ritual-only` | `true` | `ritualOnly` |
+| `spell.duration.multiply` | numeric | *(manifest only)* |
+| `spell.save.disadvantage` | `true` | *(manifest only)* |
+| `spell.save.waive` | count of auto-succeeding targets | *(manifest only)* |
+| `spell.damage.reroll` | count of rerollable dice | *(manifest only)* |
+| `spell.cast-without-slot` | `true` (pair with `cost`) | *(manifest only)* |
+
+The manifest-only targets have no Action field to write into and stay display contracts — same posture as trigger grants. An unrecognized target still rides the manifest (forward-compat) and emits a `spell-parameter-unrecognized` soft warning, deliberately outside the `unknown-*` family.
+
+Spell rows carry `range` at row level and most activities don't repeat it, so `realizeActivity` now back-fills a spell activity's `range` from its own row (the `cast-spell` path already did) — otherwise a range modifier would have nothing to write into.
+
 ## Random-effect tables
 
 A slice of the corpus is pure "roll and see": Deck of Many Things, deck of illusions, bag of beans, wand of wonder, robe of useful items, the d100 Wild Magic Surge, Tasha's Experimental Elixir, the Book of Many Things card decks. An activity **or** a trigger may declare a `randomTable`; derive() coerces it and hands the resolved declaration to the UI on `Action.randomTable` / `TriggerDeclaration.randomTable`.
