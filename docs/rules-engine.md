@@ -584,6 +584,23 @@ Pick storage accepts both shapes; `option` and `options` union together:
 - `picks` is resolved through `evaluateValue`, so `PendingFeatureChoice.unresolved` flips only once the player has chosen that many options. It is a picker-UI cap, not an enforcement gate — derive() synthesizes whatever was picked.
 - The sheet's feature-choices panel renders a `<select>` for single-pick menus and a capped checkbox list for multi-pick ones.
 
+#### Option payloads beyond modifiers
+
+Not every menu option is a modifier set. Hunter's Prey's Horde Breaker is an **extra weapon attack**; Power of the Wilds' Ram is an **on-hit prone rider** and its Lion an **enemy-side aura**; Defensive Tactics' options are **incoming-attack riders**. A modifiers-only menu synthesized nothing for those picks, which is why the audit deliberately held those rows at T2. An option may therefore also declare `activities[]`, `triggers[]` and `outboundEffects[]`:
+
+```jsonc
+{ "id": "horde-breaker", "label": "Horde Breaker",
+  "activities": [{ "id": "extra-attack", "name": "Horde Breaker", "type": "attack", "cost": "free", … }] },
+{ "id": "lion", "label": "Lion",
+  "outboundEffects": [{ "rangeFt": 5, "targets": "enemy", "modifiers": [ … ] }] },
+{ "id": "ram", "label": "Ram",
+  "triggers": [{ "on": ["attack.hit"], "grants": { "type": "condition.rider", "condition": "prone", … } }] }
+```
+
+Picked options' entries are merged into the row's own declarations (copy-on-write on the `ActiveContent` data view — never onto the shared `ContentRow`) with their ids rewritten to `choice/<optionId>/<authored id or index>`. From that point every consumer treats them as row-declared: activities realize into Actions (id `<kind>/<slug>/choice/<optionId>/<id>`) and get per-activity `uses` pools, triggers register and get `limit` pools, auras join the outbound manifest. Unpicked options contribute nothing. The namespace is also what a cross-row `upgrade.<slug>.activities.<id>…` path must address.
+
+Two engine limits still bound what an option can *do*, and they are the same limits a row-declared payload hits: there is no advantage-on-attack-rolls modifier target (so the Wolf option's ally broadcast still has nothing to place inside its aura), and `OutboundEffect.modifiers` carries stat-modifiers only.
+
 ### Dice maximization and doubling
 
 "Maximize the damage dice", "maximize the healing", "double the dice against objects" — the family beside `damage.die.min`, `damage.reroll-and-keep-higher` and `crit.extra-die`. All are **action-modifier effect targets** taking `value: true`, and all land as booleans on the Action for the roll-time consumer to honor:

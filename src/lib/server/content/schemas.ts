@@ -192,6 +192,14 @@ export const FeatChoicesSchema = z
             name: z.string().optional(),
             description: z.string().max(4000).optional(),
             modifiers: z.array(AnyModifierSchema).optional(),
+            /** Option-carried declarations for payloads a modifier can't
+             *  express: an extra attack, an on-hit rider, an aura. They
+             *  fold into the row's own declarations under a
+             *  `choice/<optionId>/` id namespace (see the rules engine's
+             *  "Option menus" section). */
+            activities: z.array(z.record(z.string(), z.unknown())).optional(),
+            triggers: z.array(z.record(z.string(), z.unknown())).optional(),
+            outboundEffects: z.array(z.record(z.string(), z.unknown())).optional(),
             uses: z
               .object({
                 max: z.union([z.number(), z.string(), z.object({}).passthrough()]),

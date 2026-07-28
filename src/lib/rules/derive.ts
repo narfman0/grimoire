@@ -782,8 +782,32 @@ interface MenuOption {
   label?: string;
   name?: string;
   modifiers?: Array<Record<string, unknown>>;
+  /** Activity declarations carried by the option itself — an option whose
+   *  payload is an extra attack or a bonus-action utility (Hunter's Prey
+   *  Horde Breaker) synthesizes no modifier, so a modifiers-only menu
+   *  left the row genuinely partial. Merged into the row's own
+   *  `activities[]` under a `choice/<optionId>/` id namespace. */
+  activities?: Array<Record<string, unknown>>;
+  /** Trigger declarations carried by the option (Power of the Wilds' Ram
+   *  on-hit prone rider, Defensive Tactics' incoming-attack riders). */
+  triggers?: Array<Record<string, unknown>>;
+  /** Aura declarations carried by the option (Power of the Wilds' Lion
+   *  enemy-side disadvantage aura). */
+  outboundEffects?: Array<Record<string, unknown>>;
   uses?: { max?: number | string | object; per?: string };
   description?: string;
+}
+
+/** Namespace an option-declared activity / trigger / aura id so two
+ *  picked options declaring the same id can't collide, and so the origin
+ *  is legible in the derived id (`feature/hunter-s-prey/choice/horde-breaker/…`). */
+function namespaceOptionEntry(
+  entry: Record<string, unknown>,
+  optionId: string,
+  index: number
+): Record<string, unknown> {
+  const authored = typeof entry.id === 'string' && entry.id.length > 0 ? entry.id : String(index);
+  return { ...entry, id: `choice/${optionId}/${authored}` };
 }
 
 /** Resolve the picked options of a row's `choices.modifierFromChoice`
@@ -1361,11 +1385,23 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       // multi-pick menus (Rune Knight runes). An option may also declare
       // its own `uses` pool — collectResources emits one Resource per
       // picked option that has one.
+      // An option may also carry `activities[]` / `triggers[]` /
+      // `outboundEffects[]`. Those are the payloads a modifiers-only menu
+      // could not express (an extra attack, an on-hit rider, an aura), so
+      // a row whose menu needed one stayed genuinely partial. They fold
+      // into the row's own declarations under a `choice/<optionId>/` id
+      // namespace, which makes every downstream consumer — activity
+      // realization, trigger registration, per-activity `uses` pools,
+      // trigger `limit` pools, the aura manifest — treat them exactly as
+      // if the row had declared them directly.
+      const optionActivities: Array<Record<string, unknown>> = [];
+      const optionTriggers: Array<Record<string, unknown>> = [];
+      const optionAuras: Array<Record<string, unknown>> = [];
       for (const chosen of resolvePickedMenuOptions(a, character)) {
-        if (!Array.isArray(chosen.modifiers)) continue;
-        for (let i = 0; i < chosen.modifiers.length; i++) {
+        const optionId = chosen.id ?? 'option';
+        for (let i = 0; i < (chosen.modifiers?.length ?? 0); i++) {
           classifyModifier(
-            chosen.modifiers[i],
+            chosen.modifiers![i],
             {
               stat: `${a.row.kind}/${a.row.slug}/mfc/${chosen.id}/${i}`,
               action: `${a.row.kind}/${a.row.slug}/mfc/${chosen.id}/amod/${i}`,
@@ -1374,8 +1410,60 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
             a,
             allMods
           );
-          // trigger / outbound shapes inside an option aren't synthesized
-          // in v0 — only modifier-kind effects. Add if/when needed.
+        }
+        if (Array.isArray(chosen.activities)) {
+          chosen.activities.forEach((act, i) => {
+            if (act && typeof act === 'object') {
+              optionActivities.push(namespaceOptionEntry(act, optionId, i));
+            }
+          });
+        }
+        if (Array.isArray(chosen.triggers)) {
+          chosen.triggers.forEach((t, i) => {
+            if (t && typeof t === 'object') optionTriggers.push(namespaceOptionEntry(t, optionId, i));
+          });
+        }
+        if (Array.isArray(chosen.outboundEffects)) {
+          chosen.outboundEffects.forEach((e, i) => {
+            if (e && typeof e === 'object') optionAuras.push(namespaceOptionEntry(e, optionId, i));
+          });
+        }
+      }
+      if (optionActivities.length > 0 || optionTriggers.length > 0 || optionAuras.length > 0) {
+        // Copy-on-write onto the ActiveContent's data view (same posture
+        // as the cross-row upgrade channel) — never onto the shared
+        // ContentRow.
+        a.data = {
+          ...a.data,
+          ...(optionActivities.length > 0
+            ? {
+                activities: [
+                  ...((a.data.activities as Array<Record<string, unknown>> | undefined) ?? []),
+                  ...optionActivities
+                ]
+              }
+            : {}),
+          ...(optionTriggers.length > 0
+            ? {
+                triggers: [
+                  ...((a.data.triggers as Array<Record<string, unknown>> | undefined) ?? []),
+                  ...optionTriggers
+                ]
+              }
+            : {}),
+          ...(optionAuras.length > 0
+            ? {
+                outboundEffects: [
+                  ...((a.data.outboundEffects as Array<Record<string, unknown>> | undefined) ?? []),
+                  ...optionAuras
+                ]
+              }
+            : {})
+        };
+        // The row's own triggers were extracted into allMods earlier in
+        // this same walk, so option triggers need an explicit push.
+        for (const t of optionTriggers) {
+          allMods.push({ id: t.id as string, kind: 'trigger', source: a, raw: t });
         }
       }
     }
