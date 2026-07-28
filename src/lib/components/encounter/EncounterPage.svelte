@@ -8,6 +8,7 @@
   import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
+  import ActionLogSection from './ActionLogSection.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
   import { COMMON_CONDITIONS, impliedBy, CONDITION_DESCRIPTIONS } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
@@ -404,7 +405,17 @@
   // the corrected entry says.
   let amendingLogId: string | null = null;
 
-  function openAmend(entry: (typeof data.actionLog)[number]) {
+  function openAmend(entry: {
+    id: string;
+    participantId: string | null;
+    actionId: string;
+    actionLabel: string;
+    targetParticipantId: string | null;
+    attackRoll: number | null;
+    damageRoll: number | null;
+    hit: string | null;
+    notes: string | null;
+  }) {
     amendingLogId = entry.id;
     resolveForParticipantId = entry.participantId;
     resolveActionId = entry.actionId;
@@ -417,8 +428,6 @@
     resolveError = null;
   }
 
-  // Combat log filter — by participant only (incl. ad-hoc DM rows w/ null).
-  let logFilterParticipantId: string | 'all' = 'all';
   /** Sum XP across all non-PC participants whose monster statblock carries
    *  an xp value. Surfaced in the encounter header as a rough budget gauge. */
   $: encounterTotalXp = liveParticipants
@@ -426,13 +435,6 @@
     .reduce((s, p) => s + (p.statblock?.xp ?? 0), 0);
   $: xpPerChar =
     data.party.size > 0 ? Math.round(encounterTotalXp / data.party.size) : encounterTotalXp;
-  // Filter rows; legacy isAmendment rows from before the amend-overwrite
-  // change still get rendered as normal entries (they're real history).
-  $: logEntries = data.actionLog.filter((e) => {
-    if (logFilterParticipantId !== 'all' && e.participantId !== logFilterParticipantId) return false;
-    return true;
-  });
-
   async function removeLogEntry(id: string) {
     if (data.role !== 'dm') return;
     if (!confirm('Remove this log entry? HP changes are not reverted.')) return;
@@ -1965,100 +1967,14 @@
   </div>
 {/if}
 
-{#if data.actionLog.length > 0}
-  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-      <h2 class="text-sm font-semibold text-slate-200">
-        Action log ({logEntries.length}{#if logEntries.length !== data.actionLog.length} of {data.actionLog.length}{/if})
-      </h2>
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <label class="flex items-center gap-1">
-          <span class="text-slate-500">Who:</span>
-          <select
-            class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5"
-            bind:value={logFilterParticipantId}
-          >
-            <option value="all">all</option>
-            {#each liveParticipants as p (p.id)}
-              <option value={p.id}>{p.name}</option>
-            {/each}
-          </select>
-        </label>
-        {#if logFilterParticipantId !== 'all'}
-          <button
-            class="text-slate-500 hover:text-slate-200"
-            on:click={() => (logFilterParticipantId = 'all')}
-          >
-            clear
-          </button>
-        {/if}
-      </div>
-    </div>
-    <ol class="space-y-2 text-xs">
-      {#each logEntries as entry (entry.id)}
-        {@const actor = liveParticipants.find((p) => p.id === entry.participantId)}
-        {@const target = liveParticipants.find((p) => p.id === entry.targetParticipantId)}
-        <!-- The server redacts rows whose actor a player may not see
-             ($lib/realtime/action-log) — `redacted` marks those. The extra
-             "actor id we can't resolve" clause is defence in depth only:
-             if a future surface ever ships an unredacted row, it still
-             renders as a neutral entry instead of leaking the label. -->
-        {@const withheld =
-          data.role !== 'dm' && (entry.redacted === true || (!!entry.participantId && !actor))}
-        <li class="rounded border border-slate-800 bg-slate-950/50 p-2">
-          <div class="flex flex-wrap items-baseline gap-2">
-            <span class="font-semibold text-slate-200">{actor?.name ?? '—'}</span>
-            {#if withheld && !actor}
-              <span class="text-slate-500 italic">Something happens…</span>
-            {:else}
-              <span class="text-slate-400">{entry.actionLabel}</span>
-            {/if}
-            {#if target}
-              <span class="text-slate-500">→</span>
-              <span class="text-slate-200">{target.name}</span>
-            {/if}
-            {#if entry.hit}
-              <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{entry.hit}</span>
-            {/if}
-            {#if entry.attackRoll != null && !withheld}
-              <span class="text-slate-500">atk {entry.attackRoll}</span>
-            {/if}
-            {#if entry.damageRoll != null && !withheld}
-              <span class="text-red-300">dmg {entry.damageRoll}</span>
-            {/if}
-            {#if entry.targetHpBefore != null && entry.targetHpAfter != null && !withheld}
-              <span class="font-mono text-[10px] text-slate-500">
-                hp {entry.targetHpBefore}→{entry.targetHpAfter}
-              </span>
-            {/if}
-            <span class="ml-auto text-[10px] text-slate-600">
-              {entry.submitterRole}
-            </span>
-            {#if data.role === 'dm'}
-              <button
-                class="text-[10px] text-amber-300 hover:text-amber-200"
-                on:click={() => openAmend(entry)}
-              >
-                amend
-              </button>
-              <button
-                class="text-[10px] text-red-300 hover:text-red-200 disabled:opacity-40"
-                title="Remove this log entry"
-                disabled={busy}
-                on:click={() => removeLogEntry(entry.id)}
-              >
-                remove
-              </button>
-            {/if}
-          </div>
-          {#if entry.notes && !withheld}
-            <p class="mt-1 text-slate-400 italic">“{entry.notes}”</p>
-          {/if}
-        </li>
-      {/each}
-    </ol>
-  </section>
-{/if}
+<ActionLogSection
+  log={data.actionLog}
+  participants={liveParticipants}
+  role={data.role}
+  {busy}
+  on:amend={(e) => openAmend(e.detail)}
+  on:remove={(e) => removeLogEntry(e.detail)}
+/>
 
 
 {#if showMonsterPicker}
