@@ -10,6 +10,8 @@
   import AddParticipantModal from './AddParticipantModal.svelte';
   import ConcentrationSavePrompt from './ConcentrationSavePrompt.svelte';
   import ConditionChips from './ConditionChips.svelte';
+  import LegendaryActionTracker from './LegendaryActionTracker.svelte';
+  import NpcSpellSlotTracker from './NpcSpellSlotTracker.svelte';
   import RevealControls from './RevealControls.svelte';
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
@@ -1177,7 +1179,6 @@
     npcSpellSlots[pid][level] = { ...cur, used: Math.max(0, Math.min(cur.max, used)) };
     npcSpellSlots = npcSpellSlots;
   }
-  const SPELL_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
   let showSlotEditor: Record<string, boolean> = {};
 </script>
 
@@ -1498,82 +1499,24 @@
       <!-- Legendary actions tracker (DM only, non-PC with legendary actions) -->
       {#if data.role === 'dm' && !isPc && (p.statblock?.legendaryActions?.length ?? 0) > 0}
         {@const legMax = 3}
-        {@const legUsed = legendaryUsed[p.id] ?? 0}
-        <div class="mb-3">
-          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Legendary Actions</div>
-          <div class="flex items-center gap-2 text-xs">
-            <div class="flex gap-1">
-              {#each Array(legMax) as _, i}
-                <button
-                  class="h-5 w-5 rounded border text-center text-[11px] {i < legUsed ? 'border-amber-500 bg-amber-900/50 text-amber-300' : 'border-slate-600 text-slate-600 hover:border-slate-400'}"
-                  title={i < legUsed ? 'Mark unused' : 'Mark used'}
-                  on:click={() => toggleLegendaryAction(p.id, legMax)}
-                >★</button>
-              {/each}
-            </div>
-            <span class="text-slate-400">{legUsed}/{legMax} used</span>
-            {#if legUsed > 0}
-              <button class="text-[11px] text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline" on:click={() => { legendaryUsed[p.id] = 0; legendaryUsed = legendaryUsed; }}>reset</button>
-            {/if}
-          </div>
-          {#if p.statblock?.legendaryActions && p.statblock.legendaryActions.length > 0}
-            <ul class="mt-1 space-y-0.5 text-[11px] text-slate-400">
-              {#each p.statblock.legendaryActions as la}
-                <li><span class="text-slate-300">{la.name}</span>{#if la.description} — {la.description.slice(0, 80)}{la.description.length > 80 ? '…' : ''}{/if}</li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
+        <LegendaryActionTracker
+          legendaryActions={p.statblock?.legendaryActions ?? []}
+          used={legendaryUsed[p.id] ?? 0}
+          max={legMax}
+          on:toggle={() => toggleLegendaryAction(p.id, legMax)}
+          on:reset={() => { legendaryUsed[p.id] = 0; legendaryUsed = legendaryUsed; }}
+        />
       {/if}
 
       <!-- NPC spell slot tracker (DM only, non-PC) -->
       {#if data.role === 'dm' && !isPc}
-        {@const slots = npcSpellSlots[p.id] ?? {}}
-        {@const usedLevels = SPELL_LEVELS.filter((l) => (slots[l]?.max ?? 0) > 0)}
-        <div class="mb-3">
-          <div class="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
-            <span>Spell Slots</span>
-            <button
-              class="normal-case text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
-              on:click={() => { showSlotEditor[p.id] = !showSlotEditor[p.id]; showSlotEditor = showSlotEditor; }}
-            >{showSlotEditor[p.id] ? 'done' : 'edit'}</button>
-          </div>
-          {#if showSlotEditor[p.id]}
-            <div class="flex flex-wrap gap-2 text-xs">
-              {#each SPELL_LEVELS as level}
-                <label class="flex items-center gap-1">
-                  <span class="text-slate-500">L{level}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="9"
-                    class="w-10 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[11px]"
-                    value={slots[level]?.max ?? 0}
-                    on:change={(e) => setSlotMax(p.id, level, Math.max(0, Math.min(9, +(e.currentTarget.value) || 0)))}
-                  />
-                </label>
-              {/each}
-            </div>
-          {:else if usedLevels.length > 0}
-            <div class="flex flex-wrap gap-3 text-xs">
-              {#each usedLevels as level}
-                {@const s = slots[level]}
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-500">L{level}</span>
-                  {#each Array(s.max) as _, i}
-                    <button
-                      class="h-4 w-4 rounded border text-center text-[9px] {i < s.used ? 'border-violet-500 bg-violet-900/50 text-violet-300' : 'border-slate-600 text-slate-600 hover:border-slate-400'}"
-                      title={i < s.used ? 'Restore slot' : 'Expend slot'}
-                      on:click={() => toggleSlotUsed(p.id, level, i)}
-                    >◆</button>
-                  {/each}
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <span class="text-[11px] text-slate-600">None set — click edit to add</span>
-          {/if}
-        </div>
+        <NpcSpellSlotTracker
+          slots={npcSpellSlots[p.id] ?? {}}
+          showEditor={showSlotEditor[p.id]}
+          on:toggleEditor={() => { showSlotEditor[p.id] = !showSlotEditor[p.id]; showSlotEditor = showSlotEditor; }}
+          on:setMax={(e) => setSlotMax(p.id, e.detail.level, e.detail.max)}
+          on:toggleUsed={(e) => toggleSlotUsed(p.id, e.detail.level, e.detail.slotIdx)}
+        />
       {/if}
 
       <!-- Stats -->
