@@ -57,6 +57,32 @@ export const RevealsResponse = z
   .object({ reveals: z.record(z.string(), z.boolean()) })
   .openapi('RevealsResponse');
 
+/** GET /api/encounters/[id]/difficulty — mirrors EncounterDifficultyResult
+ *  from $lib/rules/encounter-difficulty (2014 DMG budgeting math). */
+export const EncounterDifficulty = z
+  .object({
+    edition: z.literal('2014'),
+    partySize: z.number().int().nonnegative(),
+    monsterCount: z.number().int().nonnegative(),
+    baseXp: z.number().int().nonnegative(),
+    xpPerCharacter: z.number().int().nonnegative(),
+    multiplier: z.number().positive(),
+    adjustedXp: z.number().int().nonnegative(),
+    thresholds: z.object({
+      easy: z.number().int().nonnegative(),
+      medium: z.number().int().nonnegative(),
+      hard: z.number().int().nonnegative(),
+      deadly: z.number().int().nonnegative()
+    }),
+    rating: z.enum(['trivial', 'easy', 'medium', 'hard', 'deadly', 'unknown']),
+    /** Roster entries we could not price — the estimate is incomplete when
+     *  this is non-empty. */
+    unrated: z.array(z.string()),
+    /** Per-character total levels that fed the thresholds, for display. */
+    partyLevels: z.array(z.number().int().positive())
+  })
+  .openapi('EncounterDifficulty');
+
 // ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
