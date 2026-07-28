@@ -9,9 +9,6 @@ const baseProps = {
   busy: false,
   connStatus: 'open' as const,
   status: 'live',
-  totalXp: 0,
-  xpPerChar: 0,
-  party: { size: 3, avgLevel: 2 },
   participantCount: 4,
   encountersHref: '/c/ABCD/encounters'
 };

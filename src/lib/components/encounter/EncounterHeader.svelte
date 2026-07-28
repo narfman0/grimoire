@@ -1,8 +1,13 @@
 <script lang="ts">
   // Encounter page header: title (with the DM's inline rename), the live-sync
-  // dot, the XP budget gauge, and the staging → live "Start encounter"
-  // button. Stateless apart from the rename draft; the parent owns the name,
-  // the connection status and the status transition.
+  // dot, the staging → live "Start encounter" button and the DM's "Run it
+  // again" clone. Stateless apart from the rename draft; the parent owns the
+  // name, the connection status and the status transition.
+  //
+  // The XP gauge that used to live on this line is gone: it summed
+  // `statblock.xp` client-side, which is both the wrong math (no encounter
+  // multiplier, no thresholds) and player-visible. The real rating comes from
+  // the DM-only /difficulty endpoint and renders in EncounterDifficultyPanel.
   import { createEventDispatcher } from 'svelte';
 
   export let name: string;
@@ -11,9 +16,6 @@
   /** Null when the realtime channel hasn't initialized (SSR-only mode). */
   export let connStatus: 'connecting' | 'open' | 'closed' | null = null;
   export let status: string;
-  export let totalXp = 0;
-  export let xpPerChar = 0;
-  export let party: { size: number; avgLevel: number };
   export let participantCount = 0;
   export let encountersHref: string;
 
@@ -22,7 +24,7 @@
    *  flight). */
   export let renaming = false;
 
-  const dispatch = createEventDispatcher<{ rename: string; start: void }>();
+  const dispatch = createEventDispatcher<{ rename: string; start: void; clone: void }>();
 
   let renameValue = name;
 
@@ -106,16 +108,7 @@
             : `${status} · sync: ${connStatus}`}
         ></span>
       {/if}
-      {#if totalXp > 0}
-        &middot; <span class="text-slate-300">{totalXp} XP</span>
-        {#if party.size > 0}
-          <span class="text-slate-500">
-            (vs {party.size} PC{party.size === 1 ? '' : 's'},
-            avg L{party.avgLevel.toFixed(1)} —
-            <span class="text-slate-300">{xpPerChar}/char</span>)
-          </span>
-        {/if}
-      {/if}
+      <span class="text-slate-400">{status}</span>
     </p>
   </div>
   <div class="flex items-center gap-3">
@@ -132,6 +125,17 @@
           ▶ Start encounter
         </button>
       {/if}
+      <!-- Clone. No confirm: it is additive (a brand-new staging encounter),
+           the DM lands on the copy and can delete it in one click, and a
+           confirm on a create action just trains people to dismiss confirms. -->
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+        disabled={busy}
+        title="Copy the roster and DM notes into a fresh staging encounter — HP, conditions, initiative, the log and the reveals all reset"
+        on:click={() => dispatch('clone')}
+      >
+        ⟳ Run it again
+      </button>
     {/if}
     <a class="text-xs text-slate-400 hover:text-slate-200" href={encountersHref}>
       ← all encounters

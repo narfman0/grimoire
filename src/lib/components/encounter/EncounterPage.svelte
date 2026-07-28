@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { goto, invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/client/api';
   import { confirmDialog } from '$lib/components/ui/confirm';
@@ -10,6 +11,9 @@
   import AddParticipantModal from './AddParticipantModal.svelte';
   import ConcentrationSavePrompt from './ConcentrationSavePrompt.svelte';
   import EncounterHeader from './EncounterHeader.svelte';
+  import EncounterDifficultyPanel, {
+    type DifficultyReadout
+  } from './EncounterDifficultyPanel.svelte';
   import TurnControls from './TurnControls.svelte';
   import ConcentrationEditor from './ConcentrationEditor.svelte';
   import ConditionChips from './ConditionChips.svelte';
@@ -59,6 +63,8 @@
   export let encountersHref: string;
   /** Sheet link for a PC participant's character; undefined renders no link. */
   export let sheetHref: (characterId: string) => string | undefined;
+  /** Link to a sibling encounter in this campaign — used to land on the clone. */
+  export let encounterHref: (encounterId: string) => string;
 
   let busy = false;
 
@@ -490,13 +496,70 @@
     resolveTargetSaveRolls = {};
   }
 
-  /** Sum XP across all non-PC participants whose monster statblock carries
-   *  an xp value. Surfaced in the encounter header as a rough budget gauge. */
-  $: encounterTotalXp = liveParticipants
-    .filter((p) => p.kind !== 'pc' && p.statblock?.xp != null)
-    .reduce((s, p) => s + (p.statblock?.xp ?? 0), 0);
-  $: xpPerChar =
-    data.party.size > 0 ? Math.round(encounterTotalXp / data.party.size) : encounterTotalXp;
+  // ---- difficulty rating (DM only) ---------------------------------------
+  // Replaces the old client-side `sum(statblock.xp)` gauge, which had no
+  // encounter multiplier and no party thresholds. The real math is server
+  // side at GET /api/encounters/[id]/difficulty.
+  //
+  // DM only, and gated *before* the request rather than by swallowing the
+  // error: the endpoint 403s players by design (it sees the full roster,
+  // hidden monsters included), so a player fetching it would be a guaranteed
+  // failed request — noisy in the log and, without `silent`, a toast in their
+  // face for something they never asked for.
+  let difficulty: DifficultyReadout | null = null;
+  let difficultyLoading = false;
+  /** Roster signature the current reading was computed from. */
+  let difficultySig: string | null = null;
+
+  async function loadDifficulty() {
+    difficultyLoading = true;
+    try {
+      // silent: an advisory readout must never toast. The panel degrades to
+      // "Difficulty unavailable." on its own.
+      difficulty = await api.get<DifficultyReadout>(
+        `/api/encounters/${data.encounter.id}/difficulty`,
+        { silent: true }
+      );
+    } catch {
+      difficulty = null;
+    } finally {
+      difficultyLoading = false;
+    }
+  }
+
+  /** Refetch when the roster changes. `liveParticipants` is the same list the
+   *  poll reconciliation feeds (for the DM: SSR rows, re-run by invalidateAll
+   *  on every local mutation and by the poll-driven refresh above), so this
+   *  rides that instead of putting a second endpoint on a timer. The slug is
+   *  in the signature too — swapping a monster's statblock changes its CR. */
+  $: if (browser && data.role === 'dm') {
+    const sig = liveParticipants
+      .map((p) => `${p.id}:${p.kind}:${p.statblockSlug ?? ''}`)
+      .sort()
+      .join(',');
+    if (sig !== difficultySig) {
+      difficultySig = sig;
+      void loadDifficulty();
+    }
+  }
+
+  /** "Run it again": clone the roster into a fresh staging encounter and go
+   *  there. Non-destructive, so no confirm — see EncounterHeader. */
+  async function cloneEncounter() {
+    if (data.role !== 'dm') return;
+    busy = true;
+    try {
+      const created = await api.post<{ id: string }>(
+        `/api/encounters/${data.encounter.id}/clone`
+      );
+      await goto(encounterHref(created.id));
+    } catch {
+      // api() already toasted
+    } finally {
+      busy = false;
+    }
+  }
+
   async function removeLogEntry(id: string) {
     if (data.role !== 'dm') return;
     const ok = await confirmDialog({
@@ -1227,15 +1290,17 @@
   {busy}
   connStatus={conn ? connStatus : null}
   status={liveStatus}
-  totalXp={encounterTotalXp}
-  {xpPerChar}
-  party={data.party}
   participantCount={liveParticipants.length}
   {encountersHref}
   bind:renaming={renamingEncounter}
   on:rename={(e) => submitRename(e.detail)}
   on:start={() => setEncounterStatus('live')}
+  on:clone={cloneEncounter}
 />
+
+{#if data.role === 'dm'}
+  <EncounterDifficultyPanel {difficulty} loading={difficultyLoading} />
+{/if}
 
 {#if liveStatus === 'live' && data.role === 'dm'}
   <TurnControls

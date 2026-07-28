@@ -8,5 +8,6 @@
 <EncounterPage
   {data}
   encountersHref={`/c/${data.campaign.code}/encounters`}
+  encounterHref={(id) => `/c/${data.campaign.code}/encounters/${id}`}
   sheetHref={(characterId) => `/c/${data.campaign.code}/character/${characterId}`}
 />
