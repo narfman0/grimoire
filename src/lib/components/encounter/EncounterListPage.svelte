@@ -27,6 +27,9 @@
   /** Route-specific link targets — see CampaignPage for the same pattern. */
   export let campaignHref: string;
   export let encounterHref: (id: string) => string;
+  /** Table mode (read-only shared screen). Staging encounters have no
+   *  display view — the loader runs the player branch, which 404s them. */
+  export let displayHref: (id: string) => string;
 
   let newName = '';
   let busy = false;
@@ -143,6 +146,15 @@
               </span>
               {#if enc.status === 'live'}
                 <span class="ml-2 text-xs text-slate-500">round {enc.round}</span>
+              {/if}
+              {#if enc.status !== 'staging'}
+                <a
+                  class="ml-2 text-xs text-slate-500 hover:text-emerald-300"
+                  href={displayHref(enc.id)}
+                  title="Read-only view for the screen in the middle of the table"
+                >
+                  table mode
+                </a>
               {/if}
             </div>
             {#if data.role === 'dm'}

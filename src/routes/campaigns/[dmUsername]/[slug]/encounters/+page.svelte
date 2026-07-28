@@ -10,4 +10,6 @@
   {data}
   campaignHref={campaignUrl(data.campaign.dmUsername, data.campaign.slug)}
   encounterHref={(id) => encounterUrl(data.campaign.dmUsername, data.campaign.slug, id)}
+  displayHref={(id) =>
+    `${encounterUrl(data.campaign.dmUsername, data.campaign.slug, id)}/display`}
 />

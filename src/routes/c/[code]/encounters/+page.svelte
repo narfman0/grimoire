@@ -9,4 +9,5 @@
   {data}
   campaignHref={`/c/${data.campaign.code}`}
   encounterHref={(id) => `/c/${data.campaign.code}/encounters/${id}`}
+  displayHref={(id) => `/c/${data.campaign.code}/encounters/${id}/display`}
 />

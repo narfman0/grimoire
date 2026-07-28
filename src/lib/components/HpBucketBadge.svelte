@@ -5,6 +5,11 @@
   import { HP_BUCKET_LABELS, type HpBucket } from '$lib/realtime/reveals';
 
   export let value: HpBucket = 'unknown';
+  /** `lg` is the table-mode (shared screen) scale — same pill, readable from
+   *  across the table. */
+  export let size: 'sm' | 'lg' = 'sm';
+
+  $: sizing = size === 'lg' ? 'px-3 py-1 text-lg sm:text-xl' : 'px-1.5 py-0.5 text-[10px]';
 
   $: tone = (() => {
     switch (value) {
@@ -24,6 +29,6 @@
   })();
 </script>
 
-<span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide {tone}" title="{HP_BUCKET_LABELS[value]}">
+<span class="rounded border uppercase tracking-wide {sizing} {tone}" title="{HP_BUCKET_LABELS[value]}">
   {HP_BUCKET_LABELS[value]}
 </span>
