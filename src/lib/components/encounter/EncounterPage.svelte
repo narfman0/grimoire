@@ -11,7 +11,10 @@
   import ConcentrationSavePrompt from './ConcentrationSavePrompt.svelte';
   import EncounterHeader from './EncounterHeader.svelte';
   import TurnControls from './TurnControls.svelte';
+  import ConcentrationEditor from './ConcentrationEditor.svelte';
   import ConditionChips from './ConditionChips.svelte';
+  import HpAdjustRow from './HpAdjustRow.svelte';
+  import MonsterEditForm from './MonsterEditForm.svelte';
   import PcStatsCard from './PcStatsCard.svelte';
   import LegendaryActionTracker from './LegendaryActionTracker.svelte';
   import NpcSpellSlotTracker from './NpcSpellSlotTracker.svelte';
@@ -838,9 +841,6 @@
 
   /** Initiative cell edit mode. */
   let initiativeEditFor: string | null = null;
-  /** Draft for the concentration input in the detail panel. Reset when selection changes. */
-  let concDraft = '';
-  $: if (selectedId) concDraft = '';
   /** Monster edit drafts for the detail panel. */
   let editMonsterNameDraft = '';
   let editMonsterSlugDraft = '';
@@ -1328,33 +1328,15 @@
 
       <!-- HP edit (DM only, when target has a maxHp) -->
       {#if data.role === 'dm' && p.maxHp != null}
-        {@const liveCur = liveHpMap[p.id]?.currentHp ?? p.currentHp}
-        {@const liveTemp = liveHpMap[p.id]?.tempHp ?? p.tempHp ?? 0}
-        <div class="mb-3 flex flex-wrap items-center gap-2">
-          <div class="text-[10px] uppercase tracking-wide text-slate-500">HP</div>
-          <span class="font-mono text-sm text-slate-200">
-            {liveCur ?? '—'} / {p.maxHp}{#if liveTemp > 0}<span class="text-emerald-300"> +{liveTemp}</span>{/if}
-          </span>
-          <input
-            type="number"
-            min="0"
-            class="ml-2 w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-xs"
-            placeholder="±hp"
-            bind:value={hpInputs[p.id]}
-          />
-          <button
-            class="rounded bg-red-700/60 px-2 py-0.5 text-xs hover:bg-red-700 disabled:opacity-40"
-            title="Apply damage"
-            disabled={busy}
-            on:click={() => dmDamage(p)}
-          >− dmg</button>
-          <button
-            class="rounded bg-emerald-700/60 px-2 py-0.5 text-xs hover:bg-emerald-700 disabled:opacity-40"
-            title="Apply heal"
-            disabled={busy}
-            on:click={() => dmHeal(p)}
-          >+ heal</button>
-        </div>
+        <HpAdjustRow
+          currentHp={liveHpMap[p.id]?.currentHp ?? p.currentHp}
+          maxHp={p.maxHp}
+          tempHp={liveHpMap[p.id]?.tempHp ?? p.tempHp ?? 0}
+          bind:amount={hpInputs[p.id]}
+          {busy}
+          on:damage={() => dmDamage(p)}
+          on:heal={() => dmHeal(p)}
+        />
       {/if}
 
       <ConditionChips
@@ -1367,36 +1349,13 @@
 
       <!-- Concentration (DM only) -->
       {#if data.role === 'dm'}
-        <div class="mb-3">
-          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Concentration</div>
-          {#if concLbl !== null}
-            <span class="inline-flex items-center gap-1 rounded border border-violet-600 bg-violet-900/40 px-2 py-0.5 text-[11px] text-violet-200">
-              🌀 {concLbl || 'concentrating'}
-              <button class="text-violet-300 hover:text-violet-100" on:click={() => clearConcentrating(p)}>×</button>
-            </span>
-          {:else}
-            <div class="flex items-center gap-1">
-              <input
-                class="w-44 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
-                placeholder="bless, hex, hold person…"
-                maxlength="80"
-                bind:value={concDraft}
-                on:keydown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const label = concDraft.trim();
-                    if (label) { startConcentrating(p, label); concDraft = ''; }
-                  }
-                }}
-              />
-              <button
-                class="rounded border border-slate-600 px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:opacity-40"
-                disabled={busy || !concDraft.trim()}
-                on:click={() => { const label = concDraft.trim(); if (label) { startConcentrating(p, label); concDraft = ''; } }}
-              >start</button>
-            </div>
-          {/if}
-        </div>
+        <ConcentrationEditor
+          label={concLbl}
+          participantId={p.id}
+          {busy}
+          on:start={(e) => startConcentrating(p, e.detail)}
+          on:clear={() => clearConcentrating(p)}
+        />
       {/if}
 
       <!-- Legendary actions tracker (DM only, non-PC with legendary actions) -->
@@ -1478,41 +1437,14 @@
 
       <!-- Monster edit (DM only, non-PC) -->
       {#if data.role === 'dm' && !isPc}
-        <div>
-          <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Edit</div>
-          <div class="flex flex-wrap items-center gap-2 text-xs">
-            <label class="flex items-center gap-1">
-              <span class="text-slate-500">Name</span>
-              <input
-                class="w-40 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
-                bind:value={editMonsterNameDraft}
-                maxlength="120"
-              />
-            </label>
-            <label class="flex items-center gap-1">
-              <span class="text-slate-500">Type</span>
-              <select
-                class="w-48 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px]"
-                bind:value={editMonsterSlugDraft}
-              >
-                <option value="">— ad-hoc —</option>
-                {#each data.monsterOptions as m}
-                  <option value={m.slug}>{m.name} (CR {m.cr})</option>
-                {/each}
-              </select>
-            </label>
-            <button
-              class="rounded bg-emerald-700/70 px-2 py-0.5 text-[11px] hover:bg-emerald-700 disabled:opacity-40"
-              disabled={busy || !editMonsterNameDraft.trim()}
-              on:click={() => saveMonsterEdit(p)}
-            >save</button>
-            <button
-              class="ml-auto rounded border border-red-800 bg-red-950/40 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-900/60 disabled:opacity-40"
-              disabled={busy}
-              on:click={() => removeParticipant(p.id)}
-            >Remove from encounter</button>
-          </div>
-        </div>
+        <MonsterEditForm
+          monsterOptions={data.monsterOptions}
+          bind:nameDraft={editMonsterNameDraft}
+          bind:slugDraft={editMonsterSlugDraft}
+          {busy}
+          on:save={() => saveMonsterEdit(p)}
+          on:remove={() => removeParticipant(p.id)}
+        />
       {/if}
     </section>
   {/if}
