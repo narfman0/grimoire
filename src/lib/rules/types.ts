@@ -1185,6 +1185,15 @@ export interface AvailableToggle {
   defaultEnabled: boolean;
   currentlyEnabled: boolean;
   sourceContent: { kind: string; slug: string };
+  /** Circumstance slugs from the modifier's `appliesWhen.circumstances`
+   *  that derive() cannot compute. Present only on adjudicated toggles;
+   *  the sheet renders them as "only while …". */
+  circumstances?: string[];
+  /** True when this toggle exists *because* the modifier is gated on a
+   *  circumstance the engine has no way to evaluate (no allies within
+   *  10 ft, disguised, the target is your Hunter's Mark target). Those
+   *  default OFF; the player switches them on when the fiction says so. */
+  adjudicated?: boolean;
 }
 
 /** Effects this character emanates onto allies/enemies within a radius —

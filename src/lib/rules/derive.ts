@@ -67,6 +67,14 @@ import type {
 } from './types';
 import { ABILITIES, KNOWN_TRIGGER_EVENTS } from './types';
 import { coerceRandomTable, validateRandomTable } from './random-tables';
+import {
+  adjudicatedCircumstances,
+  computedCircumstancesSatisfied,
+  equipmentCircumstances,
+  hpCircumstances,
+  isMisspelledCircumstance,
+  readCircumstances
+} from './circumstances';
 
 interface ActiveContent {
   ref: ContentRef;
@@ -286,6 +294,53 @@ function hasBooleanTarget(mods: ActiveModifier[], target: string): boolean {
   return mods.some(
     (m) => m.kind === 'stat-modifier' && m.raw.target === target && m.raw.value === true
   );
+}
+
+/** Union of `properties` and melee/ranged classification across every
+ *  equipped weapon row. Feeds the `wielding.*` circumstance gates. Only
+ *  equipped items produce active refs, so no extra filtering is needed. */
+function equippedWeaponFacts(active: ActiveContent[]): {
+  properties: Set<string>;
+  ranges: Set<'melee' | 'ranged'>;
+} {
+  const properties = new Set<string>();
+  const ranges = new Set<'melee' | 'ranged'>();
+  for (const a of active) {
+    if (a.row.kind !== 'item') continue;
+    const category = a.data.category as string | undefined;
+    const weaponType = a.data.weaponType as string | undefined;
+    if (category !== 'weapon' && weaponType === undefined) continue;
+    for (const p of (a.data.properties as unknown[] | undefined) ?? []) {
+      if (typeof p === 'string') properties.add(p);
+    }
+    if (weaponType?.includes('ranged')) ranges.add('ranged');
+    else ranges.add('melee');
+  }
+  return { properties, ranges };
+}
+
+/** Enabled-state fallback for a modifier with no player toggle recorded.
+ *  A modifier gated on a DM-adjudicated circumstance defaults OFF (the
+ *  engine cannot know the circumstance holds); everything else keeps the
+ *  historical default-on behavior. An explicit `defaultEnabled` wins. */
+function modifierDefaultEnabled(raw: Record<string, unknown>): boolean {
+  const declared = raw.defaultEnabled;
+  if (typeof declared === 'boolean') return declared;
+  return adjudicatedCircumstances(raw.appliesWhen).length === 0;
+}
+
+/** The `appliesWhen` gate shared by every modifier-application site: the
+ *  condition-slug check against the resolved condition set plus the
+ *  computed-circumstance check. Adjudicated circumstances are NOT
+ *  evaluated here — they ride the toggle (see modifierDefaultEnabled). */
+function appliesWhenSatisfied(raw: Record<string, unknown>, ctx: EvalContext): boolean {
+  const appliesWhen = raw.appliesWhen as { condition?: string } | undefined;
+  if (
+    appliesWhen?.condition &&
+    !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)
+  )
+    return false;
+  return computedCircumstancesSatisfied(appliesWhen, ctx.circumstances);
 }
 
 /** The equipped body-armor row (category=armor, armorType !== 'shield'),
@@ -1321,6 +1376,17 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // running before those phases see the zero defaults — in practice no
   // ability-score modifier references its own ability's mod, and speed
   // modifiers don't run before speed is built.
+  // Equipment-derived circumstance gates (`wielding.*`, `armor.*`) depend
+  // on nothing phase 2 composes, so they're available from the very first
+  // modifier application. The `hp.*` members join after phase 2(b) below.
+  const equipped = computeEquippedState(active);
+  const weaponFacts = equippedWeaponFacts(active);
+  const circumstances = equipmentCircumstances(
+    equipped,
+    weaponFacts.properties,
+    weaponFacts.ranges
+  );
+
   const ctx: EvalContext = {
     totalLevel,
     proficiencyBonus,
@@ -1329,6 +1395,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     abilityMods: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
     walkSpeed: 0,
     conditionStacks: character.conditionStacks ?? {},
+    circumstances,
     // resolvedConditions reference is shared — we extend it with
     // activation-injected condition slugs after the activation walk
     // (see below). All appliesWhen.condition checks downstream read
@@ -1566,6 +1633,10 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   }
   hpBase += abilities.con.mod * totalLevel;
   const hpMax = applyTarget(allMods, character, 'hp.max', hpBase, ctx) as number;
+  // HP-derived circumstance gates. Deliberately populated *after* the HP
+  // maximum is composed — a circumstance gate on `ability.*` / `hp.max`
+  // would be circular, so those simply never fire (documented limit).
+  for (const c of hpCircumstances(character.currentHp, hpMax)) circumstances.add(c);
 
   // (c) AC — armor formula from equipped armor, else best unarmored formula.
   const ac = computeAC(character, active, abilities, allMods, ctx);
@@ -1995,15 +2066,11 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     if (m.kind !== 'stat-modifier') continue;
     const target = m.raw.target as string;
     if (!target || m.raw.value !== true) continue;
-    // Honor appliesWhen.condition — activation-gated immunities (Form
-    // of Dread immunity.frightened, etc.) only fire when the relevant
-    // condition is in resolvedConditions.
-    const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-    if (
-      appliesWhen?.condition &&
-      !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)
-    )
-      continue;
+    // Honor appliesWhen — activation-gated immunities (Form of Dread
+    // immunity.frightened, etc.) only fire when the relevant condition is
+    // in resolvedConditions, and circumstance-gated ones only while the
+    // circumstance holds / the player has the adjudicated toggle on.
+    if (!modifierIsEligible(m, character, ctx)) continue;
     const qualifier =
       typeof m.raw.qualifier === 'string' ? (m.raw.qualifier as string) : undefined;
     const sourcePredicate = coerceSourcePredicate(m.raw.sourcePredicate);
@@ -2203,7 +2270,6 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const pendingFeatureChoices = collectPendingFeatureChoices(phase);
   const pendingItemChoices = collectPendingItemChoices(phase);
   const overlayHpPools = collectOverlayHpPools(phase);
-  const equipped = computeEquippedState(active);
   const activeForm = resolveActiveForm(phase);
   const companions = resolveCompanions(phase);
   const classResources = resolveClassResources(phase);
@@ -2390,11 +2456,7 @@ function applyActionModifiers(s: DerivePhaseState): void {
     const actionCtx = buildActionContext(action, sourceData);
     for (const m of allMods) {
       if (m.kind !== 'action-modifier') continue;
-      const enabled =
-        character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
-      const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-      if (appliesWhen?.condition && !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)) continue;
-      if (!enabled) continue;
+      if (!modifierIsEligible(m, character, ctx)) continue;
       const appliesTo = m.raw.appliesTo as
         | { activityType?: string; predicates?: Array<Record<string, unknown>> }
         | undefined;
@@ -2625,6 +2687,23 @@ function runSoftValidations(s: DerivePhaseState): void {
     }
   }
 
+  // Circumstance gates inside a computed namespace that name no member
+  // (`hp.half` for `hp.below-half`). Those are typos, not adjudications:
+  // treating them as adjudicated would bury a broken gate behind a toggle
+  // nobody knows to flip. Deliberately NOT an `unknown-*` code — the
+  // packs QC gate hard-fails T3 rows on those, and an unrecognized
+  // circumstance still leaves the row's other mechanics intact.
+  for (const m of allMods) {
+    for (const c of readCircumstances(m.raw.appliesWhen)) {
+      if (!isMisspelledCircumstance(c)) continue;
+      validations.push({
+        severity: 'warning',
+        code: 'circumstance-unrecognized',
+        message: `Modifier '${m.id}' on ${m.source.row.kind}/${m.source.row.slug} names circumstance '${c}', which is not a computed circumstance.`
+      });
+    }
+  }
+
   // Predicate DSL operators — an unrecognized operator object (a `{gt: 5}`
   // typo for `{gte: 5}`, say) silently never matches in matchValue, so the
   // modifier would just never apply. Mirror the unknown-trigger-event
@@ -2786,16 +2865,24 @@ function collectToggles(s: DerivePhaseState): AvailableToggle[] {
 
   const toggles: AvailableToggle[] = [];
   for (const m of allMods) {
-    if (m.kind !== 'action-modifier') continue;
-    if (!('defaultEnabled' in m.raw)) continue;
-    const defaultEnabled = m.raw.defaultEnabled as boolean;
+    // Modifiers gated on a DM-adjudicated circumstance ("while you have
+    // no allies within 10 feet", "while disguised") also surface as
+    // toggles regardless of kind — that toggle IS the adjudication, and
+    // it defaults off. See circumstances.ts.
+    const adjudicated = adjudicatedCircumstances(m.raw.appliesWhen);
+    const isAdjudicated = adjudicated.length > 0;
+    if (m.kind !== 'action-modifier' && m.kind !== 'stat-modifier') continue;
+    if (m.kind === 'action-modifier' && !('defaultEnabled' in m.raw) && !isAdjudicated) continue;
+    if (m.kind === 'stat-modifier' && !isAdjudicated) continue;
+    const defaultEnabled = modifierDefaultEnabled(m.raw);
     const currentlyEnabled = character.modifierToggles[m.id] ?? defaultEnabled;
     toggles.push({
       id: m.id,
-      name: (m.raw.name as string | undefined) ?? m.id,
+      name: (m.raw.name as string | undefined) ?? m.source.row.name ?? m.id,
       defaultEnabled,
       currentlyEnabled,
-      sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug }
+      sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
+      ...(isAdjudicated ? { circumstances: adjudicated, adjudicated: true } : {})
     });
   }
   return toggles;
@@ -2818,6 +2905,7 @@ function collectOutboundEffects(s: DerivePhaseState): OutboundEffect[] {
       const e = entries[i];
       const appliesWhen = e.appliesWhen as { condition?: string } | undefined;
       if (appliesWhen?.condition && !resolvedConditions.has(appliesWhen.condition)) continue;
+      if (!computedCircumstancesSatisfied(appliesWhen, s.ctx.circumstances)) continue;
       const targets = (e.targets as string | undefined) ?? 'creature';
       if (targets !== 'ally' && targets !== 'enemy' && targets !== 'creature' && targets !== 'self')
         continue;
@@ -3482,23 +3570,18 @@ function resolveStatToken(token: string, stats: StatBlock): number {
 }
 
 /** Shared active-state gate for stat-modifiers: the player's toggle state
- *  (falling back to `defaultEnabled`, then on) plus the `appliesWhen.condition`
- *  check against the resolved condition set. */
+ *  (falling back to `defaultEnabled`, then to off for DM-adjudicated
+ *  circumstance gates, then on) plus the `appliesWhen` check —
+ *  `condition` against the resolved condition set and `circumstances`
+ *  against the computed circumstance set. */
 function modifierIsEligible(
   m: ActiveModifier,
   character: CharacterDocument,
   ctx: EvalContext
 ): boolean {
-  const enabled =
-    character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
+  const enabled = character.modifierToggles[m.id] ?? modifierDefaultEnabled(m.raw);
   if (!enabled) return false;
-  const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-  if (
-    appliesWhen?.condition &&
-    !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)
-  )
-    return false;
-  return true;
+  return appliesWhenSatisfied(m.raw, ctx);
 }
 
 /** Priority-ascending sort shared by every modifier-application site.
@@ -3637,14 +3720,7 @@ function computeSpeeds(
   const allSpeedMods = mods.filter(
     (m) => m.kind === 'stat-modifier' && (m.raw.target as string) === 'speed.all'
   );
-  const eligibleAll = allSpeedMods.filter((m) => {
-    const enabled =
-      character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
-    if (!enabled) return false;
-    const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-    if (appliesWhen?.condition && !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)) return false;
-    return true;
-  });
+  const eligibleAll = allSpeedMods.filter((m) => modifierIsEligible(m, character, ctx));
   if (eligibleAll.length > 0) {
     for (const key of Object.keys(speeds)) {
       let val = speeds[key];

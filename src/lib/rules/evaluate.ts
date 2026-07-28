@@ -28,6 +28,13 @@ export interface EvalContext {
    *  read it directly today, so it's optional for callers that build a
    *  minimal ctx for token resolution alone (e.g. unit tests). */
   resolvedConditions?: Set<string>;
+  /** Computed circumstance slugs currently true for this character
+   *  (`hp.below-half`, `wielding.two-handed`, `armor.medium`, …). See
+   *  `circumstances.ts`. Populated in derive(): the equipment-derived
+   *  members before phase 2, the HP-derived ones right after the HP
+   *  maximum is composed. Absent on minimal test contexts, which reads
+   *  as "no circumstance holds". */
+  circumstances?: Set<string>;
 }
 
 const CLASS_LEVEL_TOKEN_RE = /^([a-z][a-z0-9]*)Level$/;

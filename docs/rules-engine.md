@@ -300,6 +300,44 @@ Boolean targets take `value: true`; anything else is ignored. All feed `derive()
 
 The schema backs `/api/homebrew/*` and the packs QC gate for every kind whose `data` it validates — **feat** and **item**. It was scalar-only until engine batch 6, which is why an unarmored-AC feat (XGtE Dragon Hide, PHB-2014 Medium Armor Master) had nowhere to put its formula. Arrays are still rejected; no target reads one.
 
+### Circumstance gates (`appliesWhen.circumstances`)
+
+`appliesWhen.condition` gates a modifier on a condition slug (including the slugs activations inject). What it can't say is "while you're below half your hit points", "while you're wielding a two-handed weapon", "while you have no allies within 10 feet". The first two derive() can compute from character state; the third it cannot, and pretending otherwise silently over-applies.
+
+So the vocabulary is split **explicitly in two**, and the split is visible in the output:
+
+| kind | who decides | behavior |
+| --- | --- | --- |
+| **computed** | derive() | the modifier fires exactly when the circumstance holds |
+| **adjudicated** | the player | the modifier surfaces as a toggle that defaults **off** and applies once switched on |
+
+```jsonc
+{ "kind": "stat-modifier", "target": "skill.advantage.stealth", "value": true,
+  "appliesWhen": { "circumstances": ["armor.light-or-none", "no-allies-within-10ft"] } }
+
+"appliesWhen": { "circumstance": "hp.below-half" }   // singular form also accepted
+```
+
+Every entry in the list must hold — computed ones against the character's state, adjudicated ones against the player's toggle. Combining the two is fine and common: an adjudicated toggle switched on still won't fire the modifier while a computed member is false.
+
+**Computed vocabulary** (`src/lib/rules/circumstances.ts`):
+
+| namespace | members |
+| --- | --- |
+| `hp` | `hp.below-half` · `hp.at-or-below-half` · `hp.bloodied` (alias) · `hp.above-half` · `hp.full` |
+| `wielding` | `wielding.two-handed` · `wielding.versatile` · `wielding.finesse` · `wielding.melee-weapon` · `wielding.ranged-weapon` · `wielding.shield` · `wielding.no-shield` |
+| `armor` | `armor.none` · `armor.light` · `armor.medium` · `armor.heavy` · `armor.light-or-none` |
+
+`wielding.*` reads the union of `properties` / `weaponType` across equipped weapon rows; `armor.*` reads the same `EquippedInventory` the AC formula and the activation auto-cancel walk use.
+
+**Adjudicated** is everything else — `no-allies-within-10ft`, `disguised`, `hidden-from-the-target`, `opportunity-attack`, `moved-half-speed-or-less`, `target-is-your-hunters-mark-target`. The namespace is deliberately open: a pack names whatever its prose names, with no engine change and no warning. The resulting entry on `Derived.toggles` carries `adjudicated: true` and the `circumstances` list, so the sheet can label the switch "only while disguised" instead of showing a bare checkbox.
+
+A slug **inside** a computed namespace that names no member (`hp.half` for `hp.below-half`) is a typo, not an adjudication — burying a broken gate behind a toggle nobody knows to flip is worse than saying so. It emits a `circumstance-unrecognized` soft warning, mints no toggle, and is ignored as a gate. Deliberately not an `unknown-*` code (the packs QC gate hard-fails T3 rows on those).
+
+**Where it applies.** Every modifier-application site shares one gate (`modifierIsEligible` in `derive.ts`): stat-modifiers in phase 2, the resistance/immunity walk, `speed.all`, action-modifiers in phase 4, and outbound-effect declarations.
+
+**Scope limit.** The `hp.*` members are populated right after phase 2(b) composes the HP maximum, so a circumstance gate on `ability.*` or `hp.max` itself would be circular and simply never fires. `wielding.*` / `armor.*` depend on nothing phase 2 composes and work on every target.
+
 ### Cross-row upgrades
 
 A large slice of the 5e class chassis is features whose whole job is to raise an **earlier** feature's numbers — "your Sneak Attack dice increase", "Extra Attack lets you attack three times", "your Martial Arts die becomes a d8", "Warding Flare now refreshes on a Short Rest", "Invoke Duplicity creates four duplicates". Re-declaring the earlier row on the later one double-counts any shared pool, so three modifier-target families exist instead. All three are ordinary `stat-modifier` entries — same modes, same `appliesWhen` / toggle gating, same `evaluateValue` on `value`.
