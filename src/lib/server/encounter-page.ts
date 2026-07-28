@@ -403,13 +403,19 @@ export async function buildEncounterPageData(
           const s = d.stats;
           const pools = d.resources ?? [];
           participantPcActions[participant.id] = (d.actions ?? []).map((a) => {
-            const pool = a.spendsResource ? pools.find((r) => r.id === a.spendsResource) : undefined;
+            // Pool resolution follows the character sheet's convention
+            // (`spendsResource ?? id`): an activity with its own `uses`
+            // block emits a pool keyed by the action's own id rather than
+            // pointing at a shared one — Second Wind, Rage, Channel
+            // Divinity. Without the fallback those never read as spent.
+            const poolId = a.spendsResource ?? a.id;
+            const pool = pools.find((r) => r.id === poolId);
             return {
               id: a.id,
               name: a.name,
               cost: a.cost,
               ...(a.attackCount != null && a.attackCount > 1 ? { attackCount: a.attackCount } : {}),
-              ...(a.spendsResource ? { spendsResource: a.spendsResource } : {}),
+              ...(pool ? { spendsResource: poolId } : {}),
               ...(a.resourceCost != null ? { resourceCost: a.resourceCost } : {}),
               ...(pool
                 ? {
@@ -418,7 +424,10 @@ export async function buildEncounterPageData(
                     resourceMax: pool.max
                   }
                 : {}),
-              affordable: hasResourceBudget(a, pools)
+              affordable: hasResourceBudget(
+                { spendsResource: pool ? poolId : undefined, resourceCost: a.resourceCost },
+                pools
+              )
             };
           });
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({

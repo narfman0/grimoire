@@ -529,6 +529,16 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
               type: 'utility',
               name: 'Flourish',
               cost: 'bonus'
+            },
+            {
+              // Own `uses` block ⇒ its own pool, keyed by the action id and
+              // with no `spendsResource` pointer (the Second Wind shape).
+              id: 'wand-daily',
+              type: 'save',
+              name: 'Daily Blast',
+              cost: 'action',
+              uses: { max: 1, per: 'dawn' },
+              save: { ability: 'dex', dc: { value: 15 } }
             }
           ]
         }
@@ -552,7 +562,10 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
             attuned: true
           }
         ],
-        resourcesSpent: { 'item/test-charged-wand/charges': spentCharges },
+        resourcesSpent: {
+          'item/test-charged-wand/charges': spentCharges,
+          'item/test-charged-wand/wand-daily': 1
+        },
         actionUsedThisRound: true,
         bonusActionUsedThisRound: false,
         reactionUsedThisRound: true,
@@ -644,6 +657,26 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
 
   // Action-economy flags come straight off the character document, so the
   // encounter planner's "used" toggles survive a reload.
+  // An activity that carries its own `uses` block emits a pool keyed by the
+  // action's own id and has no `spendsResource` pointer — Second Wind, Rage,
+  // Channel Divinity. Missing the `spendsResource ?? id` fallback would make
+  // every such ability read as always-available.
+  it('resolves a self-keyed uses pool (spendsResource ?? id)', async () => {
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 0);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    const daily = data.participantPcActions[pcId].find((a: { id: string }) =>
+      a.id.endsWith('/wand-daily')
+    );
+    expect(daily).toBeDefined();
+    expect(daily.spendsResource).toBe(daily.id);
+    expect(daily.resourceMax).toBe(1);
+    expect(daily.resourceRemaining).toBe(0);
+    expect(daily.affordable).toBe(false);
+  });
+
   it('projects the character document action-economy flags', async () => {
     const { dmId, code, encounterId, pcId } = await wandFixture(db, 0);
     const data = await runLoad(

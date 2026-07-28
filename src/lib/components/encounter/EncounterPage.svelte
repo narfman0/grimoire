@@ -21,6 +21,7 @@
   import MonsterEditForm from './MonsterEditForm.svelte';
   import PcStatsCard from './PcStatsCard.svelte';
   import LegendaryActionTracker from './LegendaryActionTracker.svelte';
+  import YourTurnBanner from './YourTurnBanner.svelte';
   import NpcSpellSlotTracker from './NpcSpellSlotTracker.svelte';
   import RevealControls from './RevealControls.svelte';
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
@@ -28,6 +29,12 @@
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { actionAvailability, resourceSuffix } from '$lib/encounter/action-availability';
+  import {
+    isViewersTurn,
+    notifyState,
+    shouldNotifyTurn,
+    type NotificationPermissionLike
+  } from '$lib/encounter/turn-notify';
   import {
     EMPTY_ECONOMY,
     economyIsClear,
@@ -1309,6 +1316,103 @@
     }, 800);
   }
 
+  // ---- "your turn" callout ------------------------------------------------
+  //
+  // The active row is highlighted for everyone; this is the signal for the
+  // one person whose character is up. `myParticipantIds` comes from the
+  // loader (participants linked to a character the viewer owns), so a
+  // player watching someone else's turn never sees it.
+  $: myTurnParticipantId =
+    isViewersTurn(liveActive, data.myParticipantIds) ? liveActive : null;
+  $: myTurnName =
+    myTurnParticipantId
+      ? liveParticipants.find((q) => q.id === myTurnParticipantId)?.name ?? 'Your character'
+      : '';
+
+  // Browser notification: opt-in per device, background-tab only, and inert
+  // wherever the API isn't available or permission was refused.
+  const NOTIFY_PREF_KEY = 'grimoire:encounter-turn-notify';
+  let notifySupported = false;
+  let notifyPermission: NotificationPermissionLike = 'default';
+  let notifyEnabled = false;
+  let tabVisible = true;
+
+  onMount(() => {
+    notifySupported = typeof Notification !== 'undefined';
+    if (notifySupported) notifyPermission = Notification.permission as NotificationPermissionLike;
+    try {
+      notifyEnabled = localStorage.getItem(NOTIFY_PREF_KEY) === '1';
+    } catch {
+      // private mode / storage disabled — stay off
+    }
+    const onVisibility = () => {
+      tabVisible = globalThis.document.visibilityState === 'visible';
+    };
+    onVisibility();
+    globalThis.document.addEventListener('visibilitychange', onVisibility);
+    globalThis.addEventListener('focus', onVisibility);
+    globalThis.addEventListener('blur', onVisibility);
+    return () => {
+      globalThis.document.removeEventListener('visibilitychange', onVisibility);
+      globalThis.removeEventListener('focus', onVisibility);
+      globalThis.removeEventListener('blur', onVisibility);
+    };
+  });
+
+  $: turnNotifyState = notifyState({
+    supported: notifySupported,
+    permission: notifyPermission,
+    enabled: notifyEnabled
+  });
+
+  async function toggleTurnNotify() {
+    if (!notifySupported || notifyPermission === 'denied') return;
+    if (!notifyEnabled && notifyPermission !== 'granted') {
+      try {
+        notifyPermission = (await Notification.requestPermission()) as NotificationPermissionLike;
+      } catch {
+        // Older Safari (callback-only) or a blocked prompt: leave it off
+        // rather than pretending the toggle worked.
+        notifyPermission = 'denied';
+      }
+      if (notifyPermission !== 'granted') return;
+    }
+    notifyEnabled = !notifyEnabled;
+    try {
+      localStorage.setItem(NOTIFY_PREF_KEY, notifyEnabled ? '1' : '0');
+    } catch {
+      // preference just won't persist
+    }
+  }
+
+  // Rising edge only — a poll that re-confirms the same turn stays quiet.
+  let wasMyTurn = false;
+  $: if (browser) {
+    const isMine = myTurnParticipantId != null;
+    if (
+      shouldNotifyTurn({
+        enabled: notifyEnabled,
+        supported: notifySupported,
+        permission: notifyPermission,
+        tabVisible,
+        wasMyTurn,
+        isMyTurn: isMine,
+        encounterLive: liveStatus === 'live'
+      })
+    ) {
+      try {
+        new Notification(`Your turn — ${myTurnName}`, {
+          body: `${data.encounter.name} · round ${liveRound}`,
+          tag: `grimoire-turn-${data.encounter.id}`
+        });
+      } catch {
+        // Some browsers throw on constructing a Notification outside a
+        // service worker. Degrade silently — the banner still shows.
+      }
+    }
+    wasMyTurn = isMine;
+  }
+
   // Legendary action tracker. Persisted on the monster participant (see
   // $lib/realtime/economy) with the round it was written in, so it survives
   // a reload, agrees across DM tabs, and reads as spent-nothing again on
@@ -1369,6 +1473,15 @@
   on:start={() => setEncounterStatus('live')}
   on:clone={cloneEncounter}
 />
+
+{#if myTurnParticipantId && liveStatus === 'live'}
+  <YourTurnBanner
+    characterName={myTurnName}
+    round={liveRound}
+    notify={turnNotifyState}
+    on:toggleNotify={toggleTurnNotify}
+  />
+{/if}
 
 {#if data.role === 'dm'}
   <EncounterDifficultyPanel {difficulty} loading={difficultyLoading} />
