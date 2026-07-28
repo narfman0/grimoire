@@ -11,7 +11,8 @@ dist
 !.env.example
 .DS_Store
 *.log
-.claude/settings.local.json.claude/
+.claude/settings.local.json
+.claude/worktrees/
 grimoire.db.pre-migrate-*
 
 # Playwright e2e artifacts
