@@ -1647,6 +1647,15 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   const checkBonus: Partial<Record<AbilityKey, number>> = {};
   const checkBonusDice: Partial<Record<AbilityKey, string[]>> = {};
   const skillBonusDice: Record<string, string[]> = {};
+  // d20 floors — "treat a d20 roll of N or lower as N" (Reliable Talent,
+  // Circle of the Stars' Dragon, Silver Tongue, Ear for Deceit). Numeric,
+  // implicitly UPGRADE: the highest floor wins and a declared mode is not
+  // read. `check.d20Floor` covers every ability check (and folds into
+  // every skill cell); `skill.d20Floor.<slug>` narrows to one skill;
+  // `save.d20Floor` covers saving throws.
+  let checkD20Floor = 0;
+  let saveD20Floor = 0;
+  const skillD20Floor: Record<string, number> = {};
   for (const m of allMods) {
     if (m.kind !== 'stat-modifier') continue;
     const t = m.raw.target;
@@ -1680,6 +1689,16 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         const v = evaluateValue(m.raw.value, ctx);
         if (typeof v === 'number') checkBonus[ab] = (checkBonus[ab] ?? 0) + v;
       }
+    } else if (t === 'check.d20Floor' || t === 'save.d20Floor' || t.startsWith('skill.d20Floor.')) {
+      const v = evaluateValue(m.raw.value, ctx);
+      if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) continue;
+      const floor = Math.floor(v);
+      if (t === 'check.d20Floor') checkD20Floor = Math.max(checkD20Floor, floor);
+      else if (t === 'save.d20Floor') saveD20Floor = Math.max(saveD20Floor, floor);
+      else {
+        const skill = t.slice('skill.d20Floor.'.length);
+        if (skill) skillD20Floor[skill] = Math.max(skillD20Floor[skill] ?? 0, floor);
+      }
     }
   }
   // Equipped armor with stealthDisadvantage → disadvantage on Stealth
@@ -1704,6 +1723,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       (applyTarget(allMods, character, `skill.${skill}`, base, ctx) as number) +
       (checkBonus[ability] ?? 0);
     const bonusDice = [...(skillBonusDice[skill] ?? []), ...(checkBonusDice[ability] ?? [])];
+    const floor = Math.max(skillD20Floor[skill] ?? 0, checkD20Floor);
     skills[skill] = {
       bonus,
       ability,
@@ -1711,7 +1731,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
       expertise,
       advantage: skillAdvantage.has(skill) || checkAdvantage.has(ability),
       disadvantage: skillDisadvantage.has(skill) || checkDisadvantage.has(ability),
-      ...(bonusDice.length > 0 ? { bonusDice } : {})
+      ...(bonusDice.length > 0 ? { bonusDice } : {}),
+      ...(floor > 0 ? { d20Floor: floor } : {})
     };
   }
   const abilityCheckAdvantage: StatBlock['abilityCheckAdvantage'] = {};
@@ -1973,6 +1994,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     ),
     abilityCheckAdvantage,
     abilityCheckBonusDice: checkBonusDice,
+    ...(checkD20Floor > 0 ? { checkD20Floor } : {}),
+    ...(saveD20Floor > 0 ? { saveD20Floor } : {}),
     traits: [...traits].sort(),
     incomingCritImmune: hasBooleanTarget(allMods, 'tag.incoming-crit-immune'),
     deathSaveAdvantage: hasBooleanTarget(allMods, 'deathsave.advantage')

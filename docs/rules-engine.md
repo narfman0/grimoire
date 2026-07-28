@@ -263,6 +263,20 @@ Standard modes and `evaluateValue` apply, priority-ascending like everywhere els
 
 Bonus dice never fold into the numeric `bonus` — the skills panel shows a `+1d4` chip and the roll-time consumer adds the die. Skill-scoped dice sort before the governing ability's dice in the cell.
 
+### d20 floors
+
+"Treat a d20 roll of N or lower as N" — Reliable Talent, Circle of the Stars' Dragon, Tasha's Silver Tongue, XGtE's Ear for Deceit.
+
+| target | value | effect |
+| --- | --- | --- |
+| `check.d20Floor` | numeric | floors every ability check: `SkillCell.d20Floor` on every skill **and** `stats.checkD20Floor` for raw checks |
+| `skill.d20Floor.<slug>` | numeric | floors one skill's `SkillCell.d20Floor` |
+| `save.d20Floor` | numeric | `stats.saveD20Floor` |
+
+Semantics are implicitly **UPGRADE**: the highest floor wins, a declared `mode` is not read, and a skill's cell takes `max(skill floor, check floor)`. Values run through `evaluateValue` (so `proficiencyBonus` works) and are floored to an integer; non-numeric and non-positive values are ignored. Absent when no floor applies, exactly like `bonusDice`.
+
+Same display + roll-time contract as bonus dice — the numeric `bonus` and passive Perception are untouched. The skills panel renders a `min 10` chip beside the adv/dis and `+1d4` chips; `saveD20Floor` renders once beside the Saves heading.
+
 Both flags can be true at once; derive reports both and the roll-time consumer cancels them. **Passive Perception** applies RAW: advantage on the check → +5, disadvantage → −5, both → ±0.
 
 ### Curated trait flags

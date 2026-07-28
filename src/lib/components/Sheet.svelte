@@ -17,6 +17,7 @@
           advantage?: boolean;
           disadvantage?: boolean;
           bonusDice?: string[];
+          d20Floor?: number;
         }
       >;
       ac: number;
@@ -35,6 +36,7 @@
       vulnerabilities: string[];
       senses: Record<string, number>;
       traits?: string[];
+      saveD20Floor?: number;
     };
     actions: Array<{
       id: string;
@@ -136,7 +138,15 @@
 
 <div class="grid gap-6 md:grid-cols-2">
   <section class="rounded-lg border border-slate-800 bg-slate-900/30 p-4">
-    <h2 class="mb-3 text-lg font-semibold">Saves</h2>
+    <h2 class="mb-3 flex items-baseline gap-2 text-lg font-semibold">
+      Saves
+      {#if stats.saveD20Floor}
+        <span
+          class="rounded bg-amber-900/50 px-1 font-mono text-[10px] font-normal text-amber-300"
+          title="Treat a d20 roll of {stats.saveD20Floor} or lower as {stats.saveD20Floor}"
+        >min {stats.saveD20Floor}</span>
+      {/if}
+    </h2>
     <ul class="space-y-1 text-sm">
       {#each abilityOrder as ab}
         {@const s = stats.saves[ab]}
@@ -166,6 +176,12 @@
             {#each skill.bonusDice ?? [] as die}
               <span class="ml-1 rounded bg-sky-900/50 px-1 font-mono text-[10px] text-sky-300">+{die}</span>
             {/each}
+            {#if skill.d20Floor}
+              <span
+                class="ml-1 rounded bg-amber-900/50 px-1 font-mono text-[10px] text-amber-300"
+                title="Treat a d20 roll of {skill.d20Floor} or lower as {skill.d20Floor}"
+              >min {skill.d20Floor}</span>
+            {/if}
           </span>
           <span class="font-mono">{fmt(skill.bonus)}</span>
         </li>

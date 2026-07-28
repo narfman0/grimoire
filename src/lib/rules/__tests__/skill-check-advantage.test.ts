@@ -231,3 +231,91 @@ describe('dice-valued check bonuses', () => {
     expect(Object.keys(d.stats.abilityCheckBonusDice)).toEqual([]);
   });
 });
+
+// --- d20 floors -------------------------------------------------------
+//
+// "Treat a d20 roll of N or lower as N" (Reliable Talent, Circle of the
+// Stars' Dragon, Tasha's Silver Tongue, XGtE's Ear for Deceit). Numeric,
+// implicitly UPGRADE — the highest floor wins. Same display-contract
+// posture as bonusDice: the numeric `bonus` is untouched.
+
+describe('d20 floor channel', () => {
+  it('leaves every cell floorless by default', () => {
+    const d = deriveWithMods([]);
+    for (const s of SKILLS) expect(d.stats.skills[s].d20Floor).toBeUndefined();
+    expect(d.stats.checkD20Floor).toBeUndefined();
+    expect(d.stats.saveD20Floor).toBeUndefined();
+  });
+
+  it('check.d20Floor floors every skill and raw ability checks', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.d20Floor', value: 10 }
+    ]);
+    for (const s of SKILLS) expect(d.stats.skills[s].d20Floor).toBe(10);
+    expect(d.stats.checkD20Floor).toBe(10);
+    // Saves are a separate channel.
+    expect(d.stats.saveD20Floor).toBeUndefined();
+  });
+
+  it('skill.d20Floor.<slug> narrows to one skill', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'skill.d20Floor.persuasion', value: 10 },
+      { kind: 'stat-modifier', target: 'skill.d20Floor.deception', value: 10 }
+    ]);
+    expect(d.stats.skills.persuasion.d20Floor).toBe(10);
+    expect(d.stats.skills.deception.d20Floor).toBe(10);
+    expect(d.stats.skills.insight.d20Floor).toBeUndefined();
+    // Skill-scoped floors don't leak onto raw ability checks.
+    expect(d.stats.checkD20Floor).toBeUndefined();
+  });
+
+  it('save.d20Floor is its own channel', () => {
+    const d = deriveWithMods([{ kind: 'stat-modifier', target: 'save.d20Floor', value: 10 }]);
+    expect(d.stats.saveD20Floor).toBe(10);
+    expect(d.stats.checkD20Floor).toBeUndefined();
+    for (const s of SKILLS) expect(d.stats.skills[s].d20Floor).toBeUndefined();
+  });
+
+  it('takes the highest floor when several stack (implicit UPGRADE)', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.d20Floor', value: 8 },
+      { kind: 'stat-modifier', target: 'skill.d20Floor.insight', value: 10 },
+      { kind: 'stat-modifier', target: 'skill.d20Floor.arcana', value: 5 },
+      // A declared mode is not read — the floor is always max-wins.
+      { kind: 'stat-modifier', target: 'check.d20Floor', mode: 'ADD', value: 9 }
+    ]);
+    expect(d.stats.checkD20Floor).toBe(9);
+    expect(d.stats.skills.insight.d20Floor).toBe(10);
+    // The narrower, lower floor loses to the wider check-level one.
+    expect(d.stats.skills.arcana.d20Floor).toBe(9);
+  });
+
+  it('resolves the value through evaluateValue', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.d20Floor', value: 'proficiencyBonus' }
+    ]);
+    expect(d.stats.checkD20Floor).toBe(2);
+  });
+
+  it('ignores non-numeric and non-positive values', () => {
+    const d = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.d20Floor', value: true },
+      { kind: 'stat-modifier', target: 'save.d20Floor', value: 0 },
+      { kind: 'stat-modifier', target: 'skill.d20Floor.arcana', value: -3 }
+    ]);
+    expect(d.stats.checkD20Floor).toBeUndefined();
+    expect(d.stats.saveD20Floor).toBeUndefined();
+    expect(d.stats.skills.arcana.d20Floor).toBeUndefined();
+  });
+
+  it('does not fold into the numeric skill bonus', () => {
+    const withFloor = deriveWithMods([
+      { kind: 'stat-modifier', target: 'check.d20Floor', value: 10 }
+    ]);
+    const without = deriveWithMods([]);
+    for (const s of SKILLS) {
+      expect(withFloor.stats.skills[s].bonus).toBe(without.stats.skills[s].bonus);
+    }
+    expect(withFloor.stats.passivePerception).toBe(without.stats.passivePerception);
+  });
+});

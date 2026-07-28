@@ -334,6 +334,13 @@ export interface SkillCell {
    *  on the governing ability. Display + roll-time contract — the
    *  numeric `bonus` never folds these in. Absent when empty. */
   bonusDice?: string[];
+  /** Treat a d20 roll of this value or lower as this value (Reliable
+   *  Talent, Circle of the Stars' Dragon, Tasha's Silver Tongue, XGtE's
+   *  Ear for Deceit). Set by `skill.d20Floor.<slug>` and by
+   *  `check.d20Floor` on every skill; the highest floor wins. Display +
+   *  roll-time contract — the numeric `bonus` is unaffected. Absent when
+   *  no floor applies. */
+  d20Floor?: number;
 }
 
 export interface StatBlock {
@@ -445,6 +452,14 @@ export interface StatBlock {
    *  `bonusDice`; this record is for raw (non-skill) checks. Abilities
    *  with no dice are absent. */
   abilityCheckBonusDice: Partial<Record<AbilityKey, string[]>>;
+  /** Treat a d20 roll of this value or lower as this value on raw (non-skill)
+   *  ability checks. Set by `check.d20Floor`; the highest floor wins. Skill
+   *  cells fold the same floor into their own `d20Floor`. Absent when no
+   *  floor applies. */
+  checkD20Floor?: number;
+  /** Same, for saving throws — `save.d20Floor`. Absent when no floor
+   *  applies. */
+  saveD20Floor?: number;
   /** Curated capability flags from `trait.<slug>` modifiers (value true).
    *  Sorted + deduped. Any slug is allowed; canonical slugs are listed in
    *  docs/rules-engine.md (water-breathing, x-ray-vision, …). Consumers
