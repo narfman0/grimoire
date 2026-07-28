@@ -86,7 +86,12 @@ describe('buildTriggerEventsFromLog — damage.taken / attack.hit', () => {
       targetHpAfter: 15
     };
     const names = buildTriggerEventsFromLog(row, fixtureFactions()).map((e) => e.name);
-    expect(names).toEqual(['attack.hit', 'attack.targets-self.hit', 'damage.taken']);
+    expect(names).toEqual([
+      'attack.hit',
+      'attack.targets-self.hit',
+      'damage.taken',
+      'ally.damage.taken'
+    ]);
   });
 
   it('emits attack.crit on a crit (not attack.hit)', () => {
@@ -100,7 +105,12 @@ describe('buildTriggerEventsFromLog — damage.taken / attack.hit', () => {
       targetHpAfter: 6
     };
     const names = buildTriggerEventsFromLog(row, fixtureFactions()).map((e) => e.name);
-    expect(names).toEqual(['attack.crit', 'attack.targets-self.crit', 'damage.taken']);
+    expect(names).toEqual([
+      'attack.crit',
+      'attack.targets-self.crit',
+      'damage.taken',
+      'ally.damage.taken'
+    ]);
   });
 
   it('emits nothing on miss', () => {
@@ -230,5 +240,60 @@ describe('makeFactionContext', () => {
     const fc = fixtureFactions();
     expect(fc.alliesOf('unknown')).toEqual([]);
     expect(fc.enemiesOf('unknown')).toEqual([]);
+  });
+});
+
+// Engine batch 6 §6: the ally-POV damage event. `damage.taken` is
+// self-only, so bond-mate reactions (Tasha's Protective Bond, XGtE
+// Spirit Shield / Aura of the Guardian, PHB-2014 Dampen Elements) had
+// nothing to ride. `ally.damage.taken` reuses the same role assignment —
+// self is still the damaged creature — and an `{ ally: true }` scope
+// predicate is what selects the reactors.
+describe('buildTriggerEventsFromLog — ally.damage.taken', () => {
+  const row: ActionLogEventInput = {
+    participantId: 'mob-1',
+    targetParticipantId: 'pc-1',
+    actionId: 'attack:scimitar',
+    hit: 'hit',
+    damageRoll: 7,
+    targetHpBefore: 20,
+    targetHpAfter: 13
+  };
+
+  it('fires alongside damage.taken with the damaged creature as self', () => {
+    const events = buildTriggerEventsFromLog(row, fixtureFactions());
+    const ally = events.find((e) => e.name === 'ally.damage.taken');
+    expect(ally).toBeDefined();
+    expect(ally!.selfParticipantId).toBe('pc-1');
+    expect(ally!.alliedParticipantIds).toEqual(['pc-1', 'pc-2']);
+    expect(ally!.enemyParticipantIds).toEqual(['mob-1', 'mob-2']);
+    expect(ally!.payload).toMatchObject({ damage: { amount: 7 } });
+  });
+
+  it('does not fire when no damage was dealt', () => {
+    const names = buildTriggerEventsFromLog(
+      { ...row, damageRoll: 0 },
+      fixtureFactions()
+    ).map((e) => e.name);
+    expect(names).not.toContain('ally.damage.taken');
+  });
+
+  it('an ally-scoped reaction matches; an enemy does not', () => {
+    const protectiveBond: TriggerDeclaration = {
+      id: 'protective-bond',
+      name: 'Protective Bond',
+      on: ['ally.damage.taken'],
+      scope: { predicates: [{ ally: true }] },
+      sourceContent: { kind: 'feature', slug: 'protective-bond' }
+    } as TriggerDeclaration;
+    const participants: ParticipantTriggers[] = [
+      { participantId: 'pc-2', declarations: [protectiveBond] },
+      { participantId: 'mob-2', declarations: [protectiveBond] }
+    ];
+    const ally = buildTriggerEventsFromLog(row, fixtureFactions()).find(
+      (e) => e.name === 'ally.damage.taken'
+    )!;
+    const opps = matchTriggers(participants, ally);
+    expect(opps.map((o) => o.participantId)).toEqual(['pc-2']);
   });
 });

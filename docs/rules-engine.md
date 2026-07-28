@@ -172,6 +172,20 @@ Five more display-contract shapes cover the long-tail d20/save/death patterns �
 
 `spell.absorb` is display-only — no runtime absorption exists. An item that also casts from the absorbed pool models that side via `data.spellStorage`; downstream riders can listen on the `spell.absorbed` trigger event. `contingency.revive`'s `hp` accepts a flat number or dice formula (absent → 1 HP).
 
+### Trigger events
+
+`KNOWN_TRIGGER_EVENTS` (`types.ts`) is the validated event vocabulary — an unlisted name still registers but emits an `unknown-trigger-event` soft warning. Adding one requires a C.8 fixture in `src/lib/rules/__tests__/fixtures/extras/` plus a row in `NEW_EVENT_FIXTURES` (AGENTS.md). Three landed with engine batch 6:
+
+| event | POV | rides |
+| --- | --- | --- |
+| `save.success` | self | reactions that only exist because you *made* the save (Tasha's Vigilant Rebuke) |
+| `ally.damage.taken` | the damaged ally is `self`; reactors scope `{ ally: true }` | Protective Bond, Spirit Shield, Aura of the Guardian, Dampen Elements |
+| `resource.spent.bardic-inspiration` | the creature spending the die | Mote of Potential, Unfailing Inspiration, Combat Inspiration |
+
+`ally.damage.taken` is the ally-POV counterpart of the self-only `damage.taken`, and `buildTriggerEventsFromLog` raises it from the same log row with the same role assignment — so an ally-scoped predicate is what selects the reactors.
+
+`resource.spent.<pool-id>` is a **family**: one literal event name per class-resource id, so typos stay catchable at the modifier level. Only the Bardic Inspiration member exists today; add a sibling when another pool grows riders. The id matches the `ClassResourceDecl` id the runtime debits.
+
 Item-sourced triggers respect the attunement gates (§ Attunement gating): a `requiresAttunement` item registers no triggers until attuned, and a per-entry `appliesWhen.requires: "equipped:attuned"` gates a single trigger on any item. Unknown grant `type` strings still pass through untyped (forward-compat).
 
 ## Modifier-side capability targets

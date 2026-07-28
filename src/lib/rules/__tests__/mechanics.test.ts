@@ -603,7 +603,15 @@ describe('C.8 — damage-taken trigger events + soft validation', () => {
 		// rod-of-absorption downstream riders (spell.absorbed)
 		['c8-metamagic-used', 'metamagic.used'],
 		['c8-death-save-declare', 'death-save.declare'],
-		['c8-spell-absorbed', 'spell.absorbed']
+		['c8-spell-absorbed', 'spell.absorbed'],
+		// Engine batch 6 §6: save-success reactions (Tasha's Vigilant
+		// Rebuke), ally-POV damage reactions (Protective Bond / Spirit
+		// Shield / Aura of the Guardian / Dampen Elements), and the
+		// Bardic-Inspiration-spend riders (Mote of Potential / Unfailing
+		// Inspiration / Combat Inspiration).
+		['c8-save-success', 'save.success'],
+		['c8-ally-damage-taken', 'ally.damage.taken'],
+		['c8-resource-spent-bardic-inspiration', 'resource.spent.bardic-inspiration']
 	];
 
 	it.each(NEW_EVENT_FIXTURES)(

@@ -90,6 +90,19 @@ export function buildTriggerEventsFromLog(
       enemyParticipantIds: factions.enemiesOf(row.targetParticipantId),
       payload: buildPayload(row)
     });
+
+    // 3a. ally.damage.taken — the ally-POV counterpart. Same role
+    //     assignment (self is still the damaged creature); an
+    //     `{ ally: true }` scope predicate is what selects the bond-mates
+    //     who may react. Tasha's Protective Bond, XGtE Spirit Shield /
+    //     Aura of the Guardian, PHB-2014 Dampen Elements ride this.
+    events.push({
+      name: 'ally.damage.taken',
+      selfParticipantId: row.targetParticipantId,
+      alliedParticipantIds: factions.alliesOf(row.targetParticipantId),
+      enemyParticipantIds: factions.enemiesOf(row.targetParticipantId),
+      payload: buildPayload(row)
+    });
   }
 
   // 4. damage.reduce-to-zero — fires when targetHpAfter hit zero this

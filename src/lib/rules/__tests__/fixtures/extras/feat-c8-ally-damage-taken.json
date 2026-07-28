@@ -1,0 +1,25 @@
+{
+  "kind": "feat",
+  "slug": "c8-ally-damage-taken",
+  "version": 1,
+  "name": "C.8 ally.damage.taken (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-ally-damage-taken",
+        "name": "C.8 ally.damage.taken",
+        "on": [
+          "ally.damage.taken"
+        ],
+        "grants": {
+          "type": "damage.rider",
+          "amount": "1d4",
+          "damageType": "psychic"
+        }
+      }
+    ]
+  }
+}

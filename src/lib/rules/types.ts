@@ -866,6 +866,9 @@ export const KNOWN_TRIGGER_EVENTS = [
   // Save / check / ability-check lifecycle
   'save.declare',
   'save.fail',
+  // A saving throw SUCCEEDS — Tasha's Vigilant Rebuke rides it (the
+  // reaction only exists because you made the save)
+  'save.success',
   'check.declare',
   // Specialized save.declare: a save/check made to end the grappled
   // condition (Goliath Powerful Build advantage rider)
@@ -928,6 +931,16 @@ export const KNOWN_TRIGGER_EVENTS = [
   // `effect.triggerOn`; the DM raises it from the encounter log
   'movement.start',
   'ally.attacked-within-5ft',
+  // An ALLY takes damage (ally-POV counterpart of `damage.taken`, which is
+  // self-only) — Tasha's Protective Bond, XGtE Spirit Shield / Aura of the
+  // Guardian, PHB-2014 Dampen Elements
+  'ally.damage.taken',
+  // The participant SPENDS a class-resource die/point. One event per pool
+  // so typos stay catchable; add a sibling when a new pool grows riders.
+  // `resource.spent.bardic-inspiration` fires when the BI die is expended
+  // (by the recipient, not the bard) — Tasha's Mote of Potential /
+  // Unfailing Inspiration, PHB-2014 Combat Inspiration.
+  'resource.spent.bardic-inspiration',
   // Alias of enemy.reduce-to-zero used by some pack versions (XGtE
   // Hexblade's Curse kill-to-refresh rider)
   'creature.killed',

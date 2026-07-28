@@ -1,0 +1,25 @@
+{
+  "kind": "feat",
+  "slug": "c8-save-success",
+  "version": 1,
+  "name": "C.8 save.success (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-save-success",
+        "name": "C.8 save.success",
+        "on": [
+          "save.success"
+        ],
+        "grants": {
+          "type": "damage.rider",
+          "amount": "1d4",
+          "damageType": "psychic"
+        }
+      }
+    ]
+  }
+}

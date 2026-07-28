@@ -1,0 +1,25 @@
+{
+  "kind": "feat",
+  "slug": "c8-resource-spent-bardic-inspiration",
+  "version": 1,
+  "name": "C.8 resource.spent.bardic-inspiration (test fixture)",
+  "data": {
+    "category": "General",
+    "modifiers": [],
+    "triggers": [
+      {
+        "kind": "trigger",
+        "id": "c8-resource-spent-bardic-inspiration",
+        "name": "C.8 resource.spent.bardic-inspiration",
+        "on": [
+          "resource.spent.bardic-inspiration"
+        ],
+        "grants": {
+          "type": "damage.rider",
+          "amount": "1d4",
+          "damageType": "psychic"
+        }
+      }
+    ]
+  }
+}
