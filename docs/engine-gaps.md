@@ -598,6 +598,39 @@ and phb-2024/features/fiend-patron.json to the new shape; same for
 the Tiefling racial feat. Engine-side this round shipped the
 primitive + helpers + sheet panel + tests only.
 
+### Batch 8 (final content-parity engine round) — SHIPPED
+
+Closed, all documented in [rules-engine.md](./rules-engine.md):
+
+- **Open CR-budget summons** (`summon.budget`, `bySlotLevel` + `applyUpcast`)
+  — the 2014 conjure family names a budget, not a list.
+- **Pack-side polymorph declarations** (`type: 'polymorph'` + `form`) — the
+  form constraint plus the HP / save sources `PolymorphFormState` records,
+  with a `polymorph-form-over-budget` soft warning.
+- **Stabilize-target action grant** (`grants.stabilizeTarget`).
+- **Downtime cost declarations** (`data.downtime` → `Derived.downtimeEffects`).
+- **Attunement cap + requirement waiver** (`attunement.max`,
+  `attunement.ignore-requirements`) and the **prepared-spell cap**
+  (`prepared-spells.max`) — both phase-6 limits are modifier-driven now.
+- **Tool-check riders** (`tool.bonusDice|advantage|disadvantage.<slug>`).
+- **Choice-option payloads** — `modifierFromChoice` options may carry
+  `activities[]` / `triggers[]` / `outboundEffects[]`.
+- **Item proficiency picks** (`resolveChoicePicks` item branch) and
+  **forced check failure** (`skill.autoFail.<slug>`, `check.autoFail.<ab>`).
+
+Deliberately **not** shipped in this round:
+
+- **Zone / area / emanation modelling** — antimagic field, darkness, fog
+  cloud, silence, globe of invulnerability, tiny hut, guards and wards,
+  wall spells, obscurement and vision, the Echo Knight's positional
+  construct, movement-cost and mount-up rules. All of these need a
+  position model, which is WS3's workstream; faking one would be worse
+  than the gap.
+- **Stored-spell trigger (Contingency, 2 rows)** — the honest shape is
+  character-side stored-spell state plus a player-described release
+  trigger, i.e. a state model rather than a declaration. Two rows do not
+  justify it; see the "not worth the abstraction" note in the batch report.
+
 ## Related
 
 - [`grimoire-packs/docs/audit/deferred.md`](../../grimoire-packs/docs/audit/deferred.md)
