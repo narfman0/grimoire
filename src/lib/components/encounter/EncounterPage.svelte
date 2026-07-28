@@ -8,6 +8,7 @@
   import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
+  import ResolvePanel from './ResolvePanel.svelte';
   import { COMMON_CONDITIONS, impliedBy, CONDITION_DESCRIPTIONS } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
@@ -264,37 +265,6 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
-  }
-
-  /** Pre-fill the resolve form from a statblock action button. DM still
-   *  rolls the dice — we just cache the label and surface the "+X / dXd…"
-   *  reminder so they don't have to scroll back to the statblock.
-   *
-   *  The label is the *action name only*. It used to be baked as
-   *  `${actor.name} — ${action.name}`, which made the actor's identity part
-   *  of an opaque string the server couldn't redact — a hidden monster's
-   *  real name shipped to every player inside the log row. Actor identity
-   *  now comes from `entry.participantId` resolved against the (already
-   *  redacted) participant list at render time. */
-  function pickStatblockAction(a: {
-    name: string;
-    attackBonus?: number;
-    damage?: Array<{ dice: string; type: string }>;
-  }) {
-    resolveActionLabel = a.name;
-    // Leave roll inputs blank so DM types what they actually rolled.
-    resolveAttack = null;
-    resolveDamage = null;
-  }
-
-  /** Standard non-attack action options every creature has. Picking one
-   *  pre-fills the label; no rolls or HP changes. */
-  const COMMON_ACTIONS = ['Dodge', 'Dash', 'Disengage', 'Hide', 'Help', 'Ready', 'Use Object'];
-  function pickCommonAction(label: string) {
-    resolveActionLabel = label;
-    resolveAttack = null;
-    resolveDamage = null;
-    resolveHit = '';
   }
 
   /** Single-target apply: HP delta via participant API + one log entry. Returns ok. */
@@ -771,10 +741,6 @@
     } finally {
       busy = false;
     }
-  }
-
-  function checkboxChecked(e: Event): boolean {
-    return (e.target as HTMLInputElement).checked;
   }
 
   function inputValue(e: Event): string {
@@ -1927,216 +1893,28 @@
 {/if}
 
 {#if resolveForParticipantId && data.role === 'dm'}
-  {@const acting = liveParticipants.find((q) => q.id === resolveForParticipantId)}
-  <section
-    class="mb-6 rounded-lg border p-4 {amendingLogId
-      ? 'border-amber-700 bg-amber-950/30'
-      : 'border-emerald-700 bg-emerald-950/30'}"
-  >
-    <h2 class="mb-3 text-sm font-semibold">
-      {amendingLogId ? 'Amend log entry' : 'Resolve turn'}
-      {#if acting}
-        — <span class="text-slate-200">{acting.name}</span>
-      {/if}
-    </h2>
-
-    {#if acting && acting.statblockActions && acting.statblockActions.length > 0 && !amendingLogId}
-      <div class="mb-3 flex flex-wrap gap-1 text-xs">
-        <span class="self-center text-slate-500 mr-1">Statblock:</span>
-        {#each acting.statblockActions as a}
-          {@const dmg = (a.damage ?? []).map((d) => `${d.dice} ${d.type}`).join(', ')}
-          <button
-            class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-slate-300 hover:border-emerald-600 hover:text-emerald-200"
-            title="Pre-fill the form. You still roll the dice."
-            on:click={() => pickStatblockAction(a)}
-          >
-            {a.name}
-            {#if a.attackBonus != null}<span class="text-slate-500"> +{a.attackBonus}</span>{/if}
-            {#if dmg}<span class="text-red-300/80"> · {dmg}</span>{/if}
-          </button>
-        {/each}
-      </div>
-    {/if}
-
-    {#if !amendingLogId}
-      <div class="mb-3 flex flex-wrap gap-1 text-xs">
-        <span class="self-center text-slate-500 mr-1">Common:</span>
-        {#each COMMON_ACTIONS as label}
-          <button
-            class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-slate-400 hover:border-slate-500 hover:text-slate-200"
-            on:click={() => pickCommonAction(label)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
-    {/if}
-
-    {#if !amendingLogId}
-      <div class="mb-3 rounded border border-indigo-900/50 bg-slate-950/40 p-2">
-        <div class="mb-1 flex items-center gap-2 text-xs">
-          <span class="text-slate-500">Multi-save (AOE):</span>
-          <label class="flex items-center gap-1">
-            <span class="text-slate-500">DC</span>
-            <input
-              type="number"
-              class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono"
-              placeholder="—"
-              bind:value={resolveSaveDC}
-            />
-          </label>
-          <span class="text-slate-600">
-            {#if resolveMultiTargetIds.length > 0 && resolveSaveDC != null}
-              · {resolveMultiTargetIds.length} target(s) — per-target save vs DC fires N log rows
-            {:else}
-              · enter DC + check targets to fire one row per target; leave blank for single-target
-            {/if}
-          </span>
-        </div>
-        {#if resolveSaveDC != null}
-          <ul class="grid grid-cols-2 gap-1 text-xs">
-            {#each liveParticipants as q (q.id)}
-              {#if q.id !== resolveForParticipantId}
-                {@const checked = resolveMultiTargetIds.includes(q.id)}
-                {@const roll = resolveTargetSaveRolls[q.id]}
-                {@const outcome =
-                  typeof roll === 'number' && resolveSaveDC != null
-                    ? roll >= resolveSaveDC
-                      ? 'saved'
-                      : 'failed-save'
-                    : null}
-                <li class="flex items-center gap-1 rounded border border-slate-800 px-1 py-0.5">
-                  <input
-                    type="checkbox"
-                    {checked}
-                    on:change={(e) => {
-                      if (checkboxChecked(e)) {
-                        if (!resolveMultiTargetIds.includes(q.id))
-                          resolveMultiTargetIds = [...resolveMultiTargetIds, q.id];
-                      } else {
-                        resolveMultiTargetIds = resolveMultiTargetIds.filter((id) => id !== q.id);
-                      }
-                    }}
-                  />
-                  <span class="flex-1 truncate text-slate-300">{q.name}</span>
-                  <input
-                    type="number"
-                    class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[10px]"
-                    placeholder="save"
-                    disabled={!checked}
-                    bind:value={resolveTargetSaveRolls[q.id]}
-                  />
-                  {#if outcome}
-                    <span
-                      class="rounded px-1 text-[9px] uppercase {outcome === 'saved'
-                        ? 'bg-emerald-900/40 text-emerald-200'
-                        : 'bg-red-900/40 text-red-200'}"
-                    >
-                      {outcome === 'saved' ? '½' : 'X'}
-                    </span>
-                  {/if}
-                </li>
-              {/if}
-            {/each}
-          </ul>
-        {/if}
-      </div>
-    {/if}
-
-    <div class="flex flex-wrap items-end gap-2 text-sm">
-      <label class="text-xs">
-        <span class="block text-slate-400">Action label</span>
-        <input
-          class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-          bind:value={resolveActionLabel}
-        />
-      </label>
-      <label class="text-xs">
-        <span class="block text-slate-400">Target</span>
-        <select
-          class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-          bind:value={resolveTargetId}
-        >
-          <option value={null}>— none —</option>
-          {#each liveParticipants as q}
-            {#if q.id !== resolveForParticipantId}
-              <option value={q.id}>{q.name} ({q.kind})</option>
-            {/if}
-          {/each}
-        </select>
-      </label>
-      <label class="text-xs">
-        <span class="block text-slate-400">Attack</span>
-        <input
-          type="number"
-          class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-          bind:value={resolveAttack}
-        />
-      </label>
-      <label class="text-xs">
-        <span class="block text-slate-400">Damage</span>
-        <input
-          type="number"
-          class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-          bind:value={resolveDamage}
-        />
-      </label>
-      <label class="text-xs">
-        <span class="block text-slate-400">Outcome</span>
-        <select
-          class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-          bind:value={resolveHit}
-        >
-          <option value="">—</option>
-          <option value="hit">hit</option>
-          <option value="crit">crit</option>
-          <option value="miss">miss</option>
-          <option value="fumble">fumble</option>
-          <option value="saved">saved (half dmg)</option>
-          <option value="failed-save">failed save</option>
-          <option value="heal">heal</option>
-        </select>
-      </label>
-      {#if resolveHit === 'crit' && resolveMultiTargetIds.length === 0 && pcCritImmune(resolveTargetId)}
-        <span class="self-end rounded border border-amber-700 bg-amber-950/40 px-2 py-1 text-xs text-amber-200">
-          target is immune to critical hits — resolves as a normal hit (drop the extra crit dice)
-        </span>
-      {/if}
-      <label class="flex-1 text-xs">
-        <span class="block text-slate-400">Notes</span>
-        <input
-          class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-          maxlength="500"
-          bind:value={resolveNotes}
-        />
-      </label>
-      <button
-        class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-        on:click={amendingLogId ? submitAmend : submitDmResolve}
-        disabled={resolveSubmitting}
-      >
-        {resolveSubmitting ? '…' : amendingLogId ? 'Save amendment' : 'Submit'}
-      </button>
-      <button
-        class="rounded border border-slate-700 px-2 py-1 text-xs hover:bg-slate-800"
-        on:click={() => {
-          amendingLogId = null;
-          closeResolve();
-        }}
-        disabled={resolveSubmitting}
-      >
-        Cancel
-      </button>
-    </div>
-    {#if resolveError}
-      <p class="mt-2 text-xs text-red-300">{resolveError}</p>
-    {/if}
-    <p class="mt-2 text-xs text-slate-500">
-      Damage auto-applies to non-PC targets on hit/crit. PC HP changes happen
-      on the target player's sheet. Amendments don't auto-revert HP yet — adjust
-      with the ±buttons separately.
-    </p>
-  </section>
+  <ResolvePanel
+    participants={liveParticipants}
+    actingParticipantId={resolveForParticipantId}
+    amending={amendingLogId !== null}
+    submitting={resolveSubmitting}
+    error={resolveError}
+    targetCritImmune={pcCritImmune(resolveTargetId)}
+    bind:actionLabel={resolveActionLabel}
+    bind:targetId={resolveTargetId}
+    bind:attack={resolveAttack}
+    bind:damage={resolveDamage}
+    bind:hit={resolveHit}
+    bind:notes={resolveNotes}
+    bind:saveDC={resolveSaveDC}
+    bind:multiTargetIds={resolveMultiTargetIds}
+    bind:targetSaveRolls={resolveTargetSaveRolls}
+    on:submit={() => (amendingLogId ? submitAmend() : submitDmResolve())}
+    on:cancel={() => {
+      amendingLogId = null;
+      closeResolve();
+    }}
+  />
 {/if}
 
 {#if concSavePrompt && data.role === 'dm'}
