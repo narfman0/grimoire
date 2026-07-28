@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/client/api';
+  import { confirmDialog } from '$lib/components/ui/confirm';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -45,7 +46,7 @@
   }
 
   async function deleteRow(rowid: number) {
-    if (!confirm('Delete this row?')) return;
+    if (!(await confirmDialog({ title: 'Delete this row?', danger: true }))) return;
     busy = true;
     try {
       await api.del(`/api/admin/db/${encodeURIComponent(data.tableName)}`, { body: { rowid } });

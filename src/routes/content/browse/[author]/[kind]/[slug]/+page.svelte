@@ -4,6 +4,7 @@
   import { toasts } from '$lib/client/errors';
   import { monsterDerive } from '$lib/rules/monster-derive';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
+  import { promptDialog } from '$lib/components/ui/confirm';
   import type { PageData } from './$types';
   export let data: PageData;
 
@@ -40,10 +41,12 @@
     }
   }
   async function fork() {
-    const newSlug = prompt(
-      `Fork "${data.item.name}" into your library. New slug:`,
-      `${data.item.authorUsername}-${data.item.slug}`
-    );
+    const newSlug = await promptDialog({
+      title: `Fork "${data.item.name}" into your library`,
+      label: 'New slug',
+      defaultValue: `${data.item.authorUsername}-${data.item.slug}`,
+      confirmLabel: 'Fork'
+    });
     if (!newSlug) return;
     busy = 'fork';
     try {

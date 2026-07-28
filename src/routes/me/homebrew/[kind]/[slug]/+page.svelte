@@ -3,6 +3,7 @@
   import { editorFor } from '$lib/components/editor-registry';
   import { api } from '$lib/client/api';
   import { toasts, type ApiError } from '$lib/client/errors';
+  import { confirmDialog } from '$lib/components/ui/confirm';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -26,7 +27,12 @@
       const goingPublic =
         e.detail.visibility === 'public' && data.item.visibility !== 'public';
       if (goingPublic) {
-        if (!confirm('Make this public? Anyone logged in will see it in /homebrew/browse.')) return;
+        const ok = await confirmDialog({
+          title: 'Make this public?',
+          message: 'Anyone logged in will see it in /homebrew/browse.',
+          confirmLabel: 'Make public'
+        });
+        if (!ok) return;
       }
 
       // 1. PATCH name/data. If the latest row was already published, the API
@@ -58,7 +64,11 @@
   }
 
   async function onDelete() {
-    if (!confirm(`Delete homebrew ${data.kind} "${data.item.name}"?`)) return;
+    const ok = await confirmDialog({
+      title: `Delete homebrew ${data.kind} "${data.item.name}"?`,
+      danger: true
+    });
+    if (!ok) return;
     busy = true;
     const base = `/api/homebrew/${encodeURIComponent(data.kind)}/${encodeURIComponent(data.item.slug)}`;
     try {
@@ -69,7 +79,13 @@
         const e = err as ApiError & { inUseBy?: Array<{ name: string }> };
         if (e.status === 409 && Array.isArray(e.inUseBy)) {
           const names = e.inUseBy.map((c) => c.name).join(', ');
-          if (!confirm(`This is used by: ${names}. Delete anyway?`)) return;
+          const forceOk = await confirmDialog({
+            title: 'Delete anyway?',
+            message: `This is used by: ${names}.`,
+            confirmLabel: 'Delete anyway',
+            danger: true
+          });
+          if (!forceOk) return;
           await api.del(`${base}?force=1`);
         } else {
           toasts.add({ type: 'error', message: e.message, requestId: e.requestId });

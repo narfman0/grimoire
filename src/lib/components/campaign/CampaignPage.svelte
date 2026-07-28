@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import CharacterCard from '$lib/components/CharacterCard.svelte';
   import { api } from '$lib/client/api';
+  import { confirmDialog } from '$lib/components/ui/confirm';
   import type { CampaignPageData } from '$lib/server/campaign-page';
 
   export let data: CampaignPageData;
@@ -110,7 +111,7 @@
   }
 
   async function deleteNote(id: string) {
-    if (!confirm('Delete this note?')) return;
+    if (!(await confirmDialog({ title: 'Delete this note?', danger: true }))) return;
     busy = true;
     try {
       await api.del(`/api/notes/${id}`);
@@ -200,7 +201,12 @@
   }
 
   async function deleteCharacter(id: string) {
-    if (!confirm('Delete this character entirely? Removes it from every campaign and drops its data.')) return;
+    const ok = await confirmDialog({
+      title: 'Delete this character entirely?',
+      message: 'Removes it from every campaign and drops its data.',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await api.del(`/api/characters/${id}`);
       await invalidateAll();
@@ -234,7 +240,13 @@
   }
 
   async function unlinkCharacter(id: string, name: string) {
-    if (!confirm(`Remove "${name}" from this campaign? The character itself is kept.`)) return;
+    const ok = await confirmDialog({
+      title: `Remove "${name}" from this campaign?`,
+      message: 'The character itself is kept.',
+      confirmLabel: 'Remove',
+      danger: true
+    });
+    if (!ok) return;
     busy = true;
     try {
       await api.del(`/api/campaigns/${data.campaign.code}/characters`, {

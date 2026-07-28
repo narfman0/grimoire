@@ -15,6 +15,7 @@
   import ResourcesPanel from '$lib/components/ResourcesPanel.svelte';
   import SpellcastingSummary from '$lib/components/SpellcastingSummary.svelte';
   import IdentityLine, { type IdentityEntry } from '$lib/components/IdentityLine.svelte';
+  import { confirmDialog } from '$lib/components/ui/confirm';
   import {
     derive,
     refreshActivations,
@@ -1918,7 +1919,12 @@
   }
 
   async function longRest() {
-    if (!confirm('Take a long rest? Restores HP, half of total hit dice, and per-long-rest abilities.')) return;
+    const ok = await confirmDialog({
+      title: 'Take a long rest?',
+      message: 'Restores HP, half of total hit dice, and per-long-rest abilities.',
+      confirmLabel: 'Long rest'
+    });
+    if (!ok) return;
     if (!derived) return;
     await patchDocument((d) => {
       d.currentHp = derived!.stats.hp.max;

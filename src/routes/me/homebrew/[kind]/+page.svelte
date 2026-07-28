@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/client/api';
+  import { confirmDialog } from '$lib/components/ui/confirm';
   import type { PageData } from './$types';
   export let data: PageData;
 
@@ -14,7 +15,12 @@
   async function setVisibility(slug: string, current: string, next: 'private' | 'unlisted' | 'public') {
     if (current === next) return;
     if (next === 'public' && current !== 'public') {
-      if (!confirm("Make this public? Anyone logged in will see it in /homebrew/browse.")) return;
+      const ok = await confirmDialog({
+        title: 'Make this public?',
+        message: 'Anyone logged in will see it in /homebrew/browse.',
+        confirmLabel: 'Make public'
+      });
+      if (!ok) return;
     }
     busy = slug;
     try {
