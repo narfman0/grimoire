@@ -519,6 +519,8 @@ describe('concentrationChecksForResolution', () => {
       outcome: 'hit',
       damage: 9,
       concentrating: true,
+      hpBefore: null,
+      hpAfter: null,
       ...over
     };
   }
@@ -610,5 +612,45 @@ describe('firedEventsForResolution', () => {
 
   it('is empty for an empty resolution', () => {
     expect(firedEventsForResolution([])).toEqual([]);
+  });
+
+  // The bug: reduce-to-zero was decided from the ≤2s poll snapshot read
+  // immediately after the mutation, so it saw pre-damage HP — it missed the
+  // kill it had just made, and fired for a target that was already at 0
+  // before this action landed.
+  it('fires attack.reduce-to-zero from the post-application HP', () => {
+    expect(firedEventsForResolution([{ outcome: 'hit', hpBefore: 4, hpAfter: 0 }])).toEqual([
+      'attack.hit',
+      'attack.reduce-to-zero'
+    ]);
+  });
+
+  it('does not fire reduce-to-zero for a target that was already down', () => {
+    expect(firedEventsForResolution([{ outcome: 'hit', hpBefore: 0, hpAfter: 0 }])).toEqual([
+      'attack.hit'
+    ]);
+  });
+
+  it('does not fire reduce-to-zero when the target survived', () => {
+    expect(firedEventsForResolution([{ outcome: 'hit', hpBefore: 12, hpAfter: 4 }])).toEqual([
+      'attack.hit'
+    ]);
+  });
+
+  it('does not fire reduce-to-zero when no HP was applied (PC target / miss)', () => {
+    expect(
+      firedEventsForResolution([{ outcome: 'hit', hpBefore: null, hpAfter: null }])
+    ).toEqual(['attack.hit']);
+    expect(firedEventsForResolution([{ outcome: 'miss' }])).toEqual([]);
+  });
+
+  it('fires reduce-to-zero once when an AoE drops several targets', () => {
+    expect(
+      firedEventsForResolution([
+        { outcome: 'failed-save', hpBefore: 6, hpAfter: 0 },
+        { outcome: 'failed-save', hpBefore: 9, hpAfter: 0 },
+        { outcome: 'saved', hpBefore: 30, hpAfter: 19 }
+      ])
+    ).toEqual(['spell.hit', 'save.failed', 'attack.reduce-to-zero']);
   });
 });

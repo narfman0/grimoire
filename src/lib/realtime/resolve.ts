@@ -71,6 +71,13 @@ export interface TargetResolution {
   damage: number | null;
   /** Whether the target was concentrating when the action resolved. */
   concentrating: boolean;
+  /** Authoritative HP either side of the mutation this resolution applied,
+   *  straight off `applyHpAndLog`. Both null when it applied none (a miss, a
+   *  PC target whose HP lives on their character document, zero damage) —
+   *  the ≤2s poll snapshot is *not* a substitute: read right after the
+   *  mutation it still holds the pre-damage value. */
+  hpBefore: number | null;
+  hpAfter: number | null;
 }
 
 /** Outcomes that put damage on a target (heal excluded — it's an HP outcome
@@ -110,14 +117,20 @@ export function concentrationChecksForResolution(
 }
 
 /** Reaction-trigger events fired by a whole resolution: the union of what
- *  each target's *own* outcome fired, deduplicated, in first-seen order.
+ *  each target's *own* outcome fired, deduplicated, in first-seen order,
+ *  plus `attack.reduce-to-zero` when the resolution actually dropped a
+ *  target to 0.
  *
  *  The multi-target path used to pass the form's Outcome dropdown here,
  *  which for an AoE save is usually blank — so `save.failed` / `spell.hit`
  *  never fired for the targets that actually blew their save, and a stray
- *  dropdown value could fire `attack.hit` for targets that saved. */
+ *  dropdown value could fire `attack.hit` for targets that saved.
+ *
+ *  The zero check matches the server's `damage.reduce-to-zero` rule
+ *  ($lib/server/encounter/log-triggers): it needs a real transition, so a
+ *  target that was already down doesn't re-fire. */
 export function firedEventsForResolution(
-  results: Array<{ outcome: HitOutcome }>
+  results: Array<{ outcome: HitOutcome; hpBefore?: number | null; hpAfter?: number | null }>
 ): string[] {
   const events: string[] = [];
   for (const r of results) {
@@ -125,6 +138,14 @@ export function firedEventsForResolution(
       if (!events.includes(ev)) events.push(ev);
     }
   }
+  const droppedOne = results.some(
+    (r) =>
+      typeof r.hpBefore === 'number' &&
+      typeof r.hpAfter === 'number' &&
+      r.hpBefore > 0 &&
+      r.hpAfter <= 0
+  );
+  if (droppedOne) events.push('attack.reduce-to-zero');
   return events;
 }
 

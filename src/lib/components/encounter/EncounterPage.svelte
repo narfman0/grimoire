@@ -287,8 +287,8 @@
     damage: number | null,
     attack: number | null,
     round: number
-  ): Promise<{ ok: boolean }> {
-    if (!conn || !resolveForParticipantId) return { ok: false };
+  ): Promise<{ ok: boolean; hpBefore: number | null; hpAfter: number | null }> {
+    if (!conn || !resolveForParticipantId) return { ok: false, hpBefore: null, hpAfter: null };
     const target = (targetId
       ? liveParticipants.find((p) => p.id === targetId) ?? null
       : null) as ResolveTarget | null;
@@ -305,7 +305,11 @@
       actionLabel: resolveActionLabel,
       notes: resolveNotes
     });
-    return { ok: result.ok };
+    return {
+      ok: result.ok,
+      hpBefore: result.targetHpBefore,
+      hpAfter: result.targetHpAfter
+    };
   }
 
   /** Was this participant concentrating when the action resolved? PCs mirror
@@ -347,7 +351,13 @@
                 ? 'saved'
                 : 'failed-save'
               : resolveHit || 'failed-save';
-          const { ok } = await dmApplyToTarget(tid, perTargetOutcome, resolveDamage, saveRoll ?? null, round);
+          const { ok, hpBefore, hpAfter } = await dmApplyToTarget(
+            tid,
+            perTargetOutcome,
+            resolveDamage,
+            saveRoll ?? null,
+            round
+          );
           if (!ok) {
             resolveError = `log entry failed for ${t.name}`;
             return;
@@ -357,11 +367,19 @@
             participantName: t.name,
             outcome: perTargetOutcome,
             damage: resolveDamage,
-            concentrating: isConcentrating(tid)
+            concentrating: isConcentrating(tid),
+            hpBefore,
+            hpAfter
           });
         }
       } else {
-        const { ok } = await dmApplyToTarget(resolveTargetId, singleOutcome, resolveDamage, resolveAttack, round);
+        const { ok, hpBefore, hpAfter } = await dmApplyToTarget(
+          resolveTargetId,
+          singleOutcome,
+          resolveDamage,
+          resolveAttack,
+          round
+        );
         if (!ok) {
           resolveError = 'log entry failed';
           return;
@@ -373,7 +391,9 @@
               liveParticipants.find((p) => p.id === resolveTargetId)?.name ?? 'Target',
             outcome: singleOutcome,
             damage: resolveDamage,
-            concentrating: isConcentrating(resolveTargetId)
+            concentrating: isConcentrating(resolveTargetId),
+            hpBefore,
+            hpAfter
           });
         }
       }
@@ -385,18 +405,11 @@
       // Build the set of events that fired from this resolution, from each
       // target's own outcome. A targetless resolution has no per-target
       // result, so it still keys off the form's outcome.
+      // `attack.reduce-to-zero` rides along on the same per-target results:
+      // their HP comes from the mutation itself, not the poll snapshot.
       const firedEvents = firedEventsForResolution(
         resolutions.length > 0 ? resolutions : [{ outcome: singleOutcome }]
       );
-      // Add 'attack.reduce-to-zero' if any target hit 0 HP.
-      const checkTargets = resolveMultiTargetIds.length > 0 ? resolveMultiTargetIds : (resolveTargetId ? [resolveTargetId] : []);
-      for (const tid of checkTargets) {
-        const hpEntry = liveHpMap[tid];
-        if (hpEntry && hpEntry.currentHp != null && hpEntry.currentHp <= 0) {
-          firedEvents.push('attack.reduce-to-zero');
-          break;
-        }
-      }
       const reactionUsedByParticipantId: Record<string, boolean> = {};
       for (const [pid, econ] of Object.entries(roundEconomy)) {
         if (econ?.reactionUsed) reactionUsedByParticipantId[pid] = true;
