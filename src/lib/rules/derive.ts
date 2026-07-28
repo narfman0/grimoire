@@ -32,6 +32,7 @@ import type {
   AbilityCell,
   AbilityKey,
   Action,
+  ActionPolymorph,
   ActivationDeclaration,
   ActivationDuration,
   ActivationWard,
@@ -326,6 +327,42 @@ function coerceSummonBudget(raw: unknown, ctx: EvalContext): SummonBudget | unde
     ...(dmChoice ? { dmChoice: true } : {}),
     ...(note ? { note } : {})
   };
+}
+
+/** Read an authored `form` block off a `type: 'polymorph'` activity into
+ *  the canonical `ActionPolymorph` shape. Deliberately soft: malformed
+ *  fields are dropped, and a block that declares nothing at all still
+ *  yields a payload (the defaults — self / form HP / form saves — are the
+ *  Polymorph reading and are what the sheet needs to write state). */
+function coercePolymorphForm(raw: unknown, ctx: EvalContext): ActionPolymorph | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: ActionPolymorph = {
+    target: o.target === 'creature' ? 'creature' : 'self',
+    hpSource: o.hpSource === 'base' ? 'base' : 'form',
+    saveSource: o.saveSource === 'base' ? 'base' : 'form'
+  };
+  const crMax = evaluateValue(o.crMax, ctx);
+  if (typeof crMax === 'number' && Number.isFinite(crMax) && crMax >= 0) out.crMax = crMax;
+  const count = evaluateValue(o.count, ctx);
+  if (typeof count === 'number' && Number.isFinite(count) && count > 0) {
+    out.count = Math.floor(count);
+  }
+  const creatureTypes = Array.isArray(o.creatureTypes)
+    ? o.creatureTypes.filter((t): t is string => typeof t === 'string' && t.length > 0)
+    : typeof o.creatureType === 'string' && o.creatureType.length > 0
+      ? [o.creatureType]
+      : [];
+  if (creatureTypes.length > 0) out.creatureTypes = creatureTypes;
+  if (typeof o.sizeMax === 'string' && SIZE_LADDER.includes(o.sizeMax as CreatureSize)) {
+    out.sizeMax = o.sizeMax as CreatureSize;
+  }
+  const duration = o.duration as { value?: unknown; units?: unknown } | undefined;
+  if (typeof duration?.value === 'number' && typeof duration?.units === 'string') {
+    out.duration = duration as ActivationDuration;
+  }
+  if (typeof o.note === 'string' && o.note.length > 0) out.note = o.note;
+  return out;
 }
 
 /** Read an authored activation `ward` block into the canonical shape.
@@ -2856,6 +2893,9 @@ function registerTriggers(s: DerivePhaseState): void {
  *    - 'summon' realizes into an Action carrying `summons` (see
  *      realizeActivity); unresolved monster slugs get the
  *      summon-missing-content soft warning below.
+ *    - 'polymorph' realizes into an Action carrying `polymorph` (the
+ *      form constraint + HP/save rules); a recorded form that violates
+ *      the constraint gets the polymorph-form-over-budget soft warning.
  *    - 'cast' is a legacy synonym used by SRD faithful-steed (cast
  *      without a slot); 'heal' marks healing activities whose dice the
  *      generic damage.parts path already surfaces.
@@ -2869,13 +2909,14 @@ const KNOWN_ACTIVITY_TYPES: ReadonlySet<string> = new Set([
   'cast-spell',
   'utility',
   'summon',
+  'polymorph',
   'maneuver-rider'
 ]);
 
 /** PHASE 6 (validate) — attunement / prepared-spell-count / predicate-DSL
  *  / activity-type soft warnings. Pushes onto s.validations. */
 function runSoftValidations(s: DerivePhaseState): void {
-  const { character, content, active, allMods, stats, validations } = s;
+  const { character, content, active, allMods, ctx, stats, validations } = s;
 
   // Attunement
   const attunedCount = character.inventory.filter((i) => i.attuned).length;
@@ -2943,6 +2984,56 @@ function runSoftValidations(s: DerivePhaseState): void {
             });
           }
         }
+      }
+    }
+  }
+
+  // Polymorph budget — the recorded form vs the constraint declared by
+  // the row that granted it. `polymorphForm.sourceContent` names the
+  // granting spell/feature, so the matching `type: 'polymorph'` Action
+  // supplies the CR / type / size cap and the monster row supplies the
+  // actuals. Soft only (the DM may hand-wave a form), and deliberately
+  // NOT an `unknown-*` code — this is character state, not a pack
+  // authoring error.
+  const form = character.polymorphForm;
+  if (form?.slug && form.sourceContent) {
+    const decl = s.actions.find(
+      (a) =>
+        a.polymorph != null &&
+        a.sourceContent.kind === form.sourceContent.kind &&
+        a.sourceContent.slug === form.sourceContent.slug
+    )?.polymorph;
+    const formRow = decl ? content({ kind: 'monster', slug: form.slug }) : undefined;
+    if (decl && formRow) {
+      const violations: string[] = [];
+      if (decl.crMax != null) {
+        const cr = evaluateValue(formRow.data.cr, ctx);
+        if (typeof cr === 'number' && Number.isFinite(cr) && cr > decl.crMax) {
+          violations.push(`CR ${cr} exceeds the declared maximum of ${decl.crMax}`);
+        }
+      }
+      if (decl.creatureTypes && decl.creatureTypes.length > 0) {
+        const t = formRow.data.type;
+        if (typeof t === 'string' && t.length > 0 && !decl.creatureTypes.includes(t)) {
+          violations.push(`type '${t}' is not one of ${decl.creatureTypes.join(', ')}`);
+        }
+      }
+      if (decl.sizeMax) {
+        const sz = formRow.data.size;
+        if (
+          typeof sz === 'string' &&
+          SIZE_LADDER.includes(sz as CreatureSize) &&
+          SIZE_LADDER.indexOf(sz as CreatureSize) > SIZE_LADDER.indexOf(decl.sizeMax)
+        ) {
+          violations.push(`size '${sz}' exceeds the declared maximum '${decl.sizeMax}'`);
+        }
+      }
+      if (violations.length > 0) {
+        validations.push({
+          severity: 'warning',
+          code: 'polymorph-form-over-budget',
+          message: `Active form '${form.slug}' from ${form.sourceContent.kind}/${form.sourceContent.slug}: ${violations.join('; ')}.`
+        });
       }
     }
   }
@@ -4680,6 +4771,14 @@ function realizeActivity(
           : {})
       };
     }
+  } else if (type === 'polymorph') {
+    // Statblock replacement. The row can't name the form — Polymorph,
+    // Shapechange, Animal Shapes and Giant Insect all describe a CR/type
+    // constraint the caster picks against at cast time. The declaration
+    // rides onto Action.polymorph; the sheet writes the picked slug into
+    // character.polymorphForm, which derive() reads back as activeForm.
+    const form = coercePolymorphForm(act.form ?? act.polymorph, ctx);
+    if (form) action.polymorph = form;
   }
 
   // Item charge-pool debit: an activity on a charged item that declares

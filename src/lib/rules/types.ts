@@ -691,6 +691,12 @@ export interface Action {
    *  entries to `character.companions` when the action resolves (see
    *  ActionSummons for the choice-vs-all semantics). */
   summons?: ActionSummons;
+  /** Statblock-replacement payload — set on `type: 'polymorph'`
+   *  activities (Polymorph, Shapechange, Animal Shapes, Giant Insect).
+   *  Declares the form constraint plus the HP / save rules; the sheet
+   *  reads it to write `character.polymorphForm`, which derive() turns
+   *  back into `Derived.activeForm`. See `ActionPolymorph`. */
+  polymorph?: ActionPolymorph;
   /** Structured self-teleport payload, mirrored from the activity's
    *  `teleport` block (boots of the winding path, shard solitaire's
    *  Rift Step). Display contract — movement/positioning stays
@@ -817,6 +823,52 @@ export interface ActionSummons {
   /** Display-only duration, mirrored from the authored activity. The
    *  engine doesn't tick a countdown — dismissal is manual. */
   duration?: ActivationDuration;
+}
+
+/** Resolved polymorph payload on an Action (from a `type: 'polymorph'`
+ *  activity's `form` block) — see `Derived` / `PolymorphFormState`.
+ *
+ *  A pack row can't name the form: Polymorph, Shapechange, Animal Shapes
+ *  and Giant Insect all say "a form whose CR is at most X", and the
+ *  target statblock is picked at cast time. This declaration carries the
+ *  constraint plus the two rules that differ per spell — where the form's
+ *  HP pool comes from and which ability scores back its saves — so the
+ *  sheet can write a `PolymorphFormState` the engine already understands
+ *  (`derive()` turns that state into `Derived.activeForm`). */
+export interface ActionPolymorph {
+  /** Who transforms: the caster (`'self'` — Shapechange) or a creature
+   *  the caster targets (`'creature'` — Polymorph, Animal Shapes).
+   *  Default `'self'`. */
+  target: 'self' | 'creature';
+  /** Maximum Challenge Rating of the assumed form. evaluateValue-resolved
+   *  (`"floor(druidLevel/3)"` works). Absent → uncapped. */
+  crMax?: number;
+  /** Creature types the form must be ('beast', 'dragon', …). Absent/empty
+   *  → any type. */
+  creatureTypes?: string[];
+  /** Maximum size of the assumed form. */
+  sizeMax?: CreatureSize;
+  /** How many creatures one use transforms (Animal Shapes: any number of
+   *  willing creatures — authored as the RAW cap). Default 1. */
+  count?: number;
+  /** Where the form's hit-point pool comes from. `'form'` (default) is
+   *  the Polymorph/Wild Shape rule — the form has the statblock's own HP
+   *  and reverting restores the base pool. `'base'` is the Shapechange
+   *  rule — you keep your own hit points in the new shape. Mirrors onto
+   *  `PolymorphFormState.currentHp` / `maxHp` when the sheet writes the
+   *  state. */
+  hpSource: 'form' | 'base';
+  /** Which ability scores back saves while transformed — the same
+   *  distinction `PolymorphFormState.formSaveSource` records. `'form'`
+   *  (default, Polymorph) vs `'base'` (Wild Shape / Shapechange retain
+   *  the character's mental scores and proficiencies). */
+  saveSource: 'form' | 'base';
+  /** Display-only duration, mirrored from the authored activity. The
+   *  engine ticks no countdown. */
+  duration?: ActivationDuration;
+  /** Free-text qualifier the table adjudicates ("the form can't have a
+   *  flying speed", "you retain your alignment and personality"). */
+  note?: string;
 }
 
 /** Battle Master / Martial Adept / Superior Technique maneuver content

@@ -131,6 +131,31 @@ Display contract: derive() surfaces the constraint and picks nothing. The `Conte
 
 Warning semantics: an unresolvable creature slug emits a `summon-missing-content` soft warning. This is deliberately **not** an `unknown-*` code — the packs QC gate hard-fails T3 rows on `unknown-*`, and a summon may legitimately reference a monster shipped in another pack or in operator homebrew that a partial lookup can't see. The action still realizes either way.
 
+### Polymorph activities
+
+`polymorphForm` is *character* state — it names the statblock the PC currently inhabits. A pack row can't write it, because Polymorph, Shapechange, Animal Shapes and Giant Insect all name a **constraint**, not a form. A `type: 'polymorph'` activity declares that constraint plus the two rules that differ per spell:
+
+```jsonc
+{
+  "id": "cast", "name": "Polymorph", "type": "polymorph", "cost": "action",
+  "form": {
+    "target": "creature",                        // 'self' (Shapechange) | 'creature' — default 'self'
+    "crMax": 6,                                   // evaluateValue; absent → uncapped
+    "creatureTypes": ["beast"],                   // or singular "creatureType"
+    "sizeMax": "large",
+    "count": 1,                                   // Animal Shapes transforms several
+    "hpSource": "form",                           // 'form' (default) | 'base' (Shapechange keeps your HP)
+    "saveSource": "form",                         // 'form' (default) | 'base' (retains your mental scores)
+    "duration": { "value": 1, "units": "hour" },
+    "note": "The form can't have a flying speed."
+  }
+}
+```
+
+It realizes onto `Action.polymorph`. `hpSource` / `saveSource` are exactly the two decisions `PolymorphFormState` records (`currentHp`/`maxHp` and `formSaveSource`), so the sheet writes the picked slug plus these into `character.polymorphForm` and derive() reads it straight back as `Derived.activeForm` — no new form machinery, just the missing pack-side half. Form-scoped riders keep riding [`appliesToForm`](#form-scoped-modifiers-appliestoform).
+
+Selection stays with the player/DM: derive() cannot enumerate candidate statblocks. What it *does* check is the recorded form against the declaration — when `character.polymorphForm.sourceContent` names a row whose polymorph Action carries a `crMax` / `creatureTypes` / `sizeMax`, and the monster row resolves, a violating form emits the `polymorph-form-over-budget` soft warning (severity `warning`, deliberately **not** an `unknown-*` code — this is character state, not pack authoring). Full statblock *substitution* remains the [known scope limit](#known-scope-limits); the declaration is a display + state contract.
+
 ### Item choice slots
 
 An item row can declare per-inventory-slot player picks via `data.choices` — the pick lives on the `InventorySlot` (`slot.choices`), not the content row, so two copies of a Spell Scroll hold different spells. v1 engine-read slots:
