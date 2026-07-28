@@ -546,10 +546,17 @@
    *  poll reconciliation feeds (for the DM: SSR rows, re-run by invalidateAll
    *  on every local mutation and by the poll-driven refresh above), so this
    *  rides that instead of putting a second endpoint on a timer. The slug is
-   *  in the signature too — swapping a monster's statblock changes its CR. */
+   *  in the signature too — swapping a monster's statblock changes its CR —
+   *  and so is each PC's total level, since the party thresholds move when
+   *  someone levels mid-session. `participantPcStats` is SSR data, but the
+   *  DM page re-runs invalidateAll off the channel on each successful poll,
+   *  so a level-up lands within one interval. */
   $: if (browser && data.role === 'dm') {
     const sig = liveParticipants
-      .map((p) => `${p.id}:${p.kind}:${p.statblockSlug ?? ''}`)
+      .map(
+        (p) =>
+          `${p.id}:${p.kind}:${p.statblockSlug ?? ''}:${data.participantPcStats?.[p.id]?.totalLevel ?? ''}`
+      )
       .sort()
       .join(',');
     if (sig !== difficultySig) {
