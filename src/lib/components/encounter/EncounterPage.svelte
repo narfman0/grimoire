@@ -2,7 +2,6 @@
   import { invalidateAll } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/client/api';
-  import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import ParticipantRowCard from '$lib/components/ParticipantRowCard.svelte';
   import PlanPanel from '$lib/components/PlanPanel.svelte';
   import MonsterStatblockView from '$lib/components/MonsterStatblockView.svelte';
@@ -29,7 +28,6 @@
     toggleArrayValue,
     patchPcWithMirror
   } from '$lib/encounter/conditions';
-  import { hpBucket as computeHpBucket } from '$lib/realtime/reveals';
   import type { LiveParticipant } from '$lib/realtime/participants';
   import {
     connectEncounter,
@@ -784,10 +782,6 @@
     }
   }
 
-  function inputValue(e: Event): string {
-    return (e.target as HTMLInputElement).value;
-  }
-
   async function toggleCondition(
     p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
     cond: string
@@ -971,16 +965,6 @@
     roundEconomy = roundEconomy;
   }
 
-  type SpellEntry = { slug: string; name: string; level: number };
-  function groupByLevel(spells: SpellEntry[]) {
-    const groups = new Map<number, SpellEntry[]>();
-    for (const s of spells) {
-      if (!groups.has(s.level)) groups.set(s.level, []);
-      groups.get(s.level)!.push(s);
-    }
-    return [...groups.entries()].sort(([a], [b]) => a - b).map(([level, spells]) => ({ level, spells }));
-  }
-
   function isSpellAction(participantId: string): boolean {
     const spells = data.participantSpells?.[participantId] ?? [];
     const action = livePlans[participantId]?.actionId ?? '';
@@ -1118,10 +1102,6 @@
 
 
   const COMMON_BONUS_ACTIONS = ['Offhand attack', 'Dash', 'Disengage', 'Hide', 'Healing Word', 'Hex'];
-  function abilityMod(score: number): string {
-    const m = Math.floor((score - 10) / 2);
-    return (m >= 0 ? '+' : '') + m;
-  }
 
   /** Tap on a participant row: jump active turn to that participant (no
    *  round bump). Server allows any member to set activeParticipantId; the
