@@ -9,6 +9,8 @@
   import ActionLogSection from './ActionLogSection.svelte';
   import AddParticipantModal from './AddParticipantModal.svelte';
   import ConcentrationSavePrompt from './ConcentrationSavePrompt.svelte';
+  import EncounterHeader from './EncounterHeader.svelte';
+  import TurnControls from './TurnControls.svelte';
   import ConditionChips from './ConditionChips.svelte';
   import PcStatsCard from './PcStatsCard.svelte';
   import LegendaryActionTracker from './LegendaryActionTracker.svelte';
@@ -601,11 +603,10 @@
   let addParticipantModal: AddParticipantModal | null = null;
   // ---- encounter rename ----
   let renamingEncounter = false;
-  let renameValue = data.encounter.name;
   let encounterName = data.encounter.name;
 
-  async function submitRename() {
-    const trimmed = renameValue.trim();
+  async function submitRename(draft: string) {
+    const trimmed = draft.trim();
     if (!trimmed || trimmed === encounterName) { renamingEncounter = false; return; }
     busy = true;
     try {
@@ -617,11 +618,6 @@
       busy = false;
       renamingEncounter = false;
     }
-  }
-
-  function onRenameKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') submitRename();
-    else if (e.key === 'Escape') renamingEncounter = false;
   }
 
   async function addParticipant(draft: {
@@ -1124,13 +1120,6 @@
     }
   }
 
-  // Dice roller state (client-only, no persistence)
-  const DICE = [4, 6, 8, 10, 12, 20, 100] as const;
-  let diceResult: { die: number; roll: number } | null = null;
-  function rollDie(sides: number) {
-    diceResult = { die: sides, roll: Math.floor(Math.random() * sides) + 1 };
-  }
-
   // Encounter notes (DM only, persisted to encounters.notesJson)
   let encounterNotesDraft = data.encounter.notesJson ?? '';
   let notesSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1187,116 +1176,29 @@
   <title>{data.encounter.name} — {data.campaign.name}</title>
 </svelte:head>
 
-<header class="mb-6 flex items-baseline justify-between">
-  <div>
-    {#if renamingEncounter}
-      <div class="flex items-center gap-2">
-        <!-- svelte-ignore a11y-autofocus (rename input appears on demand; it must own focus or the blur-to-save flow never engages) -->
-        <input
-          class="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-2xl font-semibold text-slate-100 outline-none focus:border-slate-400"
-          bind:value={renameValue}
-          on:keydown={onRenameKeydown}
-          on:blur={submitRename}
-          autofocus
-        />
-        <button class="text-xs text-slate-500 hover:text-slate-300" on:click={submitRename}>save</button>
-        <button class="text-xs text-slate-500 hover:text-slate-300" on:click={() => renamingEncounter = false}>cancel</button>
-      </div>
-    {:else}
-      <h1 class="group flex items-center gap-2 text-2xl font-semibold">
-        {encounterName}
-        {#if data.role === 'dm'}
-          <button
-            class="opacity-0 group-hover:opacity-100 text-sm text-slate-500 hover:text-slate-300 transition-opacity"
-            on:click={() => { renameValue = encounterName; renamingEncounter = true; }}
-            aria-label="Rename encounter"
-          >✎</button>
-        {/if}
-      </h1>
-    {/if}
-    <p class="text-sm text-slate-400">
-      {#if conn}
-        <span
-          class="inline-block h-2 w-2 rounded-full {connStatus === 'open'
-            ? 'bg-emerald-500'
-            : connStatus === 'connecting'
-              ? 'bg-amber-500'
-              : 'bg-slate-600'}"
-          title={connStatus === 'open'
-            ? `${liveStatus} · live sync connected`
-            : `${liveStatus} · sync: ${connStatus}`}
-        ></span>
-      {/if}
-      {#if encounterTotalXp > 0}
-        &middot; <span class="text-slate-300">{encounterTotalXp} XP</span>
-        {#if data.party.size > 0}
-          <span class="text-slate-500">
-            (vs {data.party.size} PC{data.party.size === 1 ? '' : 's'},
-            avg L{data.party.avgLevel.toFixed(1)} —
-            <span class="text-slate-300">{xpPerChar}/char</span>)
-          </span>
-        {/if}
-      {/if}
-    </p>
-  </div>
-  <div class="flex items-center gap-3">
-    {#if data.role === 'dm'}
-      {#if liveStatus === 'staging'}
-        <button
-          class="rounded bg-emerald-600 px-3 py-1 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-          disabled={busy || liveParticipants.length === 0}
-          title={liveParticipants.length === 0
-            ? 'Add at least one participant first'
-            : 'Flip to live combat'}
-          on:click={() => setEncounterStatus('live')}
-        >
-          ▶ Start encounter
-        </button>
-      {/if}
-    {/if}
-    <a class="text-xs text-slate-400 hover:text-slate-200" href={encountersHref}>
-      ← all encounters
-    </a>
-  </div>
-</header>
+<EncounterHeader
+  name={encounterName}
+  role={data.role}
+  {busy}
+  connStatus={conn ? connStatus : null}
+  status={liveStatus}
+  totalXp={encounterTotalXp}
+  {xpPerChar}
+  party={data.party}
+  participantCount={liveParticipants.length}
+  {encountersHref}
+  bind:renaming={renamingEncounter}
+  on:rename={(e) => submitRename(e.detail)}
+  on:start={() => setEncounterStatus('live')}
+/>
 
 {#if liveStatus === 'live' && data.role === 'dm'}
-  <section class="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-sm">
-    <div class="flex items-center gap-2">
-      <span class="text-emerald-200">Turn controls:</span>
-      <button class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800" on:click={() => advanceTurn(-1)} disabled={busy} title="Previous turn">
-        ←
-      </button>
-      <span class="min-w-[5rem] text-center font-mono text-slate-300">Round {liveRound}</span>
-      <button class="rounded border border-emerald-700 px-2 py-0.5 hover:bg-emerald-900/40" on:click={() => advanceTurn(1)} disabled={busy}>
-        Next turn →
-      </button>
-      <button
-        class="ml-auto rounded border border-slate-600 px-2 py-0.5 hover:bg-slate-800 disabled:opacity-40"
-        disabled={busy}
-        on:click={() => setEncounterStatus('ended')}
-      >
-        End
-      </button>
-    </div>
-  </section>
-  <!-- Dice roller -->
-  <section class="mb-4 rounded-lg border border-slate-700 bg-slate-900/30 p-3 text-sm">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-slate-400">Dice:</span>
-      {#each DICE as sides}
-        <button
-          class="rounded border border-slate-600 px-2 py-0.5 font-mono text-xs hover:border-slate-400 hover:bg-slate-800"
-          on:click={() => rollDie(sides)}
-        >d{sides}</button>
-      {/each}
-      {#if diceResult}
-        <span class="ml-2 font-mono text-slate-200">
-          d{diceResult.die} → <span class="text-lg font-bold {diceResult.roll === diceResult.die ? 'text-emerald-300' : diceResult.roll === 1 ? 'text-red-400' : 'text-white'}">{diceResult.roll}</span>
-        </span>
-      {/if}
-    </div>
-  </section>
+  <TurnControls
+    round={liveRound}
+    {busy}
+    on:advance={(e) => advanceTurn(e.detail)}
+    on:end={() => setEncounterStatus('ended')}
+  />
 {/if}
 
 {#if data.role === 'dm'}
