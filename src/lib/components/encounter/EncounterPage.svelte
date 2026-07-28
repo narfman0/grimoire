@@ -483,6 +483,12 @@
     resolveHit = (entry.hit ?? '') as typeof resolveHit;
     resolveNotes = entry.notes ?? '';
     resolveError = null;
+    // Same reset as openResolve/closeResolve: an amendment corrects one
+    // existing row, so it must not inherit the multi-target save draft a
+    // previous resolution left behind.
+    resolveSaveDC = null;
+    resolveMultiTargetIds = [];
+    resolveTargetSaveRolls = {};
   }
 
   /** Sum XP across all non-PC participants whose monster statblock carries
