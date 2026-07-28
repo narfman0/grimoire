@@ -474,6 +474,9 @@ export interface StatBlock {
   /** Death saving throws are rolled with advantage. Set by
    *  `deathsave.advantage`. The sheet/runtime chooses how to surface it. */
   deathSaveAdvantage: boolean;
+  /** Hit Dice spent on a rest deal their maximum instead of being rolled
+   *  (periapt of wound closure). Set by `hitDice.maximize`. */
+  hitDiceMaximized: boolean;
 }
 
 /** A single source-qualified save-advantage entry. Either an `ability`
@@ -572,6 +575,21 @@ export interface Action {
   /** Reroll all damage dice once and keep the higher result (Savage Attacker
    *  feat). */
   damageRerollAndKeepHigher?: boolean;
+  /** Every damage die on this action deals its maximum value instead of
+   *  being rolled (Overchannel, potion of maximum power, Consuming
+   *  Fervor). Set by the `damage.maximize` action-modifier target. */
+  damageMaximized?: boolean;
+  /** Same, but only against objects (sword of sharpness, Tearulai) —
+   *  `damage.maximize.vs-objects`. */
+  damageMaximizedVsObjects?: boolean;
+  /** Damage dice are rolled twice and totalled (Death Strike's
+   *  save-or-double) — `damage.double-dice`. */
+  damageDiceDoubled?: boolean;
+  /** Same, but only against objects — `damage.double-dice.vs-objects`. */
+  damageDiceDoubledVsObjects?: boolean;
+  /** Healing dice rolled for this action deal their maximum (Supreme
+   *  Healing, Circle of Mortality) — `heal.maximize`. */
+  healMaximized?: boolean;
   /** Ranged attacks made with this action don't suffer disadvantage when an
    *  enemy is within 5 ft (Crossbow Expert). */
   attackNoDisadvantageWithin5ft?: boolean;
@@ -1017,6 +1035,12 @@ export type TriggerGrant =
    *  only — there is no runtime absorption; items that also cast from
    *  the absorbed pool model that side via `data.spellStorage`. */
   | { type: 'spell.absorb'; maxLevels?: number }
+  /** The triggering damage roll is maximized instead of rolled
+   *  (Consuming Fervor's Channel Divinity spend). */
+  | { type: 'damage.maximize' }
+  /** The triggering damage roll's dice are doubled (Death Strike). The
+   *  optional `save` is the target's chance to avoid the doubling. */
+  | { type: 'damage.double'; save?: { ability: AbilityKey; dc: number } }
   | { type: string; [k: string]: unknown }; // forward-compat: unknown grant shapes still pass through
 
 export interface TriggerDeclaration {

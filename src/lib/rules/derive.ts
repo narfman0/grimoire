@@ -2066,7 +2066,8 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     ...(saveD20Floor > 0 ? { saveD20Floor } : {}),
     traits: [...traits].sort(),
     incomingCritImmune: hasBooleanTarget(allMods, 'tag.incoming-crit-immune'),
-    deathSaveAdvantage: hasBooleanTarget(allMods, 'deathsave.advantage')
+    deathSaveAdvantage: hasBooleanTarget(allMods, 'deathsave.advantage'),
+    hitDiceMaximized: hasBooleanTarget(allMods, 'hitDice.maximize')
   };
 
   const phase: DerivePhaseState = {
@@ -4541,6 +4542,26 @@ function applyActionEffect(
       break;
     case 'damage.reroll-and-keep-higher':
       if (rawValue === true) action.damageRerollAndKeepHigher = true;
+      break;
+    // Dice maximization / doubling. Same family as damage.die.min /
+    // damage.reroll-and-keep-higher: boolean display contracts the roll-
+    // time consumer honors. The `.vs-objects` siblings carry the sword-
+    // of-sharpness scope, which no predicate can express (the engine has
+    // no object-target model).
+    case 'damage.maximize':
+      if (rawValue === true) action.damageMaximized = true;
+      break;
+    case 'damage.maximize.vs-objects':
+      if (rawValue === true) action.damageMaximizedVsObjects = true;
+      break;
+    case 'damage.double-dice':
+      if (rawValue === true) action.damageDiceDoubled = true;
+      break;
+    case 'damage.double-dice.vs-objects':
+      if (rawValue === true) action.damageDiceDoubledVsObjects = true;
+      break;
+    case 'heal.maximize':
+      if (rawValue === true) action.healMaximized = true;
       break;
     case 'attack.no-disadvantage.within-5ft':
       if (rawValue === true) action.attackNoDisadvantageWithin5ft = true;

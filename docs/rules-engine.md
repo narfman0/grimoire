@@ -376,6 +376,29 @@ Pick storage accepts both shapes; `option` and `options` union together:
 - `picks` is resolved through `evaluateValue`, so `PendingFeatureChoice.unresolved` flips only once the player has chosen that many options. It is a picker-UI cap, not an enforcement gate — derive() synthesizes whatever was picked.
 - The sheet's feature-choices panel renders a `<select>` for single-pick menus and a capped checkbox list for multi-pick ones.
 
+### Dice maximization and doubling
+
+"Maximize the damage dice", "maximize the healing", "double the dice against objects" — the family beside `damage.die.min`, `damage.reroll-and-keep-higher` and `crit.extra-die`. All are **action-modifier effect targets** taking `value: true`, and all land as booleans on the Action for the roll-time consumer to honor:
+
+| effect target | Action field |
+| --- | --- |
+| `damage.maximize` | `damageMaximized` |
+| `damage.maximize.vs-objects` | `damageMaximizedVsObjects` |
+| `damage.double-dice` | `damageDiceDoubled` |
+| `damage.double-dice.vs-objects` | `damageDiceDoubledVsObjects` |
+| `heal.maximize` | `healMaximized` |
+
+Scope comes from the ordinary `appliesTo.predicates` block — Consuming Fervor's "a Fire or Thunder damage roll" is `{ "damage.type": ["fire", "thunder"] }`, Overchannel's "a spell you cast" is `{ "attack.classification": "spell" }` plus the activation-condition gate. The `.vs-objects` siblings exist because the engine has no object-target model, so a sword of sharpness can't express its scope as a predicate.
+
+Two trigger-grant shapes cover the reaction-timed cases (same display-contract posture as the other grants):
+
+```jsonc
+{ "type": "damage.maximize" }                                        // Consuming Fervor
+{ "type": "damage.double", "save": { "ability": "con", "dc": 17 } }  // Death Strike
+```
+
+`hitDice.maximize` (boolean stat-modifier) → `stats.hitDiceMaximized`: Hit Dice spent on a rest deal their maximum instead of being rolled (periapt of wound closure).
+
 ### Curated trait flags
 
 `trait.<slug>` (boolean) appends the slug to `stats.traits` (sorted, deduped). Any slug is allowed — no validation gate. Canonical slugs:
