@@ -81,12 +81,23 @@ export const ModifierMode = z.enum(['ADD', 'MULTIPLY', 'OVERRIDE', 'UPGRADE', 'D
 
 /** A stat-modifier row inside `data.modifiers`. `value` is intentionally
  *  loose — derive accepts numbers, booleans, strings (e.g. `proficiencyBonus`),
- *  and small objects depending on the target. */
+ *  and small objects depending on the target.
+ *
+ *  The object branch is load-bearing, not decoration: `evaluateValue`
+ *  resolves `{ perClass, table }`, `{ perTotalLevel, table }`,
+ *  `{ perConditionStack, perLevel }`, `{ sum: [...] }`,
+ *  `{ perAbilityMod, dieSize }` and `{ perClassLevel, multiplier }`, and
+ *  `ac.formula` takes a literal `{ base, ability | abilities }` object.
+ *  Scalar-only `value` used to make those shapes unauthorable on any row
+ *  validated through this schema (feats and items), which blocked e.g.
+ *  XGtE Dragon Hide's unarmored AC and PHB-2014 Medium Armor Master.
+ *  `.passthrough()` on the object branch keeps the engine the authority
+ *  on which keys a given target reads. */
 export const StatModifierSchema = z.object({
   kind: z.literal('stat-modifier'),
   target: z.string().min(1).max(128),
   mode: ModifierMode.optional(),
-  value: z.union([z.number(), z.string(), z.boolean()]),
+  value: z.union([z.number(), z.string(), z.boolean(), z.object({}).passthrough()]),
   priority: z.number().int().optional()
 });
 

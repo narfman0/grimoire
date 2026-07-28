@@ -178,6 +178,12 @@ Item-sourced triggers respect the attunement gates (§ Attunement gating): a `re
 
 Boolean targets take `value: true`; anything else is ignored. All feed `derive()` phase 2 and land on `Derived.stats`.
 
+### Modifier `value` shapes
+
+`StatModifierSchema.value` (`src/lib/server/content/schemas.ts`) accepts **number | string | boolean | object**. The object branch is `.passthrough()` — zod records the keys, the engine decides which ones a given target reads. That covers every `evaluateValue` object shape (`{perClass, table}`, `{perTotalLevel, table}`, `{perConditionStack, perLevel}`, `{sum: [...]}`, `{perAbilityMod, dieSize}`, `{perClassLevel, multiplier}`) plus literal object targets like `ac.formula`'s `{ base, ability | abilities }`.
+
+The schema backs `/api/homebrew/*` and the packs QC gate for every kind whose `data` it validates — **feat** and **item**. It was scalar-only until engine batch 6, which is why an unarmored-AC feat (XGtE Dragon Hide, PHB-2014 Medium Armor Master) had nowhere to put its formula. Arrays are still rejected; no target reads one.
+
 ### Skill / ability-check advantage
 
 | target | effect |

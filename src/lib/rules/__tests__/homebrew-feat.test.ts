@@ -297,4 +297,41 @@ describe('homebrew feat → derive()', () => {
     const d = derive(character, lookupWithHomebrew(homebrew));
     expect(d.stats.senses.darkvision).toBe(120);
   });
+
+  it('applies an object-valued ac.formula OVERRIDE from a feat (Dragon Hide shape)', () => {
+    // Regression (engine batch 6 §1): the feat-row schema rejected
+    // object-valued stat-modifier values, so XGtE Dragon Hide's
+    // "AC 13 + DEX while unarmored" had nowhere to live. derive() has
+    // always read `ac.formula` as an object — this locks the pair.
+    const homebrew: ContentRow = {
+      kind: 'feat',
+      slug: 'dragon-hide-test',
+      version: 1,
+      name: 'Dragon Hide (test)',
+      source: 'test',
+      data: {
+        modifiers: [
+          {
+            kind: 'stat-modifier',
+            target: 'ac.formula',
+            mode: 'OVERRIDE',
+            // Barbarian Unarmored Defense authors its own ac.formula
+            // OVERRIDE; an explicit priority makes which one lands
+            // deterministic rather than insertion-order-dependent.
+            priority: 100,
+            value: { base: 13, ability: 'dex' }
+          }
+        ]
+      }
+    };
+    // The fixture wears no armor, so computeAC takes the unarmored
+    // branch that reads `ac.formula`.
+    const character: CharacterDocument = {
+      ...zealot.CHARACTER,
+      feats: [{ kind: 'feat', slug: homebrew.slug }]
+    };
+    const d = derive(character, lookupWithHomebrew(homebrew));
+    // 13 + DEX mod (13 → +1) = 14.
+    expect(d.stats.ac).toBe(14);
+  });
 });

@@ -76,6 +76,61 @@ describe('StatModifierSchema', () => {
       }).success
     ).toBe(true);
   });
+
+  // Regression (engine batch 6 §1): `value` used to be scalar-only, so an
+  // object-valued modifier — the `ac.formula` literal, and every
+  // evaluateValue object shape — was rejected on any row validated through
+  // this schema (feats + items). XGtE Dragon Hide and PHB-2014 Medium
+  // Armor Master were blocked on exactly this.
+  it('accepts an object-valued ac.formula (Dragon Hide unarmored AC)', () => {
+    const r = StatModifierSchema.safeParse({
+      kind: 'stat-modifier',
+      target: 'ac.formula',
+      mode: 'OVERRIDE',
+      value: { base: 13, ability: 'dex' }
+    });
+    expect(r.success).toBe(true);
+    // passthrough keeps every key — the engine, not zod, is the authority
+    // on which fields a target reads.
+    expect(r.data!.value).toEqual({ base: 13, ability: 'dex' });
+  });
+
+  it('accepts the evaluateValue object shapes', () => {
+    for (const value of [
+      { perClass: 'barbarian', table: [2, 2, 3] },
+      { perTotalLevel: true, table: ['1d6', '2d6'] },
+      { perConditionStack: 'exhaustion', perLevel: -2 },
+      { sum: ['warlockLevel', 'chaMod'] },
+      { perAbilityMod: 'wis', dieSize: 8 },
+      { perClassLevel: 'cleric', multiplier: 5 }
+    ]) {
+      const r = StatModifierSchema.safeParse({
+        kind: 'stat-modifier',
+        target: 'hp.max',
+        value
+      });
+      expect(r.success, JSON.stringify(value)).toBe(true);
+      expect(r.data!.value).toEqual(value);
+    }
+  });
+
+  it('still rejects an array value', () => {
+    expect(
+      StatModifierSchema.safeParse({ kind: 'stat-modifier', target: 'ac', value: [1, 2] }).success
+    ).toBe(false);
+  });
+});
+
+describe('FeatDataSchema — object-valued modifiers', () => {
+  it('accepts a feat row carrying an ac.formula OVERRIDE', () => {
+    const r = FeatDataSchema.safeParse({
+      category: 'General',
+      modifiers: [
+        { kind: 'stat-modifier', target: 'ac.formula', mode: 'OVERRIDE', value: { base: 13, ability: 'dex' } }
+      ]
+    });
+    expect(r.success).toBe(true);
+  });
 });
 
 describe('FeatHomebrewCreate', () => {
