@@ -9,6 +9,14 @@
 // Pure function. No I/O, no clock, no random.
 
 import {
+  applyCrossRowUpgrades,
+  applyUpgradeValue,
+  NO_OP,
+  UPGRADE_TARGET_PREFIX,
+  type UpgradeModifier,
+  type UpgradeTargetRow
+} from './cross-row-upgrades';
+import {
   predicateFromQualifierString,
   type DamageSourcePredicate
 } from './damage-source';
@@ -1967,6 +1975,13 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   };
 
   // -------------------------------------------------------------------------
+  // PHASE 2.5 — cross-row upgrades. Rewrites another active row's `data`
+  // (copy-on-write) before anything downstream reads it, so every phase-3+
+  // consumer sees the upgraded declaration.
+  // -------------------------------------------------------------------------
+  applyDeclarationUpgrades(phase);
+
+  // -------------------------------------------------------------------------
   // PHASE 3 — assemble activities (as concrete Actions)
   // -------------------------------------------------------------------------
   assembleActivities(phase);
@@ -2021,6 +2036,52 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     ...(companions !== undefined ? { companions } : {}),
     ...(classResources !== undefined ? { classResources } : {})
   };
+}
+
+/** PHASE 2.5 — cross-row upgrades (`upgrade.<rowSlug>.<path>`).
+ *
+ *  Runs after the stat block is composed (so `ctx` tokens resolve) and
+ *  before phase 3, writing into a copy-on-write clone of the target row's
+ *  `data`. Everything phase 3+ reads — activities, `uses` blocks, class
+ *  resources, triggers, maneuvers, outbound effects, summons — therefore
+ *  sees the upgraded numbers with no per-consumer plumbing.
+ *
+ *  Deliberate scope limit: phase 2 has already composed the stat block, so
+ *  an upgrade aimed at a row's `modifiers[]` does NOT retroactively change
+ *  stats. Stat numbers stack through their own targets (that's what ADD is
+ *  for); this channel is for *declarations*. */
+function applyDeclarationUpgrades(s: DerivePhaseState): void {
+  const { character, active, allMods, ctx, validations } = s;
+
+  const eligible = allMods.filter(
+    (m) =>
+      m.kind === 'stat-modifier' &&
+      typeof m.raw.target === 'string' &&
+      (m.raw.target as string).startsWith(UPGRADE_TARGET_PREFIX) &&
+      modifierIsEligible(m, character, ctx)
+  );
+  if (eligible.length === 0) return;
+
+  const mods: UpgradeModifier[] = sortByPriority(eligible).map((m) => ({
+    target: m.raw.target as string,
+    value: m.raw.value,
+    mode: (m.raw.mode as Mode | undefined) ?? 'ADD',
+    sourceSlug: m.source.row.slug
+  }));
+
+  const rows: UpgradeTargetRow[] = active.map((a) => ({
+    slug: a.row.slug,
+    get data() {
+      return a.data;
+    },
+    setData(next: Record<string, unknown>) {
+      a.data = next;
+    }
+  }));
+
+  for (const w of applyCrossRowUpgrades(rows, mods, ctx)) {
+    validations.push({ severity: 'warning', code: w.code, message: w.message });
+  }
 }
 
 /** PHASE 3 — realize every active row's activities[] into concrete Actions:
@@ -2102,12 +2163,20 @@ function assembleActivities(s: DerivePhaseState): void {
   // main-hand weapon attack actions (type 'attack', cost 'action').
   // extraAttacks: 1 means one additional attack (2 total); stacking grants
   // from Fighter L11/L20 accumulate additively so attackCount = 1 + sum.
+  //
+  // The `extra-attacks` modifier target rides the same total — the
+  // cross-row way to say "Extra Attack becomes three attacks"
+  // (`OVERRIDE 2`) without re-declaring the earlier feature's row.
   let totalExtraAttacks = 0;
   for (const a of active) {
     const extra = a.data.extraAttacks as number | undefined;
     if (typeof extra === 'number' && extra > 0) {
       totalExtraAttacks += extra;
     }
+  }
+  const bumpedExtraAttacks = applyTarget(allMods, character, 'extra-attacks', totalExtraAttacks, ctx);
+  if (typeof bumpedExtraAttacks === 'number' && Number.isFinite(bumpedExtraAttacks)) {
+    totalExtraAttacks = Math.max(0, Math.floor(bumpedExtraAttacks));
   }
   if (totalExtraAttacks > 0) {
     for (const action of actions) {
@@ -2828,9 +2897,41 @@ function resolveCompanions(s: DerivePhaseState): DerivedCompanion[] | undefined 
   return companions;
 }
 
+/** `class-resource.<id>.dieSize` — die-string upgrades on a resolved pool
+ *  (Martial Arts / Bardic Inspiration / Superiority die bumps). Numeric
+ *  applyTarget can't chain die strings, so this walks the same eligible +
+ *  priority-sorted modifier list through `applyUpgradeValue`, which knows
+ *  UPGRADE means "the die with the higher average wins". */
+function applyClassResourceDieUpgrade(
+  allMods: ActiveModifier[],
+  character: CharacterDocument,
+  ctx: EvalContext,
+  resourceId: string,
+  base: string
+): string {
+  const target = `class-resource.${resourceId}.dieSize`;
+  const eligible = allMods.filter(
+    (m) =>
+      m.kind === 'stat-modifier' &&
+      m.raw.target === target &&
+      modifierIsEligible(m, character, ctx)
+  );
+  if (eligible.length === 0) return base;
+  let current: unknown = base;
+  for (const m of sortByPriority(eligible)) {
+    const next = applyUpgradeValue(
+      current,
+      (m.raw.mode as Mode | undefined) ?? 'ADD',
+      evaluateValue(m.raw.value, ctx)
+    );
+    if (next !== NO_OP) current = next;
+  }
+  return typeof current === 'string' && current.length > 0 ? current : base;
+}
+
 /** Per-class spendable pools resolved from class / subclass rows. */
 function resolveClassResources(s: DerivePhaseState): ResolvedClassResource[] | undefined {
-  const { character, active, ctx, validations } = s;
+  const { character, active, allMods, ctx, validations } = s;
 
   // Class-resource pools. Walk each active class row's `data.resources`
   // array (an array of ClassResourceDecl) and resolve each pool against
@@ -2879,14 +2980,25 @@ function resolveClassResources(s: DerivePhaseState): ResolvedClassResource[] | u
         });
         continue;
       }
+      // `class-resource.<id>.max` / `.dieSize` are the ergonomic aliases
+      // of the cross-row upgrade channel for pool bumps — a later feature
+      // says "you gain one more use of X" / "your X die becomes a d8"
+      // without needing to know which class row declared the pool.
       const maxEval = evaluateValue(raw.max, ctx);
+      const maxBase = typeof maxEval === 'number' ? Math.max(0, Math.floor(maxEval)) : 0;
+      const maxBumped = applyTarget(allMods, character, `class-resource.${id}.max`, maxBase, ctx);
       const max =
-        typeof maxEval === 'number' ? Math.max(0, Math.floor(maxEval)) : 0;
+        typeof maxBumped === 'number' && Number.isFinite(maxBumped)
+          ? Math.max(0, Math.floor(maxBumped))
+          : maxBase;
       if (max <= 0) continue;
       let dieSize: string | undefined;
       if (raw.dieSize !== undefined) {
         const evaluated = evaluateValue(raw.dieSize, ctx);
         if (typeof evaluated === 'string' && evaluated.length > 0) dieSize = evaluated;
+      }
+      if (dieSize !== undefined) {
+        dieSize = applyClassResourceDieUpgrade(allMods, character, ctx, id, dieSize);
       }
       const spent = Math.max(0, resourcesSpent[id] ?? 0);
       const current = Math.max(0, Math.min(max, max - spent));
@@ -3105,32 +3217,54 @@ function resolveStatToken(token: string, stats: StatBlock): number {
   return 0;
 }
 
+/** Shared active-state gate for stat-modifiers: the player's toggle state
+ *  (falling back to `defaultEnabled`, then on) plus the `appliesWhen.condition`
+ *  check against the resolved condition set. */
+function modifierIsEligible(
+  m: ActiveModifier,
+  character: CharacterDocument,
+  ctx: EvalContext
+): boolean {
+  const enabled =
+    character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
+  if (!enabled) return false;
+  const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
+  if (
+    appliesWhen?.condition &&
+    !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)
+  )
+    return false;
+  return true;
+}
+
+/** Priority-ascending sort shared by every modifier-application site.
+ *  `Array.prototype.sort` is stable, so ties keep the order the modifiers
+ *  were collected in — which is derive()'s deterministic active-content
+ *  walk (species → subspecies → background → classes → subclasses → feats
+ *  → items → spells → conditions → features). */
+function sortByPriority(mods: ActiveModifier[]): ActiveModifier[] {
+  return mods.slice().sort((a, b) => {
+    const pa = (a.raw.priority as number | undefined) ?? defaultPriority((a.raw.mode as Mode) ?? 'ADD');
+    const pb = (b.raw.priority as number | undefined) ?? defaultPriority((b.raw.mode as Mode) ?? 'ADD');
+    return pa - pb;
+  });
+}
+
 function applyTarget(
   mods: ActiveModifier[],
   character: CharacterDocument,
   target: string,
-  base: number,
+  base: unknown,
   ctx: EvalContext
 ): number | unknown {
   const targeted = mods.filter(
     (m) => m.kind === 'stat-modifier' && (m.raw.target as string) === target
   );
   // Filter for active state: enabled toggles + appliesWhen condition checks
-  const eligible = targeted.filter((m) => {
-    const enabled =
-      character.modifierToggles[m.id] ?? (m.raw.defaultEnabled as boolean | undefined) ?? true;
-    if (!enabled) return false;
-    const appliesWhen = m.raw.appliesWhen as { condition?: string } | undefined;
-    if (appliesWhen?.condition && !(ctx.resolvedConditions ?? new Set<string>()).has(appliesWhen.condition)) return false;
-    return true;
-  });
+  const eligible = targeted.filter((m) => modifierIsEligible(m, character, ctx));
   if (eligible.length === 0) return base;
   // Sort by priority ascending; numeric mode application chains.
-  const sorted = eligible.slice().sort((a, b) => {
-    const pa = (a.raw.priority as number | undefined) ?? defaultPriority((a.raw.mode as Mode) ?? 'ADD');
-    const pb = (b.raw.priority as number | undefined) ?? defaultPriority((b.raw.mode as Mode) ?? 'ADD');
-    return pa - pb;
-  });
+  const sorted = sortByPriority(eligible);
   let current: number | unknown = base;
   for (const m of sorted) {
     const value = evaluateValue(m.raw.value, ctx);

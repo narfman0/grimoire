@@ -184,6 +184,48 @@ Boolean targets take `value: true`; anything else is ignored. All feed `derive()
 
 The schema backs `/api/homebrew/*` and the packs QC gate for every kind whose `data` it validates — **feat** and **item**. It was scalar-only until engine batch 6, which is why an unarmored-AC feat (XGtE Dragon Hide, PHB-2014 Medium Armor Master) had nowhere to put its formula. Arrays are still rejected; no target reads one.
 
+### Cross-row upgrades
+
+A large slice of the 5e class chassis is features whose whole job is to raise an **earlier** feature's numbers — "your Sneak Attack dice increase", "Extra Attack lets you attack three times", "your Martial Arts die becomes a d8", "Warding Flare now refreshes on a Short Rest", "Invoke Duplicity creates four duplicates". Re-declaring the earlier row on the later one double-counts any shared pool, so three modifier-target families exist instead. All three are ordinary `stat-modifier` entries — same modes, same `appliesWhen` / toggle gating, same `evaluateValue` on `value`.
+
+| target | shape | effect |
+| --- | --- | --- |
+| `upgrade.<rowSlug>.<dotted.path>` | any | writes into another **active** row's `data` at that path |
+| `class-resource.<id>.max` | numeric | bumps a resolved class-resource pool by its id |
+| `class-resource.<id>.dieSize` | die string | bumps a pool's die (`d6` → `d8`) |
+| `extra-attacks` | numeric | rides the `data.extraAttacks` total → `Action.attackCount` = 1 + total |
+
+```jsonc
+// "Warding Flare now recharges on a Short Rest"
+{ "kind": "stat-modifier", "target": "upgrade.warding-flare.activities.warding-flare.uses.per",
+  "mode": "OVERRIDE", "value": "short-rest" }
+
+// "Your Archer / Chalice die becomes 2d8"
+{ "kind": "stat-modifier", "target": "upgrade.starry-form.activities.archer.damage.parts.0.dice",
+  "mode": "UPGRADE", "value": "2d8" }
+
+// "You can attack three times" / "one more Channel Divinity" / "your BI die is a d8"
+{ "kind": "stat-modifier", "target": "extra-attacks",                        "mode": "OVERRIDE", "value": 2 }
+{ "kind": "stat-modifier", "target": "class-resource.channel-divinity.max",  "mode": "ADD",      "value": 1 }
+{ "kind": "stat-modifier", "target": "class-resource.bardic-inspiration.dieSize", "mode": "UPGRADE", "value": "d8" }
+```
+
+**Path grammar.** Segments split on `.` and walk `row.data`. On an **object** a segment is a key; on an **array** it is either a numeric index *or* the `id` of an element — so `activities.warding-flare.uses.per` beats `activities.0.uses.per` and survives reordering. The first segment after `upgrade.` is the target row's slug; every active row with that slug is upgraded (kind is not part of the address).
+
+**Value semantics** (`applyUpgradeValue` in `src/lib/rules/cross-row-upgrades.ts`):
+
+- number + number → the standard numeric modes (ADD / MULTIPLY / UPGRADE / DOWNGRADE / OVERRIDE).
+- die string + die string → OVERRIDE replaces; UPGRADE keeps the **higher-average** die (`1d8` 4.5 < `2d8` 9, `d6` < `d8`), DOWNGRADE the lower. `1d8+2` deliberately doesn't parse as a die — use OVERRIDE there.
+- anything else (strings, absent fields) → OVERRIDE writes, every other mode is a no-op.
+
+**Ordering.** All upgrades to the same (row, path) chain in **priority ascending** order, defaulting to `mode × 10` per `modes.ts` — so an OVERRIDE (50) always lands after an ADD (20) no matter which row declared it. Ties keep the order derive() collected the modifiers in, which is its deterministic active-content walk (species → subspecies → background → classes → subclasses → feats → items → spells → conditions → features). Authoring order within one row is preserved. `priority` on the modifier overrides all of it.
+
+**When it runs.** Phase 2.5 — after the stat block is composed (so `wisMod` / `barbarianLevel` tokens resolve) and before phase 3. The write goes into a **copy-on-write clone** of the row's `data`; the shared/cached `ContentRow` is never mutated, so `derive()` stays repeatable. Everything phase 3+ reads sees the upgraded declaration with no per-consumer plumbing: activities, `uses` blocks, class resources, triggers, maneuvers, outbound effects, summons.
+
+**Scope limit.** Phase 2 has already run, so `upgrade.<slug>.modifiers…` does **not** retroactively change the stat block. Stat numbers stack through their own targets — that's what ADD is for. This channel is for *declarations*.
+
+A modifier that names an inactive row, or a path that doesn't resolve, emits a soft `cross-row-upgrade-unresolved` warning (deliberately **not** an `unknown-*` code — the packs QC gate hard-fails those, and a legitimately level-gated target row is simply not active yet).
+
 ### Skill / ability-check advantage
 
 | target | effect |
