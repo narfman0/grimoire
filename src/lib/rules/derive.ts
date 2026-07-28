@@ -44,6 +44,7 @@ import type {
   ContentLookup,
   ContentRef,
   ContentRow,
+  CreatureSize,
   Derived,
   DerivedCompanion,
   ManeuverDecl,
@@ -59,6 +60,7 @@ import type {
   SaveAdvantageSourceQualified,
   SaveCell,
   SkillCell,
+  ExtraTurn,
   StatBlock,
   StoredSpell,
   TriggerDeclaration,
@@ -299,6 +301,17 @@ function classifyModifier(
     });
   }
 }
+
+/** Creature-size ladder, smallest first. Drives the `size` target's
+ *  UPGRADE / DOWNGRADE semantics (a size isn't arithmetic). */
+const SIZE_LADDER: readonly CreatureSize[] = [
+  'tiny',
+  'small',
+  'medium',
+  'large',
+  'huge',
+  'gargantuan'
+];
 
 /** True when any active stat-modifier sets `target` to literal true —
  *  the shared shape of the boolean flag channels (attacked.advantage,
@@ -2124,6 +2137,68 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     }
   }
 
+  // (k) Size, melee reach, and the action-economy channels.
+  //
+  // Size starts from the species row and moves via the `size` target
+  // (Runic Juggernaut → Huge, Demiurgic Colossus → Large/Huge). UPGRADE
+  // takes the larger along the ladder; OVERRIDE writes; other modes are
+  // no-ops (a size isn't arithmetic).
+  const speciesRow = content(character.species);
+  let size: CreatureSize = SIZE_LADDER.includes(speciesRow?.data.size as CreatureSize)
+    ? (speciesRow!.data.size as CreatureSize)
+    : 'medium';
+  // Melee reach: RAW 5 ft, raised by `reach.melee` (Battering Roots,
+  // Demiurgic Colossus, Runic Juggernaut).
+  let meleeReachFt = 5;
+  const actionCostOverrides: StatBlock['actionCostOverrides'] = {};
+  let extraReactionsPerRound = 0;
+  const extraTurns: ExtraTurn[] = [];
+  for (const m of sortByPriority(eligibleMods.filter((m) => m.kind === 'stat-modifier'))) {
+    const t = m.raw.target;
+    if (typeof t !== 'string') continue;
+    if (t === 'size') {
+      const v = m.raw.value;
+      if (typeof v !== 'string' || !SIZE_LADDER.includes(v as CreatureSize)) continue;
+      const next = v as CreatureSize;
+      const mode = (m.raw.mode as Mode | undefined) ?? 'UPGRADE';
+      if (mode === 'OVERRIDE') size = next;
+      else if (mode === 'UPGRADE') {
+        if (SIZE_LADDER.indexOf(next) > SIZE_LADDER.indexOf(size)) size = next;
+      } else if (mode === 'DOWNGRADE') {
+        if (SIZE_LADDER.indexOf(next) < SIZE_LADDER.indexOf(size)) size = next;
+      }
+    } else if (t === 'reach.melee') {
+      const v = evaluateValue(m.raw.value, ctx);
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        meleeReachFt = Math.max(0, applyNumericMode(meleeReachFt, (m.raw.mode as Mode) ?? 'ADD', v));
+      }
+    } else if (t.startsWith('action-cost.')) {
+      const slug = t.slice('action-cost.'.length);
+      const v = m.raw.value;
+      if (slug.length === 0) continue;
+      if (v === 'action' || v === 'bonus' || v === 'reaction' || v === 'free') {
+        actionCostOverrides[slug] = v;
+      }
+    } else if (t === 'action-economy.extra-reaction') {
+      const v = evaluateValue(m.raw.value, ctx);
+      if (typeof v === 'number' && v > 0) extraReactionsPerRound += Math.floor(v);
+      else if (m.raw.value === true) extraReactionsPerRound += 1;
+    } else if (t === 'action-economy.extra-turn') {
+      const spec = (m.raw.value && typeof m.raw.value === 'object' ? m.raw.value : {}) as {
+        round?: unknown;
+        initiativeOffset?: unknown;
+      };
+      extraTurns.push({
+        sourceContent: { kind: m.source.row.kind, slug: m.source.row.slug },
+        name: (m.raw.name as string | undefined) ?? m.source.row.name,
+        ...(typeof spec.round === 'number' ? { round: Math.floor(spec.round) } : {}),
+        ...(typeof spec.initiativeOffset === 'number'
+          ? { initiativeOffset: Math.floor(spec.initiativeOffset) }
+          : {})
+      });
+    }
+  }
+
   // Passive Perception per RAW: 10 + Perception bonus, +5 with advantage
   // on the check, −5 with disadvantage. Simultaneous adv+dis cancel.
   const perceptionCell = skills.perception;
@@ -2200,7 +2275,12 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
     traits: [...traits].sort(),
     incomingCritImmune: hasBooleanTarget(eligibleMods, 'tag.incoming-crit-immune'),
     deathSaveAdvantage: hasBooleanTarget(eligibleMods, 'deathsave.advantage'),
-    hitDiceMaximized: hasBooleanTarget(eligibleMods, 'hitDice.maximize')
+    hitDiceMaximized: hasBooleanTarget(eligibleMods, 'hitDice.maximize'),
+    size,
+    meleeReachFt,
+    actionCostOverrides,
+    extraReactionsPerRound,
+    extraTurns
   };
 
   const phase: DerivePhaseState = {
@@ -4288,6 +4368,15 @@ function realizeActivity(
       ...(t.mode === 'line-of-sight' || t.mode === 'unrestricted' ? { mode: t.mode } : {})
     };
     if (Object.keys(teleport).length > 0) action.teleport = teleport;
+  }
+
+  // Attack substitution — "replace one of your attacks with a cantrip"
+  // (War Magic), "…with a spell of level 1 or 2" (Improved War Magic),
+  // Flurry of Healing and Harm's strike substitution. Declaration only:
+  // the engine has no action pipeline to spend the attacks out of, so the
+  // planner shows "replaces 1 attack" and the player counts.
+  if (typeof act.replacesAttacks === 'number' && act.replacesAttacks > 0) {
+    action.replacesAttacks = Math.floor(act.replacesAttacks);
   }
 
   // Random-effect table (Wand of Wonder, Deck of Many Things, Bag of

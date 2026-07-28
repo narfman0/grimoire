@@ -478,6 +478,46 @@ export interface StatBlock {
   /** Hit Dice spent on a rest deal their maximum instead of being rolled
    *  (periapt of wound closure). Set by `hitDice.maximize`. */
   hitDiceMaximized: boolean;
+  /** Creature size. Sourced from the species row's `data.size` (default
+   *  `'medium'`) and modifiable via the `size` target — Runic Juggernaut
+   *  becomes Huge, Demiurgic Colossus Large/Huge. UPGRADE takes the
+   *  larger of the two along the tiny→gargantuan ladder. */
+  size: CreatureSize;
+  /** Melee reach in feet, base 5. Raised by the `reach.melee` target
+   *  (Battering Roots +10, Demiurgic Colossus +10, Runic Juggernaut +5). */
+  meleeReachFt: number;
+  /** Per-action-name cost overrides — "you can take the Hide action as a
+   *  Bonus Action". Keyed by the generic action slug (`hide`, `dash`,
+   *  `disengage`, `search`, `study`, `dodge`, `help`, `shove`, `grapple`,
+   *  `utilize`, `influence`, `magic`); the value is the cost that action
+   *  takes for this character. Set by `action-cost.<slug>`. The engine
+   *  has no generic-action catalog, so this is a display + planner
+   *  contract, not a rewrite of any Action. */
+  actionCostOverrides: Record<string, 'action' | 'bonus' | 'reaction' | 'free'>;
+  /** Extra reactions available each round beyond the standard one (XGtE
+   *  Vigilant Defender's per-enemy-turn reaction). Set by
+   *  `action-economy.extra-reaction`; 0 when nothing grants any. */
+  extraReactionsPerRound: number;
+  /** Extra turns the character takes (Thief's Reflexes, Strength Before
+   *  Death). Declaration + display contract — the encounter runtime has
+   *  no turn-insertion primitive, so the DM inserts the turn. */
+  extraTurns: ExtraTurn[];
+}
+
+export type CreatureSize = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan';
+
+/** One extra turn granted by a feature — see `StatBlock.extraTurns`. */
+export interface ExtraTurn {
+  /** Originating content row. */
+  sourceContent: { kind: string; slug: string };
+  name: string;
+  /** Combat round the extra turn happens in (Thief's Reflexes: round 1).
+   *  Absent → every round. */
+  round?: number;
+  /** Initiative offset for the extra turn relative to the character's own
+   *  (Thief's Reflexes takes its second turn at initiative − 10). Absent
+   *  → the DM places it. */
+  initiativeOffset?: number;
 }
 
 /** A single source-qualified save-advantage entry. Either an `ability`
@@ -612,6 +652,13 @@ export interface Action {
    *  attack/save/damage) and the gap is surfaced on
    *  `Derived.pendingItemChoices` — no validation warning fires. */
   needsChoice?: string;
+  /** How many attacks of the Attack action one use of this action
+   *  replaces (War Magic replaces one attack with a cantrip cast;
+   *  Improved War Magic replaces two; Flurry of Healing and Harm
+   *  substitutes for Flurry of Blows strikes). Authored on the activity
+   *  as `replacesAttacks: N`. Display + planner contract — the engine
+   *  has no action pipeline to spend the attacks out of. */
+  replacesAttacks?: number;
   /** Trigger id this action is gated on. When set, the action is only
    *  available *after* the named trigger has fired this turn/round (e.g.
    *  War Magic grants a bonus-action weapon attack after casting a

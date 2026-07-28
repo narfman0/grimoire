@@ -535,6 +535,26 @@ Two trigger-grant shapes cover the reaction-timed cases (same display-contract p
 
 `hitDice.maximize` (boolean stat-modifier) → `stats.hitDiceMaximized`: Hit Dice spent on a rest deal their maximum instead of being rolled (periapt of wound closure).
 
+### Size, reach, and action-economy structure
+
+Four targets and one activity field cover the tractable half of the initiative / action-economy catalog. All are declarations: the engine has no turn-insertion primitive, no generic-action catalog, and no action pipeline, so these are display + planner contracts the DM and the sheet act on.
+
+| target | value | lands on |
+| --- | --- | --- |
+| `size` | `'tiny' … 'gargantuan'` | `stats.size` |
+| `reach.melee` | numeric feet | `stats.meleeReachFt` (base 5) |
+| `action-cost.<slug>` | `'action' \| 'bonus' \| 'reaction' \| 'free'` | `stats.actionCostOverrides[slug]` |
+| `action-economy.extra-reaction` | numeric or `true` | `stats.extraReactionsPerRound` (summed) |
+| `action-economy.extra-turn` | `{ round?, initiativeOffset? }` or `true` | one `stats.extraTurns[]` entry |
+
+`stats.size` starts from the species row's `data.size` (default `medium`). A size isn't arithmetic, so the modes work on the tiny→gargantuan ladder: **UPGRADE** (the default) takes the larger, DOWNGRADE the smaller, OVERRIDE writes; ADD / MULTIPLY are no-ops and an unrecognized size string is ignored.
+
+`action-cost.<slug>` names a **generic** action — `hide`, `dash`, `disengage`, `dodge`, `search`, `study`, `help`, `shove`, `grapple`, `utilize`, `influence`, `magic`. It's how "you can take the Hide action as a Bonus Action" (Nature's Mantle), Study/Search-as-a-Bonus-Action (Keen Mind, Observant) and Dash-as-a-Bonus-Action-while-raging (Eagle, gated with `appliesWhen.condition`) are expressed. Retargeting the cost of a *specific declared* activity is a different job — that's the `upgrade.<rowSlug>.activities.<id>.cost` cross-row channel.
+
+`extraTurns[]` entries carry the source row, name, and the optional `round` / `initiativeOffset` (Thief's Reflexes: round 1 at initiative − 10). Nothing inserts the turn — the DM does.
+
+An activity may declare `replacesAttacks: N` → `Action.replacesAttacks`: "replace one of your attacks with a cantrip cast" (War Magic), two attacks for a level 1–2 spell (Improved War Magic), Flurry of Healing and Harm's strike substitution.
+
 ### Curated trait flags
 
 `trait.<slug>` (boolean) appends the slug to `stats.traits` (sorted, deduped). Any slug is allowed — no validation gate. Canonical slugs:
