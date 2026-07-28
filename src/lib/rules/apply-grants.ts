@@ -13,6 +13,8 @@
 // - removeConditions: a plain string (or `{ condition }` with no stacks)
 //   removes the condition entirely; `{ condition, stacks: N }` decrements
 //   `conditionStacks` by N and removes the condition when it reaches 0.
+// - stabilizeTarget: aimed at another creature, so the draft is never
+//   touched — the grant surfaces on `manual` for the player to apply.
 // - restoreSpellSlots: 'level N or lower' pick-best — each of `count`
 //   restores un-spends the highest-level slot ≤ N that has a spent use,
 //   clamped at 0 spent (restores stop when nothing eligible remains).
@@ -137,6 +139,13 @@ export function applyActionUse(
         applied.push(`${condition} reduced to ${next}`);
       }
     }
+  }
+
+  // ---- stabilize a target (Spare the Dying) ----
+  // Aimed at another creature, so nothing on this draft changes; the
+  // follow-up is the player's/DM's to apply on the target's sheet.
+  if (grants.stabilizeTarget === true) {
+    manual.push('stabilize the target (0 HP, no longer making death saves)');
   }
 
   // ---- spell-slot restoration ('level N or lower', pick-best) ----

@@ -247,3 +247,30 @@ describe('combined use', () => {
     expect(res.applied).toHaveLength(4);
   });
 });
+
+describe('stabilizeTarget grant', () => {
+  it('touches nothing on the caster and surfaces a manual follow-up', () => {
+    const d = doc({ currentHp: 12, tempHp: 3, conditions: ['poisoned'] });
+    const before = structuredClone(d);
+    const res = applyActionUse(
+      d,
+      { grants: { stabilizeTarget: true } },
+      { resources: [], spellSlots: noSlots }
+    );
+    expect(res.applied).toEqual([]);
+    expect(res.manual).toEqual(['stabilize the target (0 HP, no longer making death saves)']);
+    expect(d).toEqual(before);
+  });
+
+  it('composes with a resource debit on the same action', () => {
+    const pool = { id: 'class-resource/channel-divinity', name: 'Channel Divinity', max: 2, used: 0 };
+    const d = doc();
+    const res = applyActionUse(
+      d,
+      { spendsResource: pool.id, grants: { stabilizeTarget: true } },
+      { resources: [pool], spellSlots: noSlots }
+    );
+    expect(d.resourcesSpent?.[pool.id]).toBe(1);
+    expect(res.manual).toHaveLength(1);
+  });
+});

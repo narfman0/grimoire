@@ -669,6 +669,8 @@ Activities may declare `grants.removeConditions` (Lesser Restoration shape); `re
 
 `grants.restoreSpellSlots: { level, count? }` (spell-refueling ring): `level` is the maximum restorable slot level, `count` defaults to 1, both numeric-only.
 
+`grants.stabilizeTarget: true` (Spare the Dying, a healer's-kit stabilize action, Circle of Mortality's bonus-action cantrip): the activity stabilizes a creature it touches. This is the action-grant sibling of the self-only passive `trait.auto-stabilize` — the flag is *outbound*, so `applyActionUse` never touches the caster's draft; it surfaces "stabilize the target (0 HP, no longer making death saves)" on `manual` and the sheet renders a "stabilizes the target" line.
+
 Action grants are **applied at use time** by `applyActionUse` (`src/lib/rules/apply-grants.ts`): one draft-mutating call debits the action's `spendsResource` pool by `resourceCost` and folds the grants into the document — numeric temp HP with take-the-max (no stacking, RAW), condition removal / stack decrement, and slot restoration with pick-best semantics (each restore un-spends the highest-level spent slot ≤ `level`, `count` times, clamped at 0). Dice-formula temp HP (`'1d4+4'`) is surfaced as a manual follow-up — the engine has no RNG. The sheet wires this in two places, each a single `patchDocument` write with toast feedback: the Use button on grant-carrying action rows (grant-carrying spell casts surface in the Actions section for this purpose; the spell-slot spend itself stays manual) and the encounter-planner resolve flow. The DM-side encounter resolve does **not** auto-apply grants to PC documents — the player's sheet is the apply surface.
 
 ### Source-qualified save advantage from items

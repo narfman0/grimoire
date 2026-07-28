@@ -308,3 +308,64 @@ describe('derive(): grants.restoreSpellSlots + activity teleport shape', () => {
     expect(act!.teleport).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// grants.stabilizeTarget — the action-grant sibling of the self-only
+// `trait.auto-stabilize` passive (Spare the Dying).
+// ---------------------------------------------------------------------------
+
+describe('derive(): grants.stabilizeTarget', () => {
+  const SPARE_THE_DYING: ContentRow = {
+    kind: 'spell',
+    slug: 'test-spare-the-dying',
+    version: 1,
+    source: 'test',
+    name: 'Test Spare the Dying',
+    data: {
+      level: 0,
+      school: 'necromancy',
+      activities: [
+        {
+          id: 'stabilize',
+          name: 'Spare the Dying',
+          type: 'utility',
+          cost: 'action',
+          grants: { stabilizeTarget: true }
+        }
+      ]
+    }
+  };
+
+  it('plumbs the flag onto Action.grants', () => {
+    const d = derive(
+      withKnownSpell('test-spare-the-dying'),
+      lookupFor({ 'spell/test-spare-the-dying': SPARE_THE_DYING })
+    );
+    const cast = d.actions.find((a) => a.id.endsWith('/stabilize'));
+    expect(cast!.grants).toEqual({ stabilizeTarget: true });
+  });
+
+  it('ignores a non-true value (no grants block synthesized)', () => {
+    const loose: ContentRow = {
+      ...SPARE_THE_DYING,
+      slug: 'test-loose-stabilize',
+      data: {
+        ...(SPARE_THE_DYING.data as Record<string, unknown>),
+        activities: [
+          {
+            id: 'stabilize',
+            name: 'Loose',
+            type: 'utility',
+            cost: 'action',
+            grants: { stabilizeTarget: 'yes' }
+          }
+        ]
+      }
+    };
+    const d = derive(
+      withKnownSpell('test-loose-stabilize'),
+      lookupFor({ 'spell/test-loose-stabilize': loose })
+    );
+    expect(d.actions.find((a) => a.id.endsWith('/stabilize'))!.grants).toBeUndefined();
+  });
+});

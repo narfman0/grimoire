@@ -1024,6 +1024,14 @@ export interface ActionGrants {
    *  semantics: each restore un-spends the highest-level spent slot
    *  ≤ `level`. */
   restoreSpellSlots?: { level: number; count?: number };
+  /** The activity stabilizes a creature it touches / targets (Spare the
+   *  Dying, a healer's-kit stabilize action, Circle of Mortality's
+   *  bonus-action cantrip). Distinct from the self-only passive
+   *  `trait.auto-stabilize`: this is an *action grant* aimed at someone
+   *  else, so `applyActionUse` never touches the caster's own state — it
+   *  surfaces the follow-up on `manual` and the sheet renders
+   *  "stabilizes the target". */
+  stabilizeTarget?: boolean;
 }
 
 export interface UpcastScaling {

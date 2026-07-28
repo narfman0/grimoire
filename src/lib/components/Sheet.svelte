@@ -60,6 +60,7 @@
         tempHp?: number | string;
         removeConditions?: Array<string | { condition: string; stacks?: number }>;
         restoreSpellSlots?: { level: number; count?: number };
+        stabilizeTarget?: boolean;
       };
       spendsResource?: string;
       resourceCost?: number;
@@ -267,6 +268,12 @@
               <span class="ml-1">
                 {r.count ?? 1} spell slot{(r.count ?? 1) === 1 ? '' : 's'} of level {r.level} or lower
               </span>
+            </div>
+          {/if}
+          {#if action.grants?.stabilizeTarget}
+            <div class="mt-1 text-sm">
+              <span class="text-slate-400">grants:</span>
+              <span class="ml-1">stabilizes the target</span>
             </div>
           {/if}
           {#if action.teleport}

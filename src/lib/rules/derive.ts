@@ -4555,6 +4555,11 @@ function realizeActivity(
         };
       }
     }
+    // Stabilize-target grant (Spare the Dying, healer's kit). The
+    // self-only `trait.auto-stabilize` passive can't express an action
+    // aimed at someone else; this can. Display + runtime contract — the
+    // engine writes nothing onto the caster.
+    if (g.stabilizeTarget === true) grants.stabilizeTarget = true;
     if (Object.keys(grants).length > 0) {
       action.grants = grants as Action['grants'];
     }
