@@ -19,7 +19,7 @@
 </script>
 
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/client/api';
   import { confirmDialog } from '$lib/components/ui/confirm';
 
@@ -53,6 +53,23 @@
     try {
       await api.patch(`/api/encounters/${id}`, { status });
       await invalidateAll();
+    } catch {
+      // api() already toasted
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** Same endpoint as the encounter header's "Run it again": copy the prep
+   *  (roster, notes) into a fresh staging encounter and go there. No
+   *  confirm — a clone is additive. Especially the thing you want next to
+   *  `Reopen` on an ended encounter: reopening resurrects that fight's HP
+   *  and action log, while cloning re-runs the prep from scratch. */
+  async function cloneEncounter(id: string) {
+    busy = true;
+    try {
+      const created = await api.post<{ id: string }>(`/api/encounters/${id}/clone`);
+      await goto(encounterHref(created.id));
     } catch {
       // api() already toasted
     } finally {
@@ -177,6 +194,14 @@
                     Reopen
                   </button>
                 {/if}
+                <button
+                  class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800"
+                  title="Copy the roster and notes into a fresh staging encounter"
+                  on:click={() => cloneEncounter(enc.id)}
+                  disabled={busy}
+                >
+                  Clone
+                </button>
                 <button class="rounded border border-slate-700 px-2 py-0.5 text-slate-400 hover:text-red-400" on:click={() => deleteEncounter(enc.id)} disabled={busy}>
                   ×
                 </button>

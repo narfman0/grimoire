@@ -263,6 +263,47 @@ test('DM clones an encounter into a fresh staging copy', async ({ browser, baseU
   expect(src.participants[0].reveals.identity).toBe(true);
 });
 
+// The same clone, reached from the encounter list instead of the header —
+// the "clone a template encounter" flow. It matters most next to `Reopen` on
+// an ended encounter: reopening resurrects that fight's HP and action log,
+// while cloning re-runs the prep from scratch, which is usually what someone
+// actually wants.
+test('DM clones an encounter from a list row', async ({ browser, baseURL }) => {
+  const dm = await signup(baseURL!, 'e2e_rowclone');
+  const { code } = await createCampaign(dm, 'Row Clone');
+  const encounterId = await createLiveEncounter(dm, code, 'Bandit Camp');
+  await addNpc(dm, encounterId, { name: 'Bandit', initiative: 9, currentHp: 4, maxHp: 11 });
+  await dm.api.patch(`/api/encounters/${encounterId}`, { data: { status: 'ended' } });
+
+  const page = await newPageAs(browser, dm);
+  await page.goto(`/c/${code}/encounters`);
+  const row = page.locator('li').filter({ hasText: 'Bandit Camp' });
+  // The row this sits next to: Reopen is the other, lossier answer.
+  await expect(row.getByRole('button', { name: 'Reopen' })).toBeVisible();
+  await row.getByRole('button', { name: 'Clone' }).click();
+
+  await page.waitForURL((url) => /\/encounters\/[0-9a-f-]{36}$/.test(url.pathname));
+  expect(page.url().split('/').pop()).not.toBe(encounterId);
+  await expect(page.getByRole('heading', { name: /Bandit Camp \(copy\)/ })).toBeVisible();
+  // Roster carried over, per-run state reset (4/11 in the source).
+  await expect(page.locator('li').filter({ hasText: 'Bandit' }).first()).toContainText('11 / 11');
+  await expect(page.getByRole('button', { name: '▶ Start encounter' })).toBeVisible();
+});
+
+// Players have no clone button — the endpoint is DM-only.
+test('a player sees no clone control on the encounter list', async ({ browser, baseURL }) => {
+  const dm = await signup(baseURL!, 'e2e_rcdm');
+  const player = await signup(baseURL!, 'e2e_rcpl');
+  const { code } = await createCampaign(dm, 'Row Clone Player');
+  await joinAndApprove(dm, player, code);
+  await createLiveEncounter(dm, code, 'Bandit Camp');
+
+  const page = await newPageAs(browser, player);
+  await page.goto(`/c/${code}/encounters`);
+  await expect(page.locator('li').filter({ hasText: 'Bandit Camp' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Clone' })).toHaveCount(0);
+});
+
 // The difficulty readout replaced a client-side `sum(statblock.xp)` that had
 // no multiplier and no thresholds. Two things this pins: the band is the real
 // 2014 DMG math, and it refetches when the roster changes — including the
