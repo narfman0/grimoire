@@ -20,20 +20,23 @@
 // Strike that were already applied via Phase 4) are not scaled — only
 // the spell's first damage part scales by slot, per RAW.
 
-import type { Action, UpcastScaling } from './types';
+import type { Action, SummonBudget, UpcastScaling } from './types';
 
 /** Cast `action` at slot level `slotLevel`. Returns a new Action with
- *  damage / targets / heal scaled per the action's upcastScaling spec.
- *  Casting at slot < baseSlotLevel returns the action unchanged
- *  (defensive — caller should clamp). If the action has no
- *  upcastScaling, returns it unchanged. */
+ *  damage / targets / heal scaled per the action's upcastScaling spec and
+ *  its summon budget resolved against the slot. Casting at slot <
+ *  baseSlotLevel returns the action unchanged (defensive — caller should
+ *  clamp). If the action has neither upcastScaling nor a slot-keyed
+ *  summon budget, returns it unchanged. */
 export function applyUpcast(action: Action, slotLevel: number): Action {
   const scaling = action.upcastScaling;
-  if (!scaling) return action;
-  const steps = slotLevel - scaling.baseSlotLevel;
-  if (steps <= 0) return action;
+  const budgetTable = action.summons?.budget?.bySlotLevel;
+  const steps = scaling ? slotLevel - scaling.baseSlotLevel : 0;
+  if (steps <= 0 && !budgetTable) return action;
 
   const next: Action = { ...action };
+  if (budgetTable) next.summons = applySummonBudgetSlot(next.summons!, budgetTable, slotLevel);
+  if (steps <= 0 || !scaling) return next;
   delete next.upcastScaling;
 
   if (scaling.extraDamagePerSlot && next.damageRolls && next.damageRolls.length > 0) {
@@ -80,6 +83,30 @@ export function applyUpcast(action: Action, slotLevel: number): Action {
     }
   }
   return next;
+}
+
+/** Resolve an open CR summon budget against the cast slot: the highest
+ *  `bySlotLevel` entry ≤ `slotLevel` replaces `options`, and the table is
+ *  stripped so re-applying is a no-op. A slot below every declared level
+ *  keeps the base options (the table is still stripped). This is how a
+ *  slot scales CR or creature count without the engine inventing an
+ *  arithmetic rule the source doesn't state. */
+function applySummonBudgetSlot(
+  summons: NonNullable<Action['summons']>,
+  bySlotLevel: NonNullable<SummonBudget['bySlotLevel']>,
+  slotLevel: number
+): NonNullable<Action['summons']> {
+  const budget = summons.budget!;
+  const applicable = Object.keys(bySlotLevel)
+    .map(Number)
+    .filter((l) => Number.isFinite(l) && l <= slotLevel)
+    .sort((a, b) => b - a);
+  const nextBudget: SummonBudget = {
+    ...budget,
+    ...(applicable.length > 0 ? { options: bySlotLevel[applicable[0]] } : {})
+  };
+  delete nextBudget.bySlotLevel;
+  return { ...summons, budget: nextBudget };
 }
 
 /** Returns the number of additional steps available at `slotLevel`

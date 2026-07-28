@@ -98,6 +98,37 @@ A `type: 'summon'` activity (any content kind; items are the usual driver) decla
 
 Resolution: the Action carries `summons: { creatures: [{ slug, count, name?, resolvedName? }], choice, duration? }`. `count` is `evaluateValue`-resolved (magic strings like `proficiencyBonus` work); `resolvedName` is the monster row's name when the `ContentLookup` resolves `{kind: 'monster', slug}`. The sheet's Companions panel renders a Summon button per action (per creature when `choice` is true) that appends `CompanionState` entries to `character.companions` — HP snapshotted from the monster row's `hp.max`/`hp.average` when available, a 0-HP shell the DM edits otherwise — debiting the activity's charge pool or `uses` resource in the same write. Cost integration, attunement gating, and the `uses`-vs-`chargeCost` exclusivity all compose exactly like other activity types.
 
+#### Open CR budgets
+
+The 2014 conjure family names a *budget*, not a list — "creatures of CR ≤ N, of type T, totalling N creatures", picked at cast time. `summon.budget` carries that constraint instead of (or beside) `creatures[]`:
+
+```jsonc
+"summon": {
+  "budget": {
+    "creatureTypes": ["beast"],
+    "options": [                                  // player picks ONE line
+      { "crMax": 2, "count": 1 },
+      { "crMax": 1, "count": 2 },
+      { "crMax": "1/2", "count": 4 },             // evaluateValue: "1/2" → 0.5
+      { "crMax": "1/4", "count": 8 }
+    ],
+    "bySlotLevel": {                              // replaces `options` at that slot
+      "5": [{ "crMax": 2, "count": 2 }, { "crMax": 1, "count": 4 }],
+      "7": [{ "crMax": 2, "count": 3 }]
+    },
+    "dmChoice": false,                            // true → the DM picks the stat block
+    "note": "The summoned creatures are hostile."
+  },
+  "choice": true
+}
+```
+
+A single-line budget may be authored flat (`"budget": { "crMax": 4, "creatureType": "celestial" }`); derive() normalizes it to a one-entry `options` array. Every number is `evaluateValue`-resolved, so fractional CRs (`"1/4"`) and tokens (`"proficiencyBonus"`) both work. `sizeMax` and `totalCr` are available per line. A budget with no lines at all is legal when the constraint is the type alone (planar ally names no CR).
+
+Slot scaling composes through `applyUpcast(action, slot)`: the highest `bySlotLevel` entry ≤ the cast slot replaces `options` and the table is stripped, so re-applying is a no-op. This works whether or not the action also carries `upcastScaling` — the table states what the source states (Conjure Animals doubles its counts at L5, Conjure Celestial raises CR to 5 at L9) rather than making the engine infer an arithmetic rule.
+
+Display contract: derive() surfaces the constraint and picks nothing. The `ContentLookup` resolves one row at a time and cannot enumerate the corpus, so candidate creatures are the UI's (or the DM's) to filter. A budget-only summon defaults `choice` to true.
+
 Warning semantics: an unresolvable creature slug emits a `summon-missing-content` soft warning. This is deliberately **not** an `unknown-*` code — the packs QC gate hard-fails T3 rows on `unknown-*`, and a summon may legitimately reference a monster shipped in another pack or in operator homebrew that a partial lookup can't see. The action still realizes either way.
 
 ### Item choice slots

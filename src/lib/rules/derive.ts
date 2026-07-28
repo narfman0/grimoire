@@ -64,6 +64,8 @@ import type {
   MountEffect,
   StatBlock,
   StoredSpell,
+  SummonBudget,
+  SummonBudgetLine,
   TriggerDeclaration,
   TriggerGrant,
   ValidationIssue
@@ -236,6 +238,94 @@ function coerceAlternativeCosts(raw: unknown): AlternativeCost[] {
     }
   }
   return out;
+}
+
+/** Read one authored open-CR-budget line. Every number is
+ *  evaluateValue-resolved, so `"1/4"` (arithmetic) and token strings both
+ *  work. Returns undefined when nothing resolvable was declared. */
+function coerceSummonBudgetLine(
+  raw: unknown,
+  ctx: EvalContext
+): SummonBudgetLine | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const line: SummonBudgetLine = {};
+  const crMax = evaluateValue(o.crMax, ctx);
+  if (typeof crMax === 'number' && Number.isFinite(crMax) && crMax >= 0) line.crMax = crMax;
+  const count = evaluateValue(o.count, ctx);
+  if (typeof count === 'number' && Number.isFinite(count) && count > 0) {
+    line.count = Math.floor(count);
+  }
+  const totalCr = evaluateValue(o.totalCr, ctx);
+  if (typeof totalCr === 'number' && Number.isFinite(totalCr) && totalCr >= 0) {
+    line.totalCr = totalCr;
+  }
+  if (typeof o.sizeMax === 'string' && SIZE_LADDER.includes(o.sizeMax as CreatureSize)) {
+    line.sizeMax = o.sizeMax as CreatureSize;
+  }
+  return Object.keys(line).length > 0 ? line : undefined;
+}
+
+/** Read an authored `summon.budget` block (the 2014 conjure family's open
+ *  CR budget) into the canonical `SummonBudget` shape. Accepts a single
+ *  flat line (`{ crMax, count, … }`) or an explicit `options: [...]`
+ *  array, plus an optional `bySlotLevel` table that `applyUpcast` reads.
+ *  Deliberately soft: malformed pieces are dropped and an empty result
+ *  reads as "no budget declared". */
+function coerceSummonBudget(raw: unknown, ctx: EvalContext): SummonBudget | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+
+  const options: SummonBudgetLine[] = [];
+  if (Array.isArray(o.options)) {
+    for (const entry of o.options) {
+      const line = coerceSummonBudgetLine(entry, ctx);
+      if (line) options.push(line);
+    }
+  } else {
+    const flat = coerceSummonBudgetLine(o, ctx);
+    if (flat) options.push(flat);
+  }
+
+  const creatureTypes = Array.isArray(o.creatureTypes)
+    ? o.creatureTypes.filter((t): t is string => typeof t === 'string' && t.length > 0)
+    : typeof o.creatureType === 'string' && o.creatureType.length > 0
+      ? [o.creatureType]
+      : [];
+
+  const bySlotLevel: Record<number, SummonBudgetLine[]> = {};
+  if (o.bySlotLevel && typeof o.bySlotLevel === 'object') {
+    for (const [key, value] of Object.entries(o.bySlotLevel as Record<string, unknown>)) {
+      const level = Number(key);
+      if (!Number.isFinite(level) || level < 0) continue;
+      const list = Array.isArray(value) ? value : [value];
+      const lines: SummonBudgetLine[] = [];
+      for (const entry of list) {
+        const line = coerceSummonBudgetLine(entry, ctx);
+        if (line) lines.push(line);
+      }
+      if (lines.length > 0) bySlotLevel[Math.floor(level)] = lines;
+    }
+  }
+
+  const note = typeof o.note === 'string' && o.note.length > 0 ? o.note : undefined;
+  const dmChoice = o.dmChoice === true;
+  if (
+    options.length === 0 &&
+    creatureTypes.length === 0 &&
+    Object.keys(bySlotLevel).length === 0 &&
+    !note &&
+    !dmChoice
+  ) {
+    return undefined;
+  }
+  return {
+    options,
+    ...(creatureTypes.length > 0 ? { creatureTypes } : {}),
+    ...(Object.keys(bySlotLevel).length > 0 ? { bySlotLevel } : {}),
+    ...(dmChoice ? { dmChoice: true } : {}),
+    ...(note ? { note } : {})
+  };
 }
 
 /** Read an authored activation `ward` block into the canonical shape.
@@ -4555,6 +4645,7 @@ function realizeActivity(
     const spec = act.summon as
       | {
           creatures?: Array<{ slug?: unknown; count?: unknown; name?: unknown }>;
+          budget?: unknown;
           choice?: unknown;
           duration?: unknown;
         }
@@ -4572,11 +4663,18 @@ function realizeActivity(
         ...(row ? { resolvedName: row.name } : {})
       });
     }
-    if (creatures.length > 0) {
+    // Open CR budget — the 2014 conjure family names a budget rather than
+    // a creature list. Carried verbatim onto the Action; the player/DM
+    // picks the stat block at cast time (the ContentLookup resolves one
+    // row at a time and cannot enumerate candidates).
+    const budget = coerceSummonBudget(spec?.budget, ctx);
+    if (creatures.length > 0 || budget) {
       const duration = spec?.duration as { value?: unknown; units?: unknown } | undefined;
       action.summons = {
         creatures,
-        choice: spec?.choice === true,
+        // A budget-only summon is always a pick-one-at-cast-time shape.
+        choice: spec?.choice === true || (creatures.length === 0 && budget != null),
+        ...(budget ? { budget } : {}),
         ...(typeof duration?.value === 'number' && typeof duration?.units === 'string'
           ? { duration: duration as ActivationDuration }
           : {})

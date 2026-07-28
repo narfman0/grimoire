@@ -736,10 +736,68 @@ export type AlternativeCost =
   /** "Spend N Hit Dice". */
   | { kind: 'hit-dice'; amount: number };
 
+/** One line of an open CR budget — "one Beast of CR 2 or lower", "eight of
+ *  CR 1/4 or lower", "a Celestial of CR 4 or lower". Every number is
+ *  evaluateValue-resolved at derive() time, so `"1/4"` (arithmetic) and
+ *  `"proficiencyBonus"` (token) both work in the authored declaration. */
+export interface SummonBudgetLine {
+  /** Maximum Challenge Rating of each creature this line buys. Absent →
+   *  uncapped (planar ally names no CR). */
+  crMax?: number;
+  /** How many creatures this line buys. Default 1. */
+  count?: number;
+  /** Ceiling on the summed CR of the picks, when RAW spends a pool rather
+   *  than capping each creature. */
+  totalCr?: number;
+  /** Maximum size of each creature. */
+  sizeMax?: CreatureSize;
+}
+
+/** Open CR-budget summon constraint — see `ActionSummons.budget`.
+ *
+ *  The 2014 conjure family (Conjure Animals / Celestial / Fey / Minor
+ *  Elementals / Woodland Beings, Infernal Calling, Planar Ally) names a
+ *  *budget*, not a creature list: "creatures of CR ≤ N, of type T,
+ *  totalling N creatures", picked at cast time. derive() carries the
+ *  constraint; selection stays with the player/DM (the ContentLookup is a
+ *  single-row resolver, so the engine cannot enumerate candidates). */
+export interface SummonBudget {
+  /** Creature types the pick must come from (`'beast'`, `'fey'`,
+   *  `'celestial'`, `'fiend'`, `'elemental'`). Absent/empty → any type. */
+  creatureTypes?: string[];
+  /** Mutually exclusive budget lines — the player picks ONE ("one CR 2
+   *  Beast, or two CR 1, or four CR 1/2, or eight CR 1/4"). Authored
+   *  either as `options: [...]` or as a single flat line
+   *  (`{ crMax, count, … }`), which derive() normalizes into a one-entry
+   *  array. May be empty when the only constraint is the creature type
+   *  (planar ally). */
+  options: SummonBudgetLine[];
+  /** Per-cast-slot replacement tables, keyed by slot level. `applyUpcast`
+   *  swaps `options` for the highest declared level ≤ the cast slot and
+   *  strips the table, so re-applying is a no-op. This is how a slot
+   *  scales CR (Conjure Celestial: CR 4 at L7, CR 5 at L9) or count
+   *  (Conjure Animals: doubled at L5, tripled at L7, quadrupled at L9)
+   *  without the engine inventing an arithmetic rule the source doesn't
+   *  state. */
+  bySlotLevel?: Record<number, SummonBudgetLine[]>;
+  /** true → the *DM* picks the stat block, not the player (planar ally,
+   *  infernal calling, summon lesser demons — hostile / uncontrolled
+   *  summons). Display contract; the engine picks nothing either way. */
+  dmChoice?: boolean;
+  /** Free-text qualifier the table adjudicates ("native to the plane you
+   *  are on", "the summoned creatures are hostile"). */
+  note?: string;
+}
+
 /** Resolved summon payload on an Action (from a `type: 'summon'`
  *  activity's `summon` block). Creature counts are evaluateValue-resolved
- *  at derive() time (default 1). */
+ *  at derive() time (default 1). A summon may declare explicit
+ *  `creatures[]`, an open `budget`, or both (a curated shortlist beside
+ *  the RAW budget). */
 export interface ActionSummons {
+  /** Open CR budget, when the source names one instead of (or beside) an
+   *  explicit creature list. See `SummonBudget`. */
+  budget?: SummonBudget;
   creatures: Array<{
     /** Monster content-row slug backing the summoned creature. */
     slug: string;
