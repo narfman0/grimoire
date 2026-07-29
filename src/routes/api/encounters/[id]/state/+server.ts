@@ -10,6 +10,7 @@ import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
 import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
+import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
 import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
@@ -25,6 +26,13 @@ const ParticipantHpSchema = z.object({
   tempHp: z.number().int().nonnegative(),
   maxHp: z.number().int().nullable(),
   conditions: z.array(z.string()),
+  /** Round-scoped duration overlay on `conditions` — the flat list above is
+   *  still the source of truth for "is this on". PCs source it from the
+   *  character document, everyone else from plan_json. See
+   *  $lib/encounter/condition-timers. */
+  conditionTimers: z.array(
+    z.object({ condition: z.string(), untilRound: z.number().int().nonnegative() })
+  ),
   concentrating: z
     .union([
       z.object({ label: z.string(), sinceRound: z.number().int().nonnegative().optional() }),
@@ -264,12 +272,14 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   for (const p of partRows) {
     // Plans
     let planCombat: unknown;
+    let planConditionTimers: unknown;
     if (p.planJson) {
       try {
         const parsed = PlanJson.safeParse(JSON.parse(p.planJson));
         if (parsed.success) {
           plans[p.id] = parsed.data;
           planCombat = parsed.data.combat;
+          planConditionTimers = parsed.data.conditionTimers;
         }
       } catch (err) {
         // best-effort: drop malformed plan, but leave a trail
@@ -328,7 +338,23 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       maxHp = p.maxHp ?? null;
     }
 
-    participantHp[p.id] = { currentHp, tempHp, maxHp, conditions, concentrating };
+    // Condition duration overlay. Pruned against the live condition list so
+    // a timer for a condition somebody already removed never reaches the
+    // client (and so never raises an expiry prompt for a condition nobody
+    // has).
+    const conditionTimers = pruneTimers(
+      normalizeTimers(isPc ? doc?.conditionTimers : planConditionTimers),
+      conditions
+    );
+
+    participantHp[p.id] = {
+      currentHp,
+      tempHp,
+      maxHp,
+      conditions,
+      conditionTimers,
+      concentrating
+    };
 
     // Combat economy: PCs read the character document's *UsedThisRound
     // fields (the same ones the character sheet writes); non-PCs read the

@@ -104,6 +104,13 @@ export interface CharacterDocument {
    *  Key is the condition slug; value is the current stack count (≥ 1).
    *  Absence of a key means the condition has no stack (level 0 / off). */
   conditionStacks?: Record<string, number>;
+  /** Round-scoped durations overlaid on `conditions`. The flat list above
+   *  stays the source of truth for "is this condition on"; each entry only
+   *  records the round the DM expects it to lapse in, which raises a
+   *  DM-confirmed expiry prompt at the start of that character's turn in
+   *  the encounter view. The rules engine ignores these entirely.
+   *  See $lib/encounter/condition-timers. */
+  conditionTimers?: Array<{ condition: string; untilRound: number }>;
 
   modifierToggles: Record<string, boolean>;
   /** Player picks for subclass-feature menus (Acolyte of Nature, Aspect of

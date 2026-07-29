@@ -118,6 +118,85 @@ describe('GET /api/encounters/[id]/state', () => {
     });
   });
 
+  // ---- condition timers (WS2 phase 2) -------------------------------------
+  //
+  // Durations are an overlay on the flat conditions list, stored in
+  // plan_json (non-PC) / the character document (PC). The poll prunes
+  // orphans so a timer for a condition nobody has can never raise an
+  // expiry prompt.
+
+  it('projects non-PC condition timers from plan_json, pruned to live conditions', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin 2' });
+    await db
+      .update(schema.participants)
+      .set({
+        conditionsJson: JSON.stringify(['poisoned']),
+        planJson: JSON.stringify({
+          actionId: '',
+          actionLabel: '',
+          targetParticipantIds: [],
+          notes: '',
+          updatedAt: 1,
+          conditionTimers: [
+            { condition: 'poisoned', untilRound: 6 },
+            // Orphan: the condition was removed but the timer lingered.
+            { condition: 'prone', untilRound: 2 }
+          ]
+        })
+      })
+      .where(eq(schema.participants.id, mobId));
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantHp[mobId].conditions).toEqual(['poisoned']);
+    expect(body.participantHp[mobId].conditionTimers).toEqual([
+      { condition: 'poisoned', untilRound: 6 }
+    ]);
+  });
+
+  it('projects PC condition timers from the character document', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const charId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: dmId,
+      name: 'Hero',
+      document: {
+        ...minCharDoc('hero-timers'),
+        conditions: ['restrained'],
+        conditionTimers: [{ condition: 'restrained', untilRound: 4 }]
+      },
+      linkToCampaign: true
+    });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Hero'
+    });
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantHp[pcId].conditionTimers).toEqual([
+      { condition: 'restrained', untilRound: 4 }
+    ]);
+  });
+
+  it('emits an empty timer list for a participant that has never set one', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantHp[mobId].conditionTimers).toEqual([]);
+  });
+
   // Locks the regression that hit the polling-realtime branch: PC HP / temp /
   // conditions on the participants row would silently override the char
   // document's actual values in the poll snapshot. After a heal, the doc

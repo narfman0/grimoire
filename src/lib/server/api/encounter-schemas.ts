@@ -119,6 +119,20 @@ export const CombatEconomyJson = z
   .openapi('CombatEconomyJson');
 export type TCombatEconomyJson = z.infer<typeof CombatEconomyJson>;
 
+/** Round-scoped condition durations for a non-PC participant. The flat
+ *  `conditions` array stays the source of truth for "is this on"; this is
+ *  an overlay keyed by condition slug recording the round the DM expects it
+ *  to lapse in. PCs carry the same shape on their character document. Rides
+ *  plan_json for the same reason `combat` does — no per-participant
+ *  combat-state column exists. See $lib/encounter/condition-timers. */
+export const ConditionTimerJson = z
+  .object({
+    condition: z.string().min(1).max(60),
+    untilRound: z.number().int().nonnegative()
+  })
+  .openapi('ConditionTimerJson');
+export type TConditionTimerJson = z.infer<typeof ConditionTimerJson>;
+
 /** A player's broadcast intent for their next turn. Mirrors the in-app
  *  TurnPlan type — kept here so both the request validator and any
  *  TurnPlan-shaped server payloads share one source of truth. */
@@ -132,7 +146,13 @@ export const PlanJson = z
     bonusTargetParticipantIds: z.array(z.string()).optional(),
     notes: z.string().max(500),
     updatedAt: z.number().int().nonnegative(),
-    combat: CombatEconomyJson.optional()
+    combat: CombatEconomyJson.optional(),
+    conditionTimers: z.array(ConditionTimerJson).max(40).optional(),
+    /** DM marker: this creature has lair actions in this encounter. No SRD
+     *  statblock carries lair data, so it can't be derived — the DM ticks
+     *  it and the initiative-20 reminder picks it up. See
+     *  $lib/encounter/lair. */
+    lair: z.boolean().optional()
   })
   .openapi('PlanJson');
 export type TPlanJson = z.infer<typeof PlanJson>;

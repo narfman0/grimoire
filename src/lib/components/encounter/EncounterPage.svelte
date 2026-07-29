@@ -48,6 +48,18 @@
     toggleArrayValue,
     patchPcWithMirror
   } from '$lib/encounter/conditions';
+  import {
+    clearTimer,
+    expiryPromptsForTurn,
+    normalizeTimers,
+    promptKey,
+    pruneTimers,
+    setTimer,
+    timersForParticipant,
+    type ConditionExpiryPrompt,
+    type ConditionTimer
+  } from '$lib/encounter/condition-timers';
+  import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import type { LiveParticipant } from '$lib/realtime/participants';
   import {
     connectEncounter,
@@ -103,10 +115,21 @@
         p.kind === 'pc'
           ? data.participantPcConcentrating?.[p.id] ?? null
           : data.participantNonPcConcentrating?.[p.id] ?? null;
+      // Condition timers seed from the character document (PCs) or the
+      // participant's plan_json (everyone else) — the same two homes the
+      // poll projects from, so first paint agrees with the first poll.
+      const conditionTimers =
+        p.kind === 'pc'
+          ? (data.participantPcConditionTimers?.[p.id] ?? [])
+          : normalizeTimers(
+              (data.participantPlans?.[p.id] as { conditionTimers?: unknown } | undefined)
+                ?.conditionTimers
+            );
       seedHp[p.id] = {
         currentHp: stats ? stats.hp.current : p.currentHp,
         tempHp: stats ? stats.hp.temp : (p.tempHp ?? 0),
         conditions,
+        conditionTimers: pruneTimers(conditionTimers, conditions),
         concentrating
       };
     }
@@ -883,10 +906,58 @@
     }
   }
 
-  async function toggleCondition(
-    p: { id: string; kind: string; characterId: string | null; currentHp: number | null; tempHp: number; conditions: string[] },
-    cond: string
-  ) {
+  // ---- conditions + round-scoped durations --------------------------------
+  //
+  // The flat `conditions` list stays the source of truth for "is this on";
+  // the timer list is a parallel overlay keyed by condition slug. Every
+  // write keeps the two consistent: switching a condition off drops its
+  // timer, and the poll prunes orphans server-side as a backstop.
+  // See $lib/encounter/condition-timers.
+
+  /** Rounds the *next* condition the DM switches on should last. 0 = none. */
+  let pendingConditionDuration = 0;
+
+  type ParticipantLite = {
+    id: string;
+    kind: string;
+    characterId: string | null;
+    currentHp: number | null;
+    tempHp: number;
+    conditions: string[];
+  };
+
+  function timersFor(p: { id: string; kind: string }): ConditionTimer[] {
+    return timersForParticipant(
+      p,
+      data.participantPcConditionTimers,
+      liveHpMap[p.id]?.conditionTimers
+    );
+  }
+
+  /** Persist a participant's timer overlay. PCs write the character
+   *  document; everyone else merges into plan_json. */
+  async function writeTimers(p: ParticipantLite, next: ConditionTimer[]) {
+    if (p.kind === 'pc') {
+      if (!p.characterId) return;
+      const prev = data.participantPcConditionTimers?.[p.id] ?? [];
+      data.participantPcConditionTimers = {
+        ...(data.participantPcConditionTimers ?? {}),
+        [p.id]: next
+      };
+      try {
+        await conn?.setConditionTimers(p.id, p.characterId, next);
+      } catch {
+        data.participantPcConditionTimers = {
+          ...(data.participantPcConditionTimers ?? {}),
+          [p.id]: prev
+        };
+      }
+      return;
+    }
+    conn?.setConditionTimers(p.id, null, next).catch(() => {});
+  }
+
+  async function toggleCondition(p: ParticipantLite, cond: string) {
     // No template-reactivity concern here — this is called from an event
     // handler, so reading data.participantPcConditions imperatively is fine.
     const current = conditionsForParticipant(
@@ -895,6 +966,12 @@
       liveHpMap[p.id]?.conditions
     );
     const next = toggleArrayValue(current, cond);
+    const turningOn = next.includes(cond);
+    // Switching on with a duration selected starts its timer; switching off
+    // drops it so no orphan can raise an expiry prompt later.
+    const timers = turningOn
+      ? setTimer(timersFor(p), cond, liveRound, pendingConditionDuration)
+      : clearTimer(timersFor(p), cond);
     if (p.kind === 'pc') {
       if (!p.characterId) return;
       await patchPcWithMirror({
@@ -906,10 +983,12 @@
           data.participantPcConditions = { ...(data.participantPcConditions ?? {}), [p.id]: v };
         }
       });
+      await writeTimers(p, timers);
       return;
     }
     if (conn && connStatus === 'open') {
       conn.setConditions(p.id, next).catch(() => {});
+      await writeTimers(p, timers);
     } else {
       try {
         await api.patch(`/api/participants/${p.id}`, { conditions: next });
@@ -918,6 +997,63 @@
         // api() already toasted
       }
     }
+  }
+
+  /** Set (or clear, at 0) the duration of an already-applied condition. */
+  function setConditionDuration(p: ParticipantLite, cond: string, rounds: number) {
+    void writeTimers(p, setTimer(timersFor(p), cond, liveRound, rounds));
+  }
+
+  // ---- condition-expiry prompt queue --------------------------------------
+  //
+  // Raised at the start of the affected participant's turn, one at a time,
+  // in the same slot and with the same "+N more" affordance as the reaction
+  // and concentration queues. NOTHING is removed until the DM answers — see
+  // the module comment in $lib/encounter/condition-timers for why silent
+  // expiry would be worse than today's forever-conditions.
+  let conditionExpiryPrompts: ConditionExpiryPrompt[] = [];
+  /** Prompt keys already raised, so a re-render (or the 2s poll re-confirming
+   *  the same turn) can't queue the same lapse twice. */
+  let raisedExpiryKeys = new Set<string>();
+
+  $: if (browser && data.role === 'dm' && liveStatus === 'live') {
+    const due = expiryPromptsForTurn({
+      round: liveRound,
+      activeParticipantId: liveActive,
+      participants: liveParticipants,
+      conditionsFor: (id) => {
+        const q = liveParticipants.find((r) => r.id === id);
+        return q ? conditionsForParticipant(q, data.participantPcConditions, liveHpMap[id]?.conditions) : [];
+      },
+      timersFor: (id) => {
+        const q = liveParticipants.find((r) => r.id === id);
+        return q ? timersFor(q) : [];
+      }
+    }).filter((prompt) => !raisedExpiryKeys.has(promptKey(prompt)));
+    if (due.length > 0) {
+      for (const prompt of due) raisedExpiryKeys.add(promptKey(prompt));
+      raisedExpiryKeys = raisedExpiryKeys;
+      conditionExpiryPrompts = [...conditionExpiryPrompts, ...due];
+    }
+  }
+
+  /** Answer the head of the expiry queue. `remove` drops the condition (and
+   *  its timer); `extend` pushes the timer out; `keep` clears the timer and
+   *  leaves the condition on indefinitely. All three shift the queue. */
+  function answerExpiry(prompt: ConditionExpiryPrompt, choice: 'remove' | 'keep', extendBy = 0) {
+    const p = liveParticipants.find((q) => q.id === prompt.participantId);
+    conditionExpiryPrompts = conditionExpiryPrompts.slice(1);
+    if (!p) return;
+    if (choice === 'remove') {
+      void toggleCondition(p, prompt.condition);
+      return;
+    }
+    void writeTimers(
+      p,
+      extendBy > 0
+        ? setTimer(timersFor(p), prompt.condition, liveRound, extendBy)
+        : clearTimer(timersFor(p), prompt.condition)
+    );
   }
 
   async function startConcentrating(
@@ -1646,7 +1782,11 @@
         {implied}
         role={data.role}
         {busy}
+        timers={timersFor(p)}
+        round={liveRound}
+        bind:pendingDuration={pendingConditionDuration}
         on:toggle={(e) => toggleCondition(p, e.detail)}
+        on:setDuration={(e) => setConditionDuration(p, e.detail.condition, e.detail.rounds)}
       />
 
       <!-- Concentration (DM only) -->
@@ -1792,6 +1932,19 @@
       amendingLogId = null;
       closeResolve();
     }}
+  />
+{/if}
+
+{#if conditionExpiryPrompts.length > 0 && data.role === 'dm'}
+  {@const expiry = conditionExpiryPrompts[0]}
+  <ConditionExpiryPromptCard
+    participantName={expiry.participantName}
+    condition={expiry.condition}
+    overdueBy={Math.max(0, liveRound - expiry.untilRound)}
+    remaining={conditionExpiryPrompts.length - 1}
+    on:remove={() => answerExpiry(expiry, 'remove')}
+    on:extend={(e) => answerExpiry(expiry, 'keep', e.detail)}
+    on:keep={() => answerExpiry(expiry, 'keep')}
   />
 {/if}
 

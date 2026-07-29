@@ -186,6 +186,20 @@ export const CharacterDocument = z
     conditions: z.array(z.string()),
     /** Stacking level for conditions that accumulate (e.g. exhaustion 1–10). */
     conditionStacks: z.record(z.string(), z.number().int().positive()).optional(),
+    /** Round-scoped durations overlaid on `conditions`. The flat list above
+     *  stays the source of truth for "is this condition on"; an entry here
+     *  only records the round the DM expects it to lapse in, which raises a
+     *  DM-confirmed expiry prompt at the start of that character's turn.
+     *  See $lib/encounter/condition-timers. */
+    conditionTimers: z
+      .array(
+        z.object({
+          condition: z.string().min(1).max(60),
+          untilRound: z.number().int().nonnegative()
+        })
+      )
+      .max(40)
+      .optional(),
     modifierToggles: z.record(z.string(), z.boolean()),
     /** Player picks for subclass-feature menus (Acolyte of Nature, Aspect
      *  of the Wilds, Battle Master maneuvers, Primal Order, etc.). Keyed

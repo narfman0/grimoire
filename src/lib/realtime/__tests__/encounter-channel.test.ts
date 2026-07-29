@@ -389,6 +389,102 @@ describe('connectEncounter (polling)', () => {
     expect(get(conn.state).plans['mob-7']).toBeUndefined();
   });
 
+  // Round-scoped condition durations share plan_json with the combat
+  // counters, so the same "clearing intent must not clear state" rule
+  // applies to them.
+  it('setConditionTimers on a non-PC merges into the participant plan POST', async () => {
+    const calls: Array<{ url: string; body: unknown }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : null });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    const timers = [{ condition: 'poisoned', untilRound: 6 }];
+    await conn.setConditionTimers('mob-7', null, timers);
+
+    expect(calls.at(-1)!.url).toContain('/participants/mob-7/plan');
+    expect((calls.at(-1)!.body as { plan: TurnPlan }).plan.conditionTimers).toEqual(timers);
+    expect(get(conn.state).participantHp['mob-7'].conditionTimers).toEqual(timers);
+  });
+
+  it('setConditionTimers on a PC writes the character document field', async () => {
+    const patches: unknown[] = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      if (url.includes('/api/characters/char-1')) {
+        if (init?.method === 'PATCH') {
+          patches.push(JSON.parse(init.body as string));
+          return jsonResponse({ ok: true });
+        }
+        return jsonResponse({ document: { conditions: ['poisoned'] } });
+      }
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    const timers = [{ condition: 'poisoned', untilRound: 3 }];
+    await conn.setConditionTimers('pc-row', 'char-1', timers);
+
+    expect(patches).toHaveLength(1);
+    const doc = (patches[0] as { document: Record<string, unknown> }).document;
+    expect(doc.conditionTimers).toEqual(timers);
+    // The flat condition list is untouched — it stays the source of truth.
+    expect(doc.conditions).toEqual(['poisoned']);
+  });
+
+  it('clearPlan keeps the condition timers by writing an empty plan', async () => {
+    const calls: Array<{ method?: string; body: unknown }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({ method: init?.method, body: init?.body ? JSON.parse(init.body as string) : null });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    const timers = [{ condition: 'restrained', untilRound: 9 }];
+    await conn.setConditionTimers('mob-7', null, timers);
+    await conn.setPlan('mob-7', {
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: [],
+      notes: '',
+      updatedAt: 1,
+      conditionTimers: timers
+    });
+    await conn.clearPlan('mob-7');
+
+    const last = calls.at(-1)!;
+    expect(last.method).toBe('POST');
+    const plan = (last.body as { plan: TurnPlan }).plan;
+    expect(plan.actionId).toBe('');
+    expect(plan.conditionTimers).toEqual(timers);
+  });
+
+  it('setLair marks the participant and survives a plan clear', async () => {
+    const calls: Array<{ method?: string; body: unknown }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({ method: init?.method, body: init?.body ? JSON.parse(init.body as string) : null });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await conn.setLair('mob-7', true);
+    expect(get(conn.state).plans['mob-7']?.lair).toBe(true);
+    await conn.clearPlan('mob-7');
+    const plan = (calls.at(-1)!.body as { plan: TurnPlan }).plan;
+    expect(plan.lair).toBe(true);
+    // …and unsetting it clears the flag rather than leaving it sticky.
+    await conn.setLair('mob-7', false);
+    expect(get(conn.state).plans['mob-7']?.lair).toBe(false);
+  });
+
   it('normalizes participantEconomy off the poll payload', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();

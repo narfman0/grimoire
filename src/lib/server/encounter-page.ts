@@ -15,6 +15,7 @@ import { db, schema } from '$lib/server/db';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import { initiativeCompare, makePlaceholderNamer } from '$lib/realtime/participants';
+import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
 import { buildRedactionMap, redactActionLog } from '$lib/realtime/action-log';
 import { derive } from '$lib/rules';
 import { hasResourceBudget } from '$lib/rules/apply-grants';
@@ -227,6 +228,14 @@ export async function buildEncounterPageData(
   const pcParticipants = partRows.filter(p => p.kind === 'pc' && p.characterId);
   const participantSpells: Record<string, Array<{slug: string; name: string; level: number}>> = {};
   const participantPcConditions: Record<string, string[]> = {};
+  /** Round-scoped duration overlay on each PC's conditions, read from the
+   *  character document. First-paint seed only — the 2s poll keeps it fresh
+   *  afterwards. Non-PC timers ride `participantPlans[id].conditionTimers`.
+   *  See $lib/encounter/condition-timers. */
+  const participantPcConditionTimers: Record<
+    string,
+    Array<{ condition: string; untilRound: number }>
+  > = {};
   type CompactPcStats = {
     ac: number;
     hp: { current: number; max: number; temp: number };
@@ -389,6 +398,10 @@ export async function buildEncounterPageData(
           .filter(k => prepared.has(k.slug))
           .map(k => ({ slug: k.slug, name: k.slug, level: 0 }));
         participantPcConditions[participant.id] = [...(doc.conditions ?? [])];
+        participantPcConditionTimers[participant.id] = pruneTimers(
+          normalizeTimers(doc.conditionTimers),
+          doc.conditions ?? []
+        );
         participantPcEconomy[participant.id] = {
           actionUsed: doc.actionUsedThisRound === true,
           bonusUsed: doc.bonusActionUsedThisRound === true,
@@ -643,6 +656,7 @@ export async function buildEncounterPageData(
     monsterOptions,
     participantSpells,
     participantPcConditions,
+    participantPcConditionTimers,
     participantPcStats,
     participantPcActions,
     participantPcEconomy,
