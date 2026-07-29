@@ -57,6 +57,38 @@ export interface RedactableActionLogEntry {
   redacted?: boolean;
 }
 
+/** Every behaviour-describing field of the redactable slice, blanked. Spread
+ *  over an entry whose actor is hidden.
+ *
+ *  This is typed as `Omit<..., structural keys>` rather than written inline so
+ *  the compiler is the one enforcing completeness: add a field to
+ *  `RedactableActionLogEntry` and this object stops compiling until the new
+ *  field is dispositioned here. The interface deliberately preserves unknown
+ *  keys on the caller's wider row type, which makes the redaction fail *open*
+ *  — a new roll-detail or save-DC field would ship a hidden creature's
+ *  behaviour to every player exactly the way the pre-360bfc6 label leak did.
+ *
+ *  Two caveats this cannot cover on its own, hence the key sweep in
+ *  __tests__/action-log.test.ts:
+ *    - an *optional* new field (`foo?: x`) stays optional through Omit and
+ *      would not break the build. Declare redactable fields as required
+ *      (`foo: X | null`), not optional.
+ *    - fields on the caller's row type that aren't in this interface at all
+ *      are invisible to the compiler here. */
+const HIDDEN_ACTOR_BLANKS: Omit<
+  RedactableActionLogEntry,
+  'participantId' | 'targetParticipantId' | 'redacted'
+> = {
+  actionId: '',
+  actionLabel: REDACTED_ACTION_LABEL,
+  attackRoll: null,
+  damageRoll: null,
+  hit: null,
+  targetHpBefore: null,
+  targetHpAfter: null,
+  notes: null
+};
+
 /** PCs are always fully visible to their party — the reveal flags on a PC
  *  participant row default to all-true and aren't meaningful. */
 const isHidden = (p: RedactionParticipant) => p.kind !== 'pc' && p.reveals.hidden;
@@ -108,18 +140,11 @@ export function redactActionLogEntry<T extends RedactableActionLogEntry>(
   if (actor && isHidden(actor)) {
     return {
       ...entry,
+      ...HIDDEN_ACTOR_BLANKS,
       participantId: null,
       // A visible target (usually a PC) is kept: "something attacked Hero"
       // is the honest neutral statement, and leaks nothing about the actor.
       targetParticipantId: target && !isHidden(target) ? entry.targetParticipantId : null,
-      actionId: '',
-      actionLabel: REDACTED_ACTION_LABEL,
-      attackRoll: null,
-      damageRoll: null,
-      hit: null,
-      targetHpBefore: null,
-      targetHpAfter: null,
-      notes: null,
       redacted: true
     } as T;
   }

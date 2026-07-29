@@ -72,4 +72,71 @@ describe('redactActionLog', () => {
     const out = redactActionLog(rows, map({ identity: true, vitals: true }), false);
     expect(out[0]).toBe(rows[0]);
   });
+
+  // ---- fail-closed guards ----
+  //
+  // `RedactableActionLogEntry` preserves unknown keys by design, so redaction
+  // defaults to *leaking*: a field added to a log row ships to players unless
+  // the hidden-actor branch explicitly blanks it. That's how the pre-360bfc6
+  // label leak worked. Three things now stand between us and a repeat:
+  //   1. HIDDEN_ACTOR_BLANKS is typed `Omit<RedactableActionLogEntry, …>`, so
+  //      a new *required* field on the interface fails to compile.
+  //   2. the sweep below proves the blanking actually happens.
+  //   3. the tripwire below fails when a row grows a field nobody classified,
+  //      which covers optional fields and caller-only fields the compiler
+  //      can't see.
+  // When dice-roller phase 7 adds `rollDetail`, (3) is what stops it landing
+  // silently.
+
+  it('leaves no behaviour-describing value on a hidden actor row', () => {
+    const NUM = 9999;
+    const STR = 'LEAK';
+    const [out] = redactActionLog(
+      [
+        entry({
+          actionId: STR,
+          actionLabel: STR,
+          attackRoll: NUM,
+          damageRoll: NUM,
+          hit: STR,
+          targetHpBefore: NUM,
+          targetHpAfter: NUM,
+          notes: STR
+        })
+      ],
+      map({ hidden: true }),
+      false
+    );
+    const survived = Object.entries(out)
+      .filter(([, v]) => v === STR || v === NUM)
+      .map(([k]) => k);
+    expect(survived).toEqual([]);
+  });
+
+  it('classifies every field on a log row (tripwire for new fields)', () => {
+    // Blanked by HIDDEN_ACTOR_BLANKS (plus participantId, dropped inline).
+    const BLANKED = [
+      'participantId',
+      'actionId',
+      'actionLabel',
+      'attackRoll',
+      'damageRoll',
+      'hit',
+      'targetHpBefore',
+      'targetHpAfter',
+      'notes'
+    ];
+    // Safe to ship for a hidden actor: they carry no information about the
+    // creature itself. `targetParticipantId` survives only when the target is
+    // *not* hidden — see the branch in redactActionLogEntry.
+    const STRUCTURAL = ['id', 'round', 'redacted', 'targetParticipantId'];
+
+    const known = new Set([...BLANKED, ...STRUCTURAL]);
+    const unclassified = Object.keys(entry()).filter((k) => !known.has(k));
+
+    // A new key here is not a test bug. Decide whether it describes the
+    // actor's behaviour: if so add it to HIDDEN_ACTOR_BLANKS *and* BLANKED,
+    // otherwise justify it in STRUCTURAL.
+    expect(unclassified).toEqual([]);
+  });
 });

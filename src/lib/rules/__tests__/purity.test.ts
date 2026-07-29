@@ -4,10 +4,18 @@
 // derive() to a runtime, a database, or a framework. This test fails the
 // build the moment any engine file grows a non-relative import.
 //
+// It also guards *determinism*: derive() must return the same output for the
+// same input, because cross-row upgrades compose by re-deriving, serialization
+// round-trips, and results are cached. That requirement lived only in prose
+// comments until the dice roller arrived — `Math.random` and `Date.now` are
+// globals, so the import check above never saw them. Dice belong in
+// src/lib/dice/, which is why the escape check below exists too: `../dice/roll`
+// is technically a relative specifier and would otherwise pass.
+//
 // (Test files under __tests__/ are exempt — they may use node:* and vitest.)
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -55,6 +63,50 @@ describe('rules engine purity', () => {
     (_name, full) => {
       const source = readFileSync(full, 'utf8');
       const offenders = importSpecifiers(source).filter((spec) => !spec.startsWith('.'));
+      expect(offenders).toEqual([]);
+    }
+  );
+
+  // `../dice/roll` is relative, so the check above waves it through. The
+  // engine must not reach *outside* src/lib/rules/ at all.
+  it.each(files.map((f) => [relative(RULES_DIR, f), f]))(
+    '%s imports nothing outside the rules directory',
+    (_name, full) => {
+      const source = readFileSync(full, 'utf8');
+      const escapes = importSpecifiers(source)
+        .filter((spec) => spec.startsWith('.'))
+        .filter((spec) => {
+          const target = resolve(dirname(full), spec);
+          return target !== RULES_DIR && !target.startsWith(RULES_DIR + '/');
+        });
+      expect(escapes).toEqual([]);
+    }
+  );
+
+  // Determinism. derive() is re-run to compose cross-row upgrades, its output
+  // is serialized and compared, and callers cache it — a random or clock-
+  // dependent value anywhere in here breaks all three. Randomness lives in
+  // src/lib/dice/ with the RNG injected by the caller; "now" is passed in as
+  // an argument.
+  const NONDETERMINISTIC = [
+    { pattern: /\bMath\s*\.\s*random\b/, name: 'Math.random' },
+    { pattern: /\bDate\s*\.\s*now\b/, name: 'Date.now' },
+    { pattern: /\bnew\s+Date\s*\(/, name: 'new Date(' },
+    { pattern: /\bperformance\s*\.\s*now\b/, name: 'performance.now' },
+    { pattern: /\bcrypto\s*\.\s*randomUUID\b/, name: 'crypto.randomUUID' }
+  ];
+
+  it.each(files.map((f) => [relative(RULES_DIR, f), f]))(
+    '%s is deterministic (no clock, no RNG)',
+    (_name, full) => {
+      // Strip comments first — several engine files *mention* Math.random in
+      // prose explaining why they don't use it.
+      const source = readFileSync(full, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      const offenders = NONDETERMINISTIC.filter(({ pattern }) => pattern.test(source)).map(
+        ({ name }) => name
+      );
       expect(offenders).toEqual([]);
     }
   );
