@@ -190,6 +190,63 @@ describe('DELETE /api/encounters/[id]/participants/[pid]/plan', () => {
     db = setupTestDb();
   });
 
+  // Regression: DELETE nulled plan_json outright, so anything that isn't
+  // our own browser client — curl, a second client, a future server-side
+  // reset — silently wiped the combat economy, the DM's NPC spell slots,
+  // the condition-duration overlay and the lair marker along with the
+  // plan. The preservation used to live only in the channel's clearPlan.
+  it('keeps economy, slots, timers and lair when the DM DELETEs the plan', async () => {
+    const { dmId, encounterId, monsterId } = await dmFixture(db);
+    await db
+      .update(schema.participants)
+      .set({
+        planJson: JSON.stringify({
+          actionId: 'staff',
+          actionLabel: 'Staff',
+          targetParticipantIds: ['pc-1'],
+          notes: 'zap them',
+          updatedAt: 1,
+          combat: {
+            reactionUsed: true,
+            legendaryUsed: 2,
+            round: 3,
+            spellSlots: { '3': { max: 3, used: 2 } }
+          },
+          conditionTimers: [{ condition: 'poisoned', untilRound: 9 }],
+          lair: true
+        })
+      })
+      .where(eq(schema.participants.id, monsterId));
+
+    const res = await DELETE(
+      makeEvent({
+        user: { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false },
+        params: { id: encounterId, pid: monsterId }
+      })
+    );
+    expect(res.status).toBe(204);
+
+    const rows = await db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.id, monsterId));
+    const stored = JSON.parse(rows[0].planJson!);
+    // The declared intent is gone — an empty actionId reads as "no plan".
+    expect(stored.actionId).toBe('');
+    expect(stored.actionLabel).toBe('');
+    expect(stored.targetParticipantIds).toEqual([]);
+    expect(stored.notes).toBe('');
+    // Everything that merely shares the column survives.
+    expect(stored.combat).toMatchObject({
+      reactionUsed: true,
+      legendaryUsed: 2,
+      round: 3,
+      spellSlots: { 3: { max: 3, used: 2 } }
+    });
+    expect(stored.conditionTimers).toEqual([{ condition: 'poisoned', untilRound: 9 }]);
+    expect(stored.lair).toBe(true);
+  });
+
   it('clears planJson when the DM DELETEs', async () => {
     const { dmId, encounterId, monsterId } = await dmFixture(db);
     // Seed an existing plan.

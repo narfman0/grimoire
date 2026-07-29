@@ -22,6 +22,7 @@ import {
 } from './economy';
 import { patchCharacterDocFields } from '$lib/encounter/conditions';
 import type { ConditionTimer } from '$lib/encounter/condition-timers';
+import { clearedPlan, planWithExtras } from '$lib/encounter/plan-extras';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
 import { computeIncomingDamage, type DamageResolutionStats } from '../rules/incoming-damage';
 import type { DamageSourceContext } from '../rules/damage-source';
@@ -315,47 +316,6 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     timer = setInterval(() => { void poll(); }, POLL_INTERVAL_MS);
   }
 
-  /** Non-intent slots that live on plan_json alongside the player's declared
-   *  action: the combat-economy counters, the condition-duration overlay,
-   *  and the lair marker. Kept in one place because `clearPlan` has to
-   *  preserve every one of them (clearing the *intent* must not clear state
-   *  that merely shares the column) and because three mutators merge into
-   *  the same blob. */
-  type PlanExtras = Pick<TurnPlan, 'combat' | 'conditionTimers' | 'lair'>;
-
-  function planExtras(plan: TurnPlan | undefined): PlanExtras {
-    return {
-      ...(plan?.combat ? { combat: plan.combat } : {}),
-      ...(plan?.conditionTimers?.length ? { conditionTimers: plan.conditionTimers } : {}),
-      ...(plan?.lair ? { lair: true } : {})
-    };
-  }
-
-  function hasPlanExtras(extras: PlanExtras): boolean {
-    return extras.combat != null || (extras.conditionTimers?.length ?? 0) > 0 || extras.lair === true;
-  }
-
-  /** Rebuild a plan carrying the same declared intent as `prev` with the
-   *  given extras merged over it. An empty actionId reads as "no plan" to
-   *  every consumer, so a monster with no declared action can still carry
-   *  counters / timers. */
-  function planWithExtras(prev: TurnPlan | undefined, extras: PlanExtras): TurnPlan {
-    return {
-      actionId: prev?.actionId ?? '',
-      actionLabel: prev?.actionLabel ?? '',
-      ...(prev?.bonusActionId ? { bonusActionId: prev.bonusActionId } : {}),
-      ...(prev?.bonusActionLabel ? { bonusActionLabel: prev.bonusActionLabel } : {}),
-      targetParticipantIds: prev?.targetParticipantIds ?? [],
-      ...(prev?.bonusTargetParticipantIds
-        ? { bonusTargetParticipantIds: prev.bonusTargetParticipantIds }
-        : {}),
-      notes: prev?.notes ?? '',
-      updatedAt: Date.now(),
-      ...planExtras(prev),
-      ...extras
-    };
-  }
-
   async function send(path: string, init?: RequestInit) {
     const res = await fetch(path, {
       ...init,
@@ -405,18 +365,10 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       // the column — the combat counters, the condition-duration overlay,
       // the lair marker. When the plan carries any of them, rewrite it as an
       // empty plan (no actionId ⇒ "no plan" to every reader) instead of
-      // deleting the row's plan_json outright.
-      const kept = planExtras(prev);
-      const emptied: TurnPlan | null = hasPlanExtras(kept)
-        ? {
-            actionId: '',
-            actionLabel: '',
-            targetParticipantIds: [],
-            notes: '',
-            updatedAt: Date.now(),
-            ...kept
-          }
-        : null;
+      // deleting the row's plan_json outright. The DELETE handler applies
+      // the same rule server-side ($lib/encounter/plan-extras), so this is
+      // the fast path, not the only guard.
+      const emptied = clearedPlan(prev);
       state.update((s) => {
         const plans = { ...s.plans };
         if (emptied) plans[participantId] = emptied;
