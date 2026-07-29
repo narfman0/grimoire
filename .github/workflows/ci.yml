@@ -48,7 +48,7 @@ jobs:
     # (realtime poll sync + reveals redaction) plus auth + character sheet.
     # Runs against a throwaway sqlite DB (see playwright.config.ts).
     #
-    # Promoted to a deploy gate 2026-07-29 (deploy needs: [ci, e2e]). It
+    # Promoted to a deploy gate 2026-07-29 (deploy needs: [ci, e2e, docker]). It
     # earned it: this suite caught the action-log redaction leak, the
     # table-mode redaction path, and several real regressions during the
     # WS2 build-out. Its failures are load-bearing now, not advisory.
@@ -100,13 +100,47 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  docker:
+    # Builds the production image — the only job that exercises the
+    # Dockerfile at all.
+    #
+    # Added after a Node 26 base bump passed `ci` and `e2e` and then failed
+    # the Fly deploy with `corepack: not found` (corepack was removed from
+    # official Node distributions in Node 25). Nothing in CI touched the
+    # image: CI installs pnpm through pnpm/action-setup, the Dockerfile did
+    # it through corepack, and the gap between those two paths is where the
+    # break lived. Every Dockerfile or base-image change was a coin flip
+    # discovered at deploy time.
+    #
+    # Deliberately does not push. Fly builds its own image on deploy
+    # (`flyctl deploy --remote-only`), so this is a *check*, not an
+    # artifact — building is the whole assertion. The GHA layer cache keeps
+    # repeat runs cheap; the expensive parts are the better-sqlite3 native
+    # compile and `pnpm build`, both of which are exactly what we want
+    # verified.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build the production image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          tags: grimoire:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
     # Only on master pushes (skips PRs and feature-branch CI runs). Gates on
-    # both the type-check + test + build job and the Playwright suite, so
-    # neither a red unit run nor a broken two-client encounter flow can
-    # ship. concurrency: drops in-flight deploys when a newer push lands so
-    # a fast string of merges doesn't pile up on Fly.
-    needs: [ci, e2e]
+    # the type-check + test + build job, the Playwright suite, and the image
+    # build — so neither a red unit run, a broken two-client encounter flow,
+    # nor a Dockerfile that won't build can ship. concurrency: drops
+    # in-flight deploys when a newer push lands so a fast string of merges
+    # doesn't pile up on Fly.
+    needs: [ci, e2e, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     concurrency:
