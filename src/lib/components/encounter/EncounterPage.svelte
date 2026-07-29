@@ -60,6 +60,8 @@
     type ConditionTimer
   } from '$lib/encounter/condition-timers';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
+  import { lairReminderForTurn } from '$lib/encounter/lair';
+  import LairActionReminder from './LairActionReminder.svelte';
   import type { LiveParticipant } from '$lib/realtime/participants';
   import {
     connectEncounter,
@@ -1556,6 +1558,39 @@
     wasMyTurn = isMine;
   }
 
+  // ---- initiative 20: lair / legendary reminder ---------------------------
+  //
+  // Fires on the turn the initiative-20 slot immediately precedes, driven by
+  // statblock legendary actions plus the DM's per-participant lair marker
+  // (no statblock in the content model carries lair data — see
+  // $lib/encounter/lair). Dismissed per round so it doesn't nag on every
+  // poll, and re-arms when the round bumps.
+  function lairFlagFor(participantId: string): boolean {
+    return livePlans[participantId]?.lair === true;
+  }
+
+  function toggleLair(p: { id: string }) {
+    conn?.setLair(p.id, !lairFlagFor(p.id)).catch(() => {});
+  }
+
+  let lairReminderDismissedFor: string | null = null;
+  $: lairReminder =
+    data.role === 'dm' && liveStatus === 'live'
+      ? lairReminderForTurn({
+          participants: liveParticipants.map((p) => ({
+            id: p.id,
+            name: p.name,
+            initiative: p.initiative,
+            legendaryActionCount: p.statblock?.legendaryActions?.length ?? 0,
+            lair: livePlans[p.id]?.lair === true
+          })),
+          activeParticipantId: liveActive
+        })
+      : null;
+  /** One dismissal per (round, turn) — a new round re-raises it. */
+  $: lairReminderKey = `${liveRound}:${liveActive ?? ''}`;
+  $: showLairReminder = lairReminder !== null && lairReminderDismissedFor !== lairReminderKey;
+
   // Legendary action tracker. Persisted on the monster participant (see
   // $lib/realtime/economy) with the round it was written in, so it survives
   // a reload, agrees across DM tabs, and reads as spent-nothing again on
@@ -1628,6 +1663,14 @@
 
 {#if data.role === 'dm'}
   <EncounterDifficultyPanel {difficulty} loading={difficultyLoading} />
+{/if}
+
+{#if showLairReminder && lairReminder}
+  <LairActionReminder
+    sourceNames={lairReminder.sourceNames}
+    hasLair={lairReminder.hasLair}
+    on:dismiss={() => (lairReminderDismissedFor = lairReminderKey)}
+  />
 {/if}
 
 {#if liveStatus === 'live' && data.role === 'dm'}
@@ -1810,6 +1853,22 @@
           on:toggle={() => toggleLegendaryAction(p, legMax)}
           on:reset={() => setLegendaryUsed(p, 0)}
         />
+      {/if}
+
+      <!-- Lair marker (DM only, non-PC). No statblock carries lair-action
+           data, so the DM declares it; it drives the initiative-20
+           reminder. Persisted on plan_json — see $lib/encounter/lair. -->
+      {#if data.role === 'dm' && !isPc}
+        <label class="mb-3 flex items-center gap-2 text-[11px] text-slate-400">
+          <input
+            type="checkbox"
+            class="accent-violet-500"
+            checked={livePlans[p.id]?.lair === true}
+            disabled={busy}
+            on:change={() => toggleLair(p)}
+          />
+          🏰 has lair actions in this encounter
+        </label>
       {/if}
 
       <!-- NPC spell slot tracker (DM only, non-PC) -->
