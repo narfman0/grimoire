@@ -4,13 +4,17 @@ FROM node:26-alpine AS base
 # pnpm 11 is required — pnpm-workspace.yaml uses the v11 allowBuilds /
 # onlyBuiltDependencies fields, which v9 rejects with "packages field
 # missing or empty". Keep in sync with the CI version (pnpm/action-setup
-# @v4 with version: latest).
+# @v6 with version: latest).
 # CI=true keeps pnpm non-interactive (it auto-purges node_modules on
 # mismatch instead of prompting and aborting in non-TTY environments).
 ENV CI=true
+# pnpm is installed via npm, not corepack: corepack was removed from the
+# official Node distributions as of Node 25, so `corepack enable` in the
+# node:26-alpine image fails with "corepack: not found" (exit 127). That is
+# what broke the first Node 26 deploy — CI never saw it, because CI installs
+# pnpm through pnpm/action-setup and never touches this image.
 RUN apk add --no-cache python3 make g++ \
-  && corepack enable \
-  && corepack prepare pnpm@11.1.2 --activate
+  && npm install -g pnpm@11.1.2
 WORKDIR /app
 
 # --- deps stage: install deps once, cache mountable ---------------------
