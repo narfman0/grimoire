@@ -5,6 +5,7 @@
   import { toasts } from '$lib/client/errors';
   import { api } from '$lib/client/api';
   import ConfirmHost from '$lib/components/ui/ConfirmHost.svelte';
+  import DiceTray from '$lib/components/dice/DiceTray.svelte';
   import type { LayoutData } from './$types';
   export let data: LayoutData;
 
@@ -24,6 +25,8 @@
   }
 
   $: campaign = $page.data.campaign as { code: string; name: string } | undefined;
+  /** Set on encounter routes; lets the dice tray offer "share to table". */
+  $: encounterContext = $page.data.encounter as { id: string; round: number } | undefined;
 
   let resendBusy = false;
   let resendDone = false;
@@ -113,6 +116,16 @@
     <slot />
   </main>
   <ConfirmHost />
+  <!-- Available to every role on every page: before this, TurnControls' bar
+       was the only roller in the app and it was gated on DM + live encounter,
+       so a player could not roll a d20 anywhere. Encounter context is read
+       here and passed down, keeping the tray itself presentational. -->
+  <DiceTray
+    encounter={data.user && encounterContext
+      ? { id: encounterContext.id, round: encounterContext.round }
+      : null}
+    myParticipantIds={($page.data.myParticipantIds as string[] | undefined) ?? []}
+  />
   {#if $toasts.length > 0}
     <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       {#each $toasts as t (t.id)}

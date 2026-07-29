@@ -1,8 +1,17 @@
 <script lang="ts">
-  // Live-combat turn bar + dice roller (DM only, live encounters — the
-  // parent gates on both). The dice roller is client-only with no
-  // persistence, so its result lives here.
+  // Live-combat turn bar + quick dice (DM only, live encounters — the parent
+  // gates on both).
+  //
+  // The roller here used to be the app's only one, with its own inline
+  // Math.random. It now goes through $lib/dice like every other roll, and
+  // feeds the shared history so a DM's quick d20 shows up in the tray
+  // alongside everything else. Free-form formulas and advantage live in the
+  // tray (available to everyone); this bar stays a fast in-combat shortcut.
   import { createEventDispatcher } from 'svelte';
+  import { rollD20, rollPool } from '$lib/dice';
+  import type { RollResult } from '$lib/dice';
+  import { recordRoll } from '$lib/client/dice-log';
+  import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
 
   export let round: number;
   export let busy = false;
@@ -10,9 +19,14 @@
   const dispatch = createEventDispatcher<{ advance: 1 | -1; end: void }>();
 
   const DICE = [4, 6, 8, 10, 12, 20, 100] as const;
-  let diceResult: { die: number; roll: number } | null = null;
+  let lastRoll: RollResult | null = null;
   function rollDie(sides: number) {
-    diceResult = { die: sides, roll: Math.floor(Math.random() * sides) + 1 };
+    // d20 goes through rollD20 so the result carries crit/fumble
+    // classification and the chip can highlight a nat 20 or a nat 1.
+    const result = sides === 20 ? rollD20(0) : rollPool(`1d${sides}`);
+    if (!result) return;
+    lastRoll = result;
+    recordRoll(`d${sides}`, result);
   }
 </script>
 
@@ -45,10 +59,8 @@
         on:click={() => rollDie(sides)}
       >d{sides}</button>
     {/each}
-    {#if diceResult}
-      <span class="ml-2 font-mono text-slate-200">
-        d{diceResult.die} → <span class="text-lg font-bold {diceResult.roll === diceResult.die ? 'text-emerald-300' : diceResult.roll === 1 ? 'text-red-400' : 'text-white'}">{diceResult.roll}</span>
-      </span>
+    {#if lastRoll}
+      <span class="ml-2"><RollResultChip result={lastRoll} compact /></span>
     {/if}
   </div>
 </section>
