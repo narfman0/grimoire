@@ -63,6 +63,10 @@ export function serializeActionLogEntry(r: typeof schema.actionLog.$inferSelect)
     targetHpBefore: r.targetHpBefore,
     targetHpAfter: r.targetHpAfter,
     notes: r.notes,
+    /** Per-die breakdown ("[18, (7)] + 5 = 23") when the roll was made in
+     *  app rather than typed. Null for typed rolls and for every row
+     *  written before the dice roller. */
+    rollDetail: r.rollDetailJson,
     /** Flipped to true by the per-viewer redactor in
      *  $lib/realtime/action-log when a field was withheld from a player.
      *  Always false straight out of the serializer. */

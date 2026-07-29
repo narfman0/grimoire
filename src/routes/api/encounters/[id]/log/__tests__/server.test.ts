@@ -530,3 +530,93 @@ describe('POST /api/encounters/[id]/log — who may act for whom', () => {
     );
   });
 });
+
+// Per-campaign overrides (dice-roller phase 8b, migration 0009). The switch
+// only matters if it actually restricts, so this is the test that proves the
+// column is load-bearing rather than decorative.
+describe('POST /api/encounters/[id]/log — campaign permission overrides', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  async function fixture(permissions?: Record<string, boolean>) {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const ownerId = await seedUser(db, { username: 'owner' });
+    const otherId = await seedUser(db, { username: 'other' });
+    const { campaignId } = await seedCampaign(db, {
+      dmId,
+      playerIds: [ownerId, otherId],
+      permissions
+    });
+    const charId = await seedCharacter(db, { campaignId, ownerUserId: ownerId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Hero'
+    });
+    return { dmId, ownerId, otherId, encounterId, pcId };
+  }
+
+  const body = (participantId: string) => ({
+    participantId,
+    actionId: 'attack:sword',
+    actionLabel: 'Longsword',
+    round: 1
+  });
+
+  it('refuses acting for another PC when the DM turned actForOthers off', async () => {
+    const { otherId, encounterId, pcId } = await fixture({ actForOthers: false });
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user: userOf(otherId, 'other'),
+          params: { id: encounterId },
+          body: body(pcId)
+        })
+      ),
+      403
+    );
+  });
+
+  it('still lets the owner act for their own PC when restricted', async () => {
+    // Restricting must narrow to the owner, not lock everyone out.
+    const { ownerId, encounterId, pcId } = await fixture({ actForOthers: false });
+    const res = await POST(
+      makeEvent({ user: userOf(ownerId, 'owner'), params: { id: encounterId }, body: body(pcId) })
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it('still lets the DM act for anyone when restricted', async () => {
+    const { dmId, encounterId, pcId } = await fixture({ actForOthers: false });
+    const res = await POST(
+      makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId }, body: body(pcId) })
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it('is unaffected by an unrelated permission being turned off', async () => {
+    const { otherId, encounterId, pcId } = await fixture({ editOthersVitals: false });
+    const res = await POST(
+      makeEvent({ user: userOf(otherId, 'other'), params: { id: encounterId }, body: body(pcId) })
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it('persists roll detail and hands it back on the row', async () => {
+    const { dmId, encounterId, pcId } = await fixture();
+    const res = await POST(
+      makeEvent({
+        user: userOf(dmId, 'dm'),
+        params: { id: encounterId },
+        body: { ...body(pcId), attackRoll: 23, rollDetail: 'atk [18, (7)] + 5 = 23' }
+      })
+    );
+    expect(res.status).toBe(201);
+    const rows = await db.select().from(schema.actionLog);
+    expect(rows[0].rollDetailJson).toBe('atk [18, (7)] + 5 = 23');
+  });
+});

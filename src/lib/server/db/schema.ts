@@ -23,6 +23,13 @@ export const campaigns = sqliteTable('campaigns', {
   code: text('code').notNull().unique(), // short shareable code, e.g. 6-char base32
   name: text('name').notNull(),
   slug: text('slug'), // url-safe campaign name for human-readable URLs; null until assigned
+  /** JSON CampaignPermissions overrides. NULL means "all defaults", which is
+   *  the permissive behaviour shipped in phase 8a — so this column changes
+   *  nothing until a DM tightens something. Only keys the DM has actually
+   *  changed are stored; unknown/absent keys fall back to
+   *  PERMISSIVE_DEFAULTS, so adding a permission later needs no backfill.
+   *  See $lib/server/auth/campaign-permissions. */
+  permissionsJson: text('permissions_json'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 });
 
@@ -409,6 +416,17 @@ export const actionLog = sqliteTable(
     targetHpBefore: integer('target_hp_before'),
     targetHpAfter: integer('target_hp_after'),
     notes: text('notes'),
+    /** JSON per-die detail for the rolls above, when they were rolled in-app
+     *  rather than typed. `attackRoll`/`damageRoll` stay the authoritative
+     *  totals; this is the "how" — which faces came up, which were dropped by
+     *  advantage, which were floored by Great Weapon Fighting. Null for typed
+     *  rolls and every row written before the dice roller.
+     *
+     *  SECURITY: this describes the actor's behaviour, so it MUST be blanked
+     *  for a hidden actor — see HIDDEN_ACTOR_BLANKS in
+     *  $lib/realtime/action-log. The redaction interface fails closed by
+     *  construction now, but the reason it does is this column. */
+    rollDetailJson: text('roll_detail_json'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({

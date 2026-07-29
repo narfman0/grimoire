@@ -684,6 +684,7 @@ export async function buildEncounterPageData(
         targetHpBefore: r.targetHpBefore,
         targetHpAfter: r.targetHpAfter,
         notes: r.notes,
+        rollDetail: r.rollDetailJson,
         // `as boolean` so the exported page-data type stays boolean — the
         // redactor below flips this to true for player viewers.
         redacted: false as boolean,

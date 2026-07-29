@@ -369,7 +369,11 @@ export const SubmitActionLogRequest = z
     hit: HitOutcome.nullable().optional(),
     targetHpBefore: z.number().int().nullable().optional(),
     targetHpAfter: z.number().int().nullable().optional(),
-    notes: z.string().max(500).nullable().optional()
+    notes: z.string().max(500).nullable().optional(),
+    /** Human-readable per-die breakdown from $lib/dice (`RollResult.detail`),
+     *  e.g. "[18, (7)] + 5 = 23". Display only — the server never parses it,
+     *  and attackRoll/damageRoll stay the authoritative totals. */
+    rollDetail: z.string().max(300).nullable().optional()
   })
   .openapi('SubmitActionLogRequest');
 

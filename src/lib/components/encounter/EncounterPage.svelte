@@ -321,6 +321,10 @@
   let resolveDamage: number | null = null;
   let resolveHit: HitOutcome = '';
   let resolveNotes = '';
+  /** Per-die breakdown, set by ResolvePanel's roll buttons; null when the DM
+   *  typed the totals. Persisted on the log row so the table can see how a
+   *  number was reached — and, for a hidden actor, redacted out server-side. */
+  let resolveRollDetail: string | null = null;
   let resolveSubmitting = false;
   let resolveError: string | null = null;
 
@@ -346,6 +350,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   function closeResolve() {
@@ -354,6 +359,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   /** Single-target apply: HP delta via participant API + one log entry. */
@@ -383,7 +389,8 @@
         label: resolveActionLabel
       }),
       actionLabel: resolveActionLabel,
-      notes: resolveNotes
+      notes: resolveNotes,
+      rollDetail: resolveRollDetail
     });
     return {
       ok: result.ok,
@@ -557,6 +564,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   // ---- difficulty rating (DM only) ---------------------------------------
@@ -683,6 +691,7 @@
         round,
         actionId: resolveSeedActionId,
         actionLabel: resolveActionLabel,
+        rollDetail: resolveRollDetail,
         notes: resolveNotes,
         liveSeed,
         amendsLogId: amendingLogId
@@ -2152,6 +2161,7 @@
     bind:saveDC={resolveSaveDC}
     bind:multiTargetIds={resolveMultiTargetIds}
     bind:targetSaveRolls={resolveTargetSaveRolls}
+    bind:rollDetail={resolveRollDetail}
     on:submit={() => (amendingLogId ? submitAmend() : submitDmResolve())}
     on:cancel={() => {
       amendingLogId = null;
