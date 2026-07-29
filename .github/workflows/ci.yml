@@ -11,15 +11,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
+          # Explicit on purpose. setup-node v6 stopped enabling pnpm/yarn
+          # caching automatically (it now only auto-caches npm), but an
+          # explicit `cache` input still works — and pnpm/action-setup must
+          # stay ahead of this step so the binary is on PATH when it runs.
           cache: pnpm
 
       - name: Install dependencies
@@ -51,15 +55,19 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
+          # Explicit on purpose. setup-node v6 stopped enabling pnpm/yarn
+          # caching automatically (it now only auto-caches npm), but an
+          # explicit `cache` input still works — and pnpm/action-setup must
+          # stay ahead of this step so the binary is on PATH when it runs.
           cache: pnpm
 
       - name: Install dependencies
@@ -76,7 +84,7 @@ jobs:
 
       - name: Upload traces on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: test-results/
@@ -95,7 +103,7 @@ jobs:
       group: deploy-grimoire
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Fly
         run: flyctl deploy --remote-only --app grimoire-wispy-fog-2051
