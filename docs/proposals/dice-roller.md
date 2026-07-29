@@ -346,6 +346,75 @@ economy, resource debits, and grants.
 Totals still persist through the existing `attackRoll` / `damageRoll` integer
 columns. No migration.
 
+### Phase 8 — permissive-by-default table permissions (~1 day, no migration)
+
+Added 2026-07-29 at the user's request: *"each campaign/DM should have
+permissions, allow by default, so anyone can roll (or update hp or whatever)
+for any player. The DM can override this per campaign."*
+
+Today the app defaults the **opposite** way — every mutation is owner-gated:
+
+| Surface | Current rule |
+|---|---|
+| `POST /api/encounters/[id]/log` | players may only act for participants tied to characters they own |
+| `.../participants/[pid]/plan` | same |
+| `.../participants/[pid]/hp`, `/conditions` | **reject PCs outright** with a 400 — PC vitals live on the character document, so there is no server path for *anyone*, DM included, to damage a PC |
+| `PATCH /api/characters/[id]` | owner-only (or admin), full document write |
+
+Two pieces, and the useful one needs no schema.
+
+**8a — the policy module and the permissive default.**
+`src/lib/server/auth/campaign-permissions.ts` exposes one async
+`getCampaignPermissions(campaignId)` returning:
+
+```ts
+export interface CampaignPermissions {
+  /** Submit log entries / resolve actions for any participant. */
+  actForOthers: boolean;
+  /** Adjust another PC's HP, temp HP, conditions, death saves. */
+  editOthersVitals: boolean;
+  /** Broadcast or clear another PC's plan. */
+  planForOthers: boolean;
+}
+```
+
+All three default `true`. Every call site consults the module rather than
+inlining an ownership check, so when the column lands in 8b the *only* thing
+that changes is where the policy comes from — zero call-site churn.
+
+Also in 8a: teach `.../participants/[pid]/hp` and `/conditions` to accept PC
+participants by applying a **scoped** patch to the linked character document
+(current HP, temp HP, conditions, death saves — nothing else). This is what
+makes "apply damage to any player" actually work, and it closes the DM-side
+gap in the table above as a side effect.
+
+**Deliberate scope boundary:** `PATCH /api/characters/[id]` stays owner-only.
+Permissive rolling and HP is a table-trust decision; letting any campaign
+member rewrite another player's class, feats, and inventory is not the same
+decision, and nothing in the request implies it. The narrow vitals endpoint
+gives the stated capability without that blast radius. Widening this later is
+a one-line policy addition — it should be an explicit choice, not a side
+effect.
+
+Membership remains the outer boundary throughout: `requireEncounter` already
+403s non-members, and permissive means *permissive within an approved
+campaign*, never public.
+
+**8b — per-campaign override (migration-gated).** `campaigns` has no settings
+column, so the DM-facing override needs
+`ALTER TABLE campaigns ADD permissions_json text;` — nullable, no backfill,
+absent means "all defaults", which is exactly the permissive behaviour 8a
+already ships. Rides the same migration branch as phase 7.
+
+**Extra care on this one:** `campaigns` is referenced by `characters`,
+`campaign_members`, and `encounters`. A drizzle-kit table rebuild here is far
+worse than on `participants`. Same hard gate — read the generated SQL, stop if
+it is not a plain `ADD COLUMN`.
+
+Plus the DM settings UI (three checkboxes on the campaign page) and an
+`audit-log` entry when a DM tightens a permission, so a player who suddenly
+can't roll can be told why.
+
 ### Phase 7 — persisted roll detail (migration-gated, defer)
 
 To show *which dice came up* in the log rather than just a total, `action_log`

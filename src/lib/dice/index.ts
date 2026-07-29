@@ -15,3 +15,20 @@ export type {
   D20Options,
   PoolOptions
 } from './types';
+
+// derive() → roll options. Types only from $lib/rules, erased at build.
+export {
+  d20OptionsForSkill,
+  d20OptionsForSave,
+  d20OptionsForAbilityCheck,
+  d20OptionsForToolCheck,
+  d20OptionsForInitiative,
+  d20OptionsForDeathSave,
+  d20OptionsForAttack,
+  poolOptionsForDamage,
+  poolOptionsForHealing,
+  poolOptionsForHitDice,
+  skillAutoFails,
+  abilityCheckAutoFails
+} from './from-derived';
+export type { DamageContext } from './from-derived';
