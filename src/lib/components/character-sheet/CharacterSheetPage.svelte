@@ -17,7 +17,9 @@
   import IdentityLine, { type IdentityEntry } from '$lib/components/IdentityLine.svelte';
   import { confirmDialog } from '$lib/components/ui/confirm';
   import {
+    d20OptionsForAttack,
     d20OptionsForDeathSave,
+    poolOptionsForDamage,
     poolOptionsForHitDice,
     rollD20,
     rollPool
@@ -352,6 +354,18 @@
             range: a.range,
             targetMode: a.targetMode,
             targetCount: a.targetCount,
+            // Roll-time fields (dice-roller phase 5). The resolve form reads
+            // these to prefill and to apply the action's damage modifiers;
+            // every one of them was computed by derive() and unread.
+            damageRolls: a.damageRolls,
+            critThreshold: a.critThreshold,
+            critExtraDie: a.critExtraDie,
+            damageDieMin: a.damageDieMin,
+            damageMaximized: a.damageMaximized,
+            damageMaximizedVsObjects: a.damageMaximizedVsObjects,
+            damageDiceDoubled: a.damageDiceDoubled,
+            damageDiceDoubledVsObjects: a.damageDiceDoubledVsObjects,
+            damageRerollAndKeepHigher: a.damageRerollAndKeepHigher,
             isFavorite: favorites.has(a.id),
             recency: recencyRank.has(a.id) ? recencyRank.get(a.id)! : Number.POSITIVE_INFINITY,
             slot,
@@ -434,6 +448,7 @@
   function openResolve() {
     if (!myPlan) return;
     resolveOpen = true;
+    resolveRolls = {};
     resolveAttack = null;
     resolveDamage = null;
     resolveHit = '';
@@ -460,9 +475,15 @@
     if (!encConn || !data.liveEncounter || !myPlan) return false;
     let targetHpBefore: number | null = null;
     let targetHpAfter: number | null = null;
+    // PC targets used to be skipped here: the participants HP endpoint 400'd
+    // on PC rows, so there was no server path to damage one. Phase 8a routes
+    // PC vitals into the character document, so a player can now heal (or
+    // hit) another PC. Still requires a live HP number to apply a delta to.
+    const targetHasLiveHp =
+      !!target && typeof encState?.participantHp[target.id]?.currentHp === 'number';
     if (
       target &&
-      target.kind !== 'pc' &&
+      (target.kind !== 'pc' || targetHasLiveHp) &&
       typeof damage === 'number' &&
       damage > 0 &&
       (outcome === 'hit' ||
@@ -508,6 +529,39 @@
       // api() already toasted; caller keeps its inline resolve-form hint
       return false;
     }
+  }
+
+  /** Rolls made in the resolve form, keyed so each input shows its own. */
+  let resolveRolls: Record<string, RollResult> = {};
+
+  /** Roll the planned action's attack. Consumes the action's critThreshold,
+   *  and auto-selects the outcome on a natural crit or fumble so the player
+   *  doesn't have to translate the die themselves. */
+  function rollPlannedAttack() {
+    if (!pickedAction || pickedAction.attackBonus == null) return;
+    const result = rollD20(pickedAction.attackBonus, d20OptionsForAttack(pickedAction));
+    resolveRolls = { ...resolveRolls, attack: result };
+    resolveAttack = result.total;
+    recordRoll(`${pickedAction.name} attack`, result);
+    if (result.d20?.isCrit) resolveHit = 'crit';
+    else if (result.d20?.isFumble) resolveHit = 'fumble';
+  }
+
+  /** Roll the planned action's damage. Consumes damageDieMin, damageMaximized,
+   *  damageDiceDoubled, damageRerollAndKeepHigher and critExtraDie — none of
+   *  which had a consumer before. Crit doubling keys off the outcome the
+   *  player has selected. */
+  function rollPlannedDamage() {
+    const formula = pickedAction?.damageRolls?.[0]?.formula;
+    if (!pickedAction || !formula) return;
+    const result = rollPool(
+      formula,
+      poolOptionsForDamage(pickedAction, { crit: resolveHit === 'crit' })
+    );
+    if (!result) return;
+    resolveRolls = { ...resolveRolls, damage: result };
+    resolveDamage = result.total;
+    recordRoll(`${pickedAction.name} damage`, result);
   }
 
   async function submitResolve() {
@@ -2276,6 +2330,149 @@
         on:concentrationStart={(e) => { concDraft = e.detail; startConcentration(); }}
         on:concentrationEnd={endConcentration}
       />
+
+      <!-- Player-side resolve (dice-roller phase 5).
+           openResolve/applyToTarget/submitResolve were written long ago and
+           no markup ever called them: the flow was complete and unreachable
+           in both pre-de-fork copies of this page. This is that markup. The
+           server always allowed it — POST /api/encounters/[id]/log accepts
+           player submitters. -->
+      {#if myPlan}
+        <div class="mt-3 rounded border border-emerald-800 bg-emerald-950/20 p-2 text-xs">
+          {#if !resolveOpen}
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400">Planned:</span>
+              <span class="font-semibold text-emerald-200">{myPlan.actionLabel}</span>
+              <button
+                class="ml-auto rounded bg-emerald-700 px-2 py-0.5 font-medium hover:bg-emerald-600 disabled:opacity-40"
+                disabled={busy}
+                on:click={openResolve}
+              >Resolve…</button>
+            </div>
+          {:else}
+            <div class="mb-2 font-semibold text-emerald-200">Resolve {myPlan.actionLabel}</div>
+
+            <div class="flex flex-wrap items-end gap-2">
+              {#if pickedAction?.attackBonus != null}
+                <label class="text-[11px]">
+                  <span class="block text-slate-400">Attack</span>
+                  <span class="flex items-center gap-1">
+                    <input
+                      type="number"
+                      class="w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono"
+                      bind:value={resolveAttack}
+                    />
+                    <button
+                      class="rounded border border-slate-600 px-1.5 py-0.5 hover:border-emerald-600 hover:text-emerald-200"
+                      title="Roll d20 {pickedAction.attackBonus >= 0 ? '+' : ''}{pickedAction.attackBonus}"
+                      on:click={rollPlannedAttack}
+                    >🎲</button>
+                  </span>
+                </label>
+              {/if}
+
+              {#if pickedAction?.damageRolls?.[0]}
+                <label class="text-[11px]">
+                  <span class="block text-slate-400">Damage</span>
+                  <span class="flex items-center gap-1">
+                    <input
+                      type="number"
+                      class="w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono"
+                      bind:value={resolveDamage}
+                    />
+                    <button
+                      class="rounded border border-slate-600 px-1.5 py-0.5 hover:border-emerald-600 hover:text-emerald-200"
+                      title="Roll {pickedAction.damageRolls[0].formula}"
+                      on:click={rollPlannedDamage}
+                    >🎲</button>
+                  </span>
+                </label>
+              {/if}
+
+              <label class="text-[11px]">
+                <span class="block text-slate-400">Outcome</span>
+                <select
+                  class="rounded border border-slate-700 bg-slate-950 px-1 py-0.5"
+                  bind:value={resolveHit}
+                >
+                  <option value="">—</option>
+                  <option value="hit">hit</option>
+                  <option value="crit">crit</option>
+                  <option value="miss">miss</option>
+                  <option value="fumble">fumble</option>
+                  <option value="saved">saved (½)</option>
+                  <option value="failed-save">failed save</option>
+                  <option value="heal">heal</option>
+                </select>
+              </label>
+
+              <label class="min-w-[8rem] flex-1 text-[11px]">
+                <span class="block text-slate-400">Notes</span>
+                <input
+                  class="w-full rounded border border-slate-700 bg-slate-950 px-1 py-0.5"
+                  maxlength="500"
+                  bind:value={resolveNotes}
+                />
+              </label>
+            </div>
+
+            {#if resolveRolls.attack || resolveRolls.damage}
+              <div class="mt-1 space-y-0.5">
+                {#if resolveRolls.attack}
+                  <RollResultChip result={resolveRolls.attack} label="attack" compact />
+                {/if}
+                {#if resolveRolls.damage}
+                  <RollResultChip result={resolveRolls.damage} label="damage" compact />
+                {/if}
+              </div>
+            {/if}
+
+            {#if isSaveAction && planTargetIds.length > 0 && pickedAction?.saveDC}
+              <div class="mt-2">
+                <div class="mb-1 text-slate-400">
+                  Save DC {pickedAction.saveDC.value}
+                  <span class="uppercase">{pickedAction.saveDC.ability}</span>
+                  — enter each target's roll
+                </div>
+                <ul class="grid grid-cols-2 gap-1">
+                  {#each planTargetIds as tid (tid)}
+                    {@const t = data.liveEncounter?.participants.find((p) => p.id === tid)}
+                    {#if t}
+                      <li class="flex items-center gap-1 rounded border border-slate-800 px-1 py-0.5">
+                        <span class="flex-1 truncate text-slate-300">{t.name}</span>
+                        <input
+                          type="number"
+                          class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[10px]"
+                          placeholder="save"
+                          bind:value={targetSaveRolls[tid]}
+                        />
+                      </li>
+                    {/if}
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+
+            {#if resolveError}
+              <p class="mt-1 text-red-300">{resolveError}</p>
+            {/if}
+
+            <div class="mt-2 flex items-center gap-2">
+              <button
+                class="rounded bg-emerald-600 px-2 py-0.5 font-medium hover:bg-emerald-500 disabled:opacity-40"
+                disabled={resolveSubmitting || busy}
+                on:click={submitResolve}
+              >{resolveSubmitting ? '…' : 'Submit'}</button>
+              <button
+                class="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800"
+                disabled={resolveSubmitting}
+                on:click={() => (resolveOpen = false)}
+              >Cancel</button>
+              <span class="text-slate-500">You can type what you rolled instead.</span>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </section>
   {/if}
 

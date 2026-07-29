@@ -42,7 +42,7 @@
 </script>
 
 {#if log.length > 0}
-  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4" data-testid="action-log">
     <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
       <h2 class="text-sm font-semibold text-slate-200">
         Action log ({entries.length}{#if entries.length !== log.length} of {log.length}{/if})
