@@ -39,9 +39,15 @@ jobs:
     # (realtime poll sync + reveals redaction) plus auth + character sheet.
     # Runs against a throwaway sqlite DB (see playwright.config.ts).
     #
-    # Deliberately NOT a deploy gate yet — deploy needs only `ci` — so a
-    # flaky e2e run can't block shipping. Once this job has proven stable
-    # for a while, promote it by adding `e2e` to deploy's `needs`.
+    # Promoted to a deploy gate 2026-07-29 (deploy needs: [ci, e2e]). It
+    # earned it: this suite caught the action-log redaction leak, the
+    # table-mode redaction path, and several real regressions during the
+    # WS2 build-out. Its failures are load-bearing now, not advisory.
+    #
+    # Note the failure mode to watch is locator collisions, not flakes —
+    # new UI text repeatedly broke loose getByText/getByRole locators in
+    # existing specs. That is the suite doing its job; tighten the
+    # locator (exact: true, or scope to a container) rather than retrying.
     needs: ci
     runs-on: ubuntu-latest
     steps:
@@ -77,11 +83,12 @@ jobs:
           retention-days: 7
 
   deploy:
-    # Only on master pushes (skips PRs and feature-branch CI runs); needs:ci
-    # gates on the type-check + test + build jobs above so red CI never
-    # ships. concurrency: drops in-flight deploys when a newer push lands
-    # so a fast string of merges doesn't pile up on Fly.
-    needs: ci
+    # Only on master pushes (skips PRs and feature-branch CI runs). Gates on
+    # both the type-check + test + build job and the Playwright suite, so
+    # neither a red unit run nor a broken two-client encounter flow can
+    # ship. concurrency: drops in-flight deploys when a newer push lands so
+    # a fast string of merges doesn't pile up on Fly.
+    needs: [ci, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     concurrency:
