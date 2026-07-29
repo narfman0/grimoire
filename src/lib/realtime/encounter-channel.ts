@@ -51,10 +51,10 @@ export interface TurnPlan {
   bonusTargetParticipantIds?: string[];
   notes: string;
   updatedAt: number;
-  /** Non-PC combat economy (used-slot flags + legendary counter). Rides
-   *  plan_json because participants have no combat-state column of their
-   *  own; PCs keep the same state on the character document instead. See
-   *  $lib/realtime/economy. */
+  /** Non-PC combat economy (used-slot flags, legendary counter, the DM's
+   *  NPC spell-slot tally). Rides plan_json because participants have no
+   *  combat-state column of their own; PCs keep the same state on the
+   *  character document instead. See $lib/realtime/economy. */
   combat?: Partial<CombatEconomy>;
   /** Round-scoped condition durations for a non-PC participant. Overlay on
    *  the flat conditions list; rides plan_json for the same reason `combat`
@@ -440,7 +440,10 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       try {
         if (characterId) {
           // PC: the character document owns these fields. Same write path
-          // the encounter page uses for conditions / concentration.
+          // the encounter page uses for conditions / concentration. Note
+          // `spellSlots` is deliberately not written here — it's the NPC
+          // tracker's state; a PC's slots are real derive() resources on
+          // the sheet.
           const ok = await patchCharacterDocFields(
             characterId,
             economyToCharacterDocFields(next)

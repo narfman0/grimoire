@@ -39,7 +39,11 @@
     EMPTY_ECONOMY,
     economyIsClear,
     legendaryUsedForRound,
+    normalizeEconomy,
     resetTurnEconomy,
+    setSpellSlotMax,
+    setSpellSlotUsed,
+    spellSlotsOf,
     type CombatEconomy
   } from '$lib/realtime/economy';
   import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
@@ -111,6 +115,16 @@
     for (const [pid, plan] of Object.entries(data.participantPlans ?? {})) {
       if (plan && typeof plan === 'object') seedPlans[pid] = plan as TurnPlan;
     }
+    // Non-PC combat state (legendary counter, NPC spell slots) rides
+    // plan_json.combat — the same home the poll projects from — so seeding
+    // it here means a reload paints the real tally instead of an empty one
+    // for the ~2s until the first poll lands. PCs seed from
+    // data.participantPcEconomy via `economyFor`.
+    const seedEconomy: Record<string, CombatEconomy> = {};
+    for (const [pid, plan] of Object.entries(data.participantPlans ?? {})) {
+      const combat = (plan as { combat?: unknown } | null)?.combat;
+      if (combat) seedEconomy[pid] = normalizeEconomy(combat);
+    }
     const seedHp: Record<string, ParticipantHp> = {};
     for (const p of data.participants) {
       const stats = data.participantPcStats?.[p.id];
@@ -144,7 +158,8 @@
         status: data.encounter.status as EncounterSnapshot['status'],
         activeParticipantId: data.encounter.activeParticipantId,
         plans: seedPlans,
-        participantHp: seedHp
+        participantHp: seedHp,
+        participantEconomy: seedEconomy
       }
     });
     const unsubState = conn.state.subscribe((v) => (liveState = v));
@@ -1690,27 +1705,28 @@
     writeEconomy(p, { ...economyFor(p.id), legendaryUsed: used, round: liveRound });
   }
 
-  // NPC spell slot tracker (client-only, per participant)
-  // Map<participantId, Record<level, { max: number; used: number }>>
-  let npcSpellSlots: Record<string, Record<number, { max: number; used: number }>> = {};
-  function initSlots(pid: string) {
-    if (!npcSpellSlots[pid]) {
-      npcSpellSlots[pid] = {};
-      npcSpellSlots = npcSpellSlots;
-    }
+  // NPC spell slot tracker. Persisted on the monster participant in the
+  // same `plan_json.combat` blob as the legendary counter (see
+  // $lib/realtime/economy), so it survives a reload and two DM tabs agree.
+  //
+  // Lifetime differs from the legendary counter on purpose: that one carries
+  // the `round` it was written in and expires on its own, because legendary
+  // actions replenish every round. Spell slots don't come back until a rest,
+  // and an NPC doesn't rest mid-encounter — so the tally is encounter-scoped
+  // and nothing but the DM (or cloning the encounter, which drops plan_json)
+  // clears it. `clearPlan` keeps it: `combat` is a plan extra.
+  type SlotParticipant = { id: string; kind: string; characterId: string | null };
+  function setSlotMax(p: SlotParticipant, level: number, max: number) {
+    mutateEconomy(p, (e) => setSpellSlotMax(e, level, max));
   }
-  function setSlotMax(pid: string, level: number, max: number) {
-    initSlots(pid);
-    const cur = npcSpellSlots[pid][level] ?? { max: 0, used: 0 };
-    npcSpellSlots[pid][level] = { max, used: Math.min(cur.used, max) };
-    npcSpellSlots = npcSpellSlots;
-  }
-  function toggleSlotUsed(pid: string, level: number, slotIdx: number) {
-    initSlots(pid);
-    const cur = npcSpellSlots[pid][level] ?? { max: 0, used: 0 };
-    const used = slotIdx < cur.used ? slotIdx : slotIdx + 1;
-    npcSpellSlots[pid][level] = { ...cur, used: Math.max(0, Math.min(cur.max, used)) };
-    npcSpellSlots = npcSpellSlots;
+  function toggleSlotUsed(p: SlotParticipant, level: number, slotIdx: number) {
+    mutateEconomy(p, (e) => {
+      const cur = spellSlotsOf(e)[level];
+      if (!cur) return e;
+      // Clicking the Nth pip fills up to N+1 when it's currently empty, and
+      // restores down to N when it's currently spent.
+      return setSpellSlotUsed(e, level, slotIdx < cur.used ? slotIdx : slotIdx + 1);
+    });
   }
   let showSlotEditor: Record<string, boolean> = {};
 </script>
@@ -1989,11 +2005,11 @@
       <!-- NPC spell slot tracker (DM only, non-PC) -->
       {#if data.role === 'dm' && !isPc}
         <NpcSpellSlotTracker
-          slots={npcSpellSlots[p.id] ?? {}}
+          slots={spellSlotsOf(economyByParticipant[p.id])}
           showEditor={showSlotEditor[p.id]}
           on:toggleEditor={() => { showSlotEditor[p.id] = !showSlotEditor[p.id]; showSlotEditor = showSlotEditor; }}
-          on:setMax={(e) => setSlotMax(p.id, e.detail.level, e.detail.max)}
-          on:toggleUsed={(e) => toggleSlotUsed(p.id, e.detail.level, e.detail.slotIdx)}
+          on:setMax={(e) => setSlotMax(p, e.detail.level, e.detail.max)}
+          on:toggleUsed={(e) => toggleSlotUsed(p, e.detail.level, e.detail.slotIdx)}
         />
       {/if}
 

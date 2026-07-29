@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
 import { Uuid } from '$lib/server/api/schemas';
-import { PlanJson } from '$lib/server/api/encounter-schemas';
+import { PlanJson, SpellSlotsJson } from '$lib/server/api/encounter-schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
@@ -77,7 +77,11 @@ const ParticipantEconomySchema = z.object({
   reactionUsed: z.boolean(),
   movementUsed: z.number().int().nonnegative(),
   legendaryUsed: z.number().int().nonnegative(),
-  round: z.number().int().nonnegative().optional()
+  round: z.number().int().nonnegative().optional(),
+  /** DM-tracked NPC spell slots, keyed by level. Encounter-scoped (no
+   *  `round` expiry — slots return on a rest, not on a round bump), so the
+   *  tally survives reloads and agrees across DM tabs. Non-PC only. */
+  spellSlots: SpellSlotsJson.optional()
 });
 
 const EncounterStateResponse = z.object({

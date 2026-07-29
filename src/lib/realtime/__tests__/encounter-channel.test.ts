@@ -367,6 +367,39 @@ describe('connectEncounter (polling)', () => {
     expect(get(conn.state).plans['mob-7']?.actionId).toBe('');
   });
 
+  // Regression: the NPC spell-slot tracker rides the same `combat` blob but
+  // is encounter-scoped — a DM clearing a monster's declared action must not
+  // hand the drow mage back its slots.
+  it('persists the NPC spell-slot tally and keeps it through clearPlan', async () => {
+    const calls: Array<{ url: string; method?: string; body: unknown }> = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state')) return jsonResponse(stateSnapshot());
+      calls.push({
+        url,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body as string) : null
+      });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    const withSlots = {
+      ...economy,
+      spellSlots: { 3: { max: 3, used: 2 } }
+    };
+    await conn.setEconomy('mob-7', null, withSlots);
+    expect(get(conn.state).participantEconomy['mob-7']).toEqual(withSlots);
+    expect(
+      ((calls.at(-1)!.body as { plan: TurnPlan }).plan.combat as typeof withSlots).spellSlots
+    ).toEqual({ 3: { max: 3, used: 2 } });
+
+    await conn.clearPlan('mob-7');
+    const cleared = (calls.at(-1)!.body as { plan: TurnPlan }).plan;
+    expect(cleared.actionId).toBe('');
+    expect(cleared.combat).toEqual(withSlots);
+  });
+
   it('clearPlan still DELETEs when there is no combat state to keep', async () => {
     const calls: Array<{ method?: string }> = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

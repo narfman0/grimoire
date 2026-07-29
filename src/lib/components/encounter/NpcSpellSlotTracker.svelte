@@ -1,7 +1,9 @@
 <script lang="ts">
   // NPC spell slot tracker (DM only, non-PC — the parent gates on both).
-  // Client-only, not persisted. State lives in the parent keyed by
-  // participant id, because the detail panel remounts on selection change.
+  // Stateless: the parent owns the numbers and persists them on the
+  // participant's `plan_json.combat` blob ($lib/realtime/economy), so the
+  // tally survives a reload and two DM tabs agree. Encounter-scoped — spell
+  // slots don't replenish on a round bump the way legendary actions do.
   import { createEventDispatcher } from 'svelte';
 
   export let slots: Record<number, { max: number; used: number }> = {};
@@ -17,7 +19,7 @@
   $: usedLevels = SPELL_LEVELS.filter((l) => (slots[l]?.max ?? 0) > 0);
 </script>
 
-<div class="mb-3">
+<div class="mb-3" data-testid="npc-spell-slots">
   <div class="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
     <span>Spell Slots</span>
     <button

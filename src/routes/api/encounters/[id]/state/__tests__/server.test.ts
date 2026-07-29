@@ -101,6 +101,52 @@ describe('GET /api/encounters/[id]/state', () => {
     expect(body.plans[mobId].combat.legendaryUsed).toBe(2);
   });
 
+  // Regression: the NPC spell-slot tally used to be a component variable, so
+  // a reload (or a second DM tab) lost the lich's expended slots entirely.
+  it('projects the NPC spell-slot tally from plan_json.combat, sanitizing it', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    await db
+      .update(schema.encounters)
+      .set({ round: 7 })
+      .where(eq(schema.encounters.id, encounterId));
+    const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Lich' });
+    await db
+      .update(schema.participants)
+      .set({
+        planJson: JSON.stringify({
+          actionId: '',
+          actionLabel: '',
+          targetParticipantIds: [],
+          notes: '',
+          updatedAt: 1,
+          // Written in round 2 and never touched since — unlike the
+          // legendary counter, the tally must NOT expire with the round.
+          combat: {
+            legendaryUsed: 1,
+            round: 2,
+            spellSlots: {
+              '3': { max: 3, used: 2 },
+              '5': { max: 1, used: 5 },
+              '9': { max: 0, used: 0 }
+            }
+          }
+        })
+      })
+      .where(eq(schema.participants.id, mobId));
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantEconomy[mobId].spellSlots).toEqual({
+      // used clamped into the pool; the zero-max level dropped.
+      3: { max: 3, used: 2 },
+      5: { max: 1, used: 1 }
+    });
+    // Still round 7, five rounds after the write — slots don't replenish.
+    expect(body.round).toBe(7);
+  });
+
   it('emits an all-clear economy for a participant that has never written one', async () => {
     const dmId = await seedUser(db, { username: 'dm' });
     const { campaignId } = await seedCampaign(db, { dmId });

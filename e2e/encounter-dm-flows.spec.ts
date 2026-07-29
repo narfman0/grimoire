@@ -193,6 +193,70 @@ test('multi-target save raises a queued CON save per concentrating target', asyn
   await expect(page.getByText(/is concentrating — CON save DC/)).toHaveCount(0);
 });
 
+// The NPC spell-slot tracker used to be a component variable: a DM tracking a
+// lich's slots lost the whole tally on reload and a second tab disagreed. It
+// now rides plan_json.combat like the legendary counter — but *without* that
+// counter's round expiry, because slots don't come back until a rest.
+test('NPC spell-slot tally survives a reload and reaches a second DM tab', async ({
+  browser,
+  baseURL
+}) => {
+  const dm = await signup(baseURL!, 'e2e_slots');
+  const { code } = await createCampaign(dm, 'Slot Check');
+  const encounterId = await createLiveEncounter(dm, code, 'Slot Enc');
+  const mageId = await addNpc(dm, encounterId, {
+    name: 'Drow Mage',
+    initiative: 14,
+    currentHp: 45,
+    maxHp: 45
+  });
+
+  const page = await newPageAs(browser, dm);
+  await page.goto(`/c/${code}/encounters/${encounterId}`);
+  await page.locator('li').filter({ hasText: 'Drow Mage' }).first().click();
+
+  const tracker = page.getByTestId('npc-spell-slots');
+  await expect(tracker).toBeVisible();
+  await expect(tracker).toContainText('None set');
+
+  // DM configures three level-3 slots…
+  await tracker.getByRole('button', { name: 'edit' }).click();
+  await tracker.locator('label').filter({ hasText: 'L3' }).locator('input').fill('3');
+  await tracker.locator('label').filter({ hasText: 'L3' }).locator('input').blur();
+  await tracker.getByRole('button', { name: 'done' }).click();
+  await expect(tracker.getByTitle('Expend slot')).toHaveCount(3);
+
+  // …and burns two of them.
+  await tracker.getByTitle('Expend slot').nth(1).click();
+  await expect(tracker.getByTitle('Restore slot')).toHaveCount(2);
+
+  // The tally is server state now.
+  await page.reload();
+  await page.locator('li').filter({ hasText: 'Drow Mage' }).first().click();
+  const afterReload = page.getByTestId('npc-spell-slots');
+  await expect(afterReload.getByTitle('Restore slot')).toHaveCount(2);
+  await expect(afterReload.getByTitle('Expend slot')).toHaveCount(1);
+
+  // A round bump must not replenish them — that's the legendary counter's
+  // rule, not this one's.
+  await dm.api.patch(`/api/encounters/${encounterId}`, { data: { round: 9 } });
+  await expect(afterReload.getByTitle('Restore slot')).toHaveCount(2);
+
+  // …and a second DM tab agrees, via the poll.
+  const second = await newPageAs(browser, dm);
+  await second.goto(`/c/${code}/encounters/${encounterId}`);
+  await second.locator('li').filter({ hasText: 'Drow Mage' }).first().click();
+  await expect(second.getByTestId('npc-spell-slots').getByTitle('Restore slot')).toHaveCount(2);
+
+  const state = (await (await dm.api.get(`/api/encounters/${encounterId}/state`)).json()) as {
+    participantEconomy: Record<string, { spellSlots?: Record<string, { max: number; used: number }> }>;
+  };
+  expect(state.participantEconomy[mageId].spellSlots).toEqual({ 3: { max: 3, used: 2 } });
+
+  await second.close();
+  await page.close();
+});
+
 // "Run it again": the header clone button copies the prep (roster, notes) and
 // resets the run (HP, status, log, reveals). The reveal reset is the part
 // that cannot be fixed after the fact — inheriting them would spoil an ambush

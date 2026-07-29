@@ -79,6 +79,46 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     expect(stored.actionLabel).toBe('Longsword (action)');
   });
 
+  // The NPC spell-slot tracker persists through this endpoint (plan_json's
+  // `combat` slot), so the validator has to accept the level-keyed table —
+  // and bound it, since plan_json is client-supplied.
+  it('accepts an NPC spell-slot table and rejects a bogus level key', async () => {
+    const { dmId, encounterId, monsterId } = await dmFixture(db);
+    const user = { id: dmId, username: 'dm', isAdmin: false, email: null, emailVerified: false };
+    const withSlots = {
+      plan: {
+        ...PLAN_BODY.plan,
+        combat: { legendaryUsed: 1, round: 2, spellSlots: { '3': { max: 3, used: 2 } } }
+      }
+    };
+
+    const res = await POST(
+      makeEvent({ user, params: { id: encounterId, pid: monsterId }, body: withSlots })
+    );
+    expect(res.status).toBe(200);
+    const rows = await db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.id, monsterId));
+    expect(JSON.parse(rows[0].planJson!).combat.spellSlots).toEqual({ '3': { max: 3, used: 2 } });
+
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user,
+          params: { id: encounterId, pid: monsterId },
+          body: {
+            plan: {
+              ...PLAN_BODY.plan,
+              combat: { spellSlots: { junk: { max: 3, used: 2 } } }
+            }
+          }
+        })
+      ),
+      400
+    );
+  });
+
   // Locks the role gate. Players cannot plan on non-PC participants —
   // every monster row would be DM-controllable otherwise.
   it('rejects a player who tries to plan for a non-PC participant', async () => {

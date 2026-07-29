@@ -136,6 +136,21 @@ export const UpdateParticipantRequest = z
 
 // ---- Turn plans (live channel) ----
 
+/** DM-tracked NPC spell slots, keyed by slot level as a string ("1".."9" —
+ *  JSON object keys are strings). Encounter-scoped, unlike the round-keyed
+ *  legendary counter: slots don't come back until a rest. `max` is
+ *  DM-configured — no statblock exposes a machine-readable slot table — so
+ *  both halves are stored. See $lib/realtime/economy. */
+export const SpellSlotsJson = z
+  .record(
+    z.string().regex(/^[1-9]$/),
+    z.object({
+      max: z.number().int().min(0).max(9),
+      used: z.number().int().min(0).max(9)
+    })
+  )
+  .openapi('SpellSlotsJson');
+
 /** Per-participant combat economy carried alongside the plan. PCs keep
  *  these on the character document instead (`actionUsedThisRound` & co.);
  *  this slot exists for non-PC participants, which have no document — the
@@ -148,7 +163,8 @@ export const CombatEconomyJson = z
     reactionUsed: z.boolean().optional(),
     movementUsed: z.number().int().nonnegative().optional(),
     legendaryUsed: z.number().int().nonnegative().optional(),
-    round: z.number().int().nonnegative().optional()
+    round: z.number().int().nonnegative().optional(),
+    spellSlots: SpellSlotsJson.optional()
   })
   .openapi('CombatEconomyJson');
 export type TCombatEconomyJson = z.infer<typeof CombatEconomyJson>;
