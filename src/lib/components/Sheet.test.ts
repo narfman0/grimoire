@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import Sheet from './Sheet.svelte';
 
 /** Hand-crafted SerializedDerived blob — minimum shape Sheet consumes.
@@ -31,7 +31,20 @@ function makeDerived(overrides: Partial<{
       },
       skills: {
         athletics: { bonus: 5, proficient: true, expertise: false }
-      },
+      } as Record<
+        string,
+        {
+          bonus: number;
+          ability?: string;
+          proficient: boolean;
+          expertise: boolean;
+          advantage?: boolean;
+          disadvantage?: boolean;
+          bonusDice?: string[];
+          d20Floor?: number;
+          autoFail?: boolean;
+        }
+      >,
       ac: overrides.ac ?? 16,
       hp: overrides.hp ?? { current: 24, max: 30, temp: 0 },
       speeds: { walk: 30 },
@@ -105,5 +118,86 @@ describe('Sheet', () => {
     const { getByText } = render(Sheet, { props: { derived: makeDerived() } });
     expect(getByText(/● STR/)).not.toBeNull();
     expect(getByText(/○ DEX/)).not.toBeNull();
+  });
+});
+
+// ---- dice-roller phase 3 ----
+//
+// The four SkillCell flags rendered as chips long before anything could roll
+// them. These assert the chips are now buttons that actually apply the flag.
+
+describe('rolling', () => {
+  it('rolls a skill check with advantage from the cell', async () => {
+    const derived = makeDerived();
+    derived.stats.skills.stealth = {
+      bonus: 7,
+      ability: 'dex',
+      proficient: true,
+      expertise: false,
+      advantage: true,
+      disadvantage: false
+    };
+    const { getByTitle, container } = render(Sheet, { derived });
+
+    await fireEvent.click(getByTitle('Roll Stealth'));
+
+    const total = Number(container.querySelector('[data-testid="roll-total"]')!.textContent);
+    // Advantage keeps the better of two d20s, +7.
+    expect(total).toBeGreaterThanOrEqual(8);
+    expect(total).toBeLessThanOrEqual(27);
+    expect(container.textContent).toContain('adv');
+  });
+
+  it("applies a skill's d20 floor so a low die can't drop the total", async () => {
+    const derived = makeDerived();
+    derived.stats.skills.arcana = {
+      bonus: 0,
+      ability: 'int',
+      proficient: true,
+      expertise: false,
+      advantage: false,
+      disadvantage: false,
+      d20Floor: 10
+    };
+    const { getByTitle, container } = render(Sheet, { derived });
+
+    // Reliable Talent: nothing below 10 can ever come out of this row.
+    for (let i = 0; i < 40; i++) {
+      await fireEvent.click(getByTitle('Roll Arcana'));
+      const total = Number(container.querySelector('[data-testid="roll-total"]')!.textContent);
+      expect(total).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it('rolls a saving throw', async () => {
+    const { getByTitle, container } = render(Sheet, { derived: makeDerived() });
+    await fireEvent.click(getByTitle('Roll a STR saving throw'));
+    const total = Number(container.querySelector('[data-testid="roll-total"]')!.textContent);
+    expect(total).toBeGreaterThanOrEqual(6); // +5 save
+    expect(total).toBeLessThanOrEqual(25);
+  });
+
+  it('rolls a raw ability check', async () => {
+    const { getByTitle, container } = render(Sheet, { derived: makeDerived() });
+    await fireEvent.click(getByTitle('Roll a raw DEX check'));
+    const total = Number(container.querySelector('[data-testid="roll-total"]')!.textContent);
+    expect(total).toBeGreaterThanOrEqual(2); // +1 mod
+    expect(total).toBeLessThanOrEqual(21);
+  });
+
+  it('marks an auto-fail skill rather than rolling it at disadvantage', () => {
+    const derived = makeDerived();
+    derived.stats.skills.investigation = {
+      bonus: 3,
+      ability: 'int',
+      proficient: false,
+      expertise: false,
+      advantage: false,
+      disadvantage: false,
+      autoFail: true
+    };
+    const { container } = render(Sheet, { derived });
+    expect(container.textContent).toContain('auto-fail');
+    expect(container.textContent).not.toContain('dis');
   });
 });

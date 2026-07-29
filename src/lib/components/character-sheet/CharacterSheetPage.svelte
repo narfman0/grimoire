@@ -17,6 +17,15 @@
   import IdentityLine, { type IdentityEntry } from '$lib/components/IdentityLine.svelte';
   import { confirmDialog } from '$lib/components/ui/confirm';
   import {
+    d20OptionsForDeathSave,
+    poolOptionsForHitDice,
+    rollD20,
+    rollPool
+  } from '$lib/dice';
+  import type { RollResult } from '$lib/dice';
+  import { recordRoll } from '$lib/client/dice-log';
+  import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
+  import {
     derive,
     refreshActivations,
     refreshSpentResourcesOnRest,
@@ -783,6 +792,39 @@
     });
   }
 
+  /** Last death-save roll, shown beside the pips. */
+  let deathSaveRoll: RollResult | null = null;
+
+  /** Roll a death save and apply the RAW outcome. `deathSaveAdvantage` is
+   *  consumed here; it had no runtime effect before.
+   *
+   *  A natural 20 regains 1 HP (which ends death saves entirely) and a
+   *  natural 1 counts as two failures — both key off the natural die, which
+   *  is why rollD20 reports it separately from the total. */
+  async function rollDeathSave() {
+    if (!derived) return;
+    const result = rollD20(0, d20OptionsForDeathSave(derived.stats));
+    deathSaveRoll = result;
+    recordRoll('Death save', result);
+
+    const { natural } = result.d20!;
+    await patchDocument((d) => {
+      if (natural === 20) {
+        d.currentHp = Math.max(1, d.currentHp);
+        d.deathSaves = undefined;
+        return;
+      }
+      if (!d.deathSaves) d.deathSaves = { successes: 0, failures: 0 };
+      if (natural === 1) {
+        d.deathSaves.failures = Math.min(3, d.deathSaves.failures + 2);
+      } else if (result.total >= 10) {
+        d.deathSaves.successes = Math.min(3, d.deathSaves.successes + 1);
+      } else {
+        d.deathSaves.failures = Math.min(3, d.deathSaves.failures + 1);
+      }
+    });
+  }
+
   async function setTempHp() {
     const n = Math.max(0, Math.floor(tempHpDraft));
     await patchDocument((d) => {
@@ -807,12 +849,20 @@
       cls.hpRolledPerLevel.length > 1
         ? (cls.hpRolledPerLevel[1] - 1) * 2
         : cls.hpRolledPerLevel[0];
-    const recovery = Math.max(1, avgPerHitDie(hitDieGuess) + conMod);
+    // Roll the die rather than awarding its average (dice-roller phase 3).
+    // `hitDiceMaximized` (periapt of wound closure) is honoured here — it had
+    // no consumer at all before. RAW floors recovery at 1 even with a bad CON.
+    const roll = rollPool(`1d${hitDieGuess}`, poolOptionsForHitDice(derived.stats));
+    const rolled = roll?.total ?? avgPerHitDie(hitDieGuess);
+    const recovery = Math.max(1, rolled + conMod);
     await patchDocument((d) => {
       d.hitDiceSpent[classSlug] = (d.hitDiceSpent[classSlug] ?? 0) + 1;
       d.currentHp = Math.min(derived!.stats.hp.max, d.currentHp + recovery);
     });
-    restNote = `Spent 1 hit die (${classSlug}); recovered ${recovery} HP`;
+    if (roll) recordRoll(`Hit die (${classSlug})`, roll);
+    restNote = `Spent 1 hit die (${classSlug}); rolled ${roll?.detail ?? rolled} ${
+      conMod >= 0 ? '+' : '−'
+    } ${Math.abs(conMod)} CON → recovered ${recovery} HP`;
   }
 
   async function toggleCondition(name: string, on: boolean) {
@@ -919,6 +969,22 @@
     editAbilities = { ...charDoc.abilityScores };
     editError = null;
     editingMeta = true;
+  }
+
+  /** Roll 4d6, drop the lowest, for each of the six abilities — the classic
+   *  method the sheet has always named but never performed (the "Rolled" HP
+   *  option awards averages, and ability scores were type-them-in only).
+   *  Fills the edit form; the user still has to Save, and can hand-edit any
+   *  score afterwards. */
+  function rollAbilityScores() {
+    const next = { ...editAbilities };
+    for (const ab of ABILITY_KEYS) {
+      const result = rollPool('4d6kh3');
+      if (!result) continue;
+      next[ab] = result.total;
+      recordRoll(`${ab.toUpperCase()} (4d6kh3)`, result);
+    }
+    editAbilities = next;
   }
 
   async function saveMetaEdit() {
@@ -2106,7 +2172,15 @@
       </label>
     </div>
     <div class="mb-3">
-      <span class="mb-1 block text-xs text-slate-400">Ability scores (3-30)</span>
+      <div class="mb-1 flex items-center gap-2">
+        <span class="block text-xs text-slate-400">Ability scores (3-30)</span>
+        <button
+          class="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
+          disabled={busy}
+          title="Roll 4d6 drop lowest for each ability"
+          on:click={rollAbilityScores}
+        >Roll 4d6kh3</button>
+      </div>
       <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
         {#each ABILITY_KEYS as ab}
           <label class="text-xs">
@@ -2273,6 +2347,15 @@
         <div class="mt-3 rounded border border-slate-700 bg-slate-950/40 p-2 text-xs">
           <div class="mb-1 flex items-center gap-2">
             <span class="font-semibold text-slate-300">Death saves</span>
+            <button
+              class="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
+              disabled={busy || ds.successes >= 3 || ds.failures >= 3}
+              title="Roll a death saving throw and apply the result"
+              on:click={rollDeathSave}
+            >Roll</button>
+            {#if deathSaveRoll}
+              <RollResultChip result={deathSaveRoll} compact />
+            {/if}
             {#if ds.successes >= 3}
               <span class="rounded bg-emerald-800/60 px-1.5 py-0.5 text-[10px] text-emerald-300">Stable</span>
             {:else if ds.failures >= 3}

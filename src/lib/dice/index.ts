@@ -32,3 +32,4 @@ export {
   abilityCheckAutoFails
 } from './from-derived';
 export type { DamageContext } from './from-derived';
+export type { SkillRollInput, SaveRollInput, ToolRollInput, StatsRollInput } from './from-derived';

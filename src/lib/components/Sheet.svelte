@@ -1,13 +1,24 @@
 <script lang="ts">
-  // Pure presentation: takes a `derived` payload (the SerializedDerived shape
+  // Character sheet. Takes a `derived` payload (the SerializedDerived shape
   // produced by sheet-rendering routes, where Sets-on-stats have been swapped
-  // for arrays) and renders a read-only character sheet. No DB or fetch
-  // dependencies — works the same for the fixture preview pages and the
-  // per-campaign character sheet routes.
+  // for arrays). No DB or fetch dependencies — works the same for the fixture
+  // preview pages and the per-campaign character sheet routes.
+  //
+  // Saves, skills and ability scores are clickable (dice-roller phase 3).
+  // That single change is what activates the largest cluster of previously
+  // inert engine flags: SkillCell.advantage / disadvantage / bonusDice /
+  // d20Floor had been rendering as chips that did nothing, and saveD20Floor,
+  // checkD20Floor, abilityCheckAdvantage and abilityCheckBonusDice had no
+  // consumer at all. `$lib/dice/from-derived` owns the flag→option mapping;
+  // this component just calls it. Results are ephemeral — displayed here and
+  // pushed to the shared tray history, never persisted.
   type SerializedDerived = {
     stats: {
       abilities: Record<string, { score: number; mod: number }>;
-      saves: Record<string, { bonus: number; proficient: boolean }>;
+      saves: Record<
+        string,
+        { bonus: number; proficient: boolean; advantage?: boolean; disadvantage?: boolean }
+      >;
       skills: Record<
         string,
         {
@@ -18,6 +29,7 @@
           disadvantage?: boolean;
           bonusDice?: string[];
           d20Floor?: number;
+          autoFail?: boolean;
         }
       >;
       ac: number;
@@ -37,6 +49,12 @@
       senses: Record<string, number>;
       traits?: string[];
       saveD20Floor?: number;
+      // Present on the wire (serializeDerivedClient spreads all of stats);
+      // declared here so the roll adapters can read them.
+      checkD20Floor?: number;
+      abilityCheckAdvantage?: Record<string, 'advantage' | 'disadvantage' | 'both'>;
+      abilityCheckBonusDice?: Record<string, string[]>;
+      abilityCheckAutoFail?: Record<string, true>;
     };
     actions: Array<{
       id: string;
@@ -84,6 +102,18 @@
   import { costLabel } from '$lib/rules/action-cost';
   import { hasResourceBudget } from '$lib/rules/apply-grants';
   import { grantSummary } from '$lib/rules/grant-summary';
+  import {
+    abilityCheckAutoFails,
+    d20OptionsForAbilityCheck,
+    d20OptionsForSave,
+    d20OptionsForSkill,
+    rollD20,
+    skillAutoFails
+  } from '$lib/dice';
+  import type { AbilityKey } from '$lib/rules/types';
+  import type { RollResult } from '$lib/dice';
+  import { recordRoll } from '$lib/client/dice-log';
+  import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
 
   export let derived: SerializedDerived;
   /** When set, actions that carry grants or a spendsResource debit render
@@ -113,6 +143,38 @@
     return n >= 0 ? `+${n}` : `${n}`;
   }
 
+  // ---- rolling ----
+  //
+  // One roll is shown at a time, keyed by row, so the sheet doesn't grow a
+  // second scrolling log; the full history lives in the dice tray.
+  let lastRoll: { key: string; label: string; result: RollResult } | null = null;
+
+  function roll(key: string, label: string, modifier: number, opts: Parameters<typeof rollD20>[1]) {
+    const result = rollD20(modifier, opts);
+    lastRoll = { key, label, result };
+    recordRoll(label, result);
+  }
+
+  const titleCase = (slug: string) =>
+    slug.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
+  function rollSkill(name: string, skill: SerializedDerived['stats']['skills'][string]) {
+    roll(`skill:${name}`, titleCase(name), skill.bonus, d20OptionsForSkill(skill, stats));
+  }
+
+  function rollSave(ab: string, save: SerializedDerived['stats']['saves'][string]) {
+    roll(`save:${ab}`, `${ab.toUpperCase()} save`, save.bonus, d20OptionsForSave(save, stats));
+  }
+
+  function rollAbility(ab: AbilityKey) {
+    roll(
+      `ability:${ab}`,
+      `${ab.toUpperCase()} check`,
+      stats.abilities[ab].mod,
+      d20OptionsForAbilityCheck(ab, stats)
+    );
+  }
+
 </script>
 
 <!-- Top stats grid -->
@@ -129,11 +191,22 @@
 <section class="mb-6 grid grid-cols-3 gap-3 md:grid-cols-6">
   {#each abilityOrder as ab}
     {@const cell = stats.abilities[ab]}
-    <div class="rounded border border-slate-800 bg-slate-900/40 p-3 text-center">
+    {@const autoFail = abilityCheckAutoFails(ab, stats)}
+    <button
+      class="rounded border border-slate-800 bg-slate-900/40 p-3 text-center hover:border-emerald-700 hover:bg-slate-900/70"
+      title="Roll a raw {ab.toUpperCase()} check"
+      on:click={() => rollAbility(ab)}
+    >
       <div class="text-xs uppercase tracking-wide text-slate-500">{ab}</div>
       <div class="mt-1 text-2xl font-semibold">{cell.score}</div>
       <div class="text-sm text-slate-400">{fmt(cell.mod)}</div>
-    </div>
+      {#if autoFail}
+        <div class="mt-1 rounded bg-red-900/50 px-1 text-[10px] uppercase text-red-300">auto-fail</div>
+      {/if}
+      {#if lastRoll?.key === `ability:${ab}`}
+        <div class="mt-1"><RollResultChip result={lastRoll.result} compact /></div>
+      {/if}
+    </button>
   {/each}
 </section>
 
@@ -151,11 +224,25 @@
     <ul class="space-y-1 text-sm">
       {#each abilityOrder as ab}
         {@const s = stats.saves[ab]}
-        <li class="flex justify-between">
-          <span class={s.proficient ? 'font-semibold text-emerald-300' : 'text-slate-300'}>
-            {s.proficient ? '●' : '○'} {ab.toUpperCase()}
-          </span>
-          <span class="font-mono">{fmt(s.bonus)}</span>
+        <li>
+          <button
+            class="flex w-full items-baseline justify-between rounded px-1 py-0.5 text-left hover:bg-slate-800/60"
+            title="Roll a {ab.toUpperCase()} saving throw"
+            on:click={() => rollSave(ab, s)}
+          >
+            <span class={s.proficient ? 'font-semibold text-emerald-300' : 'text-slate-300'}>
+              {s.proficient ? '●' : '○'} {ab.toUpperCase()}
+              {#if s.advantage && !s.disadvantage}
+                <span class="ml-1 rounded bg-emerald-900/50 px-1 text-[10px] uppercase text-emerald-300">adv</span>
+              {:else if s.disadvantage && !s.advantage}
+                <span class="ml-1 rounded bg-red-900/50 px-1 text-[10px] uppercase text-red-300">dis</span>
+              {/if}
+            </span>
+            <span class="font-mono">{fmt(s.bonus)}</span>
+          </button>
+          {#if lastRoll?.key === `save:${ab}`}
+            <div class="px-1 pb-1"><RollResultChip result={lastRoll.result} compact /></div>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -165,7 +252,12 @@
     <h2 class="mb-3 text-lg font-semibold">Skills</h2>
     <ul class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
       {#each Object.entries(stats.skills).sort(([a], [b]) => a.localeCompare(b)) as [name, skill]}
-        <li class="flex justify-between">
+        <li>
+          <button
+            class="flex w-full items-baseline justify-between rounded px-1 py-0.5 text-left hover:bg-slate-800/60"
+            title="Roll {titleCase(name)}"
+            on:click={() => rollSkill(name, skill)}
+          >
           <span class={skill.proficient ? 'font-semibold text-emerald-300' : 'text-slate-400'}>
             {skill.proficient ? '●' : '○'}
             <span class="capitalize">{name.replace(/-/g, ' ')}</span>
@@ -183,8 +275,15 @@
                 title="Treat a d20 roll of {skill.d20Floor} or lower as {skill.d20Floor}"
               >min {skill.d20Floor}</span>
             {/if}
+            {#if skillAutoFails(skill)}
+              <span class="ml-1 rounded bg-red-900/50 px-1 text-[10px] uppercase text-red-300">auto-fail</span>
+            {/if}
           </span>
           <span class="font-mono">{fmt(skill.bonus)}</span>
+          </button>
+          {#if lastRoll?.key === `skill:${name}`}
+            <div class="px-1 pb-1"><RollResultChip result={lastRoll.result} compact /></div>
+          {/if}
         </li>
       {/each}
     </ul>

@@ -1,12 +1,51 @@
-import type {
-  AbilityKey,
-  Action,
-  SaveCell,
-  SkillCell,
-  StatBlock,
-  ToolCheckCell
-} from '$lib/rules/types';
+import type { AbilityKey, Action, StatBlock } from '$lib/rules/types';
 import type { D20Options, PoolOptions } from './types';
+
+// Inputs are structural rather than the engine's exact cell interfaces, and
+// stat blocks come in as Partial. Components that hand-narrow the serialized
+// derived payload (Sheet.svelte declares its own reduced shape) can then call
+// these directly instead of casting. SkillCell / SaveCell / ToolCheckCell are
+// all assignable to the shapes below.
+
+/** The roll-relevant slice of a SkillCell. */
+export interface SkillRollInput {
+  advantage?: boolean;
+  disadvantage?: boolean;
+  bonusDice?: string[];
+  d20Floor?: number;
+  autoFail?: boolean;
+}
+
+/** The roll-relevant slice of a SaveCell. */
+export interface SaveRollInput {
+  advantage?: boolean;
+  disadvantage?: boolean;
+}
+
+/** The roll-relevant slice of a ToolCheckCell. */
+export interface ToolRollInput {
+  advantage?: boolean;
+  disadvantage?: boolean;
+  bonusDice?: string[];
+}
+
+/** The roll-relevant slice of a StatBlock. Structural (not `Partial<StatBlock>`)
+ *  because callers hand-narrow the serialized payload and their `saves` /
+ *  `skills` records are keyed by `string`, which a Partial<StatBlock> rejects
+ *  even though nothing here reads those fields. StatBlock itself remains
+ *  assignable. */
+export interface StatsRollInput {
+  checkD20Floor?: number;
+  saveD20Floor?: number;
+  abilityCheckAdvantage?: { [ability: string]: 'advantage' | 'disadvantage' | 'both' | undefined };
+  abilityCheckBonusDice?: { [ability: string]: string[] | undefined };
+  abilityCheckAutoFail?: { [ability: string]: true | undefined };
+  initiativeAdvantage?: boolean;
+  deathSaveAdvantage?: boolean;
+  hitDiceMaximized?: boolean;
+}
+
+type Stats = StatsRollInput;
 
 // derive() → roll options. This is the *one* place that knows which engine
 // flag maps to which dice behaviour.
@@ -27,10 +66,10 @@ import type { D20Options, PoolOptions } from './types';
 /** Skill check — activates SkillCell.advantage / disadvantage / bonusDice /
  *  d20Floor, the four flags that until now rendered as inert chips on the
  *  sheet. */
-export function d20OptionsForSkill(cell: SkillCell, stats?: StatBlock): D20Options {
+export function d20OptionsForSkill(cell: SkillRollInput, stats?: Stats): D20Options {
   return {
-    advantage: cell.advantage,
-    disadvantage: cell.disadvantage,
+    advantage: cell.advantage === true,
+    disadvantage: cell.disadvantage === true,
     ...(cell.bonusDice?.length ? { bonusDice: cell.bonusDice } : {}),
     // The skill cell already folds in `check.d20Floor`; stats is accepted for
     // symmetry with the other adapters and as a fallback for callers holding
@@ -46,16 +85,16 @@ export function d20OptionsForSkill(cell: SkillCell, stats?: StatBlock): D20Optio
 /** Whether this check fails regardless of the roll. Deliberately *not* folded
  *  into D20Options: RAW says the check fails, which is not the same as rolling
  *  at disadvantage, and the caller has to render it differently. */
-export function skillAutoFails(cell: SkillCell): boolean {
+export function skillAutoFails(cell: SkillRollInput): boolean {
   return cell.autoFail === true;
 }
 
 /** Saving throw. The floor lives on the stat block (`save.d20Floor`), not the
  *  cell. */
-export function d20OptionsForSave(cell: SaveCell, stats?: StatBlock): D20Options {
+export function d20OptionsForSave(cell: SaveRollInput, stats?: Stats): D20Options {
   return {
-    advantage: cell.advantage,
-    disadvantage: cell.disadvantage,
+    advantage: cell.advantage === true,
+    disadvantage: cell.disadvantage === true,
     ...(stats?.saveD20Floor != null ? { d20Floor: stats.saveD20Floor } : {})
   };
 }
@@ -63,7 +102,7 @@ export function d20OptionsForSave(cell: SaveCell, stats?: StatBlock): D20Options
 /** Raw (non-skill) ability check. `abilityCheckAdvantage` uses 'both' to mean
  *  both were granted — passing both through lets rollD20 apply the RAW
  *  cancellation in one place rather than re-deriving it here. */
-export function d20OptionsForAbilityCheck(ability: AbilityKey, stats: StatBlock): D20Options {
+export function d20OptionsForAbilityCheck(ability: AbilityKey, stats: Stats): D20Options {
   const state = stats.abilityCheckAdvantage?.[ability];
   const bonusDice = stats.abilityCheckBonusDice?.[ability];
   return {
@@ -75,17 +114,17 @@ export function d20OptionsForAbilityCheck(ability: AbilityKey, stats: StatBlock)
 }
 
 /** Whether a raw ability check auto-fails. See skillAutoFails. */
-export function abilityCheckAutoFails(ability: AbilityKey, stats: StatBlock): boolean {
+export function abilityCheckAutoFails(ability: AbilityKey, stats: Stats): boolean {
   return stats.abilityCheckAutoFail?.[ability] === true;
 }
 
 /** Tool check. A tool check *is* an ability check, so the check-wide floor
  *  applies; tools have no fixed governing ability, so there's no numeric
  *  bonus to fold in — the caller supplies the modifier. */
-export function d20OptionsForToolCheck(cell: ToolCheckCell, stats?: StatBlock): D20Options {
+export function d20OptionsForToolCheck(cell: ToolRollInput, stats?: Stats): D20Options {
   return {
-    advantage: cell.advantage,
-    disadvantage: cell.disadvantage,
+    advantage: cell.advantage === true,
+    disadvantage: cell.disadvantage === true,
     ...(cell.bonusDice?.length ? { bonusDice: cell.bonusDice } : {}),
     ...(stats?.checkD20Floor != null ? { d20Floor: stats.checkD20Floor } : {})
   };
@@ -93,14 +132,14 @@ export function d20OptionsForToolCheck(cell: ToolCheckCell, stats?: StatBlock): 
 
 /** Initiative. Activates `initiativeAdvantage`, which the encounter's NPC
  *  auto-roll has been computing and ignoring. */
-export function d20OptionsForInitiative(stats: StatBlock): D20Options {
+export function d20OptionsForInitiative(stats: Stats): D20Options {
   return { advantage: stats.initiativeAdvantage === true };
 }
 
 /** Death saving throw. Crit/fumble stay at the default 20/1 — a natural 20 on
  *  a death save regains 1 HP and a natural 1 costs two failures, and no
  *  feature moves those thresholds. */
-export function d20OptionsForDeathSave(stats: StatBlock): D20Options {
+export function d20OptionsForDeathSave(stats: Stats): D20Options {
   return { advantage: stats.deathSaveAdvantage === true };
 }
 
@@ -162,6 +201,6 @@ export function poolOptionsForHealing(action: Pick<Action, 'healMaximized'>): Po
 
 /** Hit dice spent on a short rest. Activates `hitDiceMaximized` (periapt of
  *  wound closure) — the sheet currently awards the average and never rolls. */
-export function poolOptionsForHitDice(stats: StatBlock): PoolOptions {
+export function poolOptionsForHitDice(stats: Stats): PoolOptions {
   return stats.hitDiceMaximized === true ? { maximize: true } : {};
 }
