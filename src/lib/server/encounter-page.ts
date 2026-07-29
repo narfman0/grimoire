@@ -12,6 +12,7 @@
 import { error } from '@sveltejs/kit';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { readCombatState } from '$lib/encounter/combat-state';
 import { monsterDerive, type MonsterDerived } from '$lib/rules/monster-derive';
 import { hpBucket, parseReveals, type ParticipantReveals } from '$lib/realtime/reveals';
 import { initiativeCompare, makePlaceholderNamer } from '$lib/realtime/participants';
@@ -335,6 +336,11 @@ export async function buildEncounterPageData(
    *  SSR can render the chooser's selection without waiting for the SSE
    *  channel to deliver a 'plan' event. */
   const participantPlans: Record<string, unknown> = {};
+  /** Non-PC combat state (migration 0009), read with the one-release
+   *  fallback to the legacy plan_json keys. Only the lair marker is shipped
+   *  to the page — the economy and timers already ride their own projections
+   *  through the poll. */
+  const combatStates: Record<string, { lair?: boolean }> = {};
   /** Persisted concentration target per non-PC participant. PC concentration
    *  lives on the character document and rides through participantPcConcentrating
    *  below. */
@@ -343,6 +349,7 @@ export async function buildEncounterPageData(
     // A hidden participant is absent from the player's participant list —
     // its plan / concentration must not ride along in these id-keyed maps.
     if (!visibleToViewer.has(p.id)) continue;
+    combatStates[p.id] = readCombatState(p.combatStateJson, p.planJson);
     if (p.planJson) {
       try {
         participantPlans[p.id] = JSON.parse(p.planJson);
@@ -665,6 +672,11 @@ export async function buildEncounterPageData(
     participantPcConcentrating,
     participantPcReceivedBuffs,
     participantPlans,
+    participantLair: Object.fromEntries(
+      Object.entries(combatStates)
+        .filter(([, cs]) => cs.lair === true)
+        .map(([pid]) => [pid, true])
+    ),
     participantNonPcConcentrating,
     actionLog: redactActionLog(
       logRows.map((r) => ({

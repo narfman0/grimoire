@@ -228,8 +228,23 @@ describe('DELETE /api/encounters/[id]/participants/[pid]/plan', () => {
   // reset — silently wiped the combat economy, the DM's NPC spell slots,
   // the condition-duration overlay and the lair marker along with the
   // plan. The preservation used to live only in the channel's clearPlan.
-  it('keeps economy, slots, timers and lair when the DM DELETEs the plan', async () => {
+  // Inverted by migration 0009. This used to assert that DELETE rewrote the
+  // plan as an *emptied* plan so the economy, timers and lair marker riding
+  // plan_json survived — a workaround for four concerns sharing one column.
+  // They have their own column now, so DELETE does the plain thing its name
+  // promises and the state it must not touch is unreachable from here.
+  it('clears only the plan, leaving combat state untouched', async () => {
     const { dmId, encounterId, monsterId } = await dmFixture(db);
+    const combatState = JSON.stringify({
+      combat: {
+        reactionUsed: true,
+        legendaryUsed: 2,
+        round: 3,
+        spellSlots: { '3': { max: 3, used: 2 } }
+      },
+      conditionTimers: [{ condition: 'poisoned', untilRound: 9 }],
+      lair: true
+    });
     await db
       .update(schema.participants)
       .set({
@@ -238,16 +253,9 @@ describe('DELETE /api/encounters/[id]/participants/[pid]/plan', () => {
           actionLabel: 'Staff',
           targetParticipantIds: ['pc-1'],
           notes: 'zap them',
-          updatedAt: 1,
-          combat: {
-            reactionUsed: true,
-            legendaryUsed: 2,
-            round: 3,
-            spellSlots: { '3': { max: 3, used: 2 } }
-          },
-          conditionTimers: [{ condition: 'poisoned', untilRound: 9 }],
-          lair: true
-        })
+          updatedAt: 1
+        }),
+        combatStateJson: combatState
       })
       .where(eq(schema.participants.id, monsterId));
 
@@ -263,21 +271,10 @@ describe('DELETE /api/encounters/[id]/participants/[pid]/plan', () => {
       .select()
       .from(schema.participants)
       .where(eq(schema.participants.id, monsterId));
-    const stored = JSON.parse(rows[0].planJson!);
-    // The declared intent is gone — an empty actionId reads as "no plan".
-    expect(stored.actionId).toBe('');
-    expect(stored.actionLabel).toBe('');
-    expect(stored.targetParticipantIds).toEqual([]);
-    expect(stored.notes).toBe('');
-    // Everything that merely shares the column survives.
-    expect(stored.combat).toMatchObject({
-      reactionUsed: true,
-      legendaryUsed: 2,
-      round: 3,
-      spellSlots: { 3: { max: 3, used: 2 } }
-    });
-    expect(stored.conditionTimers).toEqual([{ condition: 'poisoned', untilRound: 9 }]);
-    expect(stored.lair).toBe(true);
+    // Intent gone outright — no more empty-plan placeholder.
+    expect(rows[0].planJson).toBeNull();
+    // And the column this route has no business touching is byte-identical.
+    expect(rows[0].combatStateJson).toBe(combatState);
   });
 
   it('clears planJson when the DM DELETEs', async () => {

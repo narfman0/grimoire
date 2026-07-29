@@ -191,6 +191,9 @@
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
   $: liveStatus = liveState?.status ?? data.encounter.status;
   $: livePlans = liveState?.plans ?? {};
+  /** DM lair markers. Projected by the poll since migration 0009 moved the
+   *  marker off plan_json — reading it from the plan would now miss it. */
+  $: liveLair = liveState?.participantLair ?? data.participantLair ?? {};
   $: liveHpMap = liveState?.participantHp ?? {};
 
   // --- live participant list ----------------------------------------------
@@ -1704,7 +1707,7 @@
   // $lib/encounter/lair). Dismissed per round so it doesn't nag on every
   // poll, and re-arms when the round bumps.
   function lairFlagFor(participantId: string): boolean {
-    return livePlans[participantId]?.lair === true;
+    return liveLair[participantId] === true;
   }
 
   function toggleLair(p: { id: string }) {
@@ -1720,7 +1723,7 @@
             name: p.name,
             initiative: p.initiative,
             legendaryActionCount: p.statblock?.legendaryActions?.length ?? 0,
-            lair: livePlans[p.id]?.lair === true
+            lair: liveLair[p.id] === true
           })),
           activeParticipantId: liveActive
         })
@@ -2038,7 +2041,7 @@
           <input
             type="checkbox"
             class="accent-violet-500"
-            checked={livePlans[p.id]?.lair === true}
+            checked={liveLair[p.id] === true}
             disabled={busy}
             on:change={() => toggleLair(p)}
           />

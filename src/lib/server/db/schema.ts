@@ -337,6 +337,22 @@ export const participants = sqliteTable(
    *  source of truth; the live channel re-broadcasts to viewers. Shape mirrors
    *  the TurnPlan type in $lib/realtime/encounter-channel.ts. */
   planJson: text('plan_json'),
+  /** Encounter-scoped, non-PC combat state: action economy + legendary uses,
+   *  round-scoped condition timers, NPC spell slots, and the DM's lair
+   *  marker.
+   *
+   *  Distinct from `plan_json`, which is the player's per-turn declared
+   *  *intent* and is cleared every turn. These four rode plan_json until now,
+   *  which made `DELETE .../plan` destroy them: the endpoint is documented as
+   *  "clear the turn plan", and the preservation logic lived only in the
+   *  browser client — so any second client, or any curl against the
+   *  documented API, got the destructive behaviour. A column cannot be wiped
+   *  by a route that has no business touching it.
+   *
+   *  NULL reads as "nothing spent" through the existing normalizeEconomy /
+   *  normalizeTimers fallbacks. PCs keep the equivalent state on their
+   *  character document. */
+  combatStateJson: text('combat_state_json'),
   /** Non-PC concentration target — `{ label, sinceRound? }` JSON or null. PC
    *  concentration lives on the character document, not here. */
   concentratingJson: text('concentrating_json'),

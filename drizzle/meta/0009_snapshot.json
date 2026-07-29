@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "619206af-9866-421c-8b88-e7ef7c7fbfa4",
+  "id": "5284ac5f-bc61-4c5b-8062-08d89dc97dd7",
   "prevId": "b529b800-b296-4d42-a903-8f722d8901dc",
   "tables": {
     "action_log": {
@@ -1594,6 +1594,13 @@
         },
         "plan_json": {
           "name": "plan_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "combat_state_json": {
+          "name": "combat_state_json",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
