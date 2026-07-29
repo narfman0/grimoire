@@ -7,6 +7,7 @@ import { clearedPlan, type PlanLike } from '$lib/encounter/plan-extras';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
+import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
 import { OkResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
@@ -15,19 +16,23 @@ const Params = z.object({ id: Uuid, pid: Uuid });
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const user = requireUser(locals);
   const { id, pid } = parseParams(params, Params);
-  const { part, role } = await requireParticipantAccess(user.id, id, pid);
+  const { enc, part, role } = await requireParticipantAccess(user.id, id, pid);
 
-  // Players may only broadcast plans for participants linked to a character
-  // they own; the DM can broadcast on behalf of anyone (for table screens).
+  // Planning for someone else is a per-campaign policy, permissive by
+  // default. The DM can always broadcast on behalf of anyone (table screens).
   if (role !== 'dm') {
+    // Non-PC rows are DM-only whatever the policy — see campaign-permissions.
     if (!part.characterId) throw error(403, 'players cannot plan for non-PC participants');
-    const owned = await db
-      .select({ ownerUserId: schema.characters.ownerUserId })
-      .from(schema.characters)
-      .where(eq(schema.characters.id, part.characterId))
-      .limit(1);
-    if (!owned[0] || owned[0].ownerUserId !== user.id)
-      throw error(403, 'you do not own this character');
+    const perms = await getCampaignPermissions(enc.campaignId);
+    if (!perms.planForOthers) {
+      const owned = await db
+        .select({ ownerUserId: schema.characters.ownerUserId })
+        .from(schema.characters)
+        .where(eq(schema.characters.id, part.characterId))
+        .limit(1);
+      if (!owned[0] || owned[0].ownerUserId !== user.id)
+        throw error(403, 'you do not own this character');
+    }
   }
 
   const body = await parseJson(request, SetPlanRequest);
@@ -43,17 +48,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
   const user = requireUser(locals);
   const { id, pid } = parseParams(params, Params);
-  const { part, role } = await requireParticipantAccess(user.id, id, pid);
+  const { enc, part, role } = await requireParticipantAccess(user.id, id, pid);
 
   if (role !== 'dm') {
     if (!part.characterId) throw error(403, 'players cannot clear plans for non-PC participants');
-    const owned = await db
-      .select({ ownerUserId: schema.characters.ownerUserId })
-      .from(schema.characters)
-      .where(eq(schema.characters.id, part.characterId))
-      .limit(1);
-    if (!owned[0] || owned[0].ownerUserId !== user.id)
-      throw error(403, 'you do not own this character');
+    const perms = await getCampaignPermissions(enc.campaignId);
+    if (!perms.planForOthers) {
+      const owned = await db
+        .select({ ownerUserId: schema.characters.ownerUserId })
+        .from(schema.characters)
+        .where(eq(schema.characters.id, part.characterId))
+        .limit(1);
+      if (!owned[0] || owned[0].ownerUserId !== user.id)
+        throw error(403, 'you do not own this character');
+    }
   }
 
   // Clearing the *plan* must not clear the encounter-scoped state that

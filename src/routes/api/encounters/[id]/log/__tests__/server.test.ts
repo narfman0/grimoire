@@ -428,3 +428,105 @@ describe('GET /api/encounters/[id]/log — hidden-participant redaction', () => 
     expect(entry.notes).toBe('from the rafters');
   });
 });
+
+// Permissive-by-default table permissions (dice-roller phase 8a). Acting for
+// someone else's PC used to be a hard 403; it is now a campaign policy that
+// allows by default. Acting for a *non-PC* row is still refused outright —
+// that is a redaction boundary, not an ownership one.
+describe('POST /api/encounters/[id]/log — who may act for whom', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  async function twoPlayerFixture() {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const ownerId = await seedUser(db, { username: 'owner' });
+    const otherId = await seedUser(db, { username: 'other' });
+    const { campaignId } = await seedCampaign(db, { dmId, playerIds: [ownerId, otherId] });
+    const charId = await seedCharacter(db, { campaignId, ownerUserId: ownerId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Hero'
+    });
+    const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+    return { dmId, ownerId, otherId, encounterId, pcId, mobId };
+  }
+
+  const logBody = (participantId: string) => ({
+    participantId,
+    actionId: 'attack:sword',
+    actionLabel: 'Longsword',
+    round: 1
+  });
+
+  it("lets a player log an action for a PC they don't own", async () => {
+    const { otherId, encounterId, pcId } = await twoPlayerFixture();
+    const res = await POST(
+      makeEvent({
+        user: userOf(otherId, 'other'),
+        params: { id: encounterId },
+        body: logBody(pcId)
+      })
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it('still refuses a player acting for a non-PC participant', async () => {
+    // Not an ownership question: hidden monsters are redacted out of the
+    // player's participant list, so accepting an arbitrary id here would let
+    // them probe which creatures exist.
+    const { otherId, encounterId, mobId } = await twoPlayerFixture();
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user: userOf(otherId, 'other'),
+          params: { id: encounterId },
+          body: logBody(mobId)
+        })
+      ),
+      403
+    );
+  });
+
+  it('still refuses a participant from another encounter', async () => {
+    const { otherId, encounterId } = await twoPlayerFixture();
+    const strayEncounter = await seedEncounter(db, {
+      campaignId: (await seedCampaign(db, { dmId: await seedUser(db, { username: 'dm2' }) }))
+        .campaignId
+    });
+    const strayId = await seedParticipant(db, {
+      encounterId: strayEncounter,
+      kind: 'pc',
+      name: 'Elsewhere'
+    });
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user: userOf(otherId, 'other'),
+          params: { id: encounterId },
+          body: logBody(strayId)
+        })
+      ),
+      400
+    );
+  });
+
+  it('still refuses a non-member', async () => {
+    const { encounterId, pcId } = await twoPlayerFixture();
+    const outsider = await seedUser(db, { username: 'outsider' });
+    await expectHttpError(
+      POST(
+        makeEvent({
+          user: userOf(outsider, 'outsider'),
+          params: { id: encounterId },
+          body: logBody(pcId)
+        })
+      ),
+      403
+    );
+  });
+});

@@ -21,6 +21,7 @@ import { SubmitActionLogRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams, parseSearch } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
+import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializeActionLogEntry } from '$lib/server/serializers';
 import { parseReveals } from '$lib/realtime/reveals';
@@ -110,7 +111,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const body = await parseJson(request, SubmitActionLogRequest);
 
-  // Players may only act for participants tied to characters they own.
+  // Who may act for whom is a per-campaign policy, permissive by default
+  // (see $lib/server/auth/campaign-permissions). The integrity check — the
+  // participant must actually belong to this encounter — is unconditional;
+  // only the ownership question is a permission.
   if (role === 'player' && body.participantId) {
     const part = await db
       .select({
@@ -123,16 +127,25 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     if (part.length === 0 || part[0].encounterId !== encounterId) {
       throw error(400, 'participant not in this encounter');
     }
+
+    // Unconditional: a player may never address a non-PC row, whatever the
+    // campaign policy says. Hidden monsters are redacted out of their
+    // participant list, and accepting an arbitrary id here would let them
+    // probe which creatures exist.
     if (!part[0].characterId) {
       throw error(403, 'cannot log actions for non-pc participants as a player');
     }
-    const char = await db
-      .select({ ownerUserId: schema.characters.ownerUserId })
-      .from(schema.characters)
-      .where(eq(schema.characters.id, part[0].characterId))
-      .limit(1);
-    if (!char[0] || char[0].ownerUserId !== user.id) {
-      throw error(403, 'cannot log actions for a character you do not own');
+
+    const perms = await getCampaignPermissions(enc.campaignId);
+    if (!perms.actForOthers) {
+      const char = await db
+        .select({ ownerUserId: schema.characters.ownerUserId })
+        .from(schema.characters)
+        .where(eq(schema.characters.id, part[0].characterId))
+        .limit(1);
+      if (!char[0] || char[0].ownerUserId !== user.id) {
+        throw error(403, 'cannot log actions for a character you do not own');
+      }
     }
   }
 

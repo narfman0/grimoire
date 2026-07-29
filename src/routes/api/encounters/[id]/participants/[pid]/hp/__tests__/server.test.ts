@@ -46,31 +46,154 @@ describe('POST /api/encounters/[id]/participants/[pid]/hp', () => {
     expect(rows[0].maxHp).toBe(12);
   });
 
-  // Locks the PC-HP-source-of-truth gate. The participants row intentionally
-  // stays null for PCs; HP lives on the character document. Allowing a
-  // write here would create a stale shadow value.
-  it('rejects HP writes on a PC participant (400)', async () => {
-    const dmId = await seedUser(db, { username: 'dm' });
-    const playerId = await seedUser(db, { username: 'p' });
-    const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
-    const characterId = await seedCharacter(db, { campaignId, ownerUserId: playerId });
-    const encounterId = await seedEncounter(db, { campaignId });
-    const pcId = await seedParticipant(db, {
-      encounterId,
-      kind: 'pc',
-      characterId,
-      name: 'Hero'
+  // PC vitals (dice-roller phase 8a). This endpoint used to 400 on any PC
+  // row, which meant nobody — not even the DM — could apply damage to a PC
+  // server-side. PC HP still lives on the character document; the write is
+  // routed there through a scoped writer rather than shadowed onto the
+  // participants row.
+  describe('PC participants', () => {
+    async function pcFixture(opts: { doc?: unknown } = {}) {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const playerId = await seedUser(db, { username: 'p' });
+      const otherId = await seedUser(db, { username: 'other' });
+      const { campaignId } = await seedCampaign(db, {
+        dmId,
+        playerIds: [playerId, otherId]
+      });
+      const characterId = await seedCharacter(db, {
+        campaignId,
+        ownerUserId: playerId,
+        document:
+          opts.doc ?? { id: 'c', currentHp: 12, tempHp: 0, conditions: [], name: 'Hero' }
+      });
+      const encounterId = await seedEncounter(db, { campaignId });
+      const pcId = await seedParticipant(db, {
+        encounterId,
+        kind: 'pc',
+        characterId,
+        name: 'Hero'
+      });
+      return { dmId, playerId, otherId, characterId, encounterId, pcId };
+    }
+
+    const userOf = (id: string, username: string) => ({
+      id,
+      username,
+      isAdmin: false,
+      email: null,
+      emailVerified: false
     });
-    await expectHttpError(
-      POST(
+
+    it('writes PC HP into the character document', async () => {
+      const { dmId, characterId, encounterId, pcId } = await pcFixture();
+      const res = await POST(
         makeEvent({
           user: dmOf(dmId),
           params: { id: encounterId, pid: pcId },
-          body: { currentHp: 0 }
+          body: { currentHp: 4, tempHp: 2 }
         })
-      ),
-      400
-    );
+      );
+      expect(res.status).toBe(200);
+
+      const rows = await db
+        .select()
+        .from(schema.characters)
+        .where(eq(schema.characters.id, characterId));
+      const doc = JSON.parse(rows[0].document!);
+      expect(doc.currentHp).toBe(4);
+      expect(doc.tempHp).toBe(2);
+      // Everything else survives — this is a scoped write, not a replace.
+      expect(doc.name).toBe('Hero');
+    });
+
+    it('leaves the participants row alone (no shadow value)', async () => {
+      const { dmId, encounterId, pcId } = await pcFixture();
+      await POST(
+        makeEvent({
+          user: dmOf(dmId),
+          params: { id: encounterId, pid: pcId },
+          body: { currentHp: 4 }
+        })
+      );
+      const rows = await db
+        .select()
+        .from(schema.participants)
+        .where(eq(schema.participants.id, pcId));
+      // PC rows carry null HP by design; the write must not create a shadow.
+      expect(rows[0].currentHp).toBeNull();
+    });
+
+    it("lets another player adjust a PC they don't own (permissive default)", async () => {
+      const { otherId, characterId, encounterId, pcId } = await pcFixture();
+      const res = await POST(
+        makeEvent({
+          user: userOf(otherId, 'other'),
+          params: { id: encounterId, pid: pcId },
+          body: { currentHp: 1 }
+        })
+      );
+      expect(res.status).toBe(200);
+      const rows = await db
+        .select()
+        .from(schema.characters)
+        .where(eq(schema.characters.id, characterId));
+      expect(JSON.parse(rows[0].document!).currentHp).toBe(1);
+    });
+
+    it('clears death saves when a PC comes back above 0 HP', async () => {
+      const { dmId, characterId, encounterId, pcId } = await pcFixture({
+        doc: { id: 'c', currentHp: 0, tempHp: 0, deathSaves: { successes: 1, failures: 2 } }
+      });
+      await POST(
+        makeEvent({
+          user: dmOf(dmId),
+          params: { id: encounterId, pid: pcId },
+          body: { currentHp: 5 }
+        })
+      );
+      const rows = await db
+        .select()
+        .from(schema.characters)
+        .where(eq(schema.characters.id, characterId));
+      expect(JSON.parse(rows[0].document!).deathSaves).toBeUndefined();
+    });
+
+    it('refuses to set max HP on a PC — that is a character change', async () => {
+      const { dmId, encounterId, pcId } = await pcFixture();
+      await expectHttpError(
+        POST(
+          makeEvent({
+            user: dmOf(dmId),
+            params: { id: encounterId, pid: pcId },
+            body: { maxHp: 999 }
+          })
+        ),
+        400
+      );
+    });
+
+    it('refuses rather than clobbering an unparseable document', async () => {
+      const { dmId, characterId, encounterId, pcId } = await pcFixture();
+      await db
+        .update(schema.characters)
+        .set({ document: '{not json' })
+        .where(eq(schema.characters.id, characterId));
+      await expectHttpError(
+        POST(
+          makeEvent({
+            user: dmOf(dmId),
+            params: { id: encounterId, pid: pcId },
+            body: { currentHp: 1 }
+          })
+        ),
+        409
+      );
+      const rows = await db
+        .select()
+        .from(schema.characters)
+        .where(eq(schema.characters.id, characterId));
+      expect(rows[0].document).toBe('{not json');
+    });
   });
 
   it('returns 403 for a non-member', async () => {

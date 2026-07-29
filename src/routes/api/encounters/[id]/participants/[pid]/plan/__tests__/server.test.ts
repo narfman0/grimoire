@@ -140,21 +140,54 @@ describe('POST /api/encounters/[id]/participants/[pid]/plan', () => {
     );
   });
 
-  // Locks the PC-ownership gate. A player can only plan for their own PC.
-  it('rejects a player planning for another player\'s PC', async () => {
+  // Membership is the outer boundary and is not a campaign policy: a
+  // non-member is refused whatever the permissions say.
+  //
+  // (This test used to be named "rejects a player planning for another
+  // player's PC" and described as locking the PC-ownership gate. It never
+  // did: `intruder` was seeded but never added to the campaign, so it was
+  // failing on membership the whole time. The ownership question it claimed
+  // to cover is the test below.)
+  it('rejects a non-member planning for a PC', async () => {
     const { encounterId, pcParticipantId } = await playerFixture(db);
-    const otherPlayer = await seedUser(db, { username: 'intruder' });
+    const outsider = await seedUser(db, { username: 'intruder' });
 
     await expectHttpError(
       POST(
         makeEvent({
-          user: { id: otherPlayer, username: 'intruder', isAdmin: false, email: null, emailVerified: false },
+          user: { id: outsider, username: 'intruder', isAdmin: false, email: null, emailVerified: false },
           params: { id: encounterId, pid: pcParticipantId },
           body: PLAN_BODY
         })
       ),
       403
     );
+  });
+
+  // Permissive default (dice-roller phase 8a): a campaign member may plan for
+  // a PC they don't own. Before this, only the owner could.
+  it("lets a campaign member plan for a PC they don't own", async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const ownerId = await seedUser(db, { username: 'owner' });
+    const otherId = await seedUser(db, { username: 'other' });
+    const { campaignId } = await seedCampaign(db, { dmId, playerIds: [ownerId, otherId] });
+    const characterId = await seedCharacter(db, { campaignId, ownerUserId: ownerId });
+    const encounterId = await seedEncounter(db, { campaignId });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId,
+      name: 'Hero'
+    });
+
+    const res = await POST(
+      makeEvent({
+        user: { id: otherId, username: 'other', isAdmin: false, email: null, emailVerified: false },
+        params: { id: encounterId, pid: pcId },
+        body: PLAN_BODY
+      })
+    );
+    expect(res.status).toBe(200);
   });
 
   // Locks the auth requirement.

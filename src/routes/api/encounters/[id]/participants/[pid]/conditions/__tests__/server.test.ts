@@ -44,27 +44,64 @@ describe('POST /api/encounters/[id]/participants/[pid]/conditions', () => {
     expect(JSON.parse(rows[0].conditionsJson)).toEqual(['frightened', 'prone']);
   });
 
-  it('rejects writes on a PC participant (400)', async () => {
+  // PC conditions (dice-roller phase 8a). This used to 400 on PC rows; the
+  // write now routes into the character document through the scoped writer,
+  // and a campaign member other than the owner may make it (permissive
+  // default, see $lib/server/auth/campaign-permissions).
+  it('writes PC conditions into the character document', async () => {
     const dmId = await seedUser(db, { username: 'dm' });
     const playerId = await seedUser(db, { username: 'p' });
     const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
-    const characterId = await seedCharacter(db, { campaignId, ownerUserId: playerId });
-    const encounterId = await seedEncounter(db, { campaignId });
-    const pcId = await seedParticipant(db, {
-      encounterId,
-      kind: 'pc',
-      characterId
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: playerId,
+      document: { id: 'c', name: 'Hero', currentHp: 10, conditions: [] }
     });
-    await expectHttpError(
-      POST(
-        makeEvent({
-          user: dmOf(dmId),
-          params: { id: encounterId, pid: pcId },
-          body: { conditions: ['frightened'] }
-        })
-      ),
-      400
+    const encounterId = await seedEncounter(db, { campaignId });
+    const pcId = await seedParticipant(db, { encounterId, kind: 'pc', characterId });
+
+    const res = await POST(
+      makeEvent({
+        user: dmOf(dmId),
+        params: { id: encounterId, pid: pcId },
+        body: { conditions: ['frightened'] }
+      })
     );
+    expect(res.status).toBe(200);
+
+    const rows = await db
+      .select()
+      .from(schema.characters)
+      .where(eq(schema.characters.id, characterId));
+    const doc = JSON.parse(rows[0].document!);
+    expect(doc.conditions).toEqual(['frightened']);
+    expect(doc.name).toBe('Hero'); // scoped write, not a replace
+  });
+
+  it('lets a player set conditions on a PC they do not own', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const ownerId = await seedUser(db, { username: 'owner' });
+    const otherId = await seedUser(db, { username: 'other' });
+    const { campaignId } = await seedCampaign(db, {
+      dmId,
+      playerIds: [ownerId, otherId]
+    });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: ownerId,
+      document: { id: 'c', currentHp: 10, conditions: [] }
+    });
+    const encounterId = await seedEncounter(db, { campaignId });
+    const pcId = await seedParticipant(db, { encounterId, kind: 'pc', characterId });
+
+    const res = await POST(
+      makeEvent({
+        user: { id: otherId, username: 'other', isAdmin: false, email: null, emailVerified: false },
+        params: { id: encounterId, pid: pcId },
+        body: { conditions: ['poisoned'] }
+      })
+    );
+    expect(res.status).toBe(200);
   });
 
   it('returns 403 for a non-member', async () => {
