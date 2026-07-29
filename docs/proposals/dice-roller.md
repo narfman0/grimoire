@@ -1,9 +1,29 @@
 # Dice roller — implementation plan
 
-Status: **plan**. Nothing here is built. Phases 0–6 need no schema change and
-can land incrementally on `master`; phase 7 is migration-gated and should ride
-along with `participants.combat_state_json` (see `ws2-schema-followups.md`)
-rather than take a second migration hit.
+Status: **phases 0–6 and 8a are built and on `master`** (2026-07-29).
+Remaining: phase 7 and phase 8b, both migration-gated — they need a branch, a
+PR and a rehearsal against a copy of prod data per AGENTS.md, and should ride
+the same migration as `participants.combat_state_json` (see
+`ws2-schema-followups.md`) rather than take further migration hits.
+
+| Phase | State | Commit |
+|---|---|---|
+| 0 — guards | done | `60021f1` |
+| 1 — evaluator | done | `140838f` |
+| 2 — flag adapters | done | `cd3a3ff` |
+| 3 — character sheet | done | `eb2699e` |
+| 4 — dice tray | done | `39666f5` |
+| 5 — player resolution | done | `b4517e9` |
+| 6 — DM surfaces | done | `cdea661` |
+| 8a — permissive permissions | done | `0df5aeb` |
+| 7 — persisted roll detail | **deferred (migration)** | — |
+| 8b — per-campaign override | **deferred (migration)** | — |
+
+The premise held up: every roll-time flag listed under "the dead surface"
+below now has a consumer outside `src/lib/rules/`. Two things surfaced that
+were not in the original plan — the player resolve flow turned out to be
+already written and merely unreachable (phase 5), and the permissions model
+defaulted the opposite way from what the table wanted (phase 8).
 
 **The framing that matters:** a dice roller is not a new feature bolted onto
 the side. It is the *missing consumer* for a tier of engine work that is
@@ -13,7 +33,12 @@ non-interactive chips, and exactly one has any runtime behaviour.
 
 ---
 
-## Verified current state
+## Verified current state (snapshot, pre-implementation)
+
+> Everything in this section describes the codebase **before** phases 0–6 and
+> 8a landed, and is kept as the record of what the work was responding to.
+> Line numbers are from that snapshot and have since moved. For what is true
+> now, read the code — or the phase list above.
 
 ### The two dice rolls that exist
 
