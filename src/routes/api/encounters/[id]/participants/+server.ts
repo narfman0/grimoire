@@ -2,12 +2,15 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { AddParticipantRequest } from '$lib/server/api/encounter-schemas';
+import {
+  AddParticipantRequest,
+  ReorderParticipantsRequest
+} from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { defaultRevealsFor } from '$lib/realtime/reveals';
-import { IdResponse } from '$lib/server/api/responses';
+import { IdResponse, UpdatedCountResponse } from '$lib/server/api/responses';
 import { requireUser } from '$lib/server/auth/guards';
 import type { RequestHandler } from './$types';
 
@@ -71,6 +74,56 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   return json({ id: partId });
 };
 
+/** Bulk initiative reorder. The client computes the whole-list patch set
+ *  (see $lib/encounter/reorder) and sends it once: a per-row loop would
+ *  leave the list visibly inconsistent between writes, and a failure
+ *  halfway through would strand it that way. Rows that don't belong to this
+ *  encounter are ignored rather than 404-ing the whole batch — a stale
+ *  client holding a since-removed participant should still land the rest of
+ *  the order. */
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
+  const user = requireUser(locals);
+  const { id: encounterId } = parseParams(params, Params);
+
+  const encRows = await db
+    .select({ campaignId: schema.encounters.campaignId })
+    .from(schema.encounters)
+    .where(eq(schema.encounters.id, encounterId))
+    .limit(1);
+  const enc = encRows[0];
+  if (!enc) throw error(404, 'encounter not found');
+
+  const role = await getMembershipByCampaignId(user.id, enc.campaignId);
+  if (!role) throw error(403, 'not a member of this campaign');
+  if (role !== 'dm') throw error(403, 'only the DM can reorder participants');
+
+  const body = await parseJson(request, ReorderParticipantsRequest);
+
+  const owned = new Set(
+    (
+      await db
+        .select({ id: schema.participants.id })
+        .from(schema.participants)
+        .where(eq(schema.participants.encounterId, encounterId))
+    ).map((r) => r.id)
+  );
+
+  let updated = 0;
+  for (const entry of body.order) {
+    if (!owned.has(entry.id)) continue;
+    await db
+      .update(schema.participants)
+      .set({
+        sortOrder: entry.sortOrder,
+        ...(entry.initiative !== undefined ? { initiative: entry.initiative } : {})
+      })
+      .where(eq(schema.participants.id, entry.id));
+    updated++;
+  }
+
+  return json({ ok: true, updated });
+};
+
 export const _openapi = {
   POST: {
     summary: 'Add a participant to an encounter (DM only)',
@@ -82,5 +135,15 @@ export const _openapi = {
       { status: 403, description: 'DM only' },
       404
     ]
+  },
+  PATCH: {
+    summary: 'Bulk-reorder participants (initiative + sort order; DM only)',
+    description:
+      'Atomic alternative to N per-participant PATCHes. `initiative` is only sent for the ' +
+      'row that was dragged; ids not belonging to this encounter are skipped.',
+    params: Params,
+    body: ReorderParticipantsRequest,
+    response: UpdatedCountResponse,
+    errors: [{ status: 403, description: 'DM only' }, 404]
   }
 } as const;

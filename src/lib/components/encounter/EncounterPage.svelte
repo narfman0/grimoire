@@ -61,6 +61,8 @@
   } from '$lib/encounter/condition-timers';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
+  import { applyReorderPatches, reorderInitiative } from '$lib/encounter/reorder';
+  import { initiativeCompare } from '$lib/realtime/participants';
   import LairActionReminder from './LairActionReminder.svelte';
   import type { LiveParticipant } from '$lib/realtime/participants';
   import {
@@ -866,6 +868,57 @@
     } finally {
       busy = false;
     }
+  }
+
+  // ---- manual initiative reorder (DM only) --------------------------------
+  //
+  // Drag a row (or use its ▲/▼ buttons — the keyboard-reachable path) to
+  // place it anywhere in the order. The drop writes the dragged row's
+  // initiative *and* a dense sortOrder over the whole list, in one bulk
+  // request; see $lib/encounter/reorder for why both, and for what a later
+  // re-roll does (nothing: it only fills blank initiatives).
+  let dragFromIndex: number | null = null;
+  let dragOverIndex: number | null = null;
+
+  async function commitReorder(fromIndex: number, toIndex: number) {
+    if (data.role !== 'dm') return;
+    const patches = reorderInitiative(
+      liveParticipants.map((p) => ({
+        id: p.id,
+        initiative: p.initiative,
+        sortOrder: p.sortOrder
+      })),
+      fromIndex,
+      toIndex
+    );
+    if (patches.length === 0) return;
+    // Optimistic: re-sort locally so the row lands where it was dropped
+    // instead of snapping back for one round-trip.
+    data.participants = [
+      ...applyReorderPatches(
+        data.participants.map((p) => ({ ...p })),
+        patches
+      )
+    ].sort(initiativeCompare);
+    busy = true;
+    try {
+      await api.patch(`/api/encounters/${data.encounter.id}/participants`, { order: patches });
+      await invalidateAll();
+    } catch {
+      // api() already toasted; reload page data to undo the optimistic sort
+      await invalidateAll();
+    } finally {
+      busy = false;
+    }
+  }
+
+  function moveParticipant(index: number, delta: -1 | 1) {
+    void commitReorder(index, index + delta);
+  }
+
+  function endDrag() {
+    dragFromIndex = null;
+    dragOverIndex = null;
   }
 
   async function removeParticipant(id: string) {
@@ -1727,7 +1780,7 @@
     <p class="mb-3 text-sm text-slate-400">No participants yet.</p>
   {:else}
     <ul class="mb-3 divide-y divide-slate-800">
-      {#each liveParticipants as p (p.id)}
+      {#each liveParticipants as p, rowIndex (p.id)}
         {@const isSelected = p.id === selectedId}
         {@const concRaw = liveHpMap[p.id]?.concentrating}
         {@const concPcDoc = data.participantPcConcentrating?.[p.id]}
@@ -1750,6 +1803,18 @@
           liveTempHp={liveHpMap[p.id]?.tempHp}
           editingInitiative={initiativeEditFor === p.id}
           {busy}
+          reorderable={data.role === 'dm'}
+          dropTarget={dragOverIndex === rowIndex && dragFromIndex !== rowIndex}
+          canMoveUp={rowIndex > 0}
+          canMoveDown={rowIndex < liveParticipants.length - 1}
+          on:move={(e) => moveParticipant(rowIndex, e.detail)}
+          on:dragStart={() => (dragFromIndex = rowIndex)}
+          on:dragEnter={() => (dragOverIndex = rowIndex)}
+          on:dragEnd={endDrag}
+          on:drop={() => {
+            if (dragFromIndex !== null) void commitReorder(dragFromIndex, rowIndex);
+            endDrag();
+          }}
           on:select={() => selectParticipant(p, isSelected)}
           on:startEditInitiative={() => (initiativeEditFor = p.id)}
           on:cancelEditInitiative={() => (initiativeEditFor = null)}

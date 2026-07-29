@@ -57,6 +57,11 @@ export const RevealsResponse = z
   .object({ reveals: z.record(z.string(), z.boolean()) })
   .openapi('RevealsResponse');
 
+/** Bulk mutation acknowledgement — how many participant rows were written. */
+export const UpdatedCountResponse = z
+  .object({ ok: z.literal(true), updated: z.number().int().nonnegative() })
+  .openapi('UpdatedCountResponse');
+
 /** GET /api/encounters/[id]/difficulty — mirrors EncounterDifficultyResult
  *  from $lib/rules/encounter-difficulty (2014 DMG budgeting math). */
 export const EncounterDifficulty = z

@@ -36,6 +36,15 @@
   export let liveTempHp: number | undefined;
   export let editingInitiative: boolean;
   export let busy: boolean;
+  /** DM-only manual reorder. The parent owns the list and computes the
+   *  initiative/sortOrder writes; this row only reports the gesture. The
+   *  ▲/▼ buttons are not a fallback — they are the keyboard-reachable path,
+   *  since HTML5 drag-and-drop has none. */
+  export let reorderable = false;
+  /** True while a dragged row is hovering over this one. */
+  export let dropTarget = false;
+  export let canMoveUp = false;
+  export let canMoveDown = false;
 
   const dispatch = createEventDispatcher<{
     select: void;
@@ -43,6 +52,11 @@
     commitInitiative: number | null;
     cancelEditInitiative: void;
     remove: void;
+    dragStart: void;
+    dragEnter: void;
+    dragEnd: void;
+    drop: void;
+    move: -1 | 1;
   }>();
 
   function inputValue(e: Event): string {
@@ -60,9 +74,32 @@
 <li
   class="flex flex-wrap items-center gap-3 py-2 px-2 text-sm cursor-pointer select-none rounded
     {isActive ? 'bg-emerald-950/30' : isSelected ? 'bg-slate-800/50' : ''}
+    {dropTarget ? 'outline outline-1 outline-emerald-500' : ''}
     hover:bg-slate-800/30"
+  draggable={reorderable}
   on:click={() => dispatch('select')}
+  on:dragstart={() => dispatch('dragStart')}
+  on:dragenter={() => dispatch('dragEnter')}
+  on:dragover|preventDefault
+  on:dragend={() => dispatch('dragEnd')}
+  on:drop|preventDefault={() => dispatch('drop')}
 >
+  {#if reorderable}
+    <span class="flex flex-col leading-none" title="Reorder initiative">
+      <button
+        class="text-[9px] text-slate-600 hover:text-emerald-300 disabled:opacity-30"
+        aria-label="Move {p.placeholderName ?? p.name} up"
+        disabled={busy || !canMoveUp}
+        on:click|stopPropagation={() => dispatch('move', -1)}
+      >▲</button>
+      <button
+        class="text-[9px] text-slate-600 hover:text-emerald-300 disabled:opacity-30"
+        aria-label="Move {p.placeholderName ?? p.name} down"
+        disabled={busy || !canMoveDown}
+        on:click|stopPropagation={() => dispatch('move', 1)}
+      >▼</button>
+    </span>
+  {/if}
   {#if role === 'dm'}
     {#if editingInitiative || p.initiative == null}
       <!-- svelte-ignore a11y-autofocus -->

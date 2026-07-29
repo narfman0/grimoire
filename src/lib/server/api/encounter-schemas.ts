@@ -81,6 +81,40 @@ export const AddParticipantRequest = z
   })
   .openapi('AddParticipantRequest');
 
+/** PATCH /api/encounters/[id]/participants — bulk initiative reorder. One
+ *  request instead of N: a per-row loop leaves the list visibly inconsistent
+ *  between writes and, if it fails halfway, permanently so. `initiative` is
+ *  only present for the row that was actually dragged. */
+export const ReorderParticipantsRequest = z
+  .object({
+    order: z
+      .array(
+        z.object({
+          id: Uuid,
+          sortOrder: z.number().int().nonnegative(),
+          initiative: z.number().int().nullable().optional()
+        })
+      )
+      .min(1)
+      .max(200)
+  })
+  .openapi('ReorderParticipantsRequest');
+export type TReorderParticipantsRequest = z.infer<typeof ReorderParticipantsRequest>;
+
+/** PATCH /api/encounters/[id]/reveals — encounter-wide reveal flip. Same
+ *  merge semantics as the per-participant route, applied to every non-PC
+ *  participant in the encounter. */
+export const BulkRevealsRequest = z
+  .object({
+    identity: z.boolean().optional(),
+    vitals: z.boolean().optional(),
+    combat: z.boolean().optional(),
+    hidden: z.boolean().optional()
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
+  .openapi('BulkRevealsRequest');
+export type TBulkRevealsRequest = z.infer<typeof BulkRevealsRequest>;
+
 export const UpdateParticipantRequest = z
   .object({
     name: z.string().min(1).max(120).optional(),

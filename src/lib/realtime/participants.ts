@@ -35,14 +35,20 @@ export interface InitiativeSortable {
   sortOrder: number;
 }
 
-/** Initiative order: highest roll first, dex score breaks ties, insertion
- *  order (sortOrder) breaks dex ties. Unrolled initiative sinks to the
- *  bottom. */
+/** Initiative order: highest roll first, then `sortOrder`, then dex score.
+ *  Unrolled initiative sinks to the bottom.
+ *
+ *  sortOrder outranks dex because it is the only channel a *deliberate* DM
+ *  order has — drag-to-reorder writes a dense sortOrder over the list (see
+ *  $lib/encounter/reorder) and an incidental dex tiebreak must not undo it.
+ *  Every participant is inserted with sortOrder 0 and nothing but a manual
+ *  reorder ever writes it, so on an untouched encounter the sortOrder term
+ *  is uniform and dex remains the effective tiebreaker exactly as before. */
 export function initiativeCompare(a: InitiativeSortable, b: InitiativeSortable): number {
   return (
     (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) ||
-    b.dexScore - a.dexScore ||
-    a.sortOrder - b.sortOrder
+    a.sortOrder - b.sortOrder ||
+    b.dexScore - a.dexScore
   );
 }
 

@@ -21,16 +21,31 @@ function row(over: Partial<LiteParticipantRow> & { id: string }): LiteParticipan
 }
 
 describe('initiativeCompare', () => {
-  it('orders by initiative desc, dex desc, sortOrder asc; null initiative last', () => {
+  it('orders by initiative desc, sortOrder asc, dex desc; null initiative last', () => {
     const rows = [
       row({ id: 'late', initiative: null, sortOrder: 0 }),
-      row({ id: 'low-dex-tie', initiative: 15, dexScore: 8, sortOrder: 1 }),
+      row({ id: 'manually-moved-up', initiative: 15, dexScore: 8, sortOrder: 1 }),
       row({ id: 'high', initiative: 20 }),
-      row({ id: 'first-inserted-tie', initiative: 15, dexScore: 14, sortOrder: 0 }),
-      row({ id: 'same-dex-tie', initiative: 15, dexScore: 14, sortOrder: 2 })
+      row({ id: 'first', initiative: 15, dexScore: 14, sortOrder: 0 }),
+      row({ id: 'last-of-tie', initiative: 15, dexScore: 14, sortOrder: 2 })
     ];
     const ordered = [...rows].sort(initiativeCompare).map((r) => r.id);
-    expect(ordered).toEqual(['high', 'first-inserted-tie', 'same-dex-tie', 'low-dex-tie', 'late']);
+    expect(ordered).toEqual(['high', 'first', 'manually-moved-up', 'last-of-tie', 'late']);
+  });
+
+  // On an untouched encounter every row is inserted with sortOrder 0, so the
+  // new sortOrder term is uniform and dex is still what breaks ties.
+  it('falls back to dex when sortOrder is uniform', () => {
+    const rows = [
+      row({ id: 'low-dex', initiative: 15, dexScore: 8 }),
+      row({ id: 'high-dex', initiative: 15, dexScore: 18 }),
+      row({ id: 'mid-dex', initiative: 15, dexScore: 12 })
+    ];
+    expect([...rows].sort(initiativeCompare).map((r) => r.id)).toEqual([
+      'high-dex',
+      'mid-dex',
+      'low-dex'
+    ]);
   });
 });
 
