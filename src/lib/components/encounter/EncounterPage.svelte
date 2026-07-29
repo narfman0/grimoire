@@ -706,6 +706,34 @@
     await patchReveal(participantId, { identity: false, vitals: false, combat: false, hidden: false });
   }
 
+  /** Encounter-wide reveal flip. One bulk request rather than a loop over
+   *  the per-participant route: on a 15-monster encounter that's 15
+   *  round-trips, and a failure partway through leaves half the ambush
+   *  revealed. Same merge semantics; PCs are skipped server-side. */
+  async function patchAllReveals(patch: Record<string, boolean>) {
+    if (data.role !== 'dm') return;
+    busy = true;
+    try {
+      await api.patch(`/api/encounters/${data.encounter.id}/reveals`, patch);
+      await invalidateAll();
+    } catch {
+      // api() already toasted
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function hideEverything() {
+    const ok = await confirmDialog({
+      title: 'Hide everything from players?',
+      message: 'Every non-PC participant loses identity, vitals, and stat-block visibility.',
+      confirmLabel: 'Hide everything',
+      danger: true
+    });
+    if (!ok) return;
+    await patchAllReveals({ identity: false, vitals: false, combat: false });
+  }
+
   /** Apply a delta to a PC's HP by round-tripping the character document
    *  via REST. Mirrors the conditions/concentration paths so the player's
    *  open sheet picks up the change on next reload / reconcile. Returns the
@@ -1764,16 +1792,38 @@
         </button>
       {/if}
     </div>
-    {#if data.role === 'dm' && liveParticipants.some((p) => p.kind !== 'pc' && p.initiative == null)}
-      <button
-        class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
-        disabled={busy}
-        title="Roll d20+Dex for every non-PC participant without an initiative"
-        on:click={rollInitiativeAll}
-      >
-        🎲 Roll initiative (NPCs)
-      </button>
-    {/if}
+    <div class="flex items-center gap-2">
+      {#if data.role === 'dm' && liveParticipants.some((p) => p.kind !== 'pc')}
+        <!-- Encounter-wide reveals: one bulk request, same merge semantics
+             as the per-participant chips. -->
+        <button
+          class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:border-emerald-700 hover:text-emerald-300 disabled:opacity-40"
+          disabled={busy}
+          title="Show exact HP and AC for every non-PC participant"
+          on:click={() => patchAllReveals({ vitals: true })}
+        >
+          👁 Reveal all vitals
+        </button>
+        <button
+          class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:border-red-700 hover:text-red-300 disabled:opacity-40"
+          disabled={busy}
+          title="Clear identity, vitals, and stat-block reveals for every non-PC participant"
+          on:click={hideEverything}
+        >
+          🙈 Hide everything
+        </button>
+      {/if}
+      {#if data.role === 'dm' && liveParticipants.some((p) => p.kind !== 'pc' && p.initiative == null)}
+        <button
+          class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+          disabled={busy}
+          title="Roll d20+Dex for every non-PC participant without an initiative"
+          on:click={rollInitiativeAll}
+        >
+          🎲 Roll initiative (NPCs)
+        </button>
+      {/if}
+    </div>
   </div>
 
   {#if liveParticipants.length === 0}
