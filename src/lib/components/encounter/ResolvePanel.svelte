@@ -9,6 +9,10 @@
   // call site — the parent gates it behind `data.role === 'dm'`.
   import { createEventDispatcher } from 'svelte';
   import type { HitOutcome } from '$lib/realtime/resolve';
+  import { rollD20, rollPool } from '$lib/dice';
+  import type { RollResult } from '$lib/dice';
+  import { recordRoll } from '$lib/client/dice-log';
+  import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
 
   type StatblockAction = {
     name: string;
@@ -51,6 +55,51 @@
 
   $: acting = participants.find((q) => q.id === actingParticipantId);
 
+  // ---- rolling (dice-roller phase 6) ----
+  //
+  // Roll buttons fill the same inputs the DM could type into; manual entry is
+  // never bypassed. A DM rolling physical dice at the table still types the
+  // number, and that has always been this panel's posture.
+  //
+  // The statblock action picked with `pickStatblockAction` is remembered so
+  // the roll buttons know what to roll — before, picking an action only
+  // cached its label.
+  let picked: StatblockAction | null = null;
+  let attackRoll: RollResult | null = null;
+  let damageRoll: RollResult | null = null;
+
+  $: statblockDamage = (picked?.damage ?? []).map((d) => d.dice).filter(Boolean).join('+');
+
+  function rollAttack() {
+    const bonus = picked?.attackBonus ?? 0;
+    const result = rollD20(bonus);
+    attackRoll = result;
+    attack = result.total;
+    recordRoll(`${picked?.name ?? 'Attack'} (attack)`, result);
+    // Monster crit thresholds are always 20; the natural die decides.
+    if (result.d20?.isCrit) hit = 'crit';
+    else if (result.d20?.isFumble) hit = 'miss';
+  }
+
+  function rollDamage() {
+    if (!statblockDamage) return;
+    // A crit doubles the dice, not the flat modifier — rollPool handles that.
+    const result = rollPool(statblockDamage, { doubleDice: hit === 'crit' });
+    if (!result) return;
+    damageRoll = result;
+    damage = result.total;
+    recordRoll(`${picked?.name ?? 'Damage'} (damage)`, result);
+  }
+
+  /** Roll one target's saving throw. The DM has no derived stats for a PC
+   *  target here, so this rolls a bare d20 and the DM adds the modifier — the
+   *  same thing they'd do with physical dice. */
+  function rollTargetSave(targetId: string) {
+    const result = rollD20(0);
+    targetSaveRolls = { ...targetSaveRolls, [targetId]: result.total };
+    recordRoll('Save', result);
+  }
+
   /** Pre-fill the resolve form from a statblock action button. DM still
    *  rolls the dice — we just cache the label and surface the "+X / dXd…"
    *  reminder so they don't have to scroll back to the statblock.
@@ -63,9 +112,13 @@
    *  redacted) participant list at render time. */
   function pickStatblockAction(a: StatblockAction) {
     actionLabel = a.name;
-    // Leave roll inputs blank so DM types what they actually rolled.
+    picked = a;
+    // Leave roll inputs blank so DM types what they actually rolled — or
+    // clicks the 🎲 beside the field.
     attack = null;
     damage = null;
+    attackRoll = null;
+    damageRoll = null;
   }
 
   /** Standard non-attack action options every creature has. Picking one
@@ -73,8 +126,11 @@
   const COMMON_ACTIONS = ['Dodge', 'Dash', 'Disengage', 'Hide', 'Help', 'Ready', 'Use Object'];
   function pickCommonAction(label: string) {
     actionLabel = label;
+    picked = null;
     attack = null;
     damage = null;
+    attackRoll = null;
+    damageRoll = null;
     hit = '';
   }
 
@@ -181,6 +237,12 @@
                   disabled={!checked}
                   bind:value={targetSaveRolls[q.id]}
                 />
+                <button
+                  class="rounded border border-slate-700 px-1 text-[10px] hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-30"
+                  disabled={!checked}
+                  title="Roll a bare d20 for this target's save — add their modifier"
+                  on:click={() => rollTargetSave(q.id)}
+                >🎲</button>
                 {#if outcome}
                   <span
                     class="rounded px-1 text-[9px] uppercase {outcome === 'saved'
@@ -222,19 +284,38 @@
     </label>
     <label class="text-xs">
       <span class="block text-slate-400">Attack</span>
-      <input
-        type="number"
-        class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-        bind:value={attack}
-      />
+      <span class="flex items-center gap-1">
+        <input
+          type="number"
+          class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+          bind:value={attack}
+        />
+        <button
+          class="rounded border border-slate-600 px-1.5 py-1 text-xs hover:border-emerald-600 hover:text-emerald-200"
+          title="Roll d20{picked?.attackBonus != null
+            ? `${picked.attackBonus >= 0 ? '+' : ''}${picked.attackBonus}`
+            : ''}"
+          on:click={rollAttack}
+        >🎲</button>
+      </span>
     </label>
     <label class="text-xs">
       <span class="block text-slate-400">Damage</span>
-      <input
-        type="number"
-        class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
-        bind:value={damage}
-      />
+      <span class="flex items-center gap-1">
+        <input
+          type="number"
+          class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+          bind:value={damage}
+        />
+        <button
+          class="rounded border border-slate-600 px-1.5 py-1 text-xs hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-30"
+          disabled={!statblockDamage}
+          title={statblockDamage
+            ? `Roll ${statblockDamage}${hit === 'crit' ? ' (doubled)' : ''}`
+            : 'Pick a statblock action to roll its damage'}
+          on:click={rollDamage}
+        >🎲</button>
+      </span>
     </label>
     <label class="text-xs">
       <span class="block text-slate-400">Outcome</span>
@@ -280,6 +361,12 @@
       Cancel
     </button>
   </div>
+  {#if attackRoll || damageRoll}
+    <div class="mt-2 space-y-0.5">
+      {#if attackRoll}<RollResultChip result={attackRoll} label="attack" compact />{/if}
+      {#if damageRoll}<RollResultChip result={damageRoll} label="damage" compact />{/if}
+    </div>
+  {/if}
   {#if error}
     <p class="mt-2 text-xs text-red-300">{error}</p>
   {/if}

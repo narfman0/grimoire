@@ -15,6 +15,7 @@
     type DifficultyReadout
   } from './EncounterDifficultyPanel.svelte';
   import TurnControls from './TurnControls.svelte';
+  import { rollD20 } from '$lib/dice';
   import ConcentrationEditor from './ConcentrationEditor.svelte';
   import ConditionChips from './ConditionChips.svelte';
   import HpAdjustRow from './HpAdjustRow.svelte';
@@ -895,8 +896,9 @@
   }
 
   /** Auto-roll initiative for every non-PC participant that doesn't already
-   *  have one. PCs are left to roll themselves on their character sheet.
-   *  Formula: d20 + (dex - 10) >> 1 (Math.floor mod). */
+   *  have one. PCs are left to roll themselves on their character sheet
+   *  (where `initiativeAdvantage` is available — this payload carries no
+   *  derived PC stats). Formula: d20 + (dex - 10) >> 1 (Math.floor mod). */
   async function rollInitiativeAll() {
     if (data.role !== 'dm') return;
     busy = true;
@@ -905,7 +907,8 @@
         if (p.kind === 'pc') continue;
         if (p.initiative != null) continue;
         const dexMod = Math.floor(((p.dexScore ?? 10) - 10) / 2);
-        const roll = 1 + Math.floor(Math.random() * 20) + dexMod;
+        // Through the evaluator so there's one roll implementation in the app.
+        const roll = rollD20(dexMod).total;
         try {
           await api.patch(`/api/participants/${p.id}`, { initiative: roll });
         } catch {
@@ -2176,6 +2179,7 @@
     participantName={check.participantName}
     dc={check.dc}
     remaining={concSavePrompts.length - 1}
+    conSaveBonus={data.participantPcStats?.[check.participantId]?.saves?.con?.bonus ?? null}
     on:drop={() => dropConcentration(check.participantId)}
     on:dismiss={() => (concSavePrompts = concSavePrompts.slice(1))}
   />

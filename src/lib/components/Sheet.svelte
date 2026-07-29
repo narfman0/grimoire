@@ -55,6 +55,7 @@
       abilityCheckAdvantage?: Record<string, 'advantage' | 'disadvantage' | 'both'>;
       abilityCheckBonusDice?: Record<string, string[]>;
       abilityCheckAutoFail?: Record<string, true>;
+      initiativeAdvantage?: boolean;
     };
     actions: Array<{
       id: string;
@@ -83,6 +84,15 @@
       spendsResource?: string;
       resourceCost?: number;
       teleport?: { distanceFt?: number; mode?: string };
+      /** Wild magic surge, deck of many things, chaos bolt … encoded in
+       *  engine batch 7 and, until the dice roller, displayed as prose at
+       *  best. */
+      randomTable?: {
+        die: string;
+        label?: string;
+        rollTwiceChoose?: boolean;
+        entries: Array<{ min: number; max: number; label: string; description?: string }>;
+      };
       appliedModifiers: Array<{ modifierId: string; name: string }>;
       description?: string;
     }>;
@@ -105,6 +115,7 @@
   import {
     abilityCheckAutoFails,
     d20OptionsForAbilityCheck,
+    d20OptionsForInitiative,
     d20OptionsForSave,
     d20OptionsForSkill,
     rollD20,
@@ -114,6 +125,7 @@
   import type { RollResult } from '$lib/dice';
   import { recordRoll } from '$lib/client/dice-log';
   import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
+  import RandomTableRoller from '$lib/components/dice/RandomTableRoller.svelte';
 
   export let derived: SerializedDerived;
   /** When set, actions that carry grants or a spendsResource debit render
@@ -175,15 +187,42 @@
     );
   }
 
+  /** Initiative. Consumes `initiativeAdvantage` (Feywild Gift, Dread
+   *  Ambusher) — computed by derive() for a long time and read by nobody.
+   *  The encounter's NPC auto-roll can't use it: the DM-side participant
+   *  payload carries no derived PC stats, and PCs roll their own anyway. */
+  function rollInitiative() {
+    roll('initiative', 'Initiative', stats.initiative, d20OptionsForInitiative(stats));
+  }
+
 </script>
 
 <!-- Top stats grid -->
 <section class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-6">
   {#each [['AC', stats.ac], ['HP', `${stats.hp.current} / ${stats.hp.max}`], ['Init', fmt(stats.initiative)], ['Prof', fmt(stats.proficiencyBonus)], ['Speed', `${stats.speeds.walk ?? 0} ft`], ['Level', stats.totalLevel]] as [label, value]}
-    <div class="rounded border border-slate-800 bg-slate-900/40 p-3 text-center">
-      <div class="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div class="mt-1 text-2xl font-semibold">{value}</div>
-    </div>
+    {#if label === 'Init'}
+      <button
+        class="rounded border border-slate-800 bg-slate-900/40 p-3 text-center hover:border-emerald-700 hover:bg-slate-900/70"
+        title="Roll initiative"
+        on:click={rollInitiative}
+      >
+        <div class="text-xs uppercase tracking-wide text-slate-500">
+          {label}
+          {#if stats.initiativeAdvantage}
+            <span class="ml-1 rounded bg-emerald-900/50 px-1 text-[10px] normal-case text-emerald-300">adv</span>
+          {/if}
+        </div>
+        <div class="mt-1 text-2xl font-semibold">{value}</div>
+        {#if lastRoll?.key === 'initiative'}
+          <div class="mt-1"><RollResultChip result={lastRoll.result} compact /></div>
+        {/if}
+      </button>
+    {:else}
+      <div class="rounded border border-slate-800 bg-slate-900/40 p-3 text-center">
+        <div class="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+        <div class="mt-1 text-2xl font-semibold">{value}</div>
+      </div>
+    {/if}
   {/each}
 </section>
 
@@ -422,6 +461,11 @@
                   {mod.name}
                 </span>
               {/each}
+            </div>
+          {/if}
+          {#if action.randomTable}
+            <div class="mt-2">
+              <RandomTableRoller table={action.randomTable} sourceLabel={action.name} />
             </div>
           {/if}
           {#if action.description}
