@@ -14,7 +14,8 @@ ENV CI=true
 # what broke the first Node 26 deploy — CI never saw it, because CI installs
 # pnpm through pnpm/action-setup and never touches this image.
 RUN apk add --no-cache python3 make g++ \
-  && npm install -g pnpm@11.1.2
+  && corepack enable \
+  && corepack prepare pnpm@11.1.2 --activate
 WORKDIR /app
 
 # --- deps stage: install deps once, cache mountable ---------------------
