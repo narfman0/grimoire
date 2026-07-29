@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
-    "@asteasolutions/zod-to-openapi": "^8.5.0",
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
     "@sentry/sveltekit": "^10.68.0",
     "better-sqlite3": "^11.1.0",
     "drizzle-orm": "^0.45.2",
