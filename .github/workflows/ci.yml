@@ -19,7 +19,12 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Matches the Dockerfile base and @types/node, so CI compiles
+          # better-sqlite3 against the same ABI prod will run and fails here
+          # rather than at deploy time. Fly builds the image remotely, so a
+          # native-module break would otherwise first surface as a failed
+          # deploy.
+          node-version: 26
           # Explicit on purpose. setup-node v6 stopped enabling pnpm/yarn
           # caching automatically (it now only auto-caches npm), but an
           # explicit `cache` input still works — and pnpm/action-setup must
@@ -63,7 +68,12 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Matches the Dockerfile base and @types/node, so CI compiles
+          # better-sqlite3 against the same ABI prod will run and fails here
+          # rather than at deploy time. Fly builds the image remotely, so a
+          # native-module break would otherwise first surface as a failed
+          # deploy.
+          node-version: 26
           # Explicit on purpose. setup-node v6 stopped enabling pnpm/yarn
           # caching automatically (it now only auto-caches npm), but an
           # explicit `cache` input still works — and pnpm/action-setup must
