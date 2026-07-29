@@ -87,8 +87,10 @@ test('DM and player share a live encounter: realtime HP, reveals, hidden redacti
   // must show the real name and exact vitals with no reload — the core
   // demo moment.
   await dmGoblinRow.click();
-  await dmPage.getByRole('button', { name: 'reveal all' }).click();
-  await expect(dmPage.getByRole('button', { name: 'reveal all' })).toBeVisible();
+  // `exact` matters: the participants header also carries the encounter-wide
+  // "👁 Reveal all vitals" control, which this per-participant chip is not.
+  await dmPage.getByRole('button', { name: 'reveal all', exact: true }).click();
+  await expect(dmPage.getByRole('button', { name: 'reveal all', exact: true })).toBeVisible();
   const playerGoblinRow = playerPage.locator('li').filter({ hasText: 'Goblin' }).first();
   await expect(playerGoblinRow).toBeVisible(SYNC_TIMEOUT);
   // vitals revealed → exact numbers replace the bucket badge.
