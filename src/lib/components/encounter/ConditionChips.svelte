@@ -11,6 +11,12 @@
   // rounds; the ⏱ button re-opens the picker for an already-applied
   // condition. The flat active list stays the source of truth — a timer is
   // only an overlay ($lib/encounter/condition-timers).
+  //
+  // The armed duration is per participant: the parent keys it by id and this
+  // component reports changes rather than two-way binding, so a count armed
+  // for one creature can never follow the DM to the next one. It is also
+  // highlighted while armed, because the failure it guards against is a
+  // *silent* timer nobody meant to set.
   import { createEventDispatcher } from 'svelte';
   import { COMMON_CONDITIONS, CONDITION_DESCRIPTIONS } from '$lib/rules/conditions';
   import { roundsRemaining, timerFor, type ConditionTimer } from '$lib/encounter/condition-timers';
@@ -24,12 +30,15 @@
   export let timers: ConditionTimer[] = [];
   /** Live round — turns `untilRound` into a "rounds left" readout. */
   export let round = 0;
-  /** Rounds applied to the next condition switched on. 0 = no timer. */
+  /** Rounds applied to the next condition switched on *for this
+   *  participant*. 0 = no timer. One-way: the parent owns the value per
+   *  participant id and updates it from `pendingDuration` events. */
   export let pendingDuration = 0;
 
   const dispatch = createEventDispatcher<{
     toggle: string;
     setDuration: { condition: string; rounds: number };
+    pendingDuration: number;
   }>();
 
   const DURATION_CHOICES = [0, 1, 2, 3, 5, 10] as const;
@@ -42,13 +51,20 @@
   <div class="mb-1 flex items-center gap-2">
     <span class="text-[10px] uppercase tracking-wide text-slate-500">Conditions</span>
     {#if role === 'dm'}
-      <label class="flex items-center gap-1 text-[10px] text-slate-500">
+      <label
+        class="flex items-center gap-1 text-[10px] {pendingDuration > 0
+          ? 'text-amber-300'
+          : 'text-slate-500'}"
+      >
         for
         <select
-          class="rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-[10px] text-slate-300"
-          bind:value={pendingDuration}
+          class="rounded border px-1 py-0.5 text-[10px] {pendingDuration > 0
+            ? 'border-amber-600 bg-amber-950/40 text-amber-200'
+            : 'border-slate-700 bg-slate-950 text-slate-300'}"
+          value={pendingDuration}
           disabled={busy}
-          title="Rounds the next condition you apply should last"
+          title="Rounds the next condition you apply to this creature should last"
+          on:change={(e) => dispatch('pendingDuration', +e.currentTarget.value || 0)}
         >
           {#each DURATION_CHOICES as d}
             <option value={d}>{d === 0 ? 'no timer' : `${d} rd`}</option>

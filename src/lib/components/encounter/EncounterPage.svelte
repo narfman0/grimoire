@@ -1017,8 +1017,20 @@
   // timer, and the poll prunes orphans server-side as a backstop.
   // See $lib/encounter/condition-timers.
 
-  /** Rounds the *next* condition the DM switches on should last. 0 = none. */
-  let pendingConditionDuration = 0;
+  /** Rounds the *next* condition the DM switches on should last, keyed by
+   *  participant. 0 / absent = no timer.
+   *
+   *  Scoped per participant rather than per page on purpose. Page-scoped, it
+   *  read as a mode ("like a brush size") but crossed creature boundaries:
+   *  arm "3 rd" for the goblin, select the orc, click a condition, and the
+   *  orc silently picks up a duration nobody chose — wrong data on the wrong
+   *  creature, and the DM has no reason to look. Per participant the worst
+   *  case is the opposite: the DM re-selects a creature, finds the picker
+   *  back at "no timer" and applies a condition with no duration. That's a
+   *  *missing* timer, which is visible on the chip (no "Nr" badge) and fixed
+   *  in one click with the ⏱ button. Absent beats wrong. The picker is also
+   *  highlighted while armed, so an armed count isn't invisible either. */
+  let pendingConditionDuration: Record<string, number> = {};
 
   type ParticipantLite = {
     id: string;
@@ -1073,7 +1085,7 @@
     // Switching on with a duration selected starts its timer; switching off
     // drops it so no orphan can raise an expiry prompt later.
     const timers = turningOn
-      ? setTimer(timersFor(p), cond, liveRound, pendingConditionDuration)
+      ? setTimer(timersFor(p), cond, liveRound, pendingConditionDuration[p.id] ?? 0)
       : clearTimer(timersFor(p), cond);
     if (p.kind === 'pc') {
       if (!p.characterId) return;
@@ -1976,7 +1988,9 @@
         {busy}
         timers={timersFor(p)}
         round={liveRound}
-        bind:pendingDuration={pendingConditionDuration}
+        pendingDuration={pendingConditionDuration[p.id] ?? 0}
+        on:pendingDuration={(e) =>
+          (pendingConditionDuration = { ...pendingConditionDuration, [p.id]: e.detail })}
         on:toggle={(e) => toggleCondition(p, e.detail)}
         on:setDuration={(e) => setConditionDuration(p, e.detail.condition, e.detail.rounds)}
       />

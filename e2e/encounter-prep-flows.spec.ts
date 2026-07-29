@@ -36,7 +36,9 @@ test('a round-scoped condition raises a DM-confirmed expiry prompt on its turn',
   // Select the goblin, pick a 1-round duration, apply poisoned.
   await page.locator('li').filter({ hasText: 'Goblin 2' }).first().click();
   const detail = page.locator('section').filter({ hasText: 'Conditions' }).last();
-  await detail.getByTitle('Rounds the next condition you apply should last').selectOption('1');
+  await detail
+    .getByTitle('Rounds the next condition you apply to this creature should last')
+    .selectOption('1');
   await detail.getByRole('button', { name: 'poisoned', exact: true }).click();
   // The chip now carries its remaining-rounds readout.
   await expect(detail.getByRole('button', { name: /^poisoned/ })).toContainText('1r');
@@ -63,6 +65,53 @@ test('a round-scoped condition raises a DM-confirmed expiry prompt on its turn',
       return state.participantHp[goblinId].conditions;
     })
     .toEqual([]);
+});
+
+// The armed duration is per creature. It used to be one page-scoped
+// variable, so a count armed while looking at one creature silently applied
+// to the next condition switched on for a different one — wrong data on the
+// wrong row, with nothing to notice.
+test('an armed condition duration does not follow the DM to another creature', async ({
+  browser,
+  baseURL
+}) => {
+  const dm = await signup(baseURL!, 'e2e_cscope');
+  const { code } = await createCampaign(dm, 'Duration Scope');
+  const encounterId = await createLiveEncounter(dm, code, 'Scope Test');
+  await addNpc(dm, encounterId, { name: 'Goblin 2', initiative: 15, currentHp: 7, maxHp: 7 });
+  await addNpc(dm, encounterId, { name: 'Wolf', initiative: 10, currentHp: 11, maxHp: 11 });
+
+  const page = await newPageAs(browser, dm);
+  await page.goto(`/c/${code}/encounters/${encounterId}`);
+  const picker = 'Rounds the next condition you apply to this creature should last';
+
+  // Arm 3 rounds on the goblin and apply prone: the chip carries a timer.
+  await page.locator('li').filter({ hasText: 'Goblin 2' }).first().click();
+  const goblin = page.locator('section').filter({ hasText: 'Conditions' }).last();
+  await goblin.getByTitle(picker).selectOption('3');
+  await goblin.getByRole('button', { name: 'prone', exact: true }).click();
+  await expect(goblin.getByRole('button', { name: /^prone/ })).toContainText('3r');
+
+  // Switch to the wolf: the picker is back at "no timer" for this creature…
+  await page.locator('li').filter({ hasText: 'Wolf' }).first().click();
+  const wolf = page.locator('section').filter({ hasText: 'Conditions' }).last();
+  await expect(wolf.getByTitle(picker)).toHaveValue('0');
+  // …so the same click applies no duration at all: no "Nr" badge on the chip.
+  await wolf.getByRole('button', { name: 'prone', exact: true }).click();
+  await expect(wolf.getByRole('button', { name: /^prone/ })).not.toContainText(/\d+r/);
+
+  await expect
+    .poll(async () => {
+      const state = (await (await dm.api.get(`/api/encounters/${encounterId}/state`)).json()) as {
+        participants: Array<{ id: string; name: string }>;
+        participantHp: Record<string, { conditionTimers: unknown[] }>;
+      };
+      const wolfId = state.participants.find((p) => p.name === 'Wolf')!.id;
+      return state.participantHp[wolfId].conditionTimers;
+    })
+    .toEqual([]);
+
+  await page.close();
 });
 
 test('encounter-wide reveal controls flip every non-PC row', async ({ browser, baseURL }) => {
