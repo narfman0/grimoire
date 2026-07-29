@@ -2,6 +2,8 @@
 
 import { z } from 'zod';
 import { CampaignCode, Uuid } from './schemas';
+import { normalizeEconomy } from '$lib/realtime/economy';
+import { normalizeTimers } from '$lib/encounter/condition-timers';
 
 export const EncounterStatus = z.enum(['staging', 'live', 'ended']);
 export type TEncounterStatus = z.infer<typeof EncounterStatus>;
@@ -213,6 +215,70 @@ export const SetPlanRequest = z
   })
   .openapi('SetPlanRequest');
 export type TSetPlanRequest = z.infer<typeof SetPlanRequest>;
+
+/** Parse a stored `plan_json` blob without letting one bad field take out
+ *  the rest of it.
+ *
+ *  `PlanJson.safeParse` is all-or-nothing, which is right for validating a
+ *  *request* — the writer gets a 400 and fixes it. It's wrong for reading a
+ *  row back: the blob carries four independent concerns (the declared
+ *  intent, the combat economy, the condition-duration overlay, the lair
+ *  marker), and a single invalid field — an over-long `notes`, a counter
+ *  some older build wrote differently — used to make the whole parse fail,
+ *  silently zeroing a creature's economy, timers, slots and lair marker for
+ *  every poller with nothing surfaced anywhere.
+ *
+ *  So: try the strict parse first (the overwhelmingly common case), and on
+ *  failure rebuild key by key, keeping whatever is individually valid and
+ *  coercing what can be coerced. Returns null only when the blob isn't an
+ *  object at all. Callers that want to know a repair happened pass
+ *  `onSalvage`. */
+export function salvagePlanJson(
+  raw: unknown,
+  onSalvage?: (issues: string[]) => void
+): TPlanJson | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const strict = PlanJson.safeParse(raw);
+  if (strict.success) return strict.data;
+
+  const r = raw as Record<string, unknown>;
+  const issues: string[] = strict.error.issues.map(
+    (i) => `${i.path.join('.') || '(root)'}: ${i.message}`
+  );
+  const str = (v: unknown, max: number): string | undefined =>
+    typeof v === 'string' ? v.slice(0, max) : undefined;
+  const ids = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+
+  const plan: TPlanJson = {
+    actionId: str(r.actionId, 200) ?? '',
+    actionLabel: str(r.actionLabel, 200) ?? '',
+    targetParticipantIds: ids(r.targetParticipantIds),
+    notes: str(r.notes, 500) ?? '',
+    updatedAt:
+      typeof r.updatedAt === 'number' && Number.isFinite(r.updatedAt) && r.updatedAt >= 0
+        ? Math.floor(r.updatedAt)
+        : 0
+  };
+  const bonusId = str(r.bonusActionId, 200);
+  if (bonusId) plan.bonusActionId = bonusId;
+  const bonusLabel = str(r.bonusActionLabel, 200);
+  if (bonusLabel) plan.bonusActionLabel = bonusLabel;
+  if (Array.isArray(r.bonusTargetParticipantIds)) {
+    plan.bonusTargetParticipantIds = ids(r.bonusTargetParticipantIds);
+  }
+  // The three extras are independent of the intent and of each other — a
+  // broken one must not cost the others. Each is coerced by the same
+  // tolerant normalizer the reader would have applied anyway.
+  const combat = normalizeEconomy(r.combat);
+  if (r.combat != null) plan.combat = combat as TCombatEconomyJson;
+  const timers = normalizeTimers(r.conditionTimers);
+  if (timers.length > 0) plan.conditionTimers = timers.slice(0, 40);
+  if (r.lair === true) plan.lair = true;
+
+  onSalvage?.(issues);
+  return plan;
+}
 
 // ---- Participant HP + conditions (live channel) ----
 

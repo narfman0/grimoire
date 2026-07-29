@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
 import { Uuid } from '$lib/server/api/schemas';
-import { PlanJson, SpellSlotsJson } from '$lib/server/api/encounter-schemas';
+import { PlanJson, SpellSlotsJson, salvagePlanJson } from '$lib/server/api/encounter-schemas';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
@@ -297,14 +297,23 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     let planConditionTimers: unknown;
     if (p.planJson) {
       try {
-        const parsed = PlanJson.safeParse(JSON.parse(p.planJson));
-        if (parsed.success) {
-          plans[p.id] = parsed.data;
-          planCombat = parsed.data.combat;
-          planConditionTimers = parsed.data.conditionTimers;
+        // Degrades per key rather than all-or-nothing: one invalid field
+        // (an over-long `notes`, a counter an older build wrote
+        // differently) must not silently zero this creature's economy,
+        // spell slots, condition timers and lair marker for every poller.
+        const parsed = salvagePlanJson(JSON.parse(p.planJson), (issues) =>
+          logger.warn(
+            { encounterId: id, participantId: p.id, issues },
+            'state poll: plan_json failed validation, salvaged per key'
+          )
+        );
+        if (parsed) {
+          plans[p.id] = parsed;
+          planCombat = parsed.combat;
+          planConditionTimers = parsed.conditionTimers;
         }
       } catch (err) {
-        // best-effort: drop malformed plan, but leave a trail
+        // best-effort: drop unparseable plan, but leave a trail
         logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed plan_json');
       }
     }

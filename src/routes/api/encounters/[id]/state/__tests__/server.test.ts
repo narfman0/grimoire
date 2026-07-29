@@ -164,6 +164,53 @@ describe('GET /api/encounters/[id]/state', () => {
     });
   });
 
+  // Regression: the projection used a single all-or-nothing
+  // `PlanJson.safeParse`, so one invalid field — here an over-long `notes`,
+  // which the schema caps at 500 — dropped the whole blob and silently
+  // zeroed this creature's economy, spell slots, timers and lair marker for
+  // every poller, with nothing surfaced.
+  it('keeps economy, slots, timers and lair when one plan field is invalid', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const mobId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Drow Mage'
+    });
+    await db
+      .update(schema.participants)
+      .set({
+        // The timer overlay is pruned against the live condition list.
+        conditionsJson: JSON.stringify(['poisoned']),
+        planJson: JSON.stringify({
+          actionId: 'staff',
+          actionLabel: 'Staff',
+          targetParticipantIds: [],
+          notes: 'x'.repeat(600),
+          updatedAt: 1,
+          combat: { reactionUsed: true, spellSlots: { '3': { max: 3, used: 2 } } },
+          conditionTimers: [{ condition: 'poisoned', untilRound: 9 }],
+          lair: true
+        })
+      })
+      .where(eq(schema.participants.id, mobId));
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantEconomy[mobId]).toMatchObject({
+      reactionUsed: true,
+      spellSlots: { 3: { max: 3, used: 2 } }
+    });
+    expect(body.participantHp[mobId].conditionTimers).toEqual([
+      { condition: 'poisoned', untilRound: 9 }
+    ]);
+    expect(body.plans[mobId].lair).toBe(true);
+    // The intent survives too, with the offending field repaired in place.
+    expect(body.plans[mobId].actionId).toBe('staff');
+    expect(body.plans[mobId].notes).toHaveLength(500);
+  });
+
   // ---- PC resource spend --------------------------------------------------
   //
   // Pool sizes need the full Derived and stay on SSR page data; only the
