@@ -16,7 +16,7 @@ importers:
         version: 9.1.0(zod@4.4.3)
       '@sentry/sveltekit':
         specifier: ^10.68.0
-        version: 10.68.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(rollup@4.62.3)(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
+        version: 10.68.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(rollup@4.62.3)(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
       better-sqlite3:
         specifier: ^11.1.0
         version: 11.10.0
@@ -35,10 +35,10 @@ importers:
         version: 1.62.0
       '@sveltejs/adapter-node':
         specifier: ^5.5.7
-        version: 5.5.7(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))
+        version: 5.5.7(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))
       '@sveltejs/kit':
         specifier: ^2.70.1
-        version: 2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
+        version: 2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
       '@sveltejs/vite-plugin-svelte':
         specifier: ^4.0.4
         version: 4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
@@ -74,7 +74,7 @@ importers:
         version: 5.56.8
       svelte-check:
         specifier: ^4.7.3
-        version: 4.7.3(picomatch@4.0.4)(svelte@5.56.8)(typescript@5.9.3)
+        version: 4.7.3(picomatch@4.0.4)(svelte@5.56.8)(typescript@6.0.3)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -82,8 +82,8 @@ importers:
         specifier: ^2.6.0
         version: 2.8.1
       typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)
@@ -2961,8 +2961,8 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -4051,7 +4051,7 @@ snapshots:
       magic-string: 0.30.21
       svelte: 5.56.8
 
-  '@sentry/sveltekit@10.68.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(rollup@4.62.3)(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))':
+  '@sentry/sveltekit@10.68.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(rollup@4.62.3)(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))':
     dependencies:
       '@sentry/cloudflare': 10.68.0
       '@sentry/conventions': 0.16.0
@@ -4060,7 +4060,7 @@ snapshots:
       '@sentry/svelte': 10.68.0(svelte@5.56.8)
       '@sentry/vite-plugin': 5.4.0(rollup@4.62.3)
       '@sveltejs/acorn-typescript': 1.0.11(acorn@8.17.0)
-      '@sveltejs/kit': 2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
+      '@sveltejs/kit': 2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
       acorn: 8.17.0
       magic-string: 0.30.21
       sorcery: 1.0.0
@@ -4098,16 +4098,16 @@ snapshots:
     dependencies:
       acorn: 8.17.0
 
-  '@sveltejs/adapter-node@5.5.7(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))':
+  '@sveltejs/adapter-node@5.5.7(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))':
     dependencies:
       '@rollup/plugin-commonjs': 29.0.3(rollup@4.62.3)
       '@rollup/plugin-json': 6.1.0(rollup@4.62.3)
       '@rollup/plugin-node-resolve': 16.0.3(rollup@4.62.3)
       '@rollup/plugin-replace': 6.0.3(rollup@4.62.3)
-      '@sveltejs/kit': 2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
+      '@sveltejs/kit': 2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))
       rollup: 4.62.3
 
-  '@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@5.9.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))':
+  '@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.56.8)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)))(svelte@5.56.8)(typescript@6.0.3)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.32.0))':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@sveltejs/acorn-typescript': 1.0.11(acorn@8.17.0)
@@ -4126,7 +4126,7 @@ snapshots:
       vite: 5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
-      typescript: 5.9.3
+      typescript: 6.0.3
 
   '@sveltejs/load-config@0.2.1': {}
 
@@ -5564,7 +5564,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  svelte-check@4.7.3(picomatch@4.0.4)(svelte@5.56.8)(typescript@5.9.3):
+  svelte-check@4.7.3(picomatch@4.0.4)(svelte@5.56.8)(typescript@6.0.3):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@sveltejs/load-config': 0.2.1
@@ -5573,7 +5573,7 @@ snapshots:
       picocolors: 1.1.1
       sade: 1.8.1
       svelte: 5.56.8
-      typescript: 5.9.3
+      typescript: 6.0.3
     transitivePeerDependencies:
       - picomatch
 
@@ -5675,7 +5675,7 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  typescript@5.9.3: {}
+  typescript@6.0.3: {}
 
   undici-types@6.21.0: {}
 
