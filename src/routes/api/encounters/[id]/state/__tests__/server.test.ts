@@ -164,6 +164,67 @@ describe('GET /api/encounters/[id]/state', () => {
     });
   });
 
+  // ---- PC resource spend --------------------------------------------------
+  //
+  // Pool sizes need the full Derived and stay on SSR page data; only the
+  // spend counter moves mid-combat, so only it rides the poll. Without it
+  // the planner's "2/5 Ki left" waited for an invalidateAll.
+
+  it('projects PC resource spend counters, dropping the empty ones', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const charId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: dmId,
+      name: 'Monk',
+      document: {
+        ...minCharDoc('monk-res'),
+        resourcesSpent: { 'feature/ki/ki': 3, 'feature/rage/rage': 0, junk: -2 }
+      },
+      linkToCampaign: true
+    });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Monk'
+    });
+    const mobId = await seedParticipant(db, { encounterId, kind: 'monster', name: 'Goblin' });
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantResources[pcId]).toEqual({ 'feature/ki/ki': 3 });
+    // Non-PCs have no resource pools — no key at all, not an empty object.
+    expect(body.participantResources[mobId]).toBeUndefined();
+  });
+
+  // "spent nothing" must be a value, not an absence: a rest that refills the
+  // pool has to reach the planner, and an omitted entry reads as "no live
+  // data — keep the (stale) SSR number".
+  it('emits an empty map for a PC who has spent nothing', async () => {
+    const dmId = await seedUser(db, { username: 'dm' });
+    const { campaignId } = await seedCampaign(db, { dmId });
+    const charId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: dmId,
+      name: 'Fresh',
+      document: minCharDoc('fresh-res'),
+      linkToCampaign: true
+    });
+    const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+    const pcId = await seedParticipant(db, {
+      encounterId,
+      kind: 'pc',
+      characterId: charId,
+      name: 'Fresh'
+    });
+
+    const res = await GET(makeEvent({ user: userOf(dmId, 'dm'), params: { id: encounterId } }));
+    const body = await res.json();
+    expect(body.participantResources[pcId]).toEqual({});
+  });
+
   // ---- condition timers (WS2 phase 2) -------------------------------------
   //
   // Durations are an overlay on the flat conditions list, stored in

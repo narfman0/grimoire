@@ -28,7 +28,12 @@
   import ResolvePanel from './ResolvePanel.svelte';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
-  import { actionAvailability, resourceSuffix } from '$lib/encounter/action-availability';
+  import {
+    actionAvailability,
+    resourceSuffix,
+    withLiveResources,
+    type SpentPools
+  } from '$lib/encounter/action-availability';
   import {
     isViewersTurn,
     notifyState,
@@ -1418,15 +1423,26 @@
     resourceNote?: string;
   };
 
+  /** Poll-fresh resource spend per PC participant. The pool *sizes* stay on
+   *  SSR page data (they need the full `Derived`), but the spend counter is
+   *  a plain integer on the character document, so it rides the 2s poll and
+   *  `withLiveResources` recombines the two. Without this, a player
+   *  spending Ki on their sheet mid-combat left the planner reading a stale
+   *  "2/5 Ki left" until the next invalidateAll. */
+  $: liveResources = liveState?.participantResources ?? {};
+
   /** Turn one derived PC action into a picker row, greyed + explained when
    *  the participant can't actually take it. The resource verdict is
    *  precomputed server-side (`affordable`, from the same
-   *  `hasResourceBudget` the character sheet uses); the economy half comes
-   *  from the live spent flags. */
+   *  `hasResourceBudget` the character sheet uses) and then refreshed
+   *  against the live spend counters; the economy half comes from the live
+   *  spent flags. */
   function pcChoice(
     economy: CombatEconomy | undefined,
-    a: NonNullable<EncounterPageData['participantPcActions']>[string][number]
+    raw: NonNullable<EncounterPageData['participantPcActions']>[string][number],
+    spent: SpentPools | undefined
   ): PlanChoice {
+    const a = withLiveResources(raw, spent);
     const avail = actionAvailability(a, economy);
     return {
       id: a.id,
@@ -1439,12 +1455,13 @@
 
   function actionChoicesFor(
     p: { id: string; kind: string; statblock: { actions?: Array<{ name: string; attackBonus?: number }> } | null },
-    economy?: CombatEconomy
+    economy?: CombatEconomy,
+    resources?: Record<string, SpentPools>
   ): PlanChoice[] {
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'action')
-        .map((a) => pcChoice(economy, a));
+        .map((a) => pcChoice(economy, a, resources?.[p.id]));
     }
     const choices: PlanChoice[] = [];
     for (const a of p.statblock?.actions ?? []) {
@@ -1469,12 +1486,13 @@
 
   function bonusChoicesFor(
     p: { id: string; kind: string },
-    economy?: CombatEconomy
+    economy?: CombatEconomy,
+    resources?: Record<string, SpentPools>
   ): PlanChoice[] {
     if (p.kind === 'pc') {
       return (data.participantPcActions?.[p.id] ?? [])
         .filter((a) => slotForCost(a.cost) === 'bonus')
-        .map((a) => pcChoice(economy, a));
+        .map((a) => pcChoice(economy, a, resources?.[p.id]));
     }
     return COMMON_BONUS_ACTIONS.map((b) => ({ id: b, name: b, targetMode: 'single' as const }));
   }
@@ -2034,8 +2052,8 @@
             plan={plan ?? null}
             role={data.role}
             participants={liveParticipants}
-            actionChoices={actionChoicesFor(p, eco)}
-            bonusChoices={bonusChoicesFor(p, eco)}
+            actionChoices={actionChoicesFor(p, eco, liveResources)}
+            bonusChoices={bonusChoicesFor(p, eco, liveResources)}
             {walkSpeed}
             {busy}
             economy={{

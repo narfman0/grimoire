@@ -7,7 +7,9 @@ import { describe, it, expect } from 'vitest';
 import {
   actionAvailability,
   labelWithReason,
-  resourceSuffix
+  normalizeSpentPools,
+  resourceSuffix,
+  withLiveResources
 } from '../action-availability';
 
 describe('actionAvailability', () => {
@@ -134,5 +136,89 @@ describe('labelWithReason', () => {
 
   it('leaves an available pick untouched', () => {
     expect(labelWithReason('Second Wind', { unavailable: false, reason: null })).toBe('Second Wind');
+  });
+});
+
+// The SSR half of a planner action goes stale the moment the player spends
+// the pool on their character sheet: page data only re-runs on
+// invalidateAll, while the poll ticks every 2s. `withLiveResources` folds
+// the poll's spend counter over the SSR pool so "2/5 Ki left" keeps up.
+describe('normalizeSpentPools', () => {
+  it('returns undefined when nothing is spent', () => {
+    expect(normalizeSpentPools(undefined)).toBeUndefined();
+    expect(normalizeSpentPools({})).toBeUndefined();
+    expect(normalizeSpentPools({ ki: 0 })).toBeUndefined();
+    expect(normalizeSpentPools('nope')).toBeUndefined();
+  });
+
+  it('keeps positive counters and floors fractions', () => {
+    expect(normalizeSpentPools({ ki: 2.9, rage: 0, bogus: 'x', neg: -3 })).toEqual({ ki: 2 });
+  });
+});
+
+describe('withLiveResources', () => {
+  const ki = {
+    cost: 'action',
+    spendsResource: 'ki',
+    resourceName: 'Ki',
+    resourceCost: 1,
+    resourceRemaining: 5,
+    resourceMax: 5,
+    affordable: true
+  };
+
+  it('recomputes remaining from the live spend counter', () => {
+    expect(withLiveResources(ki, { ki: 3 })).toMatchObject({
+      resourceRemaining: 2,
+      affordable: true
+    });
+  });
+
+  it('flips the affordability verdict when the pool runs dry', () => {
+    expect(withLiveResources(ki, { ki: 5 })).toMatchObject({
+      resourceRemaining: 0,
+      affordable: false
+    });
+    expect(actionAvailability(withLiveResources(ki, { ki: 5 }), {})).toEqual({
+      unavailable: true,
+      reason: 'out of uses'
+    });
+  });
+
+  it('refuses a multi-unit cost the drained pool cannot cover', () => {
+    const fireball = { ...ki, spendsResource: 'charges', resourceCost: 3, resourceMax: 7 };
+    const live = withLiveResources(fireball, { charges: 5 });
+    expect(live.resourceRemaining).toBe(2);
+    expect(actionAvailability(live, {})).toEqual({
+      unavailable: true,
+      reason: 'not enough charges'
+    });
+  });
+
+  it('clamps a spend counter that overshoots the pool', () => {
+    expect(withLiveResources(ki, { ki: 99 }).resourceRemaining).toBe(0);
+  });
+
+  it('re-fills the readout when the sheet restores the pool', () => {
+    const drained = { ...ki, resourceRemaining: 0, affordable: false };
+    expect(withLiveResources(drained, { ki: 1 })).toMatchObject({
+      resourceRemaining: 4,
+      affordable: true
+    });
+    // A rest clears the counter entirely — the pool reads full again.
+    expect(withLiveResources(drained, {})).toMatchObject({
+      resourceRemaining: 5,
+      affordable: true
+    });
+  });
+
+  it('passes through actions with no pool, and returns the same object', () => {
+    const plain = { cost: 'action' as const };
+    expect(withLiveResources(plain, { ki: 2 })).toBe(plain);
+    // Pool the loader could not resolve (no max) — nothing to recompute.
+    const unknownPool = { cost: 'action', spendsResource: 'mystery', affordable: false };
+    expect(withLiveResources(unknownPool, { mystery: 1 })).toBe(unknownPool);
+    // No live data yet (pre-first-poll): keep the SSR numbers.
+    expect(withLiveResources(ki, undefined)).toBe(ki);
   });
 });

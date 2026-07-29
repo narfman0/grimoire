@@ -11,6 +11,7 @@ import { parseReveals } from '$lib/realtime/reveals';
 import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
+import { normalizeSpentPools } from '$lib/encounter/action-availability';
 import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
@@ -84,6 +85,21 @@ const ParticipantEconomySchema = z.object({
   spellSlots: SpellSlotsJson.optional()
 });
 
+/** Live spend counters for one PC participant — the character document's
+ *  `resourcesSpent`, keyed by resource pool id.
+ *
+ *  Why this is on the poll and the rest of the pool isn't: the planner's
+ *  "2/5 Ki left" needs `max` (and the pool's name, and what each action
+ *  costs), all of which require the full `Derived` and therefore stay on
+ *  SSR page data. The only part that moves mid-combat is the spend counter,
+ *  and that's a plain integer already sitting on the character document
+ *  this handler loads and parses anyway — no extra query, no derive, and
+ *  the ETag already covers it via max(characters.updated_at). The client
+ *  recombines the two in `withLiveResources`
+ *  ($lib/encounter/action-availability). Present for every PC participant
+ *  (empty when nothing is spent), absent for everyone else. */
+const ParticipantResourcesSchema = z.record(z.string(), z.number().int().nonnegative());
+
 const EncounterStateResponse = z.object({
   round: z.number().int().nonnegative(),
   status: z.enum(['staging', 'live', 'ended']),
@@ -91,7 +107,8 @@ const EncounterStateResponse = z.object({
   participants: z.array(LiveParticipantSchema),
   plans: z.record(z.string(), PlanJson.nullable()),
   participantHp: z.record(z.string(), ParticipantHpSchema),
-  participantEconomy: z.record(z.string(), ParticipantEconomySchema)
+  participantEconomy: z.record(z.string(), ParticipantEconomySchema),
+  participantResources: z.record(z.string(), ParticipantResourcesSchema)
 });
 
 export type TEncounterStateResponse = z.infer<typeof EncounterStateResponse>;
@@ -272,6 +289,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   const plans: Record<string, z.infer<typeof PlanJson> | null> = {};
   const participantHp: Record<string, z.infer<typeof ParticipantHpSchema>> = {};
   const participantEconomy: Record<string, z.infer<typeof ParticipantEconomySchema>> = {};
+  const participantResources: Record<string, z.infer<typeof ParticipantResourcesSchema>> = {};
 
   for (const p of partRows) {
     // Plans
@@ -367,6 +385,17 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     participantEconomy[p.id] = isPc
       ? economyFromCharacterDoc(doc)
       : normalizeEconomy(planCombat);
+
+    // Resource spend counters (PCs only — the pools come from derive()).
+    // Lets the planner's "2/5 Ki left" track a mid-combat spend on the
+    // character sheet without waiting for an invalidateAll. Always emitted
+    // for a PC, even when empty: "spent nothing" (a rest just refilled the
+    // pool) has to be distinguishable from "this poll carried no counters",
+    // or a restored pool would keep reading the stale SSR number. Same rule
+    // as participantEconomy above.
+    if (isPc) {
+      participantResources[p.id] = normalizeSpentPools(doc?.resourcesSpent) ?? {};
+    }
   }
 
   const body: TEncounterStateResponse = {
@@ -376,7 +405,8 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     participants,
     plans,
     participantHp,
-    participantEconomy
+    participantEconomy,
+    participantResources
   };
 
   return json(body, { headers: { etag } });
@@ -385,7 +415,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 export const _openapi = {
   GET: {
     summary:
-      'Fetch the live encounter snapshot (round, status, turn, redacted participant list, HP, plans, combat economy) for polling',
+      'Fetch the live encounter snapshot (round, status, turn, redacted participant list, HP, plans, combat economy, PC resource spend) for polling',
     description:
       'The 200 response carries an `ETag` header derived from the encounter state. ' +
       'Pollers should echo it back via `If-None-Match`; when nothing changed the server ' +

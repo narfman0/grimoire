@@ -9,6 +9,17 @@
 // PcActionChoice. This module folds that verdict together with the
 // participant's live action-economy flags, which the loader can't know
 // because they change every turn.
+//
+// Freshness: the SSR half is only stale in one place — `resourceRemaining`
+// (and the `affordable` verdict that follows from it) moves whenever the
+// player spends Ki on their character sheet mid-combat, and SSR data only
+// re-runs on `invalidateAll`. The *shape* of a pool (name, max, what an
+// action costs) needs the full `Derived` and can't move without one, but
+// the spend counter is a plain `resourcesSpent[poolId]` integer sitting on
+// the character document the poll already loads. So the poll carries just
+// that counter (`participantResources`) and `withLiveResources` below
+// re-derives `remaining = max - spent` against the SSR pool — poll-fresh
+// numbers for no extra query, no derive, and a handful of bytes.
 
 import { slotForCost } from '$lib/rules/action-cost';
 
@@ -31,6 +42,48 @@ export interface PlannerActionBits {
   resourceMax?: number;
   /** Server verdict from `hasResourceBudget`. Undefined = unknown = allow. */
   affordable?: boolean;
+}
+
+/** Live spend counters for one participant: `resourcesSpent[poolId]` off
+ *  the character document, as projected by the encounter state poll. */
+export type SpentPools = Record<string, number>;
+
+/** Coerce an untrusted `resourcesSpent` blob into a spend map. Drops
+ *  non-positive / non-finite counters (they carry no information and the
+ *  poll should not ship them) and floors fractions. Returns undefined when
+ *  nothing is spent, so the poll can omit the participant entirely. */
+export function normalizeSpentPools(raw: unknown): SpentPools | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: SpentPools = {};
+  let any = false;
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) continue;
+    out[id] = Math.floor(value);
+    any = true;
+  }
+  return any ? out : undefined;
+}
+
+/** Refresh an SSR-computed action's resource numbers against the live spend
+ *  counters from the poll.
+ *
+ *  Only `resourceRemaining` and `affordable` can go stale between page
+ *  loads: `resourceMax`, `resourceName` and `resourceCost` all come out of
+ *  `derive()` and don't move mid-combat. So remaining is recomputed as
+ *  `max - spent` (clamped, exactly as `derive()` clamps `Resource.used`)
+ *  and the affordability verdict re-run the way `hasResourceBudget` does.
+ *  Actions that spend nothing, and actions whose pool the loader couldn't
+ *  resolve, pass through untouched. */
+export function withLiveResources<T extends PlannerActionBits>(
+  action: T,
+  spent: SpentPools | undefined
+): T {
+  if (!spent || !action.spendsResource || action.resourceMax == null) return action;
+  const used = Math.min(action.resourceMax, Math.max(0, spent[action.spendsResource] ?? 0));
+  const remaining = Math.max(0, action.resourceMax - used);
+  if (remaining === action.resourceRemaining) return action;
+  const cost = Math.max(1, Math.floor(action.resourceCost ?? 1));
+  return { ...action, resourceRemaining: remaining, affordable: remaining >= cost };
 }
 
 /** Which economy slots the participant has already spent this turn. */

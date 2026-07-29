@@ -99,6 +99,17 @@ test('player sees a turn callout, a blocked action, and economy that survives re
   // The DM is not the owner of the active character, so no callout.
   await expect(dmPage.getByTestId('your-turn-banner')).toHaveCount(0);
 
+  // ---- the resource readout is poll-fresh --------------------------------
+  // The pool numbers come from SSR page data (they need the full Derived),
+  // which only re-runs on invalidateAll. The *spend counter* rides the 2s
+  // poll, so restoring the pool out-of-band — as a rest on the character
+  // sheet would — must un-block the pick without a reload.
+  await player.api.patch(`/api/characters/${characterId}`, {
+    data: { document: { ...minCharacterDocument('Vortha'), id: characterId, resourcesSpent: {} } }
+  });
+  await expect(secondWind).not.toContainText('out of uses');
+  await expect(secondWind).toBeEnabled();
+
   await dmPage.close();
   await playerPage.close();
 });

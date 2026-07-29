@@ -93,6 +93,12 @@ export interface EncounterSnapshot {
    *  legendary-action counter, server-projected so a second DM tab agrees
    *  and a reload doesn't forget what's been spent. */
   participantEconomy: Record<string, CombatEconomy>;
+  /** Per-PC resource spend counters (`resourcesSpent` off the character
+   *  document). The planner folds these over the SSR pool sizes so
+   *  "2/5 Ki left" tracks a mid-combat spend on the character sheet
+   *  instead of waiting for the next `invalidateAll`. See
+   *  `withLiveResources` in $lib/encounter/action-availability. */
+  participantResources: Record<string, Record<string, number>>;
 }
 
 export interface ConnectedEncounter {
@@ -187,7 +193,8 @@ const EMPTY: EncounterSnapshot = {
   participants: null,
   plans: {},
   participantHp: {},
-  participantEconomy: {}
+  participantEconomy: {},
+  participantResources: {}
 };
 
 export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncounter {
@@ -198,7 +205,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     participants: opts.seed?.participants ?? EMPTY.participants,
     plans: opts.seed?.plans ?? {},
     participantHp: opts.seed?.participantHp ?? {},
-    participantEconomy: opts.seed?.participantEconomy ?? {}
+    participantEconomy: opts.seed?.participantEconomy ?? {},
+    participantResources: opts.seed?.participantResources ?? {}
   };
 
   const state = writable<EncounterSnapshot>(initial);
@@ -285,7 +293,11 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
             pid,
             normalizeEconomy(e)
           ])
-        )
+        ),
+        participantResources: (data.participantResources ?? {}) as Record<
+          string,
+          Record<string, number>
+        >
       });
       lastEtag = res.headers.get('etag');
       status.set('open');

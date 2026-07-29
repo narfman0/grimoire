@@ -540,6 +540,31 @@ describe('connectEncounter (polling)', () => {
     });
   });
 
+  // The planner's resource readout is half SSR (pool sizes) and half poll
+  // (spend counters) — the poll half has to reach the store or "2/5 Ki left"
+  // only moves on invalidateAll.
+  it('carries participantResources off the poll payload', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/state'))
+        return jsonResponse({
+          ...stateSnapshot(),
+          participantResources: { 'pc-1': { 'feature/ki/ki': 3 } }
+        });
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    await vi.waitFor(() =>
+      expect(get(conn.state).participantResources['pc-1']).toEqual({ 'feature/ki/ki': 3 })
+    );
+  });
+
+  it('defaults participantResources to an empty map when absent', () => {
+    conn = connectEncounter({ encounterId: 'enc-1' });
+    expect(get(conn.state).participantResources).toEqual({});
+  });
+
   // applyDamage / applyHeal are the pure local helpers used by the resolve
   // modal. Temp HP soaks damage first; current never goes below 0; heal
   // is capped at maxHp when provided.
