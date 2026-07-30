@@ -49,9 +49,11 @@
     pathTo,
     reachableCells,
     threatenedCells,
+    tileAt,
     type AoeShape,
     type Grid
   } from '$lib/board/geometry';
+  import { doorCounterpart } from '$lib/board/tileset';
   import { AOE_PRESETS, tokensInCells } from '$lib/board/aoe';
   import { revealVisible, visibleFromAny } from '$lib/board/vision';
   import { cellKey, type Cell } from '$lib/board/types';
@@ -104,6 +106,12 @@
   let placing: string | null = null;
   let rulerAnchor: Cell | null = null;
   let hoverCell: Cell | null = null;
+  /** The cell under the pointer right now, null once it leaves the canvas.
+   *  Separate from `hoverCell`, which deliberately retains its last value
+   *  (the ruler wants a line that survives the pointer drifting off-board);
+   *  the note readout must clear instead — a tooltip for a cell you left is
+   *  a lie. */
+  let hoverExact: Cell | null = null;
   let overlaysOn = true;
 
   // --- keep the board fresh off the poll's change token -------------------
@@ -198,6 +206,11 @@
   // redacts the DM-only ones (and any note on a fogged cell) before they
   // reach a player, the same single path the background URL takes.
   $: annotations = liveBoard?.annotations ?? {};
+  /** The note under the pointer, for the readout below the canvas. This is
+   *  the only way a *player* can read a note — the marks render for everyone
+   *  but the editable chips list is DM-gated, so without this a shared note
+   *  was an unreadable amber triangle. */
+  $: hoveredNote = hoverExact ? annotations[cellKey(hoverExact)] : undefined;
   /** Cell the note editor is open for, and its draft. */
   let noteCell: Cell | null = null;
   let noteDraft = '';
@@ -503,18 +516,44 @@
       placing = null;
       return;
     }
+    // Doors open on a click — the at-the-table verb, not a trip through the
+    // terrain painter. A *closed* door can never conflict with click-to-plan
+    // below: it blocks movement, so it is never in anyone's reachable set.
+    if (mode === 'tokens' && role === 'dm' && toggleDoor(cell, 'closed')) return;
     // Click-to-plan: a reachable cell becomes the selected participant's
     // planned destination (soft — resolve warns, never blocks).
     if (mode === 'tokens' && selected?.plannable && planContext && selectedToken) {
       if (cell.x === selectedToken.x && cell.y === selectedToken.y) return;
-      if (!planContext.reach.costFt.has(cellKey(cell))) return;
-      dispatch('planMove', {
-        id: selected.id,
-        x: cell.x,
-        y: cell.y,
-        path: pathTo(planContext.reach, cell)
-      });
+      if (planContext.reach.costFt.has(cellKey(cell))) {
+        dispatch('planMove', {
+          id: selected.id,
+          x: cell.x,
+          y: cell.y,
+          path: pathTo(planContext.reach, cell)
+        });
+        return;
+      }
     }
+    // An *open* door closes only when nothing above claimed the click — an
+    // open doorway is walkable, so planning a move through it must win over
+    // slamming it shut.
+    if (mode === 'tokens' && role === 'dm') toggleDoor(cell, 'open');
+  }
+
+  /** Swap the door tile at `cell` for its counterpart when its current
+   *  state matches `when`. Returns whether a door was toggled. DM-only at
+   *  the call sites — `liveBoard.tiles` is the unmasked layer only for the
+   *  DM, and the PATCH is DM-gated server-side anyway. */
+  function toggleDoor(cell: Cell, when: 'closed' | 'open'): boolean {
+    if (!liveBoard || !grid) return false;
+    const tile = tileAt(grid, cell);
+    if (tile.door !== when) return false;
+    const counterpart = doorCounterpart(tile.id);
+    if (!counterpart) return false;
+    const tilesArr = Array.from(grid.tiles);
+    tilesArr[cell.y * grid.w + cell.x] = counterpart.id;
+    void patchBoard({ tiles: encodeRuns(tilesArr) });
+    return true;
   }
 </script>
 
@@ -839,8 +878,22 @@
           on:tokendrop={(e) => dispatch('moveToken', e.detail)}
           on:tokenclick={(e) => dispatch('selectToken', e.detail)}
           on:cellclick={(e) => onCellClick(e.detail)}
-          on:cellhover={(e) => (hoverCell = e.detail ?? hoverCell)}
+          on:cellhover={(e) => {
+            hoverExact = e.detail;
+            hoverCell = e.detail ?? hoverCell;
+          }}
         />
+        {#if hoveredNote && hoverExact}
+          <p class="mt-1 text-[11px]" data-testid="note-readout">
+            <span class="font-mono text-slate-500">({hoverExact.x}, {hoverExact.y})</span>
+            <span class={hoveredNote.dmOnly ? 'text-violet-200' : 'text-yellow-100'}>
+              📝 {hoveredNote.note}
+            </span>
+            {#if hoveredNote.dmOnly}
+              <span class="text-[9px] uppercase text-violet-400">dm only</span>
+            {/if}
+          </p>
+        {/if}
         {#if mode === 'ruler'}
           <p class="mt-1 text-[10px] text-slate-600">
             Click to anchor the ruler, click again to clear.
