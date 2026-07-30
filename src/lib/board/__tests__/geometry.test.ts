@@ -5,7 +5,6 @@ import {
   decodeBoard,
   distanceFt,
   footprintCells,
-  impliedBoard,
   inRangeFt,
   lineOfSight,
   pathTo,
@@ -407,17 +406,5 @@ describe('footprintCells', () => {
       ])
     );
     expect(footprintCells({ x: 0, y: 0 }, 1)).toEqual([{ x: 0, y: 0 }]);
-  });
-});
-
-describe('impliedBoard (theater of the mind)', () => {
-  it('answers every primitive on the near/mid/far strip', () => {
-    const grid = impliedBoard();
-    expect(distanceFt(grid, { x: 0, y: 0 }, { x: 2, y: 0 })).toBe(60);
-    const { costFt } = reachableCells(grid, { x: 0, y: 0 }, 30);
-    expect(costFt.get('1,0')).toBe(30);
-    expect(costFt.has('2,0')).toBe(false);
-    expect(lineOfSight(grid, { x: 0, y: 0 }, { x: 2, y: 0 })).toBe(true);
-    expect(coverBetween(grid, { x: 0, y: 0 }, { x: 2, y: 0 })).toBe('none');
   });
 });

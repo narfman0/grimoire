@@ -307,15 +307,3 @@ export function threatenedCells(
   return out;
 }
 
-/** Mapless (theater-of-mind) fallback: a 3-cell near/mid/far strip so every
- *  primitive still answers without a painted board. At 30 ft per cell, one
- *  standard move crosses one band and "far" is 60 ft out — coarse, but
- *  self-consistent. */
-export function impliedBoard(): Grid {
-  return {
-    w: 3,
-    h: 1,
-    cellFt: 30,
-    tiles: Uint16Array.from([1, 1, 1]) // floor, floor, floor
-  };
-}

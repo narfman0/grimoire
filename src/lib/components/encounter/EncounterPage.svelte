@@ -38,6 +38,7 @@
     type Grid
   } from '$lib/board/geometry';
   import { coverEffect } from '$lib/board/aoe';
+  import { impliedSetup, stripImpliedMovement } from '$lib/board/implied';
   import {
     oaProvokers,
     planSuppressesOa,
@@ -800,11 +801,14 @@
     }
   }
 
-  function suggestCombatants(excludeId: string): SuggestCombatant[] {
+  function suggestCombatants(
+    excludeId: string,
+    cells?: Map<string, { x: number; y: number }>
+  ): SuggestCombatant[] {
     const out: SuggestCombatant[] = [];
     for (const q of liveParticipants) {
       if (q.id === excludeId) continue;
-      const pos = livePositions[q.id];
+      const pos = cells ? cells.get(q.id) : livePositions[q.id];
       if (!pos) continue;
       const hp = liveHpMap[q.id];
       const cur = hp?.currentHp ?? q.currentHp;
@@ -813,7 +817,7 @@
         id: q.id,
         name: q.name,
         cell: { x: pos.x, y: pos.y },
-        sizeCells: pos.sizeCells,
+        sizeCells: cells ? 1 : livePositions[q.id].sizeCells,
         team: q.kind === 'pc' ? 'pc' : 'foe',
         ac,
         currentHp: cur ?? null,
@@ -825,8 +829,11 @@
     return out;
   }
 
-  function suggestActorFor(p: (typeof liveParticipants)[number]): SuggestActor | null {
-    const pos = livePositions[p.id];
+  function suggestActorFor(
+    p: (typeof liveParticipants)[number],
+    cells?: Map<string, { x: number; y: number }>
+  ): SuggestActor | null {
+    const pos = cells ? cells.get(p.id) : livePositions[p.id];
     if (!pos) return null;
     const actions = suggestActionsFrom(p.statblock?.actions ?? []);
     if (actions.length === 0) return null;
@@ -834,11 +841,22 @@
       id: p.id,
       name: p.name,
       cell: { x: pos.x, y: pos.y },
-      sizeCells: pos.sizeCells,
+      sizeCells: cells ? 1 : livePositions[p.id].sizeCells,
       team: p.kind === 'pc' ? 'pc' : 'foe',
       speedFt: speedFtOf(p),
       actions
     };
+  }
+
+  /** Grid + fabricated cells for a mapless suggestion, or null when a real
+   *  board is attached (real positions win). See $lib/board/implied. */
+  function impliedFor(p: { id: string; kind: string }) {
+    if (liveBoardWire) return null;
+    return impliedSetup(
+      p.id,
+      p.kind === 'pc' ? 'pc' : 'foe',
+      liveParticipants.map((q) => ({ id: q.id, team: q.kind === 'pc' ? 'pc' : 'foe' }))
+    );
   }
 
   /** `board` is a parameter (not the closure var) so the markup call site
@@ -848,8 +866,10 @@
     p: (typeof liveParticipants)[number],
     board: BoardWireShape | null
   ): string | null {
-    if (!board) return 'attach a board first';
-    if (!livePositions[p.id]) return 'place the token first';
+    // No board is fine — theater of mind runs on the implied tableau. An
+    // *attached* board with an unplaced token is different: real positions
+    // exist and this creature just isn't on them yet.
+    if (board && !livePositions[p.id]) return 'place the token first';
     if (suggestActionsFrom(p.statblock?.actions ?? []).length === 0) {
       return 'no damaging statblock actions';
     }
@@ -857,10 +877,17 @@
   }
 
   function computeSuggestions(p: (typeof liveParticipants)[number]) {
-    const grid = suggestGrid();
-    const actor = suggestActorFor(p);
+    const implied = impliedFor(p);
+    const grid = implied?.grid ?? suggestGrid();
+    const actor = suggestActorFor(p, implied?.cells);
     if (!grid || !actor) return;
-    suggestionsFor = { ...suggestionsFor, [p.id]: suggestTurn(grid, actor, suggestCombatants(p.id)) };
+    const ranked = suggestTurn(grid, actor, suggestCombatants(p.id, implied?.cells));
+    // Mapless plans keep the action/target ranking and drop the fabricated
+    // movement — there is no board for "move to (2, 3)" to mean anything on.
+    suggestionsFor = {
+      ...suggestionsFor,
+      [p.id]: implied ? ranked.map(stripImpliedMovement) : ranked
+    };
   }
 
   /** Confirming a suggestion writes it as an ordinary draft plan — the same
@@ -883,32 +910,37 @@
 
   /** Fill a draft plan for every unplanned, placed NPC at round start. */
   function autoPlanRound() {
-    const grid = suggestGrid();
-    if (!grid || !conn) return;
+    if (!conn) return;
     for (const p of liveParticipants) {
       if (p.kind === 'pc') continue;
       if (livePlans[p.id]?.actionId) continue;
-      const actor = suggestActorFor(p);
-      if (!actor) continue;
-      const top = suggestTurn(grid, actor, suggestCombatants(p.id), { topN: 1 })[0];
-      if (top) applySuggestion(p, top);
+      const implied = impliedFor(p);
+      const grid = implied?.grid ?? suggestGrid();
+      const actor = suggestActorFor(p, implied?.cells);
+      if (!grid || !actor) continue;
+      const top = suggestTurn(grid, actor, suggestCombatants(p.id, implied?.cells), {
+        topN: 1
+      })[0];
+      if (top) applySuggestion(p, implied ? stripImpliedMovement(top) : top);
     }
   }
 
   /** The optimizer's pick among a legendary creature's affordable actions,
    *  shown as a hint on the end-of-turn prompt. */
   function legendarySuggestionFor(pid: string, remaining: number): string | null {
-    const grid = suggestGrid();
     const p = liveParticipants.find((q) => q.id === pid);
-    if (!grid || !p || !livePositions[pid]) return null;
+    if (!p) return null;
+    const implied = impliedFor(p);
+    const grid = implied?.grid ?? suggestGrid();
+    if (!grid || (!implied && !livePositions[pid])) return null;
     const actions = suggestLegendaryActionsFrom(p.statblock?.legendaryActions ?? []);
     if (actions.length === 0) return null;
-    const actor = suggestActorFor(p);
+    const actor = suggestActorFor(p, implied?.cells);
     if (!actor) return null;
     const top = suggestLegendary(
       grid,
       { ...actor, actions },
-      suggestCombatants(pid),
+      suggestCombatants(pid, implied?.cells),
       remaining,
       { topN: 1 }
     )[0];
