@@ -294,4 +294,80 @@ describe('planned-movement fog redaction', () => {
     ).json();
     expect(after.plans[lurkerId].moveTo).toEqual({ x: 1, y: 1 });
   });
+  // Review finding: attaching a smaller map left tokens sitting outside the
+  // grid — invisible to the canvas, un-draggable, and still counted as
+  // "placed" by everything that reads positions. The position POST has always
+  // refused out-of-bounds writes; this closes the other door in.
+});
+
+describe('stranded tokens on re-attach', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  it('unplaces tokens whose footprint no longer fits the new board', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await PUT(
+      makeEvent({ user: dm, params: { id: encounterId }, body: { w: 10, h: 10 }, method: 'PUT' })
+    );
+    const insideId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Near',
+      posX: 1,
+      posY: 1
+    });
+    const edgeId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Far',
+      posX: 8,
+      posY: 8
+    });
+    const bigId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Ogre',
+      posX: 2,
+      posY: 2,
+      sizeCells: 3
+    });
+
+    // Shrink to 4x4: (1,1) still fits; (8,8) doesn't; the 3-cell Ogre at
+    // (2,2) would run to (5,5) so it doesn't either.
+    await PUT(
+      makeEvent({ user: dm, params: { id: encounterId }, body: { w: 4, h: 4 }, method: 'PUT' })
+    );
+    const rows = await db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.encounterId, encounterId));
+    const posOf = (id: string) => {
+      const r = rows.find((q) => q.id === id)!;
+      return [r.posX, r.posY];
+    };
+    expect(posOf(insideId)).toEqual([1, 1]);
+    expect(posOf(edgeId)).toEqual([null, null]);
+    expect(posOf(bigId)).toEqual([null, null]);
+  });
+
+  it('leaves every token alone when the board grows', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await PUT(
+      makeEvent({ user: dm, params: { id: encounterId }, body: { w: 4, h: 4 }, method: 'PUT' })
+    );
+    const pid = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Near',
+      posX: 3,
+      posY: 3
+    });
+    await PUT(
+      makeEvent({ user: dm, params: { id: encounterId }, body: { w: 12, h: 12 }, method: 'PUT' })
+    );
+    const rows = await db.select().from(schema.participants).where(eq(schema.participants.id, pid));
+    expect([rows[0].posX, rows[0].posY]).toEqual([3, 3]);
+  });
 });

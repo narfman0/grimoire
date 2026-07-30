@@ -15,6 +15,10 @@ interface MakeEventOpts {
   user?: SessionUser | null;
   params?: Record<string, string>;
   body?: unknown;
+  /** Multipart body for the upload routes (portrait, map/board background).
+   *  Mutually exclusive with `body`; the Request sets its own content-type
+   *  boundary, so we must not pass one. */
+  formData?: FormData;
   method?: string;
   url?: string;
   searchParams?: Record<string, string>;
@@ -33,11 +37,17 @@ export function makeEvent(opts: MakeEventOpts = {}): AnyEvent {
       url.searchParams.set(k, v);
     }
   }
-  const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
+  const hasBody = opts.body !== undefined || opts.formData !== undefined;
+  const method = opts.method ?? (hasBody ? 'POST' : 'GET');
   const request = new Request(url.toString(), {
     method,
     headers: opts.body !== undefined ? { 'content-type': 'application/json' } : {},
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+    body:
+      opts.formData !== undefined
+        ? opts.formData
+        : opts.body !== undefined
+          ? JSON.stringify(opts.body)
+          : undefined
   });
   return {
     params: opts.params ?? {},

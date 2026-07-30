@@ -8,7 +8,7 @@
 // encounter_boards, so mid-fight edits never touch the library original.
 
 import { json, error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
 import {
@@ -108,9 +108,45 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   } else {
     await db.insert(schema.encounterBoards).values({ encounterId: id, ...values });
   }
+  await clearStrandedTokens(id, w, h);
   const board = (await loadBoard(id))!; // just written above
   return json(wire(board, true));
 };
+
+/** Unplace any token whose footprint no longer fits the board.
+ *
+ *  Attaching a smaller map used to leave tokens sitting outside the grid:
+ *  invisible to the canvas, un-draggable, and still counted as "placed" by
+ *  everything that reads positions (the optimizer's occupancy, the unplaced
+ *  list, threat envelopes). The position POST already refuses out-of-bounds
+ *  writes for exactly this reason — this closes the other door into the same
+ *  bad state. */
+async function clearStrandedTokens(encounterId: string, w: number, h: number): Promise<void> {
+  const rows = await db
+    .select({
+      id: schema.participants.id,
+      posX: schema.participants.posX,
+      posY: schema.participants.posY,
+      sizeCells: schema.participants.sizeCells
+    })
+    .from(schema.participants)
+    .where(eq(schema.participants.encounterId, encounterId));
+  const stranded = rows.filter((r) => {
+    if (r.posX === null || r.posY === null) return false;
+    const size = Math.max(1, r.sizeCells);
+    return r.posX + size > w || r.posY + size > h;
+  });
+  if (stranded.length === 0) return;
+  await db
+    .update(schema.participants)
+    .set({ posX: null, posY: null })
+    .where(
+      inArray(
+        schema.participants.id,
+        stranded.map((r) => r.id)
+      )
+    );
+}
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const user = requireUser(locals);

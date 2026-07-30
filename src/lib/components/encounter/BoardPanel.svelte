@@ -178,6 +178,60 @@
     void patchBoard({ revealed: encodeRuns(new Array(liveBoard.w * liveBoard.h).fill(bit)) });
   }
 
+  // --- background image -----------------------------------------------------
+  //
+  // A board attached from the library inherits its map's background; a blank
+  // one had no way to get one, so a DM sketching straight into an encounter
+  // couldn't drop the scanned dungeon underneath. Upload lives on the board,
+  // not the map, and stays DM-only on the wire.
+  let backgroundBusy = false;
+
+  async function uploadBackground(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    backgroundBusy = true;
+    try {
+      const fd = new FormData();
+      fd.append('background', file);
+      await api.post(`/api/encounters/${encounterId}/board/background`, fd);
+      acceptBoard(await api.get<BoardWireShape>(`/api/encounters/${encounterId}/board`));
+    } catch {
+      // api() already toasted
+    } finally {
+      backgroundBusy = false;
+      input.value = ''; // let the same file be re-picked after a failure
+    }
+  }
+
+  async function removeBackground() {
+    backgroundBusy = true;
+    try {
+      await api.del(`/api/encounters/${encounterId}/board/background`);
+      acceptBoard(await api.get<BoardWireShape>(`/api/encounters/${encounterId}/board`));
+    } catch {
+      // api() already toasted
+    } finally {
+      backgroundBusy = false;
+    }
+  }
+
+  // --- clear every token ----------------------------------------------------
+  async function clearAllPositions() {
+    const ok = await confirmDialog({
+      title: 'Take every token off the board?',
+      message: 'Positions are cleared for all participants. The map and fog are kept.',
+      confirmLabel: 'Clear tokens',
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      await api.post(`/api/encounters/${encounterId}/positions/clear`);
+    } catch {
+      // api() already toasted; the poll re-syncs either way
+    }
+  }
+
   // --- fog auto-reveal from PC line of sight ---------------------------------
   //
   // With this on, the DM stops hand-brushing corridors: whenever the party's
@@ -493,6 +547,37 @@
             title="Hide the whole board"
           >
             🙈 Hide all
+          </button>
+          <label
+            class="cursor-pointer rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200 {backgroundBusy
+              ? 'opacity-40'
+              : ''}"
+            title="Trace over a scanned or drawn map. Players never receive the image."
+          >
+            🖼 {liveBoard.background ? 'Replace' : 'Background'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              class="hidden"
+              disabled={backgroundBusy}
+              on:change={uploadBackground}
+            />
+          </label>
+          {#if liveBoard.background}
+            <button
+              class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
+              disabled={backgroundBusy}
+              on:click={removeBackground}
+            >
+              ✕ bg
+            </button>
+          {/if}
+          <button
+            class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200"
+            title="Take every token off the board"
+            on:click={clearAllPositions}
+          >
+            🧹 Clear tokens
           </button>
           <button
             class="ml-auto rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
