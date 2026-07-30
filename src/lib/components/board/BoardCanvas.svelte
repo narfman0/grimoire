@@ -81,6 +81,10 @@
   /** Per-cell notes, keyed `"x,y"`. Drawn as a corner mark; the tooltip is
    *  the consumer's job (the canvas has one title for the whole element). */
   export let annotations: Record<string, { note: string; dmOnly?: boolean }> = {};
+  /** Cell-centred glyph marks — floor-link portals, waypoints, whatever the
+   *  consumer wants stamped on a cell. Drawn over fog (a DM's stairs marker
+   *  must survive their own fog shading) and under tokens. */
+  export let marks: Array<{ x: number; y: number; glyph: string; color?: string }> = [];
   /** When false the canvas is display-only (table mode). */
   export let interactive = true;
   /** Cap on the rendered cell size in CSS px. */
@@ -342,6 +346,27 @@
       }
     }
 
+    // Glyph marks (portals etc.) — over fog, under tokens.
+    if (cellPx >= 12) {
+      for (const m of marks) {
+        if (m.x < 0 || m.y < 0 || m.x >= w || m.y >= h) continue;
+        const cx = m.x * cellPx + cellPx / 2;
+        const cy = m.y * cellPx + cellPx / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cellPx * 0.34, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(2,6,23,0.7)';
+        ctx.fill();
+        ctx.strokeStyle = m.color ?? 'rgba(196,181,253,0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = m.color ?? 'rgba(196,181,253,0.95)';
+        ctx.font = `${Math.floor(cellPx * 0.5)}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(m.glyph, cx, cy + 1);
+      }
+    }
+
     // Tokens.
     for (const t of tokens) {
       const size = Math.max(1, t.sizeCells);
@@ -468,6 +493,7 @@
       path,
       ruler,
       annotations,
+      marks,
       bgImage,
       backgroundOpacity,
       dragCell,
