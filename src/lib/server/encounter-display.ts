@@ -50,7 +50,11 @@ export async function buildEncounterDisplayData(
       round: core.encounter.round,
       activeParticipantId: core.encounter.activeParticipantId
     },
-    participants
+    participants,
+    // Player-redacted by construction (isDM=false above): fog-masked tiles,
+    // no background URL, fog-visible token positions only.
+    board: core.board,
+    participantPositions: core.participantPositions
   };
 }
 

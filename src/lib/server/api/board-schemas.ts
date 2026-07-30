@@ -167,15 +167,4 @@ export function hiddenFog(w: number, h: number): string {
   return encodeRuns(new Array(w * h).fill(0));
 }
 
-/** Mask unrevealed tile codes to void for the player view. Never send a
- *  player a tile they haven't been shown — redaction happens here, at the
- *  server, not in the client renderer. */
-export function maskTilesForPlayer(tiles: string, revealed: string, w: number, h: number): string {
-  const tileArr = decodeRuns(tiles, w * h);
-  const fog = decodeRuns(revealed, w * h);
-  const out = new Array<number>(w * h);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = fog[i] === 1 ? tileArr[i] : VOID_TILE_ID;
-  }
-  return encodeRuns(out);
-}
+export { maskTilesForPlayer } from '$lib/board/fog';

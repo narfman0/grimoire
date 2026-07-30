@@ -13,6 +13,9 @@
     ring?: string | null;
     active?: boolean;
     draggable?: boolean;
+    /** Side marker for occupancy/threat math ('pc' vs anything else); the
+     *  canvas itself ignores it. */
+    team?: string;
   }
 
   export interface OverlayLayer {

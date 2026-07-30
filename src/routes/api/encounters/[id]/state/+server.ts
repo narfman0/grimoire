@@ -12,7 +12,7 @@ import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
 import { normalizeSpentPools } from '$lib/encounter/action-availability';
-import { decodeRuns } from '$lib/board/rle';
+import { visibleTokenPositions } from '$lib/encounter/board-visibility';
 import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
@@ -441,29 +441,9 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     }
   }
 
-  // Token positions. DM sees every placed token; a player additionally
-  // loses any token whose footprint sits entirely in unrevealed fog —
-  // "where is the hidden thing" must not leak through coordinates.
-  // (Hidden participants were already dropped from partRows above.)
-  const positions: Record<string, z.infer<typeof ParticipantPositionSchema>> = {};
-  const fog =
-    board && role !== 'dm' ? decodeRuns(board.revealedJson, board.w * board.h) : null;
-  for (const p of partRows) {
-    if (p.posX === null || p.posY === null) continue;
-    if (fog && board) {
-      const size = Math.max(1, p.sizeCells);
-      let anyRevealed = false;
-      for (let dy = 0; dy < size && !anyRevealed; dy++) {
-        for (let dx = 0; dx < size && !anyRevealed; dx++) {
-          const x = p.posX + dx;
-          const y = p.posY + dy;
-          if (x < board.w && y < board.h && fog[y * board.w + x] === 1) anyRevealed = true;
-        }
-      }
-      if (!anyRevealed) continue;
-    }
-    positions[p.id] = { x: p.posX, y: p.posY, sizeCells: Math.max(1, p.sizeCells) };
-  }
+  // Token positions — shared redaction path with the SSR loader. Hidden
+  // participants were already dropped from partRows above.
+  const positions = visibleTokenPositions(partRows, board, role === 'dm');
 
   const body: TEncounterStateResponse = {
     round: enc.round,

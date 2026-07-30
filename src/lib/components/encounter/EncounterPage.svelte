@@ -27,6 +27,7 @@
   import RevealControls from './RevealControls.svelte';
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
+  import { hpBucket } from '$lib/realtime/reveals';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import {
@@ -69,6 +70,7 @@
     type ConditionExpiryPrompt,
     type ConditionTimer
   } from '$lib/encounter/condition-timers';
+  import BoardPanel from './BoardPanel.svelte';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
@@ -284,6 +286,91 @@
       invalidateAll().catch(() => {});
     }
   }
+
+  // ---- battle board -------------------------------------------------------
+  //
+  // Positions ride the poll (role-redacted server-side); the SSR map seeds
+  // the first paint. Token visuals derive from the same live maps the row
+  // cards use. The BoardPanel owns the board wire state + DM paint tools;
+  // moves come back as events and go through the channel's setPosition.
+  $: livePositions = liveState?.positions ?? data.participantPositions ?? {};
+  $: liveBoardVersion =
+    liveState && liveState.participants !== null
+      ? liveState.boardVersion
+      : data.board?.version ?? null;
+
+  const TOKEN_COLORS: Record<string, string> = {
+    pc: '#065f46', // emerald-800
+    npc: '#7c2d12', // orange-900
+    monster: '#7f1d1d' // red-900
+  };
+  const BUCKET_RING: Record<string, string | null> = {
+    healthy: '#34d399',
+    wounded: '#fbbf24',
+    bloodied: '#f97316',
+    critical: '#ef4444',
+    defeated: '#475569',
+    unknown: null
+  };
+  function initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase();
+  }
+  function canMoveToken(p: { kind: string }): boolean {
+    // The server enforces ownership/policy; the UI is permissive for PCs
+    // (permissive-by-default table policy) and DM-only for everything else.
+    return data.role === 'dm' || p.kind === 'pc';
+  }
+  $: boardTokens = liveParticipants
+    .filter((p) => livePositions[p.id])
+    .map((p) => {
+      const pos = livePositions[p.id];
+      const hp = liveHpMap[p.id];
+      const cur = hp?.currentHp ?? p.currentHp;
+      const max = p.maxHp;
+      return {
+        id: p.id,
+        x: pos.x,
+        y: pos.y,
+        sizeCells: pos.sizeCells,
+        label: initialsOf(p.placeholderName ?? p.name),
+        title: p.placeholderName ?? p.name,
+        color: TOKEN_COLORS[p.kind] ?? TOKEN_COLORS.monster,
+        ring: BUCKET_RING[hpBucket(cur, max)] ?? null,
+        active: p.id === liveActive,
+        draggable: canMoveToken(p),
+        team: p.kind === 'pc' ? 'pc' : 'foe'
+      };
+    });
+  $: unplacedTokens = liveParticipants
+    .filter((p) => !livePositions[p.id] && canMoveToken(p))
+    .map((p) => ({ id: p.id, label: p.placeholderName ?? p.name }));
+
+  /** Token footprint by creature size, applied once at first placement. */
+  const SIZE_CELLS: Record<string, number> = { large: 2, huge: 3, gargantuan: 4 };
+  function onMoveToken(e: CustomEvent<{ id: string; x: number; y: number }>) {
+    const { id, x, y } = e.detail;
+    if (!conn) return;
+    const p = liveParticipants.find((q) => q.id === id);
+    if (data.role === 'dm' && p && !livePositions[id]) {
+      const size = SIZE_CELLS[(p.statblock?.size ?? '').toLowerCase()];
+      if (size && size > 1) {
+        void api
+          .patch(`/api/encounters/${data.encounter.id}/participants/${id}`, { sizeCells: size })
+          .catch(() => {});
+      }
+    }
+    conn.setPosition(id, { x, y }).catch(() => {});
+  }
+
+  $: boardSelected = ((): { id: string; speedFt: number; kind: string } | null => {
+    if (!selectedId) return null;
+    const p = liveParticipants.find((q) => q.id === selectedId);
+    if (!p || !livePositions[p.id]) return null;
+    const cs = p.characterId ? data.participantPcStats?.[p.id] : undefined;
+    const speeds = p.kind === 'pc' ? (cs?.speeds ?? { walk: 30 }) : (p.statblock?.speeds ?? { walk: 30 });
+    return { id: p.id, speedFt: speeds.walk ?? speeds.fly ?? speeds.swim ?? 30, kind: p.kind };
+  })();
 
   function clearPlan(participantId: string) {
     if (!conn) return;
@@ -1860,6 +1947,18 @@
 {#if data.role === 'dm'}
   <EncounterDifficultyPanel {difficulty} loading={difficultyLoading} />
 {/if}
+
+<BoardPanel
+  encounterId={data.encounter.id}
+  role={data.role}
+  board={data.board ?? null}
+  boardVersion={liveBoardVersion}
+  tokens={boardTokens}
+  unplaced={unplacedTokens}
+  selected={boardSelected}
+  {busy}
+  on:moveToken={onMoveToken}
+/>
 
 {#if liveStatus === 'live' && data.role === 'dm'}
   <TurnControls

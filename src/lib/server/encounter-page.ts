@@ -21,6 +21,8 @@ import { derive } from '$lib/rules';
 import { hasResourceBudget } from '$lib/rules/apply-grants';
 import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
+import { boardWire, loadEncounterBoard } from '$lib/server/encounter/board';
+import { visibleTokenPositions } from '$lib/encounter/board-visibility';
 
 export async function buildEncounterPageData(
   campaign: { id: string },
@@ -49,6 +51,11 @@ export async function buildEncounterPageData(
     .select()
     .from(schema.participants)
     .where(eq(schema.participants.encounterId, enc.id));
+
+  // Attached battle board (or undefined). Wire shape is role-redacted by
+  // boardWire; token positions go through visibleTokenPositions — the same
+  // two paths the /state poll and the board REST route use.
+  const boardRow = await loadEncounterBoard(enc.id);
 
   // Pull each unique monster statblock's `actions` so the DM resolve panel
   // can offer a picker instead of free-text. We only ship the per-action
@@ -554,6 +561,12 @@ export async function buildEncounterPageData(
       createdAt: enc.createdAt.getTime(),
       endedAt: enc.endedAt ? enc.endedAt.getTime() : null
     },
+    board: boardRow ? boardWire(boardRow, isDM) : null,
+    participantPositions: visibleTokenPositions(
+      partRows.filter((p) => isDM || p.kind === 'pc' || !parseReveals(p.revealsJson).hidden),
+      boardRow,
+      isDM
+    ),
     participants: (() => {
       // Always assemble the DM-shaped row first; then for player viewers,
       // redact name/HP/AC/statblock per the reveal flags and drop hidden

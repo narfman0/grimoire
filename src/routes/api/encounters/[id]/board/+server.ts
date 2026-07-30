@@ -16,11 +16,11 @@ import {
   blankTiles,
   BoardWire,
   hiddenFog,
-  maskTilesForPlayer,
   PatchBoardRequest,
   requireValidFog,
   requireValidTiles
 } from '$lib/server/api/board-schemas';
+import { boardWire, loadEncounterBoard } from '$lib/server/encounter/board';
 import { OkResponse } from '$lib/server/api/responses';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
@@ -45,30 +45,8 @@ async function requireEncounterAccess(userId: string, encounterId: string) {
   return { enc, role };
 }
 
-async function loadBoard(encounterId: string) {
-  const rows = await db
-    .select()
-    .from(schema.encounterBoards)
-    .where(eq(schema.encounterBoards.encounterId, encounterId))
-    .limit(1);
-  return rows[0];
-}
-
-function wire(board: typeof schema.encounterBoards.$inferSelect, isDM: boolean) {
-  return {
-    encounterId: board.encounterId,
-    sourceMapId: board.sourceMapId,
-    w: board.w,
-    h: board.h,
-    cellFt: board.cellFt,
-    tiles: isDM
-      ? board.tilesJson
-      : maskTilesForPlayer(board.tilesJson, board.revealedJson, board.w, board.h),
-    revealed: board.revealedJson,
-    background: isDM ? board.backgroundPath : null,
-    version: board.version
-  };
-}
+const loadBoard = loadEncounterBoard;
+const wire = boardWire;
 
 export const GET: RequestHandler = async ({ params, locals }) => {
   const user = requireUser(locals);
@@ -130,7 +108,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   } else {
     await db.insert(schema.encounterBoards).values({ encounterId: id, ...values });
   }
-  const board = await loadBoard(id);
+  const board = (await loadBoard(id))!; // just written above
   return json(wire(board, true));
 };
 
@@ -157,7 +135,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     })
     .where(eq(schema.encounterBoards.encounterId, id));
 
-  const updated = await loadBoard(id);
+  const updated = (await loadBoard(id))!; // just written above
   return json(wire(updated, true));
 };
 
