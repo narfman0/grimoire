@@ -10,6 +10,8 @@
     name: string;
     cost: number;
     affordable: boolean;
+    /** Marked by the turn optimizer as its top pick (positions are real). */
+    suggested?: boolean;
   };
 
   export let participantName: string;
@@ -38,7 +40,7 @@
       title={action.affordable ? undefined : `Needs ${action.cost} actions`}
       on:click={() => dispatch('use', action)}
     >
-      {action.name}{action.cost > 1 ? ` (${action.cost})` : ''}
+      {action.suggested ? '💡 ' : ''}{action.name}{action.cost > 1 ? ` (${action.cost})` : ''}
     </button>
   {/each}
   <button

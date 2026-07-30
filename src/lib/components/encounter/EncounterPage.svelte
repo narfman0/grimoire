@@ -29,6 +29,15 @@
   import ResolvePanel from './ResolvePanel.svelte';
   import { hpBucket } from '$lib/realtime/reveals';
   import { decodeBoard, distanceFt, reachableCells, type Grid } from '$lib/board/geometry';
+  import {
+    suggestLegendary,
+    suggestTurn,
+    type RankedPlan,
+    type SuggestActor,
+    type SuggestCombatant
+  } from '$lib/board/suggest-turn';
+  import { suggestActionsFrom, suggestLegendaryActionsFrom } from '$lib/encounter/suggest-input';
+  import SuggestTurnPanel from './SuggestTurnPanel.svelte';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import {
@@ -500,6 +509,139 @@
     }
     return warnings;
   })();
+
+  // ---- NPC turn optimizer ---------------------------------------------------
+  //
+  // Pure ranking over the live board ($lib/board/suggest-turn); statblocks
+  // are digested to plain inputs by $lib/encounter/suggest-input. DM-only
+  // surfaces. Player hints (running the same ranking against the redacted
+  // snapshot) are deliberately not built until campaign settings have a
+  // storage home (campaigns.permissions_json, PR #11).
+  let suggestionsFor: Record<string, RankedPlan[]> = {};
+
+  function suggestGrid(): Grid | null {
+    if (!data.board) return null;
+    try {
+      return decodeBoard({
+        w: data.board.w,
+        h: data.board.h,
+        cellFt: data.board.cellFt,
+        tiles: data.board.tiles
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  function suggestCombatants(excludeId: string): SuggestCombatant[] {
+    const out: SuggestCombatant[] = [];
+    for (const q of liveParticipants) {
+      if (q.id === excludeId) continue;
+      const pos = livePositions[q.id];
+      if (!pos) continue;
+      const hp = liveHpMap[q.id];
+      const cur = hp?.currentHp ?? q.currentHp;
+      const ac = q.kind === 'pc' ? data.participantPcStats?.[q.id]?.ac ?? null : q.statblock?.ac ?? null;
+      out.push({
+        id: q.id,
+        name: q.name,
+        cell: { x: pos.x, y: pos.y },
+        sizeCells: pos.sizeCells,
+        team: q.kind === 'pc' ? 'pc' : 'foe',
+        ac,
+        currentHp: cur ?? null,
+        maxHp: q.maxHp ?? null,
+        downed: typeof cur === 'number' && cur <= 0,
+        concentrating: !!hp?.concentrating
+      });
+    }
+    return out;
+  }
+
+  function suggestActorFor(p: (typeof liveParticipants)[number]): SuggestActor | null {
+    const pos = livePositions[p.id];
+    if (!pos) return null;
+    const actions = suggestActionsFrom(p.statblock?.actions ?? []);
+    if (actions.length === 0) return null;
+    return {
+      id: p.id,
+      name: p.name,
+      cell: { x: pos.x, y: pos.y },
+      sizeCells: pos.sizeCells,
+      team: p.kind === 'pc' ? 'pc' : 'foe',
+      speedFt: speedFtOf(p),
+      actions
+    };
+  }
+
+  function suggestUnavailableReason(p: (typeof liveParticipants)[number]): string | null {
+    if (!data.board) return 'attach a board first';
+    if (!livePositions[p.id]) return 'place the token first';
+    if (suggestActionsFrom(p.statblock?.actions ?? []).length === 0) {
+      return 'no damaging statblock actions';
+    }
+    return null;
+  }
+
+  function computeSuggestions(p: (typeof liveParticipants)[number]) {
+    const grid = suggestGrid();
+    const actor = suggestActorFor(p);
+    if (!grid || !actor) return;
+    suggestionsFor = { ...suggestionsFor, [p.id]: suggestTurn(grid, actor, suggestCombatants(p.id)) };
+  }
+
+  /** Confirming a suggestion writes it as an ordinary draft plan — the same
+   *  TurnPlan every other path writes; resolve confirms it as usual. */
+  function applySuggestion(p: { id: string }, s: RankedPlan) {
+    if (!conn) return;
+    const cur = livePlans[p.id];
+    conn
+      .setPlan(p.id, {
+        actionId: s.actionId,
+        actionLabel: s.actionName,
+        targetParticipantIds: s.targetIds,
+        notes: cur?.notes ?? '',
+        ...planExtras(cur),
+        ...(s.moveTo ? { moveTo: s.moveTo } : {}),
+        ...(s.path ? { path: s.path } : {}),
+        updatedAt: Date.now()
+      })
+      .catch(() => {});
+  }
+
+  /** Fill a draft plan for every unplanned, placed NPC at round start. */
+  function autoPlanRound() {
+    const grid = suggestGrid();
+    if (!grid || !conn) return;
+    for (const p of liveParticipants) {
+      if (p.kind === 'pc') continue;
+      if (livePlans[p.id]?.actionId) continue;
+      const actor = suggestActorFor(p);
+      if (!actor) continue;
+      const top = suggestTurn(grid, actor, suggestCombatants(p.id), { topN: 1 })[0];
+      if (top) applySuggestion(p, top);
+    }
+  }
+
+  /** The optimizer's pick among a legendary creature's affordable actions,
+   *  shown as a hint on the end-of-turn prompt. */
+  function legendarySuggestionFor(pid: string, remaining: number): string | null {
+    const grid = suggestGrid();
+    const p = liveParticipants.find((q) => q.id === pid);
+    if (!grid || !p || !livePositions[pid]) return null;
+    const actions = suggestLegendaryActionsFrom(p.statblock?.legendaryActions ?? []);
+    if (actions.length === 0) return null;
+    const actor = suggestActorFor(p);
+    if (!actor) return null;
+    const top = suggestLegendary(
+      grid,
+      { ...actor, actions },
+      suggestCombatants(pid),
+      remaining,
+      { topN: 1 }
+    )[0];
+    return top?.actionName ?? null;
+  }
 
   /** Turn advance applies the departing participant's planned move to the
    *  board and logs it. DM-only so exactly one client writes. */
@@ -2191,6 +2333,16 @@
           🎲 Roll initiative (NPCs)
         </button>
       {/if}
+      {#if data.role === 'dm' && data.board && liveParticipants.some((p) => p.kind !== 'pc' && livePositions[p.id] && !livePlans[p.id]?.actionId)}
+        <button
+          class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+          disabled={busy}
+          title="Draft a suggested plan for every unplanned, placed NPC"
+          on:click={autoPlanRound}
+        >
+          💡 Auto-plan round
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -2379,6 +2531,17 @@
         </div>
       {/if}
 
+      <!-- NPC turn optimizer (DM only, non-PC) -->
+      {#if data.role === 'dm' && !isPc}
+        <SuggestTurnPanel
+          suggestions={suggestionsFor[p.id] ?? null}
+          {busy}
+          unavailableReason={suggestUnavailableReason(p)}
+          on:compute={() => computeSuggestions(p)}
+          on:apply={(e) => applySuggestion(p, e.detail)}
+        />
+      {/if}
+
       <!-- Plan / action economy -->
       {#if econOpen[p.id] && (data.role === 'dm' || isPc)}
         {@const eco = economyByParticipant[p.id] ?? EMPTY_ECONOMY}
@@ -2502,6 +2665,7 @@
       0,
       legBudget - legendaryUsedForRound(economyByParticipant[legP.id], liveRound)
     )}
+    {@const legHint = legendarySuggestionFor(legP.id, legRemaining)}
     <LegendaryPromptCard
       participantName={legP.name}
       budget={legBudget}
@@ -2509,7 +2673,8 @@
       actions={(legP.statblock?.legendaryActions ?? []).map((a) => ({
         name: a.name,
         cost: a.cost ?? 1,
-        affordable: (a.cost ?? 1) <= legRemaining
+        affordable: (a.cost ?? 1) <= legRemaining,
+        suggested: a.name === legHint
       }))}
       queuedBehind={legendaryPrompts.length - 1}
       on:use={(e) => useLegendaryAction(legPrompt, e.detail)}
