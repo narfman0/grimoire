@@ -40,6 +40,44 @@
     editCampaignError = null;
     editingCampaign = true;
   }
+  // ---- table permissions (DM only) ----
+  //
+  // Allow-by-default: a fresh campaign stores nothing and everyone can roll,
+  // plan and adjust HP for anyone else's PC. These switches only ever take
+  // capability away, which is why each one says what it costs.
+  const PERMISSION_ROWS = [
+    {
+      key: 'actForOthers' as const,
+      label: 'Roll and resolve for other players',
+      off: "Only a character's owner (and the DM) can log its actions."
+    },
+    {
+      key: 'editOthersVitals' as const,
+      label: "Adjust other players' HP and conditions",
+      off: "Only a character's owner (and the DM) can change its HP."
+    },
+    {
+      key: 'planForOthers' as const,
+      label: "Set other players' planned action",
+      off: "Only a character's owner (and the DM) can broadcast its plan."
+    }
+  ];
+
+  async function setPermission(key: string, allowed: boolean) {
+    busy = true;
+    try {
+      await api.patch(`/api/campaigns/${data.campaign.code}`, {
+        permissions: { [key]: allowed }
+      });
+      await invalidateAll();
+    } catch {
+      // api() already toasted; invalidateAll below is skipped so the
+      // checkbox snaps back to server truth on the next load
+    } finally {
+      busy = false;
+    }
+  }
+
   async function saveCampaignName() {
     const trimmed = editCampaignName.trim();
     if (!trimmed) {
@@ -522,6 +560,44 @@
     {/if}
   </div>
 </section>
+
+{#if data.role === 'dm'}
+  <!-- ── Table permissions (DM only) ──────────────────────────────── -->
+  <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-5">
+    <h2 class="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-400">
+      Table permissions
+    </h2>
+    <p class="mb-3 text-xs text-slate-500">
+      Everything is allowed by default, so the whole table can help run a fight.
+      Turn something off to restrict it to the character's owner. Monsters are
+      always yours alone — no setting here hands a player the enemy side.
+    </p>
+    <ul class="space-y-2">
+      {#each PERMISSION_ROWS as row}
+        {@const allowed = data.permissions[row.key]}
+        <li class="flex items-start gap-2">
+          <input
+            id={`perm-${row.key}`}
+            type="checkbox"
+            class="mt-0.5"
+            checked={allowed}
+            disabled={busy}
+            on:change={(e) => setPermission(row.key, e.currentTarget.checked)}
+          />
+          <label class="text-sm" for={`perm-${row.key}`}>
+            <span class="text-slate-300">{row.label}</span>
+            {#if !allowed}
+              <span class="ml-1 rounded bg-amber-900/50 px-1 text-[10px] uppercase text-amber-300"
+                >restricted</span
+              >
+              <span class="block text-xs text-slate-500">{row.off}</span>
+            {/if}
+          </label>
+        </li>
+      {/each}
+    </ul>
+  </section>
+{/if}
 
 <!-- ── Characters ─────────────────────────────────────────────────── -->
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-5">

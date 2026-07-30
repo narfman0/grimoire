@@ -23,6 +23,13 @@ export const campaigns = sqliteTable('campaigns', {
   code: text('code').notNull().unique(), // short shareable code, e.g. 6-char base32
   name: text('name').notNull(),
   slug: text('slug'), // url-safe campaign name for human-readable URLs; null until assigned
+  /** JSON CampaignPermissions overrides. NULL means "all defaults", which is
+   *  the permissive behaviour shipped in phase 8a — so this column changes
+   *  nothing until a DM tightens something. Only keys the DM has actually
+   *  changed are stored; unknown/absent keys fall back to
+   *  PERMISSIVE_DEFAULTS, so adding a permission later needs no backfill.
+   *  See $lib/server/auth/campaign-permissions. */
+  permissionsJson: text('permissions_json'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 });
 
@@ -330,6 +337,22 @@ export const participants = sqliteTable(
    *  source of truth; the live channel re-broadcasts to viewers. Shape mirrors
    *  the TurnPlan type in $lib/realtime/encounter-channel.ts. */
   planJson: text('plan_json'),
+  /** Encounter-scoped, non-PC combat state: action economy + legendary uses,
+   *  round-scoped condition timers, NPC spell slots, and the DM's lair
+   *  marker.
+   *
+   *  Distinct from `plan_json`, which is the player's per-turn declared
+   *  *intent* and is cleared every turn. These four rode plan_json until now,
+   *  which made `DELETE .../plan` destroy them: the endpoint is documented as
+   *  "clear the turn plan", and the preservation logic lived only in the
+   *  browser client — so any second client, or any curl against the
+   *  documented API, got the destructive behaviour. A column cannot be wiped
+   *  by a route that has no business touching it.
+   *
+   *  NULL reads as "nothing spent" through the existing normalizeEconomy /
+   *  normalizeTimers fallbacks. PCs keep the equivalent state on their
+   *  character document. */
+  combatStateJson: text('combat_state_json'),
   /** Non-PC concentration target — `{ label, sinceRound? }` JSON or null. PC
    *  concentration lives on the character document, not here. */
   concentratingJson: text('concentrating_json'),
@@ -409,6 +432,17 @@ export const actionLog = sqliteTable(
     targetHpBefore: integer('target_hp_before'),
     targetHpAfter: integer('target_hp_after'),
     notes: text('notes'),
+    /** JSON per-die detail for the rolls above, when they were rolled in-app
+     *  rather than typed. `attackRoll`/`damageRoll` stay the authoritative
+     *  totals; this is the "how" — which faces came up, which were dropped by
+     *  advantage, which were floored by Great Weapon Fighting. Null for typed
+     *  rolls and every row written before the dice roller.
+     *
+     *  SECURITY: this describes the actor's behaviour, so it MUST be blanked
+     *  for a hidden actor — see HIDDEN_ACTOR_BLANKS in
+     *  $lib/realtime/action-log. The redaction interface fails closed by
+     *  construction now, but the reason it does is this column. */
+    rollDetailJson: text('roll_detail_json'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
   },
   (t) => ({

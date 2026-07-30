@@ -263,12 +263,19 @@ describe('connectEncounter (polling)', () => {
     await promise;
   });
 
-  it('setEconomy on a non-PC merges into the participant plan POST', async () => {
-    const calls: Array<{ url: string; body: unknown }> = [];
+  // Migration 0009: non-PC economy has its own column, so this no longer
+  // rewrites the plan (which used to be the only way to keep intent and
+  // counters in the same blob without one clobbering the other).
+  it('setEconomy on a non-PC PATCHes combat-state, leaving the plan alone', async () => {
+    const calls: Array<{ url: string; method?: string; body: unknown }> = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('/state')) return jsonResponse(stateSnapshot());
-      calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : null });
+      calls.push({
+        url,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body as string) : null
+      });
       return jsonResponse({ ok: true });
     }) as typeof fetch;
 
@@ -283,12 +290,12 @@ describe('connectEncounter (polling)', () => {
     await conn.setEconomy('mob-7', null, economy);
 
     const last = calls.at(-1)!;
-    expect(last.url).toContain('/participants/mob-7/plan');
-    const plan = (last.body as { plan: TurnPlan }).plan;
-    // The declared intent survives the economy write.
-    expect(plan.actionId).toBe('bite');
-    expect(plan.targetParticipantIds).toEqual(['pc-1']);
-    expect(plan.combat).toEqual(economy);
+    expect(last.url).toContain('/participants/mob-7/combat-state');
+    expect(last.method).toBe('PATCH');
+    expect((last.body as { combat: unknown }).combat).toEqual(economy);
+    // PATCH, not POST: four writers share this column and a replace would
+    // let the last one win over slots it never read.
+    expect(get(conn.state).plans['mob-7']?.actionId).toBe('bite');
   });
 
   it('setEconomy on a PC writes the character document fields', async () => {
@@ -334,7 +341,7 @@ describe('connectEncounter (polling)', () => {
   // Clearing the *intent* must not clear the *counters* that share the
   // column — a DM clearing a monster's plan mid-round would otherwise reset
   // its legendary-action tally.
-  it('clearPlan keeps the combat blob by writing an empty plan', async () => {
+  it('clearPlan is a plain DELETE and does not touch combat state', async () => {
     const calls: Array<{ url: string; method?: string; body: unknown }> = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
@@ -359,12 +366,12 @@ describe('connectEncounter (polling)', () => {
     await conn.clearPlan('mob-7');
 
     const last = calls.at(-1)!;
-    expect(last.method).toBe('POST');
-    const plan = (last.body as { plan: TurnPlan }).plan;
-    expect(plan.actionId).toBe('');
-    expect(plan.combat).toEqual(economy);
-    // The store still reports "no plan" to the UI (empty actionId).
-    expect(get(conn.state).plans['mob-7']?.actionId).toBe('');
+    expect(last.method).toBe('DELETE');
+    expect(last.url).toContain('/participants/mob-7/plan');
+    // No rewrite-as-empty-plan dance any more: the plan is simply gone, and
+    // the economy is in a column this call never names.
+    expect(get(conn.state).plans['mob-7']).toBeUndefined();
+    expect(get(conn.state).participantEconomy['mob-7']).toEqual(economy);
   });
 
   // Regression: the NPC spell-slot tracker rides the same `combat` blob but
@@ -391,13 +398,13 @@ describe('connectEncounter (polling)', () => {
     await conn.setEconomy('mob-7', null, withSlots);
     expect(get(conn.state).participantEconomy['mob-7']).toEqual(withSlots);
     expect(
-      ((calls.at(-1)!.body as { plan: TurnPlan }).plan.combat as typeof withSlots).spellSlots
+      ((calls.at(-1)!.body as { combat: typeof withSlots }).combat).spellSlots
     ).toEqual({ 3: { max: 3, used: 2 } });
 
+    // Clearing the declared action must not hand the drow mage its slots
+    // back. It can't any more — the tally isn't in the column being cleared.
     await conn.clearPlan('mob-7');
-    const cleared = (calls.at(-1)!.body as { plan: TurnPlan }).plan;
-    expect(cleared.actionId).toBe('');
-    expect(cleared.combat).toEqual(withSlots);
+    expect(get(conn.state).participantEconomy['mob-7']).toEqual(withSlots);
   });
 
   it('clearPlan still DELETEs when there is no combat state to keep', async () => {
@@ -422,100 +429,56 @@ describe('connectEncounter (polling)', () => {
     expect(get(conn.state).plans['mob-7']).toBeUndefined();
   });
 
-  // Round-scoped condition durations share plan_json with the combat
-  // counters, so the same "clearing intent must not clear state" rule
-  // applies to them.
-  it('setConditionTimers on a non-PC merges into the participant plan POST', async () => {
-    const calls: Array<{ url: string; body: unknown }> = [];
+  // Condition durations moved to combat_state_json with the counters.
+  it('setConditionTimers on a non-PC PATCHes combat-state', async () => {
+    const calls: Array<{ url: string; method?: string; body: unknown }> = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('/state')) return jsonResponse(stateSnapshot());
-      calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : null });
+      calls.push({
+        url,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body as string) : null
+      });
       return jsonResponse({ ok: true });
     }) as typeof fetch;
 
     conn = connectEncounter({ encounterId: 'enc-1' });
-    const timers = [{ condition: 'poisoned', untilRound: 6 }];
+    const timers = [{ condition: 'poisoned', untilRound: 9 }];
     await conn.setConditionTimers('mob-7', null, timers);
-
-    expect(calls.at(-1)!.url).toContain('/participants/mob-7/plan');
-    expect((calls.at(-1)!.body as { plan: TurnPlan }).plan.conditionTimers).toEqual(timers);
-    expect(get(conn.state).participantHp['mob-7'].conditionTimers).toEqual(timers);
-  });
-
-  it('setConditionTimers on a PC writes the character document field', async () => {
-    const patches: unknown[] = [];
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString();
-      if (url.includes('/state')) return jsonResponse(stateSnapshot());
-      if (url.includes('/api/characters/char-1')) {
-        if (init?.method === 'PATCH') {
-          patches.push(JSON.parse(init.body as string));
-          return jsonResponse({ ok: true });
-        }
-        return jsonResponse({ document: { conditions: ['poisoned'] } });
-      }
-      return jsonResponse({ ok: true });
-    }) as typeof fetch;
-
-    conn = connectEncounter({ encounterId: 'enc-1' });
-    const timers = [{ condition: 'poisoned', untilRound: 3 }];
-    await conn.setConditionTimers('pc-row', 'char-1', timers);
-
-    expect(patches).toHaveLength(1);
-    const doc = (patches[0] as { document: Record<string, unknown> }).document;
-    expect(doc.conditionTimers).toEqual(timers);
-    // The flat condition list is untouched — it stays the source of truth.
-    expect(doc.conditions).toEqual(['poisoned']);
-  });
-
-  it('clearPlan keeps the condition timers by writing an empty plan', async () => {
-    const calls: Array<{ method?: string; body: unknown }> = [];
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString();
-      if (url.includes('/state')) return jsonResponse(stateSnapshot());
-      calls.push({ method: init?.method, body: init?.body ? JSON.parse(init.body as string) : null });
-      return jsonResponse({ ok: true });
-    }) as typeof fetch;
-
-    conn = connectEncounter({ encounterId: 'enc-1' });
-    const timers = [{ condition: 'restrained', untilRound: 9 }];
-    await conn.setConditionTimers('mob-7', null, timers);
-    await conn.setPlan('mob-7', {
-      actionId: 'bite',
-      actionLabel: 'Bite',
-      targetParticipantIds: [],
-      notes: '',
-      updatedAt: 1,
-      conditionTimers: timers
-    });
-    await conn.clearPlan('mob-7');
 
     const last = calls.at(-1)!;
-    expect(last.method).toBe('POST');
-    const plan = (last.body as { plan: TurnPlan }).plan;
-    expect(plan.actionId).toBe('');
-    expect(plan.conditionTimers).toEqual(timers);
+    expect(last.url).toContain('/participants/mob-7/combat-state');
+    expect(last.method).toBe('PATCH');
+    expect((last.body as { conditionTimers: unknown }).conditionTimers).toEqual(timers);
+    expect(get(conn.state).participantHp['mob-7']?.conditionTimers).toEqual(timers);
   });
 
-  it('setLair marks the participant and survives a plan clear', async () => {
-    const calls: Array<{ method?: string; body: unknown }> = [];
+  it('setLair PATCHes combat-state and survives a plan clear', async () => {
+    const calls: Array<{ url: string; method?: string; body: unknown }> = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('/state')) return jsonResponse(stateSnapshot());
-      calls.push({ method: init?.method, body: init?.body ? JSON.parse(init.body as string) : null });
+      calls.push({
+        url,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body as string) : null
+      });
       return jsonResponse({ ok: true });
     }) as typeof fetch;
 
     conn = connectEncounter({ encounterId: 'enc-1' });
     await conn.setLair('mob-7', true);
-    expect(get(conn.state).plans['mob-7']?.lair).toBe(true);
+
+    const last = calls.at(-1)!;
+    expect(last.url).toContain('/participants/mob-7/combat-state');
+    expect(last.method).toBe('PATCH');
+    expect((last.body as { lair: boolean }).lair).toBe(true);
+    // Projected onto its own map — the UI used to read plans[id].lair.
+    expect(get(conn.state).participantLair['mob-7']).toBe(true);
+
     await conn.clearPlan('mob-7');
-    const plan = (calls.at(-1)!.body as { plan: TurnPlan }).plan;
-    expect(plan.lair).toBe(true);
-    // …and unsetting it clears the flag rather than leaving it sticky.
-    await conn.setLair('mob-7', false);
-    expect(get(conn.state).plans['mob-7']?.lair).toBe(false);
+    expect(get(conn.state).participantLair['mob-7']).toBe(true);
   });
 
   it('normalizes participantEconomy off the poll payload', async () => {

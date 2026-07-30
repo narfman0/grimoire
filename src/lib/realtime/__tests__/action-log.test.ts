@@ -19,6 +19,7 @@ const entry = (over: Partial<Parameters<typeof redactActionLog>[0][number]> = {}
   targetHpBefore: 20,
   targetHpAfter: 13,
   notes: null as string | null,
+  rollDetail: null as string | null,
   redacted: false,
   ...over
 });
@@ -85,8 +86,9 @@ describe('redactActionLog', () => {
   //   3. the tripwire below fails when a row grows a field nobody classified,
   //      which covers optional fields and caller-only fields the compiler
   //      can't see.
-  // When dice-roller phase 7 adds `rollDetail`, (3) is what stops it landing
-  // silently.
+  // Phase 7 added `rollDetail` and all three fired: the compiler broke
+  // HIDDEN_ACTOR_BLANKS, and the tripwire below broke until the field was
+  // classified. That is the guard working as designed.
 
   it('leaves no behaviour-describing value on a hidden actor row', () => {
     const NUM = 9999;
@@ -113,6 +115,28 @@ describe('redactActionLog', () => {
     expect(survived).toEqual([]);
   });
 
+  it("blanks a hidden actor's roll detail", () => {
+    // The concrete case the whole guard exists for: without this, a player
+    // learns a creature they cannot see rolled [18, (7)] — its existence, its
+    // advantage, and roughly its bonus.
+    const [out] = redactActionLog(
+      [entry({ attackRoll: 23, rollDetail: 'atk [18, (7)] + 5 = 23' })],
+      map({ hidden: true }),
+      false
+    );
+    expect(out.rollDetail).toBeNull();
+    expect(out.attackRoll).toBeNull();
+  });
+
+  it("keeps a visible actor's roll detail", () => {
+    const [out] = redactActionLog(
+      [entry({ participantId: 'pc', rollDetail: 'atk [18] + 5 = 23' })],
+      map({ identity: true, vitals: true }),
+      false
+    );
+    expect(out.rollDetail).toBe('atk [18] + 5 = 23');
+  });
+
   it('classifies every field on a log row (tripwire for new fields)', () => {
     // Blanked by HIDDEN_ACTOR_BLANKS (plus participantId, dropped inline).
     const BLANKED = [
@@ -124,7 +148,8 @@ describe('redactActionLog', () => {
       'hit',
       'targetHpBefore',
       'targetHpAfter',
-      'notes'
+      'notes',
+      'rollDetail'
     ];
     // Safe to ship for a hidden actor: they carry no information about the
     // creature itself. `targetParticipantId` survives only when the target is

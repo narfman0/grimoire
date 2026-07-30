@@ -10,12 +10,14 @@
 
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
+import { getCampaignPermissions, PERMISSIVE_DEFAULTS } from '$lib/server/auth/campaign-permissions';
 
 /** Placeholder page data for the pending/rejected membership status view —
  *  same shape as buildCampaignPageData's result, but empty. */
 export const EMPTY_CAMPAIGN_PAGE = {
   grants: [] as { id: string; grantType: 'pack' | 'author'; grantKey: string; label: string }[],
   availablePacks: [] as { slug: string; name: string }[],
+  permissions: { ...PERMISSIVE_DEFAULTS },
   campaignMembers: [] as { id: string; username: string; role: string }[],
   notes: [] as { id: string; title: string; body: string; updatedAt: number }[],
   characters: [] as { id: string; campaignId: string | null; ownerUserId: string | null; ownerUsername: string | null; slug: string | null; name: string; hasDocument: boolean; descLine: string; totalLevel: number; portrait: string | undefined; updatedAt: number }[],
@@ -201,6 +203,10 @@ export async function buildCampaignPageData(
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return {
+    /** Effective table permissions. DM-only in the UI, but harmless to ship
+     *  to players — knowing whether you're allowed to roll for a friend is
+     *  not a secret, and the server is the boundary either way. */
+    permissions: await getCampaignPermissions(campaign.id),
     pendingMembers: pendingMemberRows.map((r) => ({
       userId: r.userId,
       username: r.username,

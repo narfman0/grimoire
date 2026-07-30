@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
 import { Uuid } from '$lib/server/api/schemas';
 import { PlanJson, SpellSlotsJson, salvagePlanJson } from '$lib/server/api/encounter-schemas';
+import { readCombatState } from '$lib/encounter/combat-state';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
 import { parseReveals } from '$lib/realtime/reveals';
@@ -108,6 +109,10 @@ const EncounterStateResponse = z.object({
   plans: z.record(z.string(), PlanJson.nullable()),
   participantHp: z.record(z.string(), ParticipantHpSchema),
   participantEconomy: z.record(z.string(), ParticipantEconomySchema),
+  /** DM lair markers, keyed by participant id. Projected because the marker
+   *  moved off plan_json into combat_state_json (migration 0009) and the UI
+   *  used to read `plans[id].lair` raw. */
+  participantLair: z.record(z.string(), z.boolean()),
   participantResources: z.record(z.string(), ParticipantResourcesSchema)
 });
 
@@ -143,6 +148,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       tempHp: schema.participants.tempHp,
       conditionsJson: schema.participants.conditionsJson,
       planJson: schema.participants.planJson,
+      combatStateJson: schema.participants.combatStateJson,
       concentratingJson: schema.participants.concentratingJson,
       revealsJson: schema.participants.revealsJson
     })
@@ -289,12 +295,19 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   const plans: Record<string, z.infer<typeof PlanJson> | null> = {};
   const participantHp: Record<string, z.infer<typeof ParticipantHpSchema>> = {};
   const participantEconomy: Record<string, z.infer<typeof ParticipantEconomySchema>> = {};
+  const participantLair: Record<string, boolean> = {};
   const participantResources: Record<string, z.infer<typeof ParticipantResourcesSchema>> = {};
 
   for (const p of partRows) {
+    // Combat state (migration 0009). Prefers the dedicated column and falls
+    // back to the legacy plan_json keys for one release, so a fight that is
+    // live at the instant of deploy doesn't lose its counters mid-session.
+    // Note this is read *outside* the plan try/catch on purpose: the whole
+    // point of the column is that a malformed plan can no longer zero a
+    // creature's economy, timers and lair marker.
+    const combatState = readCombatState(p.combatStateJson, p.planJson);
+
     // Plans
-    let planCombat: unknown;
-    let planConditionTimers: unknown;
     if (p.planJson) {
       try {
         // Degrades per key rather than all-or-nothing: one invalid field
@@ -307,11 +320,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
             'state poll: plan_json failed validation, salvaged per key'
           )
         );
-        if (parsed) {
-          plans[p.id] = parsed;
-          planCombat = parsed.combat;
-          planConditionTimers = parsed.conditionTimers;
-        }
+        if (parsed) plans[p.id] = parsed;
       } catch (err) {
         // best-effort: drop unparseable plan, but leave a trail
         logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed plan_json');
@@ -374,7 +383,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     // client (and so never raises an expiry prompt for a condition nobody
     // has).
     const conditionTimers = pruneTimers(
-      normalizeTimers(isPc ? doc?.conditionTimers : planConditionTimers),
+      normalizeTimers(isPc ? doc?.conditionTimers : combatState.conditionTimers),
       conditions
     );
 
@@ -389,11 +398,12 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
     // Combat economy: PCs read the character document's *UsedThisRound
     // fields (the same ones the character sheet writes); non-PCs read the
-    // `combat` slot on plan_json. Always emitted so a cleared participant
+    // `combat` slot on combat_state_json. Always emitted so a cleared
     // is distinguishable from one the poll simply skipped.
     participantEconomy[p.id] = isPc
       ? economyFromCharacterDoc(doc)
-      : normalizeEconomy(planCombat);
+      : normalizeEconomy(combatState.combat);
+    if (combatState.lair === true) participantLair[p.id] = true;
 
     // Resource spend counters (PCs only — the pools come from derive()).
     // Lets the planner's "2/5 Ki left" track a mid-combat spend on the
@@ -415,6 +425,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     plans,
     participantHp,
     participantEconomy,
+    participantLair,
     participantResources
   };
 

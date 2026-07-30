@@ -206,6 +206,10 @@ export interface ApplyHpAndLogInput {
   actionId: string;
   actionLabel: string;
   notes: string;
+  /** Per-die breakdown when the roll was made in-app (`RollResult.detail`);
+   *  null when the totals were typed. Display only — the totals above stay
+   *  authoritative and the server never parses this. */
+  rollDetail?: string | null;
   /** If provided, use this snapshot as the starting HP instead of the static
    *  SSR seed. Required by amend, which re-reads HP after reverting the
    *  prior entry so the new damage starts from the corrected baseline. */
@@ -236,6 +240,7 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
     actionId,
     actionLabel,
     notes,
+    rollDetail,
     liveSeed,
     amendsLogId
   } = input;
@@ -277,7 +282,8 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
         hit: outcome || null,
         targetHpBefore,
         targetHpAfter,
-        notes: notes.slice(0, 500) || null
+        notes: notes.slice(0, 500) || null,
+        rollDetail: rollDetail ?? null
       }
     : {
         participantId: actingParticipantId,
@@ -290,7 +296,8 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
         hit: outcome || null,
         targetHpBefore,
         targetHpAfter,
-        notes: notes.slice(0, 500) || null
+        notes: notes.slice(0, 500) || null,
+        rollDetail: rollDetail ?? null
       };
 
   const res = await fetch(url, {

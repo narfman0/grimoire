@@ -20,6 +20,10 @@
     targetHpBefore: number | null;
     targetHpAfter: number | null;
     notes: string | null;
+    /** Per-die breakdown when the roll was made in-app. Already redacted by
+     *  the server for hidden actors — like every other field here, this
+     *  component displays, it never decides visibility. */
+    rollDetail: string | null;
     redacted?: boolean;
   };
   type LogParticipant = { id: string; name: string };
@@ -127,6 +131,11 @@
               </button>
             {/if}
           </div>
+          {#if entry.rollDetail && !withheld}
+            <p class="mt-1 font-mono text-[10px] text-slate-500" title="How the roll was made">
+              {entry.rollDetail}
+            </p>
+          {/if}
           {#if entry.notes && !withheld}
             <p class="mt-1 text-slate-400 italic">“{entry.notes}”</p>
           {/if}

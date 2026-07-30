@@ -175,8 +175,9 @@ export type TCombatEconomyJson = z.infer<typeof CombatEconomyJson>;
  *  `conditions` array stays the source of truth for "is this on"; this is
  *  an overlay keyed by condition slug recording the round the DM expects it
  *  to lapse in. PCs carry the same shape on their character document. Rides
- *  plan_json for the same reason `combat` does — no per-participant
- *  combat-state column exists. See $lib/encounter/condition-timers. */
+ *  Stored on combat_state_json since migration 0009 (it used to ride
+ *  plan_json, where a plan clear could take it out).
+ *  See $lib/encounter/condition-timers. */
 export const ConditionTimerJson = z
   .object({
     condition: z.string().min(1).max(60),
@@ -292,6 +293,29 @@ export const SetHpRequest = z
   .openapi('SetHpRequest');
 export type TSetHpRequest = z.infer<typeof SetHpRequest>;
 
+/** Encounter-scoped, non-PC combat state (migration 0009). Every key is
+ *  optional; a PATCH carrying one key leaves the others alone, and an
+ *  explicit null clears that slot. Merge rather than replace so the DM
+ *  flipping the lair marker can't clobber an economy tick that landed
+ *  between their read and their write. */
+export const SetCombatStateRequest = z
+  .object({
+    combat: z.record(z.string(), z.unknown()).nullable().optional(),
+    // Reuses ConditionTimerJson rather than restating the shape. Getting
+    // this wrong is invisible in unit tests — a mismatched field name just
+    // 400s the write while the client's optimistic update still renders, so
+    // the chip shows a duration the server never stored.
+    conditionTimers: z.array(ConditionTimerJson).max(40).nullable().optional(),
+    spellSlots: z
+      .record(z.string(), z.object({ max: z.number().int().nonnegative(), used: z.number().int().nonnegative() }))
+      .nullable()
+      .optional(),
+    lair: z.boolean().nullable().optional()
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
+  .openapi('SetCombatStateRequest');
+export type TSetCombatStateRequest = z.infer<typeof SetCombatStateRequest>;
+
 export const SetConditionsRequest = z
   .object({
     conditions: z.array(z.string())
@@ -369,7 +393,11 @@ export const SubmitActionLogRequest = z
     hit: HitOutcome.nullable().optional(),
     targetHpBefore: z.number().int().nullable().optional(),
     targetHpAfter: z.number().int().nullable().optional(),
-    notes: z.string().max(500).nullable().optional()
+    notes: z.string().max(500).nullable().optional(),
+    /** Human-readable per-die breakdown from $lib/dice (`RollResult.detail`),
+     *  e.g. "[18, (7)] + 5 = 23". Display only — the server never parses it,
+     *  and attackRoll/damageRoll stay the authoritative totals. */
+    rollDetail: z.string().max(300).nullable().optional()
   })
   .openapi('SubmitActionLogRequest');
 

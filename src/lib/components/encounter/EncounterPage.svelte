@@ -192,6 +192,9 @@
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
   $: liveStatus = liveState?.status ?? data.encounter.status;
   $: livePlans = liveState?.plans ?? {};
+  /** DM lair markers. Projected by the poll since migration 0009 moved the
+   *  marker off plan_json — reading it from the plan would now miss it. */
+  $: liveLair = liveState?.participantLair ?? data.participantLair ?? {};
   $: liveHpMap = liveState?.participantHp ?? {};
 
   // --- live participant list ----------------------------------------------
@@ -322,6 +325,10 @@
   let resolveDamage: number | null = null;
   let resolveHit: HitOutcome = '';
   let resolveNotes = '';
+  /** Per-die breakdown, set by ResolvePanel's roll buttons; null when the DM
+   *  typed the totals. Persisted on the log row so the table can see how a
+   *  number was reached — and, for a hidden actor, redacted out server-side. */
+  let resolveRollDetail: string | null = null;
   let resolveSubmitting = false;
   let resolveError: string | null = null;
 
@@ -347,6 +354,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   function closeResolve() {
@@ -355,6 +363,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   /** Single-target apply: HP delta via participant API + one log entry. */
@@ -384,7 +393,8 @@
         label: resolveActionLabel
       }),
       actionLabel: resolveActionLabel,
-      notes: resolveNotes
+      notes: resolveNotes,
+      rollDetail: resolveRollDetail
     });
     return {
       ok: result.ok,
@@ -558,6 +568,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   // ---- difficulty rating (DM only) ---------------------------------------
@@ -684,6 +695,7 @@
         round,
         actionId: resolveSeedActionId,
         actionLabel: resolveActionLabel,
+        rollDetail: resolveRollDetail,
         notes: resolveNotes,
         liveSeed,
         amendsLogId: amendingLogId
@@ -1699,7 +1711,7 @@
   // $lib/encounter/lair). Dismissed per round so it doesn't nag on every
   // poll, and re-arms when the round bumps.
   function lairFlagFor(participantId: string): boolean {
-    return livePlans[participantId]?.lair === true;
+    return liveLair[participantId] === true;
   }
 
   function toggleLair(p: { id: string }) {
@@ -1715,7 +1727,7 @@
             name: p.name,
             initiative: p.initiative,
             legendaryActionCount: p.statblock?.legendaryActions?.length ?? 0,
-            lair: livePlans[p.id]?.lair === true
+            lair: liveLair[p.id] === true
           })),
           activeParticipantId: liveActive
         })
@@ -2087,7 +2099,7 @@
           <input
             type="checkbox"
             class="accent-violet-500"
-            checked={livePlans[p.id]?.lair === true}
+            checked={liveLair[p.id] === true}
             disabled={busy}
             on:change={() => toggleLair(p)}
           />
@@ -2210,6 +2222,7 @@
     bind:saveDC={resolveSaveDC}
     bind:multiTargetIds={resolveMultiTargetIds}
     bind:targetSaveRolls={resolveTargetSaveRolls}
+    bind:rollDetail={resolveRollDetail}
     on:submit={() => (amendingLogId ? submitAmend() : submitDmResolve())}
     on:cancel={() => {
       amendingLogId = null;

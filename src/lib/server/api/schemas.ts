@@ -67,9 +67,22 @@ export const CreateCampaignRequest = z
   })
   .openapi('CreateCampaignRequest');
 
+/** Per-campaign table permissions. All allow-by-default; the DM sends only
+ *  the keys they want to change and omitted keys keep their current value.
+ *  See $lib/server/auth/campaign-permissions for what each one gates — and
+ *  note none of them can hand a player control of non-PC participants. */
+export const CampaignPermissionsPatch = z
+  .object({
+    actForOthers: z.boolean().optional(),
+    editOthersVitals: z.boolean().optional(),
+    planForOthers: z.boolean().optional()
+  })
+  .openapi('CampaignPermissionsPatch');
+
 export const UpdateCampaignRequest = z
   .object({
-    name: CampaignName.optional()
+    name: CampaignName.optional(),
+    permissions: CampaignPermissionsPatch.optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateCampaignRequest');
