@@ -144,6 +144,12 @@ and two-browser e2e proves reveals/participant changes propagate live.
 
 ## WS3 — Positions, geography, and encounter maps
 
+> **Superseded 2026-07-29 by [`docs/boards-design.md`](docs/boards-design.md).**
+> The zone-graph-first design below pivoted to a painted tile board with a
+> standalone map builder, fog-of-war riding the reveals model, and an NPC
+> turn optimizer. The section is kept for the design rationale; the current
+> design lives in the new doc.
+
 **Goal.** Model *where* combatants are well enough that (a) the engine can
 validate range/movement/AoE, (b) a planner can optimize NPC turns and
 suggest player actions, and (c) WS4 can ingest real map images into the same
