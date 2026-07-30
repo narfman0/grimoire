@@ -57,7 +57,7 @@ test('board fog: players never receive unrevealed tiles or fogged positions', as
   const dmState = (await (
     await dm.api.get(`/api/encounters/${encounterId}/state`)
   ).json()) as { positions: Record<string, { x: number; y: number }> };
-  expect(dmState.positions[goblinId]).toEqual({ x: 3, y: 1, sizeCells: 1 });
+  expect(dmState.positions[goblinId]).toEqual({ x: 3, y: 1, sizeCells: 1, floor: 0 });
 
   // Both clients on the page: the player sees the board panel (poll-driven
   // refetch, no reload).
@@ -85,7 +85,7 @@ test('board fog: players never receive unrevealed tiles or fogged positions', as
       },
       SYNC_TIMEOUT
     )
-    .toEqual({ x: 3, y: 1, sizeCells: 1 });
+    .toEqual({ x: 3, y: 1, sizeCells: 1, floor: 0 });
 
   const revealedBoard = (await (
     await player.api.get(`/api/encounters/${encounterId}/board`)

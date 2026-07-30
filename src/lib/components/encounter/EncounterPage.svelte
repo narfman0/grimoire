@@ -145,6 +145,8 @@
   import type { IncomingDamageResolution } from '$lib/realtime/encounter-channel';
 
   export let data: EncounterPageData;
+  /** Campaign code — the dungeon-instance API is code-scoped. */
+  export let campaignCode: string | null = null;
   /** Route-specific link targets — the two encounter routes differ only in
    *  URL scheme (/c/[code]/... vs /campaigns/[dmUsername]/[slug]/...). */
   export let encountersHref: string;
@@ -359,6 +361,10 @@
     liveState && liveState.participants !== null
       ? liveState.positions
       : data.participantPositions ?? {};
+  /** Dungeon block: poll once it has landed, SSR seed before that (the
+   *  channel store exists with nulls from the first synchronous frame). */
+  $: liveDungeon =
+    liveState && liveState.participants !== null ? liveState.dungeon : data.dungeon ?? null;
   $: liveBoardVersion =
     liveState && liveState.participants !== null
       ? liveState.boardVersion
@@ -450,7 +456,9 @@
         team: p.kind === 'pc' ? 'pc' : 'foe',
         // Longest melee reach, for the threat overlay — the board panel has
         // no statblocks or PC actions of its own to derive it from.
-        reachFt: meleeReachFt(p)
+        reachFt: meleeReachFt(p),
+        // Dungeon floor; the panel filters to its viewed floor.
+        floor: pos.floor ?? 0
       };
     });
   $: unplacedTokens = liveParticipants
@@ -459,8 +467,11 @@
 
   /** Token footprint by creature size, applied once at first placement. */
   const SIZE_CELLS: Record<string, number> = { large: 2, huge: 3, gargantuan: 4 };
-  async function onMoveToken(e: CustomEvent<{ id: string; x: number; y: number }>) {
+  async function onMoveToken(
+    e: CustomEvent<{ id: string; x: number; y: number; floor?: number }>
+  ) {
     const { id, x, y } = e.detail;
+    const floor = e.detail.floor ?? 0;
     if (!conn) return;
     const p = liveParticipants.find((q) => q.id === id);
     const cur = livePositions[id];
@@ -486,7 +497,9 @@
     // A drag is a move like any other: if it leaves an enemy's reach, the
     // enemy gets asked. First placement (no prior position) never provokes.
     if (cur) raiseOaPrompts(id, { x: cur.x, y: cur.y }, { x, y }, null, livePlans[id] ?? null);
-    conn.setPosition(id, { x, y, ...(sizeCells ? { sizeCells } : {}) }).catch(() => {});
+    conn
+      .setPosition(id, { x, y, floor, ...(sizeCells ? { sizeCells } : {}) })
+      .catch(() => {});
   }
 
   function speedFtOf(p: {
@@ -550,6 +563,21 @@
       if (move.path) base.path = move.path;
     }
     return base;
+  }
+
+  /** Take a floor link. Server-validated single writer; the poll carries
+   *  the new floor+cell to every tab within a cycle, and the optimistic
+   *  position update keeps the mover's own tab instant. */
+  async function onTraverse(e: CustomEvent<{ id: string; linkId: string }>) {
+    try {
+      const res = await api.post<{ ok: true; x: number; y: number; floor: number }>(
+        `/api/encounters/${data.encounter.id}/participants/${e.detail.id}/traverse`,
+        { linkId: e.detail.linkId }
+      );
+      conn?.setPosition(e.detail.id, { x: res.x, y: res.y, floor: res.floor }).catch(() => {});
+    } catch {
+      // api() already toasted
+    }
   }
 
   function onPlanMove(
@@ -2834,6 +2862,8 @@
   role={data.role}
   board={data.board ?? null}
   boardVersion={liveBoardVersion}
+  dungeon={liveDungeon}
+  {campaignCode}
   tokens={boardTokens}
   unplaced={unplacedTokens}
   selected={boardSelected}
@@ -2844,6 +2874,7 @@
   armAoe={resolveAoe}
   on:boardChanged={(e) => (liveBoardWire = e.detail)}
   on:aoeTargets={(e) => takeAoeTargets(e.detail)}
+  on:traverse={onTraverse}
 />
 
 {#if liveStatus === 'live' && data.role === 'dm'}

@@ -119,12 +119,37 @@ export interface EncounterSnapshot {
   /** encounter_boards.version, or null when no board is attached. The
    *  encounter page refetches GET .../board when this bumps. */
   boardVersion: number | null;
+  /** Attached dungeon instance (WS5): role-filtered floor list + links,
+   *  per-floor versions as the refetch signal. Null for quick-board /
+   *  mapless encounters — and until the first poll lands (seeded). */
+  dungeon: DungeonBlock | null;
+}
+
+export interface WireLinkShape {
+  id: string;
+  kind: string;
+  costFt: number;
+  oneWay?: boolean;
+  a: { floorIdx: number; x: number; y: number };
+  /** Null for a player who hasn't revealed the far end. */
+  b: { floorIdx: number; x: number; y: number } | null;
+}
+
+export interface DungeonBlock {
+  instanceId: string;
+  name: string;
+  instanceVersion: number;
+  floors: Array<{ idx: number; name: string }>;
+  floorVersions: Record<string, number>;
+  links: WireLinkShape[];
 }
 
 export interface ParticipantPosition {
   x: number;
   y: number;
   sizeCells: number;
+  /** Dungeon floor the token stands on; 0 on quick boards. */
+  floor: number;
 }
 
 export interface ConnectedEncounter {
@@ -171,7 +196,7 @@ export interface ConnectedEncounter {
    *  never from here. */
   setPosition(
     participantId: string,
-    pos: { x: number; y: number; sizeCells?: number } | null
+    pos: { x: number; y: number; floor?: number; sizeCells?: number } | null
   ): Promise<void>;
   /** Damage helper: subtract amount from current HP, draining temp HP first.
    *  Returns the new HP shape (for log-entry bookkeeping). Re-uses the SSR
@@ -235,7 +260,8 @@ const EMPTY: EncounterSnapshot = {
   participantLair: {},
   participantResources: {},
   positions: {},
-  boardVersion: null
+  boardVersion: null,
+  dungeon: null
 };
 
 export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncounter {
@@ -250,7 +276,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     participantLair: opts.seed?.participantLair ?? {},
     participantResources: opts.seed?.participantResources ?? {},
     positions: opts.seed?.positions ?? {},
-    boardVersion: opts.seed?.boardVersion ?? null
+    boardVersion: opts.seed?.boardVersion ?? null,
+    dungeon: opts.seed?.dungeon ?? null
   };
 
   const state = writable<EncounterSnapshot>(initial);
@@ -344,7 +371,8 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           Record<string, number>
         >,
         positions: (data.positions ?? {}) as Record<string, ParticipantPosition>,
-        boardVersion: data.boardVersion ?? null
+        boardVersion: data.boardVersion ?? null,
+        dungeon: (data.dungeon ?? null) as DungeonBlock | null
       });
       lastEtag = res.headers.get('etag');
       status.set('open');
@@ -630,6 +658,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           positions[participantId] = {
             x: pos.x,
             y: pos.y,
+            floor: pos.floor ?? prev?.floor ?? 0,
             sizeCells: pos.sizeCells ?? prev?.sizeCells ?? 1
           };
         } else {
@@ -640,7 +669,14 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       try {
         await send(
           `/api/encounters/${opts.encounterId}/participants/${participantId}/position`,
-          { method: 'POST', body: JSON.stringify(pos ? { x: pos.x, y: pos.y } : { x: null, y: null }) }
+          {
+            method: 'POST',
+            body: JSON.stringify(
+              pos
+                ? { x: pos.x, y: pos.y, ...(pos.floor !== undefined ? { floor: pos.floor } : {}) }
+                : { x: null, y: null }
+            )
+          }
         );
       } catch (err) {
         state.update((s) => {

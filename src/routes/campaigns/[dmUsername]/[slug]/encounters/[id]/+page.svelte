@@ -13,6 +13,7 @@
 {#key data.encounter.id}
   <EncounterPage
     {data}
+    campaignCode={data.campaign.code}
     encountersHref={encountersUrl(data.campaign.dmUsername, data.campaign.slug)}
     encounterHref={(id) => encounterUrl(data.campaign.dmUsername, data.campaign.slug, id)}
     sheetHref={(characterId) => {
