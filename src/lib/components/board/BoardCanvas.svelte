@@ -33,6 +33,9 @@
     /** Side marker for occupancy/threat math ('pc' vs anything else); the
      *  canvas itself ignores it. */
     team?: string;
+    /** Longest melee reach in feet, for the threat overlay — also ignored
+     *  by the canvas itself. */
+    reachFt?: number;
   }
 
   export interface OverlayLayer {

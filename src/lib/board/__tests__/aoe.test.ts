@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { AOE_PRESETS, coverEffect, tokensInCells } from '../aoe';
+import { AOE_PRESETS, coverEffect, targetsInRangeCells, tokensInCells } from '../aoe';
 import { aoeCells, coverBetween } from '../geometry';
 import { gridFromAscii } from './fixtures';
+import { cellKey } from '../types';
 
 describe('tokensInCells', () => {
   const tokens = [
@@ -100,5 +101,53 @@ describe('AOE_PRESETS', () => {
       expect(p.sizeFt % 5).toBe(0);
       expect(p.label).toContain('(');
     }
+  });
+});
+
+describe('targetsInRangeCells', () => {
+  const grid = gridFromAscii(`
+    .........
+    .........
+    .........
+  `);
+  const tokens = [
+    { id: 'me', x: 0, y: 1, sizeCells: 1, team: 'pc' },
+    { id: 'ally', x: 1, y: 1, sizeCells: 1, team: 'pc' },
+    { id: 'near', x: 2, y: 1, sizeCells: 1, team: 'foe' },
+    { id: 'far', x: 8, y: 1, sizeCells: 1, team: 'foe' },
+    // Huge foe anchored at (5,0): footprint runs to (7,2).
+    { id: 'huge', x: 5, y: 0, sizeCells: 3, team: 'foe' }
+  ];
+
+  it('highlights only hostile tokens the range reaches', () => {
+    const out = targetsInRangeCells(grid, { x: 0, y: 1 }, tokens, 'pc', 10, 'me');
+    expect(out.has(cellKey({ x: 2, y: 1 }))).toBe(true); // near, 10 ft
+    expect(out.has(cellKey({ x: 1, y: 1 }))).toBe(false); // ally
+    expect(out.has(cellKey({ x: 8, y: 1 }))).toBe(false); // far, 40 ft
+  });
+
+  it('measures to the nearest square of a big creature and lights its whole shape', () => {
+    // From (3,1): the Huge foe's nearest cell (5,0..) is 10 ft away, so a
+    // 10 ft reach catches it — and all 9 of its cells highlight.
+    const out = targetsInRangeCells(grid, { x: 3, y: 1 }, tokens, 'pc', 10, 'me');
+    expect(out.has(cellKey({ x: 5, y: 0 }))).toBe(true);
+    expect(out.has(cellKey({ x: 7, y: 2 }))).toBe(true);
+  });
+
+  it('melee 5 ft from a non-adjacent cell reaches nothing', () => {
+    const out = targetsInRangeCells(grid, { x: 0, y: 1 }, tokens, 'pc', 5, 'me');
+    expect(out.size).toBe(0);
+  });
+
+  it('never targets the attacker themselves, whatever team math says', () => {
+    const out = targetsInRangeCells(
+      grid,
+      { x: 0, y: 1 },
+      [{ id: 'me', x: 0, y: 1, sizeCells: 1, team: 'foe' }],
+      'pc',
+      60,
+      'me'
+    );
+    expect(out.size).toBe(0);
   });
 });

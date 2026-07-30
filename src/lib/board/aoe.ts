@@ -9,7 +9,7 @@
 //
 // Pure and sibling-only, per the purity guard on this directory.
 
-import { footprintCells, type Cover } from './geometry';
+import { distanceFt, footprintCells, type Cover, type Grid } from './geometry';
 import { cellKey, type Cell } from './types';
 
 /** The AoE presets the encounter board offers. Sizes are the printed 5e
@@ -54,6 +54,35 @@ export function tokensInCells(cells: Iterable<Cell>, tokens: PlacedToken[]): str
     if (foot.some((c) => covered.has(cellKey(c)))) hit.push(t.id);
   }
   return hit;
+}
+
+/** Footprint cells of every token an attack can reach.
+ *
+ *  §D's planning-time hint: given where the attacker will be (their planned
+ *  destination, usually) and the planned action's range, which enemies can
+ *  it actually touch? Returns the *cells* of each in-range hostile token as
+ *  cellKey strings, ready for an overlay layer — the whole footprint, so a
+ *  clipped Huge creature lights up as one shape.
+ *
+ *  A token is in range when any cell of its footprint is: 5e measures to
+ *  the nearest square of the creature, not to its anchor. */
+export function targetsInRangeCells(
+  grid: Grid,
+  from: Cell,
+  tokens: Array<PlacedToken & { team?: string }>,
+  attackerTeam: string,
+  rangeFt: number,
+  excludeId?: string
+): Set<string> {
+  const out = new Set<string>();
+  for (const t of tokens) {
+    if (t.id === excludeId || (t.team ?? 'foe') === attackerTeam) continue;
+    const cells = footprintCells({ x: t.x, y: t.y }, t.sizeCells);
+    if (cells.some((c) => distanceFt(grid, from, c) <= rangeFt)) {
+      for (const c of cells) out.add(cellKey(c));
+    }
+  }
+  return out;
 }
 
 /** What a cover verdict is worth mechanically. 5e gives cover as an AC

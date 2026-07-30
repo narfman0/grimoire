@@ -315,6 +315,12 @@ export async function buildEncounterPageData(
     damage?: Array<{ dice: string; type: string }>;
     saveDC?: number;
     saveAbility?: string;
+    /** Range in feet + melee/ranged classification, for the board: melee
+     *  reach feeds threat envelopes and opportunity-attack prompts (a
+     *  glaive PC threatens 10 ft, not the flat 5 the statblock-only reader
+     *  assumed), and range drives the in-range target highlight. */
+    rangeFt?: number;
+    attackRange?: 'melee' | 'ranged';
   };
   const participantPcActions: Record<string, PcActionChoice[]> = {};
   /** Per-PC action-economy flags, read straight off the character document
@@ -508,7 +514,9 @@ export async function buildEncounterPageData(
                 : {}),
               ...(a.saveDC
                 ? { saveDC: a.saveDC.value, saveAbility: a.saveDC.ability }
-                : {})
+                : {}),
+              ...(a.range?.value ? { rangeFt: a.range.value } : {}),
+              ...(a.attackRange ? { attackRange: a.attackRange } : {})
             };
           });
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({

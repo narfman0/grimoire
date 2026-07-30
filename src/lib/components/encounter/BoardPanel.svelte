@@ -54,7 +54,7 @@
     type Grid
   } from '$lib/board/geometry';
   import { doorCounterpart } from '$lib/board/tileset';
-  import { AOE_PRESETS, tokensInCells } from '$lib/board/aoe';
+  import { AOE_PRESETS, targetsInRangeCells, tokensInCells } from '$lib/board/aoe';
   import { revealVisible, visibleFromAny } from '$lib/board/vision';
   import { cellKey, type Cell } from '$lib/board/types';
 
@@ -73,6 +73,10 @@
     kind: string;
     plannable?: boolean;
     moveTo?: { x: number; y: number } | null;
+    /** Range of the participant's planned action, in feet. Null when the
+     *  plan names no action (or the action's range is unknown) — then no
+     *  in-range highlight is drawn, which beats a wrong one. */
+    attackRangeFt?: number | null;
   } | null = null;
   export let busy = false;
 
@@ -358,18 +362,43 @@
   $: planContext = ((): {
     reach: ReturnType<typeof reachableCells>;
     threat: Set<string>;
+    /** Footprint cells of enemies the planned action reaches. */
+    targets: Set<string>;
   } | null => {
     if (!overlaysOn || mode !== 'tokens' || !grid || !selected || !selectedToken) return null;
     const team = selected.kind === 'pc' ? 'pc' : 'foe';
     const occupied = { allies: [] as Cell[], enemies: [] as Cell[] };
-    const threatSources: Array<{ cell: Cell; team: string; sizeCells: number }> = [];
+    const threatSources: Array<{ cell: Cell; team: string; sizeCells: number; reachFt?: number }> =
+      [];
     for (const t of tokens) {
       if (t.id === selected.id) continue;
       const tTeam = t.team ?? 'foe';
       const cells = footprintCells({ x: t.x, y: t.y }, t.sizeCells);
       (tTeam === team ? occupied.allies : occupied.enemies).push(...cells);
-      threatSources.push({ cell: { x: t.x, y: t.y }, team: tTeam, sizeCells: t.sizeCells });
+      threatSources.push({
+        cell: { x: t.x, y: t.y },
+        team: tTeam,
+        sizeCells: t.sizeCells,
+        // Real weapon reach, when the parent supplied it — a glaive-armed
+        // creature's red zone is two cells deep, not one.
+        ...(t.reachFt ? { reachFt: t.reachFt } : {})
+      });
     }
+    // §D's planning-time hint: which enemies the planned action can reach
+    // from where this creature will be (the planned destination when there
+    // is one, else where it stands). Highlight, never gate — the resolve
+    // panel's range warning stays the soft enforcement point.
+    const targets =
+      selected.attackRangeFt != null
+        ? targetsInRangeCells(
+            grid,
+            selected.moveTo ?? { x: selectedToken.x, y: selectedToken.y },
+            tokens,
+            team,
+            selected.attackRangeFt,
+            selected.id
+          )
+        : new Set<string>();
     return {
       reach: reachableCells(
         grid,
@@ -377,7 +406,8 @@
         selected.speedFt,
         occupied
       ),
-      threat: threatenedCells(grid, threatSources, team)
+      threat: threatenedCells(grid, threatSources, team),
+      targets
     };
   })();
   $: overlays = ((): OverlayLayer[] => {
@@ -396,7 +426,10 @@
     if (!planContext) return [];
     const layers: OverlayLayer[] = [
       { cells: planContext.reach.costFt.keys(), color: 'rgba(52,211,153,0.18)' },
-      { cells: planContext.threat, color: 'rgba(248,113,113,0.14)' }
+      { cells: planContext.threat, color: 'rgba(248,113,113,0.14)' },
+      // In-range targets, over the tints so a highlighted enemy stands out
+      // inside a threatened square.
+      { cells: planContext.targets, color: 'rgba(96,165,250,0.32)' }
     ];
     if (selected?.moveTo) {
       layers.push({ cells: [cellKey(selected.moveTo)], color: 'rgba(52,211,153,0.45)' });

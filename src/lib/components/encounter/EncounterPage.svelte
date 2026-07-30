@@ -439,7 +439,10 @@
         selected: p.id === selectedId,
         badges,
         draggable: canMoveToken(p),
-        team: p.kind === 'pc' ? 'pc' : 'foe'
+        team: p.kind === 'pc' ? 'pc' : 'foe',
+        // Longest melee reach, for the threat overlay — the board panel has
+        // no statblocks or PC actions of its own to derive it from.
+        reachFt: meleeReachFt(p)
       };
     });
   $: unplacedTokens = liveParticipants
@@ -496,10 +499,12 @@
     kind: string;
     plannable: boolean;
     moveTo: { x: number; y: number } | null;
+    attackRangeFt: number | null;
   } | null => {
     if (!selectedId) return null;
     const p = liveParticipants.find((q) => q.id === selectedId);
     if (!p || !livePositions[p.id]) return null;
+    const plannedAction = livePlans[p.id]?.actionLabel;
     return {
       id: p.id,
       speedFt: speedFtOf(p),
@@ -507,7 +512,10 @@
       // The server enforces who may actually write the plan; the UI arms
       // click-to-plan for the DM and for PC rows (permissive table policy).
       plannable: data.role === 'dm' || p.kind === 'pc',
-      moveTo: livePlans[p.id]?.moveTo ?? null
+      moveTo: livePlans[p.id]?.moveTo ?? null,
+      // Range of the planned action, so the board can highlight who it
+      // reaches from the planned destination. PC-aware via actionRangeFt.
+      attackRangeFt: plannedAction ? actionRangeFt(p, plannedAction) : null
     };
   })();
 
@@ -556,17 +564,24 @@
   /** "80/320 ft." → 320; reach 10 → 10. Null when the action carries no
    *  parseable range — no warning is better than a wrong one. */
   function actionRangeFt(
-    p: { statblock?: { actions?: Array<{ name: string; reach?: number; range?: string }> } | null },
+    p: {
+      id: string;
+      statblock?: { actions?: Array<{ name: string; reach?: number; range?: string }> } | null;
+    },
     actionLabel: string
   ): number | null {
     const action = p.statblock?.actions?.find((a) => a.name === actionLabel);
-    if (!action) return null;
-    if (typeof action.reach === 'number') return action.reach;
-    if (action.range) {
-      const m = /(\d+)(?:\s*\/\s*(\d+))?\s*ft/i.exec(action.range);
-      if (m) return Number(m[2] ?? m[1]);
+    if (action) {
+      if (typeof action.reach === 'number') return action.reach;
+      if (action.range) {
+        const m = /(\d+)(?:\s*\/\s*(\d+))?\s*ft/i.exec(action.range);
+        if (m) return Number(m[2] ?? m[1]);
+      }
+      return null;
     }
-    return null;
+    // PC rows carry their range on the derived action list instead.
+    const pc = data.participantPcActions?.[p.id]?.find((a) => a.name === actionLabel);
+    return pc?.rangeFt ?? null;
   }
 
   /** Soft warnings for the resolve panel — unreachable planned move,
@@ -891,14 +906,25 @@
   let oaPrompts: OaPrompt[] = [];
   const raisedOaKeys = new Set<string>();
 
-  /** Melee reach for OA purposes: the longest reach among the creature's
-   *  attacks, so a glaive or a giant's greatclub threatens 10 ft. */
+  /** Melee reach for OA and threat purposes: the longest reach among the
+   *  creature's melee attacks, so a glaive or a giant's greatclub threatens
+   *  10 ft. Monsters carry it on the statblock; PCs on their derived action
+   *  rows (which used to be invisible here, so every PC threatened a flat
+   *  5 ft however long their weapon). */
   function meleeReachFt(p: {
+    id: string;
+    kind: string;
     statblock?: { actions?: Array<{ reach?: number }> } | null;
   }): number {
-    const reaches = (p.statblock?.actions ?? [])
-      .map((a) => a.reach)
-      .filter((r): r is number => typeof r === 'number' && r > 0);
+    const reaches =
+      p.kind === 'pc'
+        ? (data.participantPcActions?.[p.id] ?? [])
+            .filter((a) => a.attackRange === 'melee')
+            .map((a) => a.rangeFt)
+            .filter((r): r is number => typeof r === 'number' && r > 0)
+        : (p.statblock?.actions ?? [])
+            .map((a) => a.reach)
+            .filter((r): r is number => typeof r === 'number' && r > 0);
     return reaches.length > 0 ? Math.max(...reaches) : 5;
   }
 
