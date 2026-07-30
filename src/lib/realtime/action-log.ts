@@ -52,6 +52,12 @@ export interface RedactableActionLogEntry {
   targetHpBefore: number | null;
   targetHpAfter: number | null;
   notes: string | null;
+  /** Per-die roll detail, when the roll was made in-app. Describes the
+   *  actor's behaviour, so it is blanked for a hidden actor exactly like the
+   *  totals are — this is the field HIDDEN_ACTOR_BLANKS was built to catch.
+   *  Declared required (not optional) on purpose: an optional field survives
+   *  `Omit` and would not break the build. */
+  rollDetail: string | null;
   /** Set by redaction when at least one field was withheld. Lets the UI
    *  render the entry as "withheld" rather than pretending it's complete. */
   redacted?: boolean;
@@ -86,7 +92,8 @@ const HIDDEN_ACTOR_BLANKS: Omit<
   hit: null,
   targetHpBefore: null,
   targetHpAfter: null,
-  notes: null
+  notes: null,
+  rollDetail: null
 };
 
 /** PCs are always fully visible to their party — the reveal flags on a PC

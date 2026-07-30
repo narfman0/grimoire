@@ -1,3 +1,6 @@
+import { eq } from 'drizzle-orm';
+import { db, schema } from '$lib/server/db';
+
 // Per-campaign table permissions.
 //
 // Grimoire used to gate every mutation on ownership: only the character's
@@ -20,13 +23,11 @@
 // implies the second. Widening that is a one-line addition here and should be
 // an explicit choice.
 //
-// The per-campaign override needs a `campaigns.permissions_json` column, which
-// is migration-gated (see docs/proposals/dice-roller.md phase 8b). Until then
-// this returns the defaults for every campaign — which is exactly the
-// behaviour the override's "absent means defaults" semantics will preserve, so
-// the migration is a no-op on the day it lands. Call sites read the policy
-// through this module from the start, so wiring the column changes only what
-// happens inside `getCampaignPermissions`.
+// Overrides live in `campaigns.permissions_json` (migration 0009). NULL means
+// "all defaults", so the column changed nothing on the day it landed and needs
+// no backfill; only keys a DM has actually flipped are stored, so adding a
+// permission later also needs no backfill. Every call site reads the policy
+// through this module, so the column landing touched only this file.
 
 // Scope: these permissions govern who may act on **player characters**. Non-PC
 // participants stay DM-only regardless, and that is a redaction boundary
@@ -53,15 +54,37 @@ export const PERMISSIVE_DEFAULTS: Readonly<CampaignPermissions> = Object.freeze(
   planForOthers: true
 });
 
-/**
- * The effective permissions for a campaign.
- *
- * Async and taking a campaign id even though it currently consults nothing:
- * the signature is the one phase 8b needs, so adding the column later touches
- * this function and nothing else.
- */
+/** Parse a stored overrides blob over the defaults. Unknown keys are ignored
+ *  and non-boolean values are discarded rather than coerced — a corrupt or
+ *  hand-edited column must not be able to *remove* a capability by accident,
+ *  so anything we can't read falls back to allow. */
+export function mergePermissions(raw: string | null | undefined): CampaignPermissions {
+  const merged: CampaignPermissions = { ...PERMISSIVE_DEFAULTS };
+  if (!raw) return merged;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return merged;
+  }
+  if (!parsed || typeof parsed !== 'object') return merged;
+  for (const key of Object.keys(merged) as Array<keyof CampaignPermissions>) {
+    const value = (parsed as Record<string, unknown>)[key];
+    if (typeof value === 'boolean') merged[key] = value;
+  }
+  return merged;
+}
+
+/** The effective permissions for a campaign. */
 export async function getCampaignPermissions(
-  _campaignId: string
+  campaignId: string
 ): Promise<CampaignPermissions> {
-  return { ...PERMISSIVE_DEFAULTS };
+  const rows = await db
+    .select({ permissionsJson: schema.campaigns.permissionsJson })
+    .from(schema.campaigns)
+    .where(eq(schema.campaigns.id, campaignId))
+    .limit(1);
+  // A campaign that doesn't exist can't be acted on anyway — the membership
+  // check upstream will have thrown. Defaults keep this total.
+  return mergePermissions(rows[0]?.permissionsJson);
 }

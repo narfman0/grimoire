@@ -22,7 +22,6 @@ import {
 } from './economy';
 import { patchCharacterDocFields } from '$lib/encounter/conditions';
 import type { ConditionTimer } from '$lib/encounter/condition-timers';
-import { clearedPlan, planWithExtras } from '$lib/encounter/plan-extras';
 import { applyDamageDelta, applyHealDelta } from '../rules/hp';
 import { computeIncomingDamage, type DamageResolutionStats } from '../rules/incoming-damage';
 import type { DamageSourceContext } from '../rules/damage-source';
@@ -99,6 +98,9 @@ export interface EncounterSnapshot {
    *  legendary-action counter, server-projected so a second DM tab agrees
    *  and a reload doesn't forget what's been spent. */
   participantEconomy: Record<string, CombatEconomy>;
+  /** DM lair markers by participant id. Projected by the poll since the
+   *  marker moved off plan_json into its own column (migration 0009). */
+  participantLair: Record<string, boolean>;
   /** Per-PC resource spend counters (`resourcesSpent` off the character
    *  document). The planner folds these over the SSR pool sizes so
    *  "2/5 Ki left" tracks a mid-combat spend on the character sheet
@@ -152,7 +154,8 @@ export interface ConnectedEncounter {
     timers: ConditionTimer[]
   ): Promise<void>;
   /** Flag/unflag a non-PC participant as having lair actions in this
-   *  encounter. Persists to plan_json — no statblock carries lair data. */
+   *  encounter. Persists to combat_state_json — no statblock carries lair
+   *  data. */
   setLair(participantId: string, lair: boolean): Promise<void>;
   /** Move a token on the board (null = take it off). DM moves anyone;
    *  players their own PC (server-enforced). Optimistic and covered by the
@@ -217,6 +220,7 @@ const EMPTY: EncounterSnapshot = {
   plans: {},
   participantHp: {},
   participantEconomy: {},
+  participantLair: {},
   participantResources: {},
   positions: {},
   boardVersion: null
@@ -231,6 +235,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     plans: opts.seed?.plans ?? {},
     participantHp: opts.seed?.participantHp ?? {},
     participantEconomy: opts.seed?.participantEconomy ?? {},
+    participantLair: opts.seed?.participantLair ?? {},
     participantResources: opts.seed?.participantResources ?? {},
     positions: opts.seed?.positions ?? {},
     boardVersion: opts.seed?.boardVersion ?? null
@@ -315,6 +320,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
         participants: data.participants ?? null,
         plans: (data.plans ?? {}) as Record<string, TurnPlan>,
         participantHp: (data.participantHp ?? {}) as Record<string, ParticipantHp>,
+        participantLair: (data.participantLair ?? {}) as Record<string, boolean>,
         participantEconomy: Object.fromEntries(
           Object.entries(data.participantEconomy ?? {}).map(([pid, e]) => [
             pid,
@@ -389,26 +395,20 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     async clearPlan(participantId) {
       const endMutation = beginMutation();
       const prev = readPlan(state, participantId);
-      // Clearing the *intent* must not clear the state that merely shares
-      // the column — the combat counters, the condition-duration overlay,
-      // the lair marker. When the plan carries any of them, rewrite it as an
-      // empty plan (no actionId ⇒ "no plan" to every reader) instead of
-      // deleting the row's plan_json outright. The DELETE handler applies
-      // the same rule server-side ($lib/encounter/plan-extras), so this is
-      // the fast path, not the only guard.
-      const emptied = clearedPlan(prev);
+      // A plain DELETE again. Clearing intent used to have to preserve the
+      // combat counters, condition timers and lair marker that shared
+      // plan_json — via a rewrite-as-empty-plan dance mirrored on the server.
+      // Migration 0009 moved those to combat_state_json, so this endpoint
+      // once more does exactly what its name says and nothing else.
       state.update((s) => {
         const plans = { ...s.plans };
-        if (emptied) plans[participantId] = emptied;
-        else delete plans[participantId];
+        delete plans[participantId];
         return { ...s, plans };
       });
       try {
         await send(
           `/api/encounters/${opts.encounterId}/participants/${participantId}/plan`,
-          emptied
-            ? { method: 'POST', body: JSON.stringify({ plan: emptied }) }
-            : { method: 'DELETE' }
+          { method: 'DELETE' }
         );
       } catch (err) {
         if (prev) {
@@ -442,14 +442,12 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           );
           if (!ok) throw new Error('character economy update failed');
         } else {
-          // Non-PC: merge into the participant's plan_json blob. An empty
-          // plan is a valid plan (no actionId ⇒ the UI reads "no plan"),
-          // so a monster with no declared intent can still carry counters.
-          const plan = planWithExtras(prevPlan, { combat: next });
-          state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: plan } }));
+          // Non-PC: its own column since migration 0009. PATCH merges, so
+          // this write can't clobber the lair marker or the condition timers
+          // it never read.
           await send(
-            `/api/encounters/${opts.encounterId}/participants/${participantId}/plan`,
-            { method: 'POST', body: JSON.stringify({ plan }) }
+            `/api/encounters/${opts.encounterId}/participants/${participantId}/combat-state`,
+            { method: 'PATCH', body: JSON.stringify({ combat: next }) }
           );
         }
       } catch (err) {
@@ -560,11 +558,9 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           const ok = await patchCharacterDocFields(characterId, { conditionTimers: timers });
           if (!ok) throw new Error('character condition-timer update failed');
         } else {
-          const plan = planWithExtras(prevPlan, { conditionTimers: timers });
-          state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: plan } }));
           await send(
-            `/api/encounters/${opts.encounterId}/participants/${participantId}/plan`,
-            { method: 'POST', body: JSON.stringify({ plan }) }
+            `/api/encounters/${opts.encounterId}/participants/${participantId}/combat-state`,
+            { method: 'PATCH', body: JSON.stringify({ conditionTimers: timers }) }
           );
         }
       } catch (err) {
@@ -585,20 +581,24 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
 
     async setLair(participantId, lair) {
       const endMutation = beginMutation();
-      const prevPlan = readPlan(state, participantId);
-      const plan = planWithExtras(prevPlan, { lair });
-      state.update((s) => ({ ...s, plans: { ...s.plans, [participantId]: plan } }));
+      const prev = readSnap(state).participantLair[participantId] === true;
+      state.update((s) => {
+        const participantLair = { ...s.participantLair };
+        if (lair) participantLair[participantId] = true;
+        else delete participantLair[participantId];
+        return { ...s, participantLair };
+      });
       try {
         await send(
-          `/api/encounters/${opts.encounterId}/participants/${participantId}/plan`,
-          { method: 'POST', body: JSON.stringify({ plan }) }
+          `/api/encounters/${opts.encounterId}/participants/${participantId}/combat-state`,
+          { method: 'PATCH', body: JSON.stringify({ lair }) }
         );
       } catch (err) {
         state.update((s) => {
-          const plans = { ...s.plans };
-          if (prevPlan) plans[participantId] = prevPlan;
-          else delete plans[participantId];
-          return { ...s, plans };
+          const participantLair = { ...s.participantLair };
+          if (prev) participantLair[participantId] = true;
+          else delete participantLair[participantId];
+          return { ...s, participantLair };
         });
         throw err;
       } finally {

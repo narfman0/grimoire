@@ -84,7 +84,6 @@
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
-  import { planExtras } from '$lib/encounter/plan-extras';
   import { applyReorderPatches, reorderInitiative } from '$lib/encounter/reorder';
   import { initiativeCompare } from '$lib/realtime/participants';
   import LairActionReminder from './LairActionReminder.svelte';
@@ -205,6 +204,9 @@
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
   $: liveStatus = liveState?.status ?? data.encounter.status;
   $: livePlans = liveState?.plans ?? {};
+  /** DM lair markers. Projected by the poll since migration 0009 moved the
+   *  marker off plan_json — reading it from the plan would now miss it. */
+  $: liveLair = liveState?.participantLair ?? data.participantLair ?? {};
   $: liveHpMap = liveState?.participantHp ?? {};
 
   // --- live participant list ----------------------------------------------
@@ -423,9 +425,6 @@
         ? { bonusTargetParticipantIds: prev.bonusTargetParticipantIds }
         : {}),
       notes: prev?.notes ?? '',
-      ...(prev?.combat ? { combat: prev.combat } : {}),
-      ...(prev?.conditionTimers ? { conditionTimers: prev.conditionTimers } : {}),
-      ...(prev?.lair ? { lair: true } : {}),
       updatedAt: Date.now()
     };
     if (move) {
@@ -601,7 +600,6 @@
         actionLabel: s.actionName,
         targetParticipantIds: s.targetIds,
         notes: cur?.notes ?? '',
-        ...planExtras(cur),
         ...(s.moveTo ? { moveTo: s.moveTo } : {}),
         ...(s.path ? { path: s.path } : {}),
         updatedAt: Date.now()
@@ -704,6 +702,10 @@
   let resolveDamage: number | null = null;
   let resolveHit: HitOutcome = '';
   let resolveNotes = '';
+  /** Per-die breakdown, set by ResolvePanel's roll buttons; null when the DM
+   *  typed the totals. Persisted on the log row so the table can see how a
+   *  number was reached — and, for a hidden actor, redacted out server-side. */
+  let resolveRollDetail: string | null = null;
   let resolveSubmitting = false;
   let resolveError: string | null = null;
 
@@ -729,6 +731,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   function closeResolve() {
@@ -737,6 +740,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   /** Single-target apply: HP delta via participant API + one log entry. */
@@ -766,7 +770,8 @@
         label: resolveActionLabel
       }),
       actionLabel: resolveActionLabel,
-      notes: resolveNotes
+      notes: resolveNotes,
+      rollDetail: resolveRollDetail
     });
     return {
       ok: result.ok,
@@ -940,6 +945,7 @@
     resolveSaveDC = null;
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
+    resolveRollDetail = null;
   }
 
   // ---- difficulty rating (DM only) ---------------------------------------
@@ -1066,6 +1072,7 @@
         round,
         actionId: resolveSeedActionId,
         actionLabel: resolveActionLabel,
+        rollDetail: resolveRollDetail,
         notes: resolveNotes,
         liveSeed,
         amendsLogId: amendingLogId
@@ -1802,11 +1809,10 @@
         targetParticipantIds,
         bonusTargetParticipantIds,
         notes: cur?.notes ?? '',
-        // plan_json is overwritten whole server-side, so everything that
-        // merely shares the column must ride along: the combat counters /
-        // timers / lair extras and the planned movement. Without this, an
-        // action pick silently zeroed an NPC's economy and slot tally.
-        ...planExtras(cur),
+        // plan_json is overwritten whole server-side, so the planned
+        // movement must ride along through action/target picks. (The combat
+        // counters / timers / lair live on combat_state_json since 0009 and
+        // no longer share this column.)
         ...(cur?.moveTo ? { moveTo: cur.moveTo } : {}),
         ...(cur?.path ? { path: cur.path } : {}),
         updatedAt: Date.now()
@@ -2089,7 +2095,7 @@
   // $lib/encounter/lair). Dismissed per round so it doesn't nag on every
   // poll, and re-arms when the round bumps.
   function lairFlagFor(participantId: string): boolean {
-    return livePlans[participantId]?.lair === true;
+    return liveLair[participantId] === true;
   }
 
   function toggleLair(p: { id: string }) {
@@ -2105,7 +2111,7 @@
             name: p.name,
             initiative: p.initiative,
             legendaryActionCount: p.statblock?.legendaryActions?.length ?? 0,
-            lair: livePlans[p.id]?.lair === true
+            lair: liveLair[p.id] === true
           })),
           activeParticipantId: liveActive
         })
@@ -2500,7 +2506,7 @@
           <input
             type="checkbox"
             class="accent-violet-500"
-            checked={livePlans[p.id]?.lair === true}
+            checked={liveLair[p.id] === true}
             disabled={busy}
             on:change={() => toggleLair(p)}
           />
@@ -2636,6 +2642,7 @@
     bind:saveDC={resolveSaveDC}
     bind:multiTargetIds={resolveMultiTargetIds}
     bind:targetSaveRolls={resolveTargetSaveRolls}
+    bind:rollDetail={resolveRollDetail}
     on:submit={() => (amendingLogId ? submitAmend() : submitDmResolve())}
     on:cancel={() => {
       amendingLogId = null;

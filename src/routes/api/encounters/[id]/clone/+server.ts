@@ -35,6 +35,7 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
+import { readCombatState } from '$lib/encounter/combat-state';
 import { CloneEncounterRequest, Encounter } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseOptionalJson, parseParams } from '$lib/server/api/validate';
@@ -124,6 +125,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           tempHp: 0,
           conditionsJson: '[]',
           planJson: null,
+          // Ephemera reset, prep kept: "this fight has a lair" is something
+          // the DM built, exactly like the roster and the notes the clone
+          // already carries. It used to ride plan_json and was lost here.
+          combatStateJson: readCombatState(p.combatStateJson, p.planJson).lair
+            ? JSON.stringify({ lair: true })
+            : null,
           concentratingJson: null,
           revealsJson: JSON.stringify(defaultRevealsFor(p.kind)),
           sortOrder: p.sortOrder

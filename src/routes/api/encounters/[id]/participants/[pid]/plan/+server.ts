@@ -2,8 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
-import { SetPlanRequest, salvagePlanJson } from '$lib/server/api/encounter-schemas';
-import { clearedPlan, type PlanLike } from '$lib/encounter/plan-extras';
+import { SetPlanRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
@@ -64,35 +63,21 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     }
   }
 
-  // Clearing the *plan* must not clear the encounter-scoped state that
-  // merely shares the column: the combat economy (used slots, legendary
-  // tally, the DM's NPC spell slots), the condition-duration overlay and
-  // the lair marker. Our own client already rewrites an emptied plan
-  // instead of calling DELETE, but this endpoint is the documented
-  // "clear the turn plan" contract — curl, a second client or a future
-  // server-side reset reaches it directly, and nulling the column here
-  // would silently wipe all of it. Same rule, applied server-side.
-  const prev = parsePlanJson(part.planJson);
-  const cleared = clearedPlan(prev);
+  // A plain clear, as the name has always promised. Until migration 0009
+  // this had to preserve the combat economy, the condition timers and the
+  // lair marker that shared plan_json: an endpoint documented as "clear the
+  // turn plan" was destroying three unrelated concerns, and the only guard
+  // was a rewrite-as-empty-plan dance in the browser client — so curl, a
+  // second client or a future server-side reset got the destructive
+  // behaviour. Those concerns now live in combat_state_json, which this
+  // route does not touch and cannot wipe.
   await db
     .update(schema.participants)
-    .set({ planJson: cleared ? JSON.stringify(cleared) : null })
+    .set({ planJson: null })
     .where(eq(schema.participants.id, pid));
 
   return new Response(null, { status: 204 });
 };
-
-/** Read a stored plan_json blob for the extras-preserving clear. Best
- *  effort: a malformed or unparseable blob simply has no extras to keep. */
-function parsePlanJson(raw: string | null): PlanLike | null {
-  if (!raw) return null;
-  try {
-    const parsed = salvagePlanJson(JSON.parse(raw));
-    return parsed as PlanLike | null;
-  } catch {
-    return null;
-  }
-}
 
 export const _openapi = {
   POST: {

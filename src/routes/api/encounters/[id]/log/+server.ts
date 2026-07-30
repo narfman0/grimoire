@@ -167,6 +167,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     targetHpBefore: body.targetHpBefore ?? null,
     targetHpAfter: body.targetHpAfter ?? null,
     notes: body.notes ?? null,
+    rollDetailJson: body.rollDetail ?? null,
     createdAt: new Date()
   };
 

@@ -53,6 +53,10 @@
   export let saveDC: number | null = null;
   export let multiTargetIds: string[] = [];
   export let targetSaveRolls: Record<string, number | null> = {};
+  /** Per-die breakdown of the rolls above, when they were rolled in-app.
+   *  Bound out so the parent can persist it on the log row; null when the DM
+   *  typed the totals. */
+  export let rollDetail: string | null = null;
 
   const dispatch = createEventDispatcher<{ submit: void; cancel: void }>();
 
@@ -73,11 +77,21 @@
 
   $: statblockDamage = (picked?.damage ?? []).map((d) => d.dice).filter(Boolean).join('+');
 
+  /** One line combining whichever rolls were made in-app. Recomputed after
+   *  each roll rather than accumulated, so re-rolling replaces cleanly. */
+  function summariseRolls(): string | null {
+    const parts: string[] = [];
+    if (attackRoll) parts.push(`atk ${attackRoll.detail}`);
+    if (damageRoll) parts.push(`dmg ${damageRoll.detail}`);
+    return parts.length > 0 ? parts.join(' · ').slice(0, 300) : null;
+  }
+
   function rollAttack() {
     const bonus = picked?.attackBonus ?? 0;
     const result = rollD20(bonus);
     attackRoll = result;
     attack = result.total;
+    rollDetail = summariseRolls();
     recordRoll(`${picked?.name ?? 'Attack'} (attack)`, result);
     // Monster crit thresholds are always 20; the natural die decides.
     if (result.d20?.isCrit) hit = 'crit';
@@ -91,6 +105,7 @@
     if (!result) return;
     damageRoll = result;
     damage = result.total;
+    rollDetail = summariseRolls();
     recordRoll(`${picked?.name ?? 'Damage'} (damage)`, result);
   }
 
@@ -122,6 +137,7 @@
     damage = null;
     attackRoll = null;
     damageRoll = null;
+    rollDetail = null;
   }
 
   /** Standard non-attack action options every creature has. Picking one
@@ -134,6 +150,7 @@
     damage = null;
     attackRoll = null;
     damageRoll = null;
+    rollDetail = null;
     hit = '';
   }
 

@@ -201,6 +201,9 @@ export async function seedCampaign(
     playerIds?: string[];
     code?: string;
     name?: string;
+    /** Table-permission overrides (`campaigns.permissions_json`). Omit for
+     *  the permissive default every real campaign starts with. */
+    permissions?: Record<string, boolean>;
   }
 ): Promise<{ campaignId: string; code: string }> {
   const campaignId = crypto.randomUUID();
@@ -211,6 +214,7 @@ export async function seedCampaign(
     id: campaignId,
     code,
     name: opts.name ?? 'Test Campaign',
+    permissionsJson: opts.permissions ? JSON.stringify(opts.permissions) : null,
     createdAt: new Date()
   });
   await db.insert(schema.campaignMembers).values({

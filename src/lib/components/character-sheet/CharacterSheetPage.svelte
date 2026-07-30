@@ -522,7 +522,8 @@
         hit: outcome || null,
         targetHpBefore,
         targetHpAfter,
-        notes: notesText.slice(0, 500) || null
+        notes: notesText.slice(0, 500) || null,
+        rollDetail: resolveRollDetail()
       });
       return true;
     } catch {
@@ -533,6 +534,16 @@
 
   /** Rolls made in the resolve form, keyed so each input shows its own. */
   let resolveRolls: Record<string, RollResult> = {};
+
+  /** One line combining whichever rolls were made in-app, persisted on the
+   *  log row so the table can see how a number was reached. Null when the
+   *  player typed the totals from physical dice. */
+  function resolveRollDetail(): string | null {
+    const parts: string[] = [];
+    if (resolveRolls.attack) parts.push(`atk ${resolveRolls.attack.detail}`);
+    if (resolveRolls.damage) parts.push(`dmg ${resolveRolls.damage.detail}`);
+    return parts.length > 0 ? parts.join(' · ').slice(0, 300) : null;
+  }
 
   /** Roll the planned action's attack. Consumes the action's critThreshold,
    *  and auto-selects the outcome on a natural crit or fumble so the player
