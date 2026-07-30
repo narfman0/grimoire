@@ -359,7 +359,23 @@ export async function buildEncounterPageData(
     combatStates[p.id] = readCombatState(p.combatStateJson, p.planJson);
     if (p.planJson) {
       try {
-        participantPlans[p.id] = JSON.parse(p.planJson);
+        const plan = JSON.parse(p.planJson) as Record<string, unknown>;
+        // Fog redaction for planned movement, mirroring the /state poll: a
+        // viewer who may not see this token's position may not see where it
+        // intends to go either. `participantPositions` (same fog mask) is
+        // the visibility set; it's computed after this loop, so strip
+        // against the raw inputs here.
+        if (!isDM && (plan.moveTo || plan.path)) {
+          const visible =
+            Object.keys(
+              visibleTokenPositions([p], boardRow, false)
+            ).length > 0;
+          if (!visible) {
+            delete plan.moveTo;
+            delete plan.path;
+          }
+        }
+        participantPlans[p.id] = plan;
       } catch {
         // ignore malformed JSON
       }
@@ -685,11 +701,15 @@ export async function buildEncounterPageData(
     participantPcConcentrating,
     participantPcReceivedBuffs,
     participantPlans,
-    participantLair: Object.fromEntries(
-      Object.entries(combatStates)
-        .filter(([, cs]) => cs.lair === true)
-        .map(([pid]) => [pid, true])
-    ),
+    // DM-only, mirroring the /state poll: "which creature is legendary /
+    // lairing here" is prep, and only DM-gated UI reads it.
+    participantLair: isDM
+      ? Object.fromEntries(
+          Object.entries(combatStates)
+            .filter(([, cs]) => cs.lair === true)
+            .map(([pid]) => [pid, true])
+        )
+      : {},
     participantNonPcConcentrating,
     actionLog: redactActionLog(
       logRows.map((r) => ({

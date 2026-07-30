@@ -240,3 +240,58 @@ describe('board data on GET /api/encounters/[id]/state', () => {
     expect(state.positions).toEqual({});
   });
 });
+
+describe('planned-movement fog redaction', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  it('strips moveTo/path from player plans while the token sits in fog', async () => {
+    const { dm, player, encounterId } = await fixture(db);
+    const lurkerId = await seedParticipant(db, {
+      encounterId,
+      kind: 'monster',
+      name: 'Lurker',
+      posX: 2,
+      posY: 0,
+      planJson: JSON.stringify({
+        actionId: 'bite',
+        actionLabel: 'Bite',
+        targetParticipantIds: [],
+        notes: '',
+        updatedAt: 1,
+        moveTo: { x: 1, y: 1 },
+        path: [
+          { x: 2, y: 0 },
+          { x: 1, y: 1 }
+        ]
+      })
+    });
+    await PUT(makeEvent({ user: dm, params: { id: encounterId }, body: { w: 3, h: 2 }, method: 'PUT' }));
+
+    // Fully fogged: the DM sees the planned move, the player must not.
+    const dmState = await (await STATE(makeEvent({ user: dm, params: { id: encounterId } }))).json();
+    expect(dmState.plans[lurkerId].moveTo).toEqual({ x: 1, y: 1 });
+    const playerState = await (
+      await STATE(makeEvent({ user: player, params: { id: encounterId } }))
+    ).json();
+    expect(playerState.plans[lurkerId]).toBeDefined();
+    expect(playerState.plans[lurkerId].moveTo).toBeUndefined();
+    expect(playerState.plans[lurkerId].path).toBeUndefined();
+
+    // Reveal the token's cell → the planned move may cross the wire.
+    await PATCH(
+      makeEvent({
+        user: dm,
+        params: { id: encounterId },
+        body: { revealed: encodeRuns([0, 0, 1, 0, 0, 0]) },
+        method: 'PATCH'
+      })
+    );
+    const after = await (
+      await STATE(makeEvent({ user: player, params: { id: encounterId } }))
+    ).json();
+    expect(after.plans[lurkerId].moveTo).toEqual({ x: 1, y: 1 });
+  });
+});

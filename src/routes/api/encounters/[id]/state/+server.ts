@@ -355,6 +355,11 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
           )
         );
         if (parsed) plans[p.id] = parsed;
+        // Movement redacts with the token: a creature whose position is
+        // withheld from this viewer (fog) must not leak its coordinates
+        // through the plan instead. `positions` is computed below from the
+        // same fog mask, so strip here and re-check after the loop.
+        // (Handled after `positions` exists — see the pass below.)
       } catch (err) {
         // best-effort: drop unparseable plan, but leave a trail
         logger.warn({ err, encounterId: id, participantId: p.id }, 'state poll: malformed plan_json');
@@ -437,7 +442,9 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     participantEconomy[p.id] = isPc
       ? economyFromCharacterDoc(doc)
       : normalizeEconomy(combatState.combat);
-    if (combatState.lair === true) participantLair[p.id] = true;
+    // DM-only: "which creature is legendary/lairing here" is prep, and the
+    // only UI that reads it is DM-gated — don't name the dragon to players.
+    if (role === 'dm' && combatState.lair === true) participantLair[p.id] = true;
 
     // Resource spend counters (PCs only — the pools come from derive()).
     // Lets the planner's "2/5 Ki left" track a mid-combat spend on the
@@ -454,6 +461,18 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   // Token positions — shared redaction path with the SSR loader. Hidden
   // participants were already dropped from partRows above.
   const positions = visibleTokenPositions(partRows, board, role === 'dm');
+
+  // Fog redaction for planned movement: a viewer who may not see a token's
+  // position may not see where it intends to go either. Same visibility set
+  // as the token itself.
+  if (role !== 'dm') {
+    for (const [pid, plan] of Object.entries(plans)) {
+      if (plan && (plan.moveTo || plan.path) && !positions[pid]) {
+        const { moveTo: _m, path: _p, ...rest } = plan;
+        plans[pid] = rest;
+      }
+    }
+  }
 
   const body: TEncounterStateResponse = {
     round: enc.round,
