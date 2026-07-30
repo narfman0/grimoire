@@ -66,6 +66,7 @@
     freeActionsChange: string;
     resolve: void;
     clear: void;
+    clearMove: void;
   }>();
 
   $: hasPlan = !!plan && !!(plan.actionLabel || plan.bonusActionLabel);
@@ -87,6 +88,17 @@
       >
         clear
       </button>
+    {/if}
+    {#if plan?.moveTo}
+      <span
+        class="rounded border border-emerald-800 bg-emerald-950/40 px-1.5 py-0.5 text-[10px] text-emerald-300"
+        title="Planned destination — pick a shaded cell on the battle map to change it"
+      >
+        ➜ move to ({plan.moveTo.x}, {plan.moveTo.y})
+        <button class="ml-0.5 text-slate-500 hover:text-red-400" on:click={() => dispatch('clearMove')}>
+          ✕
+        </button>
+      </span>
     {/if}
   </div>
   <ActionEconomyPanel

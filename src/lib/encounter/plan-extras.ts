@@ -33,6 +33,11 @@ export interface PlanLike {
   bonusTargetParticipantIds?: string[];
   notes: string;
   updatedAt: number;
+  /** Planned destination on the board (declared intent, like the action —
+   *  cleared with the plan, preserved through economy writes). */
+  moveTo?: { x: number; y: number };
+  /** Optional cheapest path for OA-aware display. */
+  path?: Array<{ x: number; y: number }>;
   combat?: Partial<CombatEconomy>;
   conditionTimers?: ConditionTimer[];
   lair?: boolean;
@@ -77,6 +82,8 @@ export function planWithExtras(
       : {}),
     notes: prev?.notes ?? '',
     updatedAt: now,
+    ...(prev?.moveTo ? { moveTo: prev.moveTo } : {}),
+    ...(prev?.path ? { path: prev.path } : {}),
     ...planExtras(prev),
     ...extras
   };

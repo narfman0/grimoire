@@ -28,6 +28,7 @@
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
   import { hpBucket } from '$lib/realtime/reveals';
+  import { decodeBoard, distanceFt, reachableCells, type Grid } from '$lib/board/geometry';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import {
@@ -74,6 +75,7 @@
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
+  import { planExtras } from '$lib/encounter/plan-extras';
   import { applyReorderPatches, reorderInitiative } from '$lib/encounter/reorder';
   import { initiativeCompare } from '$lib/realtime/participants';
   import LairActionReminder from './LairActionReminder.svelte';
@@ -363,14 +365,165 @@
     conn.setPosition(id, { x, y }).catch(() => {});
   }
 
-  $: boardSelected = ((): { id: string; speedFt: number; kind: string } | null => {
+  function speedFtOf(p: {
+    id: string;
+    kind: string;
+    characterId: string | null;
+    statblock?: { speeds?: Record<string, number> } | null;
+  }): number {
+    const cs = p.characterId ? data.participantPcStats?.[p.id] : undefined;
+    const speeds =
+      p.kind === 'pc' ? (cs?.speeds ?? { walk: 30 }) : (p.statblock?.speeds ?? { walk: 30 });
+    return speeds.walk ?? speeds.fly ?? speeds.swim ?? 30;
+  }
+
+  $: boardSelected = ((): {
+    id: string;
+    speedFt: number;
+    kind: string;
+    plannable: boolean;
+    moveTo: { x: number; y: number } | null;
+  } | null => {
     if (!selectedId) return null;
     const p = liveParticipants.find((q) => q.id === selectedId);
     if (!p || !livePositions[p.id]) return null;
-    const cs = p.characterId ? data.participantPcStats?.[p.id] : undefined;
-    const speeds = p.kind === 'pc' ? (cs?.speeds ?? { walk: 30 }) : (p.statblock?.speeds ?? { walk: 30 });
-    return { id: p.id, speedFt: speeds.walk ?? speeds.fly ?? speeds.swim ?? 30, kind: p.kind };
+    return {
+      id: p.id,
+      speedFt: speedFtOf(p),
+      kind: p.kind,
+      // The server enforces who may actually write the plan; the UI arms
+      // click-to-plan for the DM and for PC rows (permissive table policy).
+      plannable: data.role === 'dm' || p.kind === 'pc',
+      moveTo: livePlans[p.id]?.moveTo ?? null
+    };
   })();
+
+  /** Rebuild a full TurnPlan from the previous one with movement patched
+   *  in/out. Everything else (intent, targets, extras) rides along. */
+  function planWithMove(
+    prev: TurnPlan | undefined,
+    move: { moveTo: { x: number; y: number }; path?: Array<{ x: number; y: number }> } | null
+  ): TurnPlan {
+    const base: TurnPlan = {
+      actionId: prev?.actionId ?? '',
+      actionLabel: prev?.actionLabel ?? '',
+      ...(prev?.bonusActionId ? { bonusActionId: prev.bonusActionId } : {}),
+      ...(prev?.bonusActionLabel ? { bonusActionLabel: prev.bonusActionLabel } : {}),
+      targetParticipantIds: prev?.targetParticipantIds ?? [],
+      ...(prev?.bonusTargetParticipantIds
+        ? { bonusTargetParticipantIds: prev.bonusTargetParticipantIds }
+        : {}),
+      notes: prev?.notes ?? '',
+      ...(prev?.combat ? { combat: prev.combat } : {}),
+      ...(prev?.conditionTimers ? { conditionTimers: prev.conditionTimers } : {}),
+      ...(prev?.lair ? { lair: true } : {}),
+      updatedAt: Date.now()
+    };
+    if (move) {
+      base.moveTo = move.moveTo;
+      if (move.path) base.path = move.path;
+    }
+    return base;
+  }
+
+  function onPlanMove(
+    e: CustomEvent<{ id: string; x: number; y: number; path: Array<{ x: number; y: number }> | null }>
+  ) {
+    if (!conn) return;
+    const { id, x, y, path } = e.detail;
+    conn
+      .setPlan(id, planWithMove(livePlans[id], { moveTo: { x, y }, ...(path ? { path } : {}) }))
+      .catch(() => {});
+  }
+
+  function clearPlanMove(pid: string) {
+    if (!conn) return;
+    const prev = livePlans[pid];
+    if (!prev?.moveTo) return;
+    conn.setPlan(pid, planWithMove(prev, null)).catch(() => {});
+  }
+
+  /** "80/320 ft." → 320; reach 10 → 10. Null when the action carries no
+   *  parseable range — no warning is better than a wrong one. */
+  function actionRangeFt(
+    p: { statblock?: { actions?: Array<{ name: string; reach?: number; range?: string }> } | null },
+    actionLabel: string
+  ): number | null {
+    const action = p.statblock?.actions?.find((a) => a.name === actionLabel);
+    if (!action) return null;
+    if (typeof action.reach === 'number') return action.reach;
+    if (action.range) {
+      const m = /(\d+)(?:\s*\/\s*(\d+))?\s*ft/i.exec(action.range);
+      if (m) return Number(m[2] ?? m[1]);
+    }
+    return null;
+  }
+
+  /** Soft warnings for the resolve panel — unreachable planned move,
+   *  out-of-range target. Advisory chips only; DM fiat always wins. */
+  $: resolveWarnings = ((): string[] => {
+    if (!resolveForParticipantId || !data.board) return [];
+    const p = liveParticipants.find((q) => q.id === resolveForParticipantId);
+    if (!p) return [];
+    let grid: Grid;
+    try {
+      grid = decodeBoard({
+        w: data.board.w,
+        h: data.board.h,
+        cellFt: data.board.cellFt,
+        tiles: data.board.tiles
+      });
+    } catch {
+      return [];
+    }
+    const warnings: string[] = [];
+    const pos = livePositions[p.id];
+    const plan = livePlans[p.id];
+    if (pos && plan?.moveTo) {
+      const reach = reachableCells(grid, { x: pos.x, y: pos.y }, speedFtOf(p));
+      if (!reach.costFt.has(`${plan.moveTo.x},${plan.moveTo.y}`)) {
+        warnings.push(
+          `Planned move to (${plan.moveTo.x}, ${plan.moveTo.y}) is beyond ${p.name}'s reach this turn`
+        );
+      }
+    }
+    const actingCell = plan?.moveTo ?? (pos ? { x: pos.x, y: pos.y } : null);
+    const targetPos = resolveTargetId ? livePositions[resolveTargetId] : null;
+    if (actingCell && targetPos && resolveActionLabel) {
+      const rangeFt = actionRangeFt(p, resolveActionLabel);
+      if (rangeFt !== null) {
+        const dist = distanceFt(grid, actingCell, { x: targetPos.x, y: targetPos.y });
+        if (dist > rangeFt) {
+          warnings.push(`Target is ${dist} ft away — beyond the ${rangeFt} ft range`);
+        }
+      }
+    }
+    return warnings;
+  })();
+
+  /** Turn advance applies the departing participant's planned move to the
+   *  board and logs it. DM-only so exactly one client writes. */
+  function applyPlannedMove(leaving: { id: string; name: string }) {
+    if (data.role !== 'dm' || !conn) return;
+    const plan = livePlans[leaving.id];
+    if (!plan?.moveTo) return;
+    const { x, y } = plan.moveTo;
+    const cur = livePositions[leaving.id];
+    if (!cur || cur.x !== x || cur.y !== y) {
+      conn.setPosition(leaving.id, { x, y }).catch(() => {});
+      api
+        .post(`/api/encounters/${data.encounter.id}/log`, {
+          participantId: leaving.id,
+          actionId: 'move',
+          actionLabel: `➜ moved to (${x}, ${y})`,
+          round: liveRound,
+          notes: ''
+        })
+        .then(() => invalidateAll())
+        .catch(() => {});
+    }
+    conn.setPlan(leaving.id, planWithMove(plan, null)).catch(() => {});
+  }
 
   function clearPlan(participantId: string) {
     if (!conn) return;
@@ -1507,6 +1660,13 @@
         targetParticipantIds,
         bonusTargetParticipantIds,
         notes: cur?.notes ?? '',
+        // plan_json is overwritten whole server-side, so everything that
+        // merely shares the column must ride along: the combat counters /
+        // timers / lair extras and the planned movement. Without this, an
+        // action pick silently zeroed an NPC's economy and slot tally.
+        ...planExtras(cur),
+        ...(cur?.moveTo ? { moveTo: cur.moveTo } : {}),
+        ...(cur?.path ? { path: cur.path } : {}),
         updatedAt: Date.now()
       })
       .catch(() => {});
@@ -1613,6 +1773,7 @@
         if (leaving) {
           resetEconomy(leaving);
           enqueueLegendaryPrompts(leaving);
+          applyPlannedMove(leaving);
         }
       }
       prevActive = current;
@@ -1958,6 +2119,7 @@
   selected={boardSelected}
   {busy}
   on:moveToken={onMoveToken}
+  on:planMove={onPlanMove}
 />
 
 {#if liveStatus === 'live' && data.role === 'dm'}
@@ -2252,6 +2414,7 @@
             on:freeActionsChange={(e) => { econOpen[p.id].freeActions = e.detail; econOpen = econOpen; }}
             on:resolve={() => openResolve(p)}
             on:clear={() => clearPlan(p.id)}
+            on:clearMove={() => clearPlanMove(p.id)}
           />
         </div>
       {/if}
@@ -2299,6 +2462,7 @@
     amending={amendingLogId !== null}
     submitting={resolveSubmitting}
     error={resolveError}
+    warnings={resolveWarnings}
     targetCritImmune={pcCritImmune(resolveTargetId)}
     bind:actionLabel={resolveActionLabel}
     bind:targetId={resolveTargetId}

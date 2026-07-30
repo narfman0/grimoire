@@ -107,3 +107,54 @@ describe('salvagePlanJson', () => {
     expect(() => PlanJson.parse(salvaged)).not.toThrow();
   });
 });
+
+describe('plan movement (moveTo/path)', () => {
+  it('accepts and salvages a valid moveTo + path', () => {
+    const salvaged = salvagePlanJson({
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: [],
+      notes: '',
+      updatedAt: 'bad', // force the salvage path
+      moveTo: { x: 3, y: 4 },
+      path: [
+        { x: 1, y: 1 },
+        { x: 3, y: 4 }
+      ]
+    });
+    expect(salvaged!.moveTo).toEqual({ x: 3, y: 4 });
+    expect(salvaged!.path).toEqual([
+      { x: 1, y: 1 },
+      { x: 3, y: 4 }
+    ]);
+    expect(() => PlanJson.parse(salvaged)).not.toThrow();
+  });
+
+  it('drops a malformed moveTo without dropping the rest of the plan', () => {
+    const salvaged = salvagePlanJson({
+      actionId: 'bite',
+      actionLabel: 'Bite',
+      targetParticipantIds: [],
+      notes: '',
+      updatedAt: 'bad',
+      moveTo: { x: -2, y: 'q' },
+      combat: { legendaryUsed: 1 }
+    });
+    expect(salvaged!.moveTo).toBeUndefined();
+    expect(salvaged!.actionId).toBe('bite');
+    expect(salvaged!.combat).toMatchObject({ legendaryUsed: 1 });
+  });
+
+  it('strict-parses a plan carrying movement', () => {
+    expect(() =>
+      PlanJson.parse({
+        actionId: '',
+        actionLabel: '',
+        targetParticipantIds: [],
+        notes: '',
+        updatedAt: 1,
+        moveTo: { x: 0, y: 99 }
+      })
+    ).not.toThrow();
+  });
+});

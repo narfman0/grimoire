@@ -34,6 +34,9 @@
   export let amending = false;
   export let submitting = false;
   export let error: string | null = null;
+  /** Soft board-geometry warnings (unreachable move, out-of-range target).
+   *  Advisory only — nothing here blocks the submit; DM fiat wins. */
+  export let warnings: string[] = [];
   /** Parent-computed: the currently picked single target is crit-immune. */
   export let targetCritImmune = false;
 
@@ -365,6 +368,15 @@
     <div class="mt-2 space-y-0.5">
       {#if attackRoll}<RollResultChip result={attackRoll} label="attack" compact />{/if}
       {#if damageRoll}<RollResultChip result={damageRoll} label="damage" compact />{/if}
+    </div>
+  {/if}
+  {#if warnings.length > 0}
+    <div class="mt-2 flex flex-wrap gap-1.5" data-testid="resolve-warnings">
+      {#each warnings as warning}
+        <span class="rounded border border-amber-700 bg-amber-950/40 px-2 py-0.5 text-[11px] text-amber-300">
+          ⚠ {warning}
+        </span>
+      {/each}
     </div>
   {/if}
   {#if error}

@@ -36,11 +36,12 @@
     decodeBoard,
     distanceFt,
     footprintCells,
+    pathTo,
     reachableCells,
     threatenedCells,
     type Grid
   } from '$lib/board/geometry';
-  import type { Cell } from '$lib/board/types';
+  import { cellKey, type Cell } from '$lib/board/types';
 
   export let encounterId: string;
   export let role: 'dm' | 'player';
@@ -48,12 +49,21 @@
   export let boardVersion: number | null = null;
   export let tokens: BoardToken[] = [];
   export let unplaced: Array<{ id: string; label: string }> = [];
-  /** Selected participant context for planning overlays. */
-  export let selected: { id: string; speedFt: number; kind: string } | null = null;
+  /** Selected participant context for planning overlays. `plannable` also
+   *  arms click-to-plan: a click on a reachable cell becomes the plan's
+   *  moveTo. */
+  export let selected: {
+    id: string;
+    speedFt: number;
+    kind: string;
+    plannable?: boolean;
+    moveTo?: { x: number; y: number } | null;
+  } | null = null;
   export let busy = false;
 
   const dispatch = createEventDispatcher<{
     moveToken: { id: string; x: number; y: number };
+    planMove: { id: string; x: number; y: number; path: Cell[] | null };
   }>();
 
   let liveBoard: BoardWireShape | null = board;
@@ -154,8 +164,11 @@
   $: grid = liveBoard ? tryGrid(liveBoard) : null;
 
   $: selectedToken = selected ? tokens.find((t) => t.id === selected.id) : undefined;
-  $: overlays = ((): OverlayLayer[] => {
-    if (!overlaysOn || mode !== 'tokens' || !grid || !selected || !selectedToken) return [];
+  $: planContext = ((): {
+    reach: ReturnType<typeof reachableCells>;
+    threat: Set<string>;
+  } | null => {
+    if (!overlaysOn || mode !== 'tokens' || !grid || !selected || !selectedToken) return null;
     const team = selected.kind === 'pc' ? 'pc' : 'foe';
     const occupied = { allies: [] as Cell[], enemies: [] as Cell[] };
     const threatSources: Array<{ cell: Cell; team: string; sizeCells: number }> = [];
@@ -166,18 +179,30 @@
       (tTeam === team ? occupied.allies : occupied.enemies).push(...cells);
       threatSources.push({ cell: { x: t.x, y: t.y }, team: tTeam, sizeCells: t.sizeCells });
     }
-    const reach = reachableCells(
-      grid,
-      { x: selectedToken.x, y: selectedToken.y },
-      selected.speedFt,
-      occupied
-    );
-    const threat = threatenedCells(grid, threatSources, team);
-    return [
-      { cells: reach.costFt.keys(), color: 'rgba(52,211,153,0.18)' },
-      { cells: threat, color: 'rgba(248,113,113,0.14)' }
-    ];
+    return {
+      reach: reachableCells(
+        grid,
+        { x: selectedToken.x, y: selectedToken.y },
+        selected.speedFt,
+        occupied
+      ),
+      threat: threatenedCells(grid, threatSources, team)
+    };
   })();
+  $: overlays = ((): OverlayLayer[] => {
+    if (!planContext) return [];
+    const layers: OverlayLayer[] = [
+      { cells: planContext.reach.costFt.keys(), color: 'rgba(52,211,153,0.18)' },
+      { cells: planContext.threat, color: 'rgba(248,113,113,0.14)' }
+    ];
+    if (selected?.moveTo) {
+      layers.push({ cells: [cellKey(selected.moveTo)], color: 'rgba(52,211,153,0.45)' });
+    }
+    return layers;
+  })();
+  /** Cheapest path to the planned destination, for OA-aware display. */
+  $: planPath =
+    planContext && selected?.moveTo ? pathTo(planContext.reach, selected.moveTo) ?? [] : [];
 
   // --- ruler ----------------------------------------------------------------
   $: ruler = ((): RulerLine | null => {
@@ -197,6 +222,19 @@
     if (mode === 'tokens' && placing) {
       dispatch('moveToken', { id: placing, x: cell.x, y: cell.y });
       placing = null;
+      return;
+    }
+    // Click-to-plan: a reachable cell becomes the selected participant's
+    // planned destination (soft — resolve warns, never blocks).
+    if (mode === 'tokens' && selected?.plannable && planContext && selectedToken) {
+      if (cell.x === selectedToken.x && cell.y === selectedToken.y) return;
+      if (!planContext.reach.costFt.has(cellKey(cell))) return;
+      dispatch('planMove', {
+        id: selected.id,
+        x: cell.x,
+        y: cell.y,
+        path: pathTo(planContext.reach, cell)
+      });
     }
   }
 </script>
@@ -390,6 +428,7 @@
           backgroundOpacity={0.45}
           {tokens}
           {overlays}
+          path={planPath}
           ruler={ruler}
           on:tokendrop={(e) => dispatch('moveToken', e.detail)}
           on:cellclick={(e) => onCellClick(e.detail)}

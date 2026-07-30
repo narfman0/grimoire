@@ -52,6 +52,11 @@ export interface TurnPlan {
   bonusTargetParticipantIds?: string[];
   notes: string;
   updatedAt: number;
+  /** Planned board destination; applied to posX/posY when the turn
+   *  advances past this participant. */
+  moveTo?: { x: number; y: number };
+  /** Cheapest path to moveTo, for opportunity-attack-aware display. */
+  path?: Array<{ x: number; y: number }>;
   /** Non-PC combat economy (used-slot flags, legendary counter, the DM's
    *  NPC spell-slot tally). Rides plan_json because participants have no
    *  combat-state column of their own; PCs keep the same state on the
