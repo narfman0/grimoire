@@ -32,10 +32,17 @@
     coverBetween,
     decodeBoard,
     distanceFt,
+    pathTo,
     reachableCells,
     type Grid
   } from '$lib/board/geometry';
   import { coverEffect } from '$lib/board/aoe';
+  import {
+    oaProvokers,
+    planSuppressesOa,
+    type ThreatenedBy
+  } from '$lib/board/opportunity';
+  import type { Cell } from '$lib/board/types';
   import type { AbilityKey } from '$lib/rules/types';
   import {
     suggestLegendary,
@@ -91,6 +98,7 @@
   import BoardPanel, { type BoardWireShape } from './BoardPanel.svelte';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
+  import OpportunityPromptCard from './OpportunityPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
   import { applyReorderPatches, reorderInitiative } from '$lib/encounter/reorder';
   import { initiativeCompare } from '$lib/realtime/participants';
@@ -402,6 +410,10 @@
           .catch(() => {});
       }
     }
+    // A drag is a move like any other: if it leaves an enemy's reach, the
+    // enemy gets asked. First placement (no prior position) never provokes.
+    const cur = livePositions[id];
+    if (cur) raiseOaPrompts(id, { x: cur.x, y: cur.y }, { x, y }, null, livePlans[id] ?? null);
     conn.setPosition(id, { x, y }).catch(() => {});
   }
 
@@ -774,8 +786,122 @@
     if (!plan?.moveTo) return;
     const cur = livePositions[participantId];
     if (!cur || cur.x !== plan.moveTo.x || cur.y !== plan.moveTo.y) {
+      // The plan's own path is the route the DM/player picked in the panel,
+      // so the OA check runs against the squares actually walked.
+      raiseOaPrompts(participantId, cur ?? null, plan.moveTo, plan.path ?? null, plan);
       conn.setPosition(participantId, plan.moveTo).catch(() => {});
     }
+  }
+
+  // ---- opportunity attacks -------------------------------------------------
+  //
+  // Movement was the one reaction trigger with no prompt: the board drew the
+  // threat envelope and the plan carried a path, but nothing compared them,
+  // so a PC could stroll out of a glaive's reach unmolested.
+  //
+  // Raised from the client-side movement applications the DM drives — a
+  // resolve-time planned move and a manual token drop. The server's
+  // turn-advance apply can't prompt (there may be no client attached), and
+  // that's fine: it's the DM's tab that needs to ask.
+  type OaPrompt = { key: string; attackerId: string; moverId: string; fromCell: Cell };
+  let oaPrompts: OaPrompt[] = [];
+  const raisedOaKeys = new Set<string>();
+
+  /** Melee reach for OA purposes: the longest reach among the creature's
+   *  attacks, so a glaive or a giant's greatclub threatens 10 ft. */
+  function meleeReachFt(p: {
+    statblock?: { actions?: Array<{ reach?: number }> } | null;
+  }): number {
+    const reaches = (p.statblock?.actions ?? [])
+      .map((a) => a.reach)
+      .filter((r): r is number => typeof r === 'number' && r > 0);
+    return reaches.length > 0 ? Math.max(...reaches) : 5;
+  }
+
+  /** Queue one prompt per enemy whose reach `path` steps out of. Dedupes on
+   *  (round, mover, attacker, destination) so a re-render or a second apply
+   *  attempt can't re-ask something the DM already skipped. */
+  function raiseOaPrompts(
+    moverId: string,
+    from: { x: number; y: number } | null,
+    to: { x: number; y: number },
+    path: Array<{ x: number; y: number }> | null,
+    plan: TurnPlan | null
+  ) {
+    if (data.role !== 'dm' || liveStatus !== 'live') return;
+    if (planSuppressesOa(plan)) return;
+    const mover = liveParticipants.find((q) => q.id === moverId);
+    if (!mover || !liveBoardWire) return;
+    let grid: Grid;
+    try {
+      grid = decodeBoard({
+        w: liveBoardWire.w,
+        h: liveBoardWire.h,
+        cellFt: liveBoardWire.cellFt,
+        tiles: liveBoardWire.tiles
+      });
+    } catch {
+      return;
+    }
+    // A dragged token has no path; walk the cheapest route it could have
+    // taken, and fall back to the two endpoints if even that fails.
+    const walked =
+      path && path.length > 1
+        ? path
+        : from
+          ? pathTo(reachableCells(grid, from, speedFtOf(mover)), to) ?? [from, to]
+          : null;
+    if (!walked || walked.length < 2) return;
+    const moverTeam = mover.kind === 'pc' ? 'pc' : 'foe';
+    const others: ThreatenedBy[] = [];
+    for (const q of liveParticipants) {
+      if (q.id === moverId) continue;
+      const pos = livePositions[q.id];
+      if (!pos) continue;
+      const hp = liveHpMap[q.id]?.currentHp;
+      if (typeof hp === 'number' && hp <= 0) continue; // the downed don't swing
+      if (economyFor(q.id).reactionUsed) continue; // reaction already spent
+      others.push({
+        participantId: q.id,
+        cell: { x: pos.x, y: pos.y },
+        team: q.kind === 'pc' ? 'pc' : 'foe',
+        reachFt: meleeReachFt(q),
+        sizeCells: pos.sizeCells ?? 1
+      });
+    }
+    for (const provoker of oaProvokers(grid, walked, moverTeam, others)) {
+      const key = `${liveRound}:${moverId}:${provoker.participantId}:${to.x},${to.y}`;
+      if (raisedOaKeys.has(key)) continue;
+      raisedOaKeys.add(key);
+      oaPrompts = [
+        ...oaPrompts,
+        {
+          key,
+          attackerId: provoker.participantId,
+          moverId,
+          fromCell: provoker.fromCell
+        }
+      ];
+    }
+  }
+
+  /** Burn the attacker's reaction. Shared by both yes answers. */
+  function spendOaReaction(prompt: OaPrompt) {
+    const attacker = liveParticipants.find((q) => q.id === prompt.attackerId);
+    if (attacker) mutateEconomy(attacker, (c) => ({ ...c, reactionUsed: true }));
+  }
+
+  /** Yes, and roll it: burn the reaction and open the resolve panel for the
+   *  attacker with the mover already picked as the target. */
+  function resolveOaPrompt(prompt: OaPrompt) {
+    const attacker = liveParticipants.find((q) => q.id === prompt.attackerId);
+    spendOaReaction(prompt);
+    oaPrompts = oaPrompts.slice(1);
+    if (!attacker) return;
+    openResolve(attacker);
+    resolveTargetId = prompt.moverId;
+    resolveActionLabel = 'Opportunity attack';
+    resolveSeedActionLabel = resolveActionLabel;
   }
 
   function clearPlan(participantId: string) {
@@ -2966,6 +3092,22 @@
     conSaveBonus={data.participantPcStats?.[check.participantId]?.saves?.con?.bonus ?? null}
     on:drop={() => dropConcentration(check.participantId)}
     on:dismiss={() => (concSavePrompts = concSavePrompts.slice(1))}
+  />
+{/if}
+
+{#if oaPrompts.length > 0 && data.role === 'dm'}
+  {@const oa = oaPrompts[0]}
+  <OpportunityPromptCard
+    attackerName={liveParticipants.find((q) => q.id === oa.attackerId)?.name ?? 'Creature'}
+    moverName={liveParticipants.find((q) => q.id === oa.moverId)?.name ?? 'Target'}
+    fromCell={oa.fromCell}
+    queuedBehind={oaPrompts.length - 1}
+    on:resolve={() => resolveOaPrompt(oa)}
+    on:markUsed={() => {
+      spendOaReaction(oa);
+      oaPrompts = oaPrompts.slice(1);
+    }}
+    on:skip={() => (oaPrompts = oaPrompts.slice(1))}
   />
 {/if}
 
