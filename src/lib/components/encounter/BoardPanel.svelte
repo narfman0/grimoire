@@ -306,6 +306,8 @@
 
   let instancesList: Array<{ id: string; name: string; floorCount: number }> | null = null;
   let attachInstanceId = '';
+  let dungeonsList: Array<{ id: string; name: string; floorCount: number }> | null = null;
+  let newCrawlDungeonId = '';
   $: if (role === 'dm' && campaignCode && !liveBoard && !dungeon && instancesList === null) {
     instancesList = [];
     void api
@@ -315,6 +317,58 @@
       )
       .then((r) => (instancesList = r.instances))
       .catch(() => {});
+    dungeonsList = [];
+    void api
+      .get<{ dungeons: Array<{ id: string; name: string; floorCount: number }> }>('/api/dungeons', {
+        silent: true
+      })
+      .then((r) => (dungeonsList = r.dungeons.filter((d) => d.floorCount > 0)))
+      .catch(() => {});
+  }
+
+  /** Fresh crawl: instantiate the library dungeon for this campaign, then
+   *  attach the new instance. Continuing an existing crawl is the other
+   *  select — the difference between "the party returns" and "a new party
+   *  enters". */
+  async function startFreshCrawl() {
+    if (!newCrawlDungeonId || !campaignCode) return;
+    attaching = true;
+    try {
+      const inst = await api.post<{ id: string }>(
+        `/api/campaigns/${campaignCode}/dungeon-instances`,
+        { dungeonId: newCrawlDungeonId }
+      );
+      await api(`/api/encounters/${encounterId}/dungeon`, {
+        method: 'PUT',
+        body: { instanceId: inst.id }
+      });
+      mode = 'tokens';
+    } catch {
+      // api() already toasted
+    } finally {
+      attaching = false;
+    }
+  }
+
+  /** Re-hide the crawl: fog + notes reset, terrain kept (see the reset
+   *  route). The instance belongs to the campaign, so this affects every
+   *  encounter sharing it — the confirm says so. */
+  async function resetCrawl() {
+    if (!dungeon || !campaignCode) return;
+    const ok = await confirmDialog({
+      title: `Reset "${dungeon.name}"?`,
+      message:
+        'Fog re-hides and notes clear on every floor, for every encounter using this crawl. Terrain edits are kept.',
+      confirmLabel: 'Reset crawl',
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      await api.post(`/api/campaigns/${campaignCode}/dungeon-instances/${dungeon.instanceId}`);
+      floorCache = {};
+    } catch {
+      // api() already toasted
+    }
   }
 
   async function attachDungeon() {
@@ -973,8 +1027,17 @@
           >
             🧹 Clear tokens
           </button>
+          {#if dungeon}
+            <button
+              class="ml-auto rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-amber-300"
+              title="Fog re-hides + notes clear on every floor; terrain kept"
+              on:click={resetCrawl}
+            >
+              ♻ Reset crawl
+            </button>
+          {/if}
           <button
-            class="ml-auto rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
+            class="{dungeon ? '' : 'ml-auto '}rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
             on:click={detach}
           >
             Detach
@@ -1065,7 +1128,26 @@
               disabled={!attachInstanceId || attaching}
               on:click={attachDungeon}
             >
-              Attach dungeon
+              Continue crawl
+            </button>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] uppercase tracking-wide text-slate-500">Fresh crawl</span>
+              <select
+                class="rounded border border-violet-900 bg-slate-950 px-2 py-1"
+                bind:value={newCrawlDungeonId}
+              >
+                <option value="">— pick a dungeon —</option>
+                {#each dungeonsList ?? [] as d}
+                  <option value={d.id}>{d.name} ({d.floorCount} floors)</option>
+                {/each}
+              </select>
+            </label>
+            <button
+              class="rounded border border-violet-700 px-3 py-1 text-violet-200 disabled:opacity-40"
+              disabled={!newCrawlDungeonId || attaching}
+              on:click={startFreshCrawl}
+            >
+              Start fresh
             </button>
           {/if}
         </div>
