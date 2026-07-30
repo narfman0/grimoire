@@ -68,10 +68,16 @@
   // never bypassed. A DM rolling physical dice at the table still types the
   // number, and that has always been this panel's posture.
   //
-  // The statblock action picked with `pickStatblockAction` is remembered so
-  // the roll buttons know what to roll — before, picking an action only
-  // cached its label.
-  let picked: StatblockAction | null = null;
+  // The action behind the roll buttons resolves from the label, not from a
+  // click: `openResolve` seeds `actionLabel` from the participant's *plan*,
+  // and that path used to leave the damage 🎲 greyed out and the attack 🎲
+  // rolling a bare d20 with no bonus — the DM had to re-click the statblock
+  // chip to arm them. Deriving from the label covers every way the label
+  // gets set (plan seed, chip click, hand-typing a known action name).
+  $: picked =
+    (actionLabel
+      ? acting?.statblockActions?.find((a) => a.name === actionLabel)
+      : undefined) ?? null;
   let attackRoll: RollResult | null = null;
   let damageRoll: RollResult | null = null;
 
@@ -118,6 +124,11 @@
     recordRoll('Save', result);
   }
 
+  /** One click for the whole AoE: roll every checked target's save. */
+  function rollAllSaves() {
+    for (const id of multiTargetIds) rollTargetSave(id);
+  }
+
   /** Pre-fill the resolve form from a statblock action button. DM still
    *  rolls the dice — we just cache the label and surface the "+X / dXd…"
    *  reminder so they don't have to scroll back to the statblock.
@@ -129,8 +140,7 @@
    *  now comes from `entry.participantId` resolved against the (already
    *  redacted) participant list at render time. */
   function pickStatblockAction(a: StatblockAction) {
-    actionLabel = a.name;
-    picked = a;
+    actionLabel = a.name; // `picked` follows reactively
     // Leave roll inputs blank so DM types what they actually rolled — or
     // clicks the 🎲 beside the field.
     attack = null;
@@ -144,8 +154,7 @@
    *  pre-fills the label; no rolls or HP changes. */
   const COMMON_ACTIONS = ['Dodge', 'Dash', 'Disengage', 'Hide', 'Help', 'Ready', 'Use Object'];
   function pickCommonAction(label: string) {
-    actionLabel = label;
-    picked = null;
+    actionLabel = label; // no statblock action carries this name → picked clears
     attack = null;
     damage = null;
     attackRoll = null;
@@ -216,6 +225,13 @@
             bind:value={saveDC}
           />
         </label>
+        {#if multiTargetIds.length > 0 && saveDC != null}
+          <button
+            class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] hover:border-emerald-600 hover:text-emerald-200"
+            title="Roll a bare d20 for every checked target — add their modifiers"
+            on:click={rollAllSaves}
+          >🎲 roll all</button>
+        {/if}
         <span class="text-slate-600">
           {#if multiTargetIds.length > 0 && saveDC != null}
             · {multiTargetIds.length} target(s) — per-target save vs DC fires N log rows

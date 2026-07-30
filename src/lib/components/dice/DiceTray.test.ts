@@ -146,3 +146,26 @@ describe('DiceTray', () => {
     });
   });
 });
+
+describe('quick-dice pool count', () => {
+  it('rolls NdX in one throw when the count is stepped up', async () => {
+    await openTray();
+    const more = screen.getByLabelText('More dice');
+    await fireEvent.click(more);
+    await fireEvent.click(more); // ×3
+    await fireEvent.click(screen.getByRole('button', { name: '3d6' }));
+
+    const [entry] = get(diceLog);
+    expect(entry.label).toBe('3d6');
+    expect(entry.result.total).toBeGreaterThanOrEqual(3);
+    expect(entry.result.total).toBeLessThanOrEqual(18);
+  });
+
+  it('never steps below one die', async () => {
+    await openTray();
+    const fewer = screen.getByLabelText('Fewer dice') as HTMLButtonElement;
+    expect(fewer.disabled).toBe(true);
+    await fireEvent.click(screen.getByRole('button', { name: 'd20' }));
+    expect(get(diceLog)[0].label).toBe('d20');
+  });
+});

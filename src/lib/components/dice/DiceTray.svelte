@@ -71,8 +71,18 @@
     if (result) recordRoll(label, result);
   }
 
+  /** Pool size for the quick-dice buttons: clicking d6 with ×8 rolls 8d6 in
+   *  one throw (fireball!) instead of forcing eight separate clicks or a
+   *  trip to the formula box. Sticky across rolls — repeat casts reuse it. */
+  let quickCount = 1;
+  const QUICK_COUNT_MAX = 20;
+
   // Label the quick roll `d20` rather than the canonical `1d20` it parses to.
-  const quick = (sides: number) => rollFormula(`1d${sides}`, `d${sides}`);
+  const quick = (sides: number) =>
+    rollFormula(
+      `${quickCount}d${sides}`,
+      quickCount === 1 ? `d${sides}` : `${quickCount}d${sides}`
+    );
   const rollTyped = () => rollFormula(formula);
 
   function onKey(e: KeyboardEvent) {
@@ -119,11 +129,30 @@
       >
     </div>
 
-    <div class="mb-2 flex flex-wrap gap-1">
+    <div class="mb-2 flex flex-wrap items-center gap-1">
+      <span
+        class="flex items-center rounded border border-slate-700 font-mono text-xs"
+        title="How many dice each quick button rolls"
+      >
+        <button
+          class="px-1.5 py-0.5 text-slate-500 hover:text-slate-200 disabled:opacity-30"
+          aria-label="Fewer dice"
+          disabled={quickCount <= 1}
+          on:click={() => (quickCount = Math.max(1, quickCount - 1))}>−</button
+        >
+        <span class="min-w-[2.2em] text-center text-slate-300">×{quickCount}</span>
+        <button
+          class="px-1.5 py-0.5 text-slate-500 hover:text-slate-200 disabled:opacity-30"
+          aria-label="More dice"
+          disabled={quickCount >= QUICK_COUNT_MAX}
+          on:click={() => (quickCount = Math.min(QUICK_COUNT_MAX, quickCount + 1))}>+</button
+        >
+      </span>
       {#each QUICK_DICE as sides}
         <button
           class="rounded border border-slate-600 px-2 py-0.5 font-mono text-xs hover:border-slate-400 hover:bg-slate-800"
-          on:click={() => quick(sides)}>d{sides}</button
+          on:click={() => quick(sides)}
+          >{quickCount === 1 ? '' : quickCount}d{sides}</button
         >
       {/each}
     </div>
