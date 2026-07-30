@@ -98,6 +98,7 @@
   import {
     applyHpAndLog,
     revertPriorHpChange,
+    effectiveDamage,
     firedEventsForResolution,
     downgradeCritForTarget,
     resolvedActionId,
@@ -110,6 +111,12 @@
     type TargetResolution
   } from '$lib/realtime/resolve';
   import type { EncounterPageData } from '$lib/server/encounter-page';
+  import {
+    classifyDamageSourceKind,
+    damageResolutionStatsFrom,
+    narrowIncomingDamage
+  } from '$lib/encounter/damage-resolution';
+  import type { IncomingDamageResolution } from '$lib/realtime/encounter-channel';
 
   export let data: EncounterPageData;
   /** Route-specific link targets — the two encounter routes differ only in
@@ -709,6 +716,10 @@
   let resolveMultiTargetIds: string[] = [];
   let resolveTargetSaveRolls: Record<string, number | null> = {};
   let resolveDamage: number | null = null;
+  /** Damage type of the resolving action, seeded by the panel from the
+   *  picked statblock action. Null = untyped, which resolves as
+   *  unconditional damage. */
+  let resolveDamageType: string | null = null;
   let resolveHit: HitOutcome = '';
   let resolveNotes = '';
   /** Per-die breakdown, set by ResolvePanel's roll buttons; null when the DM
@@ -735,6 +746,7 @@
     resolveSeedActionLabel = resolveActionLabel;
     resolveAttack = null;
     resolveDamage = null;
+    resolveDamageType = null;
     resolveHit = '';
     resolveError = null;
     resolveSaveDC = null;
@@ -780,7 +792,10 @@
       }),
       actionLabel: resolveActionLabel,
       notes: resolveNotes,
-      rollDetail: resolveRollDetail
+      rollDetail: resolveRollDetail,
+      // Per-target: an AoE hitting a fire-immune imp and a plain bandit
+      // narrows for one and not the other.
+      resolution: resolutionFor(targetId, resolveDamageType)
     });
     return {
       ok: result.ok,
@@ -802,6 +817,82 @@
   function pcCritImmune(participantId: string | null): boolean {
     return !!participantId && data.participantPcStats?.[participantId]?.incomingCritImmune === true;
   }
+
+  /** The damage-resolution payload for one target: what type of damage is
+   *  landing, what kind of source it came from, and the target's defences.
+   *
+   *  Defences come from whichever shape the page has for that participant —
+   *  a monster's derived statblock lists or a PC's compact derived stats.
+   *  Both are flat type lists, so the narrowing is unconditional (see
+   *  damageResolutionStatsFrom); the structured source predicates live in
+   *  the full server-side `Derived` and never reach the browser.
+   *
+   *  Null when there's no damage type to key on — the resolution is then
+   *  omitted entirely and damage applies unconditionally, as it always did. */
+  function resolutionFor(
+    targetId: string | null,
+    damageType: string | null
+  ): IncomingDamageResolution | null {
+    if (!targetId || !damageType) return null;
+    const target = liveParticipants.find((p) => p.id === targetId);
+    if (!target) return null;
+    const pc = data.participantPcStats?.[targetId];
+    const sb = target.statblock;
+    const defences =
+      target.kind === 'pc' && pc
+        ? {
+            resistances: pc.resistances,
+            immunities: pc.immunities,
+            vulnerabilities: pc.vulnerabilities
+          }
+        : {
+            resistances: sb?.damageResistances,
+            immunities: sb?.damageImmunities,
+            vulnerabilities: sb?.damageVulnerabilities
+          };
+    const sourceKind = classifyDamageSourceKind(
+      resolvedActionId({
+        seededActionId: resolveSeedActionId,
+        seededActionLabel: resolveSeedActionLabel,
+        label: resolveActionLabel
+      })
+    );
+    return {
+      damageType,
+      context: sourceKind ? { damageSourceKind: sourceKind } : {},
+      stats: damageResolutionStatsFrom(defences)
+    };
+  }
+
+  /** Advisory preview of the narrowing the single-target resolution will
+   *  apply. Multi-save resolutions can narrow differently per target, so
+   *  the preview stays out of that path — each row's own log entry records
+   *  what happened to it. */
+  //
+  // `resolveDamageType` is named in the block body (not just inside the
+  // helper) so Svelte re-runs this when the DM changes the type — a
+  // dependency only reachable through a function call isn't tracked.
+  $: resolveDamagePreview = ((damageType: string | null): string | null => {
+    if (resolveMultiTargetIds.length > 0) return null;
+    if (typeof resolveDamage !== 'number' || resolveDamage <= 0) return null;
+    const target = resolveTargetId
+      ? liveParticipants.find((p) => p.id === resolveTargetId)
+      : null;
+    if (!target) return null;
+    const resolution = resolutionFor(resolveTargetId, damageType);
+    if (!resolution) return null;
+    const outcome = downgradeCritForTarget(resolveHit, pcCritImmune(resolveTargetId));
+    const n = narrowIncomingDamage(
+      effectiveDamage(outcome, resolveDamage),
+      resolution.damageType,
+      resolution.context ?? {},
+      resolution.stats
+    );
+    if (!n.label) return null;
+    // PC HP lives on the character document, so the DM's resolve never
+    // subtracts it — say so rather than implying the number was applied.
+    return target.kind === 'pc' ? `${target.name}: ${n.label} — apply on their sheet` : n.label;
+  })(resolveDamageType);
 
   async function submitDmResolve() {
     if (!conn || !resolveForParticipantId) return;
@@ -1085,7 +1176,8 @@
         rollDetail: resolveRollDetail,
         notes: resolveNotes,
         liveSeed,
-        amendsLogId: amendingLogId
+        amendsLogId: amendingLogId,
+        resolution: resolutionFor(resolveTargetId, resolveDamageType)
       });
       if (!result.ok) {
         resolveError = `amend: ${result.status} ${result.errorText ?? ''}`;
@@ -2645,10 +2737,12 @@
     error={resolveError}
     warnings={resolveWarnings}
     targetCritImmune={pcCritImmune(resolveTargetId)}
+    damagePreview={resolveDamagePreview}
     bind:actionLabel={resolveActionLabel}
     bind:targetId={resolveTargetId}
     bind:attack={resolveAttack}
     bind:damage={resolveDamage}
+    bind:damageType={resolveDamageType}
     bind:hit={resolveHit}
     bind:notes={resolveNotes}
     bind:saveDC={resolveSaveDC}

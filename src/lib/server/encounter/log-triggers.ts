@@ -20,6 +20,12 @@
 // source kinds — that's the right behavior (no silent grants).
 
 import type { TriggerEvent } from './triggers';
+import { classifyDamageSourceKind } from '$lib/encounter/damage-resolution';
+
+// Re-exported for the callers (and tests) that have always imported the
+// classifier from here; the definition moved to $lib/encounter so the
+// browser-side resolve flow classifies an action id identically.
+export { classifyDamageSourceKind };
 
 /** Slice of an action-log row the event builder reads. Mirrors
  *  `schema.actionLog` columns the POST handler has at insert time. */
@@ -149,17 +155,6 @@ function buildPayload(row: ActionLogEventInput): Record<string, unknown> {
   const kind = classifyDamageSourceKind(row.actionId);
   if (kind) payload.damageSourceKind = kind;
   return payload;
-}
-
-/** Coarse source-kind classification from the action id. Returns
- *  undefined when the prefix isn't recognized — predicate matchers
- *  fail-closed against undefined, so this is safe. */
-export function classifyDamageSourceKind(
-  actionId: string
-): 'spell' | 'magical' | 'nonmagical' | undefined {
-  if (actionId.startsWith('spell:')) return 'spell';
-  if (actionId.startsWith('attack:')) return 'nonmagical';
-  return undefined;
 }
 
 /** Faction context lookup. The action-log POST builds this from the

@@ -106,6 +106,88 @@ function asStringArray(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === 'string');
 }
 
+/** Damage-type tokens a defence entry can carry. Used to split the
+ *  content-pack's combined `immunities` list — which mixes damage types
+ *  and conditions (`['poison-damage', 'exhaustion',
+ *  'poisoned-condition']`) — into the two buckets MonsterDerived
+ *  exposes. */
+const DAMAGE_TYPE_TOKENS = new Set([
+  'acid',
+  'bludgeoning',
+  'cold',
+  'fire',
+  'force',
+  'lightning',
+  'necrotic',
+  'piercing',
+  'poison',
+  'psychic',
+  'radiant',
+  'slashing',
+  'thunder'
+]);
+
+/** Is this defence entry about damage rather than a condition?
+ *  `'poison-damage'` and a bare `'fire'` are; `'poisoned-condition'`,
+ *  `'exhaustion'` and `'charmed'` aren't. */
+function isDamageDefence(entry: string): boolean {
+  const e = entry.trim().toLowerCase();
+  if (e.endsWith('-damage')) return true;
+  if (e.endsWith('-condition')) return false;
+  return DAMAGE_TYPE_TOKENS.has(e);
+}
+
+/** Strip the content-pack's `-damage` / `-condition` suffix so the
+ *  derived lists carry bare tokens (`'poison'`, `'poisoned'`), which is
+ *  what the resistance engine keys on and what the statblock view has
+ *  always displayed for hand-authored rows. */
+function bareDefence(entry: string): string {
+  return entry.trim().toLowerCase().replace(/-(damage|condition)$/, '');
+}
+
+/** Read one defence bucket, merging the two shapes in the wild: the
+ *  explicit `damageImmunities` / `damageResistances` /
+ *  `damageVulnerabilities` fields the homebrew editor writes, and the
+ *  content-pack's combined `immunities` / `resistances` /
+ *  `vulnerabilities` arrays (damage types and conditions in one list,
+ *  suffix-tagged).
+ *
+ *  Reading only the explicit fields is what made the engine unreachable
+ *  for pack monsters: the SRD skeleton ships `immunities:
+ *  ['poison-damage', …]` and `vulnerabilities: ['bludgeoning']`, so its
+ *  poison immunity and bludgeoning vulnerability were dropped on the
+ *  floor and it took full damage from both. */
+function damageDefences(data: Record<string, unknown>, explicitKey: string, combinedKey: string): string[] {
+  const out: string[] = [];
+  for (const entry of asStringArray(data[explicitKey])) {
+    const bare = bareDefence(entry);
+    if (bare && !out.includes(bare)) out.push(bare);
+  }
+  for (const entry of asStringArray(data[combinedKey])) {
+    if (!isDamageDefence(entry)) continue;
+    const bare = bareDefence(entry);
+    if (bare && !out.includes(bare)) out.push(bare);
+  }
+  return out;
+}
+
+/** Condition immunities, same two shapes: the explicit
+ *  `conditionImmunities` field plus the `-condition`-tagged (and
+ *  untagged non-damage) entries of the pack's combined `immunities`. */
+function conditionDefences(data: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const entry of asStringArray(data.conditionImmunities)) {
+    const bare = bareDefence(entry);
+    if (bare && !out.includes(bare)) out.push(bare);
+  }
+  for (const entry of asStringArray(data.immunities)) {
+    if (isDamageDefence(entry)) continue;
+    const bare = bareDefence(entry);
+    if (bare && !out.includes(bare)) out.push(bare);
+  }
+  return out;
+}
+
 /** "Wing Attack (Costs 2 Actions)" → 2. Absent or unparseable → undefined
  *  (readers treat that as 1). */
 function costFromName(name: string): number | undefined {
@@ -225,9 +307,9 @@ export function monsterDerive(data: Record<string, unknown>): MonsterDerived {
     legendaryActions,
     legendaryBudget: legendaryBudgetOf(data, legendaryActions),
     reactions: asActions(data.reactions),
-    damageImmunities: asStringArray(data.damageImmunities),
-    damageResistances: asStringArray(data.damageResistances),
-    damageVulnerabilities: asStringArray(data.damageVulnerabilities),
-    conditionImmunities: asStringArray(data.conditionImmunities)
+    damageImmunities: damageDefences(data, 'damageImmunities', 'immunities'),
+    damageResistances: damageDefences(data, 'damageResistances', 'resistances'),
+    damageVulnerabilities: damageDefences(data, 'damageVulnerabilities', 'vulnerabilities'),
+    conditionImmunities: conditionDefences(data)
   };
 }

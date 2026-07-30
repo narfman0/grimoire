@@ -57,6 +57,35 @@ describe('ResolvePanel roll arming', () => {
     expect(damageBtn.disabled).toBe(true);
   });
 
+  it('seeds the damage type from the action and stops following once changed', async () => {
+    const { rerender } = render(ResolvePanel, {
+      props: { ...baseProps, actionLabel: 'Scimitar' }
+    });
+    const select = screen.getByLabelText('Damage type') as HTMLSelectElement;
+    expect(select.value).toBe('slashing');
+
+    // A hand-picked type sticks even when the label moves on — the DM's
+    // override wins until they pick a fresh action from the chips.
+    await fireEvent.change(select, { target: { value: 'fire' } });
+    await rerender({ actionLabel: 'Leer' });
+    expect(select.value).toBe('fire');
+  });
+
+  it('re-arms the damage type when a statblock chip is clicked', async () => {
+    render(ResolvePanel, { props: { ...baseProps, actionLabel: 'Leer' } });
+    const select = screen.getByLabelText('Damage type') as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: 'fire' } });
+    await fireEvent.click(screen.getByRole('button', { name: /Scimitar/ }));
+    expect(select.value).toBe('slashing');
+  });
+
+  it('renders the parent-computed narrowing preview', () => {
+    render(ResolvePanel, {
+      props: { ...baseProps, damagePreview: 'fire resisted (12 → 6)' }
+    });
+    expect(screen.getByTestId('damage-preview').textContent).toContain('fire resisted (12 → 6)');
+  });
+
   it('offers roll-all for checked multi-save targets', async () => {
     render(ResolvePanel, { props: baseProps });
     // No DC / no targets → no roll-all button.

@@ -13,6 +13,7 @@
   import type { RollResult } from '$lib/dice';
   import { recordRoll } from '$lib/client/dice-log';
   import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
+  import { DAMAGE_TYPES, normalizeDamageType } from '$lib/encounter/damage-resolution';
 
   type StatblockAction = {
     name: string;
@@ -39,6 +40,11 @@
   export let warnings: string[] = [];
   /** Parent-computed: the currently picked single target is crit-immune. */
   export let targetCritImmune = false;
+  /** Parent-computed preview of what the target's defences will do to the
+   *  damage entered above ('fire resisted (12 → 6)'); null when nothing
+   *  applies. Advisory — the narrowing is applied at HP-application time
+   *  whether or not this line is showing. */
+  export let damagePreview: string | null = null;
 
   // ---- draft fields (bound both ways) ----
   export let actionLabel = '';
@@ -46,6 +52,12 @@
   export let attack: number | null = null;
   export let damage: number | null = null;
   export let hit: HitOutcome = '';
+  /** Damage type of the resolving action. Drives the target's
+   *  resistance / immunity / vulnerability at HP-application time, so
+   *  leaving it blank means "unconditional damage" — exactly what every
+   *  resolution did before this was plumbed. Seeded from the picked
+   *  statblock action; the DM can override (a bite that also does fire). */
+  export let damageType: string | null = null;
   export let notes = '';
   /** DM multi-target save state. DM types a save DC (no statblock saveDC plumbing
    *  yet for monster actions), picks AOE targets, enters per-target save rolls.
@@ -82,6 +94,20 @@
   let damageRoll: RollResult | null = null;
 
   $: statblockDamage = (picked?.damage ?? []).map((d) => d.dice).filter(Boolean).join('+');
+
+  // ---- damage type ----
+  //
+  // The select follows whatever action the label names until the DM
+  // changes it by hand, at which point it stops moving under them. A
+  // mixed-type attack (2d6 piercing + 1d6 fire) seeds from its first
+  // entry — resolve the second type as its own submission if the target's
+  // defences differ on it.
+  /** True once the DM picked a type by hand this resolution. */
+  let damageTypeTouched = false;
+  $: pickedDamageType = picked?.damage?.[0]?.type
+    ? normalizeDamageType(picked.damage[0].type)
+    : null;
+  $: if (!damageTypeTouched && damageType !== pickedDamageType) damageType = pickedDamageType;
 
   /** One line combining whichever rolls were made in-app. Recomputed after
    *  each roll rather than accumulated, so re-rolling replaces cleanly. */
@@ -148,6 +174,9 @@
     attackRoll = null;
     damageRoll = null;
     rollDetail = null;
+    // A fresh action re-arms the type select even if the DM overrode it
+    // for the previous pick.
+    damageTypeTouched = false;
   }
 
   /** Standard non-attack action options every creature has. Picking one
@@ -161,6 +190,7 @@
     damageRoll = null;
     rollDetail = null;
     hit = '';
+    damageTypeTouched = false;
   }
 
   function checkboxChecked(e: Event): boolean {
@@ -354,6 +384,26 @@
       </span>
     </label>
     <label class="text-xs">
+      <span class="block text-slate-400">Type</span>
+      <select
+        class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+        aria-label="Damage type"
+        bind:value={damageType}
+        on:change={() => (damageTypeTouched = true)}
+      >
+        <option value={null}>— untyped —</option>
+        {#each DAMAGE_TYPES as t}
+          <option value={t}>{t}</option>
+        {/each}
+        {#if damageType && !DAMAGE_TYPES.includes(damageType as (typeof DAMAGE_TYPES)[number])}
+          <!-- Homebrew statblocks can name a type outside the printed
+               list; keep the seeded value selectable rather than
+               silently dropping it. -->
+          <option value={damageType}>{damageType}</option>
+        {/if}
+      </select>
+    </label>
+    <label class="text-xs">
       <span class="block text-slate-400">Outcome</span>
       <select
         class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
@@ -369,6 +419,14 @@
         <option value="heal">heal</option>
       </select>
     </label>
+    {#if damagePreview}
+      <span
+        class="self-end rounded border border-sky-800 bg-sky-950/40 px-2 py-1 text-xs text-sky-200"
+        data-testid="damage-preview"
+      >
+        {damagePreview}
+      </span>
+    {/if}
     {#if hit === 'crit' && multiTargetIds.length === 0 && targetCritImmune}
       <span class="self-end rounded border border-amber-700 bg-amber-950/40 px-2 py-1 text-xs text-amber-200">
         target is immune to critical hits — resolves as a normal hit (drop the extra crit dice)

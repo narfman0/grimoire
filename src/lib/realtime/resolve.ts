@@ -2,7 +2,12 @@
 // so the HP+log mutation paths can be unit-tested and shared between the
 // resolve and amend flows (which used to duplicate ~30 lines of HP math each).
 
-import type { ConnectedEncounter, ParticipantHp } from './encounter-channel';
+import type {
+  ConnectedEncounter,
+  IncomingDamageResolution,
+  ParticipantHp
+} from './encounter-channel';
+import { narrowIncomingDamage, type DamageNarrowing } from '$lib/encounter/damage-resolution';
 
 export type HitOutcome =
   | ''
@@ -215,6 +220,12 @@ export interface ApplyHpAndLogInput {
    *  prior entry so the new damage starts from the corrected baseline. */
   liveSeed?: ParticipantHp | null;
   amendsLogId?: string | null;
+  /** Damage type + source context + the target's defences. When present,
+   *  the amount that reaches HP is narrowed by the target's resistance /
+   *  immunity / vulnerability (fire-immune monster, fireball → 0) and the
+   *  log row's notes record the narrowing. Omitted → unconditional damage,
+   *  the behavior every call site had before damage types were plumbed. */
+  resolution?: IncomingDamageResolution | null;
 }
 
 export interface ApplyHpAndLogResult {
@@ -223,6 +234,18 @@ export interface ApplyHpAndLogResult {
   errorText: string | null;
   targetHpBefore: number | null;
   targetHpAfter: number | null;
+  /** How the target's defences changed the rolled damage, when a
+   *  resolution was supplied and something applied. Null otherwise —
+   *  callers use it for the toast/warning line. */
+  narrowing: DamageNarrowing | null;
+}
+
+/** Append the damage narrowing to the DM's notes so the log row says why
+ *  the HP delta doesn't match the damage roll. Bounded to the notes
+ *  column's 500 chars by the caller, which slices after this. */
+function notesWithNarrowing(notes: string, narrowing: DamageNarrowing | null): string {
+  if (!narrowing?.label) return notes;
+  return notes.trim() ? `${notes.trim()} — ${narrowing.label}` : narrowing.label;
 }
 
 /** Apply HP delta on a non-PC target via the participant HP API
@@ -242,11 +265,16 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
     notes,
     rollDetail,
     liveSeed,
-    amendsLogId
+    amendsLogId,
+    resolution
   } = input;
 
   let targetHpBefore: number | null = null;
   let targetHpAfter: number | null = null;
+  // Damage-type narrowing applies to *damage*, never to healing, and 5e
+  // applies resistance last — after the save's halving — which is the
+  // order these two lines already run in.
+  let narrowing: DamageNarrowing | null = null;
   if (
     target &&
     target.kind !== 'pc' &&
@@ -257,15 +285,27 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
     const seed: ParticipantHp = liveSeed ?? seedFor(target);
     targetHpBefore = seed.currentHp;
     const effective = effectiveDamage(outcome, damage);
+    if (resolution && outcome !== 'heal') {
+      // Same pure function the channel runs on the amount it's handed, so
+      // the label below always describes the number that lands on HP.
+      const n = narrowIncomingDamage(
+        effective,
+        resolution.damageType,
+        resolution.context ?? {},
+        resolution.stats
+      );
+      narrowing = n.kind ? n : null;
+    }
     let next = seed;
     if (effective > 0 || outcome === 'heal') {
       next =
         outcome === 'heal'
           ? conn.applyHeal(target.id, damage, target.maxHp, seed)
-          : conn.applyDamage(target.id, effective, seed);
+          : conn.applyDamage(target.id, effective, seed, resolution ?? undefined);
     }
     targetHpAfter = next.currentHp;
   }
+  const loggedNotes = notesWithNarrowing(notes, narrowing);
 
   // New entries POST to /log; amendments PATCH the existing row directly
   // (no more append-an-amendment-row pattern — see encounter-schemas.ts).
@@ -282,7 +322,7 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
         hit: outcome || null,
         targetHpBefore,
         targetHpAfter,
-        notes: notes.slice(0, 500) || null,
+        notes: loggedNotes.slice(0, 500) || null,
         rollDetail: rollDetail ?? null
       }
     : {
@@ -296,7 +336,7 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
         hit: outcome || null,
         targetHpBefore,
         targetHpAfter,
-        notes: notes.slice(0, 500) || null,
+        notes: loggedNotes.slice(0, 500) || null,
         rollDetail: rollDetail ?? null
       };
 
@@ -306,7 +346,7 @@ export async function applyHpAndLog(input: ApplyHpAndLogInput): Promise<ApplyHpA
     body: JSON.stringify(body)
   });
   const errorText = res.ok ? null : (await res.text().catch(() => '')).slice(0, 200);
-  return { ok: res.ok, status: res.status, errorText, targetHpBefore, targetHpAfter };
+  return { ok: res.ok, status: res.status, errorText, targetHpBefore, targetHpAfter, narrowing };
 }
 
 /** Revert the HP change from a prior log entry by applying the inverse delta

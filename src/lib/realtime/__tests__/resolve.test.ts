@@ -13,21 +13,49 @@ import {
   type ResolveTarget,
   type TargetResolution
 } from '../resolve';
-import type { ConnectedEncounter, ParticipantHp } from '../encounter-channel';
+import type {
+  ConnectedEncounter,
+  IncomingDamageResolution,
+  ParticipantHp
+} from '../encounter-channel';
+import {
+  damageResolutionStatsFrom,
+  narrowIncomingDamage
+} from '$lib/encounter/damage-resolution';
+
+type DamageCall = {
+  id: string;
+  amount: number;
+  seed: ParticipantHp;
+  resolution?: IncomingDamageResolution;
+};
 
 function makeConn(): {
   conn: ConnectedEncounter;
-  damageCalls: Array<{ id: string; amount: number; seed: ParticipantHp }>;
+  damageCalls: DamageCall[];
   healCalls: Array<{ id: string; amount: number; maxHp: number | null; seed: ParticipantHp }>;
 } {
-  const damageCalls: Array<{ id: string; amount: number; seed: ParticipantHp }> = [];
+  const damageCalls: DamageCall[] = [];
   const healCalls: Array<{ id: string; amount: number; maxHp: number | null; seed: ParticipantHp }> = [];
   const stub = {
-    applyDamage(id: string, amount: number, seed: ParticipantHp): ParticipantHp {
-      damageCalls.push({ id, amount, seed });
-      const tempAbsorbed = Math.min(seed.tempHp, amount);
+    applyDamage(
+      id: string,
+      amount: number,
+      seed: ParticipantHp,
+      resolution?: IncomingDamageResolution
+    ): ParticipantHp {
+      damageCalls.push({ id, amount, seed, resolution });
+      // Mirrors the real channel: a resolution payload narrows the amount
+      // by the target's defences before it reaches HP (see
+      // encounter-channel's applyDamage, which is tested directly).
+      const effective = resolution?.stats
+        ? narrowIncomingDamage(amount, resolution.damageType, resolution.context ?? {}, resolution.stats)
+            .amount
+        : amount;
+      const tempAbsorbed = Math.min(seed.tempHp, effective);
       return {
-        currentHp: seed.currentHp == null ? null : Math.max(0, seed.currentHp - (amount - tempAbsorbed)),
+        currentHp:
+          seed.currentHp == null ? null : Math.max(0, seed.currentHp - (effective - tempAbsorbed)),
         tempHp: seed.tempHp - tempAbsorbed,
         conditions: seed.conditions
       };
@@ -257,6 +285,187 @@ describe('applyHpAndLog', () => {
     });
     expect(damageCalls).toEqual([]);
     expect(result.targetHpBefore).toBeNull();
+  });
+
+  // Damage-type narrowing. The engine has been able to do this for a while;
+  // what was missing was any call site that handed it a resolution.
+  describe('with a damage resolution', () => {
+    const fireResistant = {
+      damageType: 'fire',
+      context: {},
+      stats: damageResolutionStatsFrom({ resistances: ['fire'] })
+    };
+
+    it('halves resisted damage before it reaches HP', async () => {
+      const { conn, damageCalls } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ currentHp: 20 }),
+        outcome: 'hit',
+        damage: 12,
+        attack: 18,
+        round: 1,
+        actionId: 'spell:fireball',
+        actionLabel: 'Fireball',
+        notes: '',
+        resolution: fireResistant
+      });
+      // The channel receives the full rolled amount plus the resolution and
+      // narrows it there — HP lands on 20 - 6.
+      expect(damageCalls[0].amount).toBe(12);
+      expect(damageCalls[0].resolution).toBe(fireResistant);
+      expect(result.targetHpAfter).toBe(14);
+      expect(result.narrowing).toMatchObject({ amount: 6, kind: 'resisted' });
+      // The log row records why the HP delta doesn't match the damage roll.
+      expect(lastBody?.damageRoll).toBe(12);
+      expect(lastBody?.notes).toBe('fire resisted (12 → 6)');
+    });
+
+    it('applies the save halving first, then resistance (5e ordering)', async () => {
+      const { conn, damageCalls } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ currentHp: 20 }),
+        outcome: 'saved',
+        damage: 13,
+        attack: null,
+        round: 1,
+        actionId: 'spell:fireball',
+        actionLabel: 'Fireball',
+        notes: '',
+        resolution: fireResistant
+      });
+      // 13 → 6 on the save → 3 after resistance.
+      expect(damageCalls[0].amount).toBe(6);
+      expect(result.targetHpAfter).toBe(17);
+      expect(result.narrowing?.label).toBe('fire resisted (6 → 3)');
+    });
+
+    it('zeroes damage against an immune target and says so', async () => {
+      const { conn } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ currentHp: 20 }),
+        outcome: 'hit',
+        damage: 9,
+        attack: 15,
+        round: 1,
+        actionId: 'x',
+        actionLabel: 'Poison Spray',
+        notes: 'blast',
+        resolution: {
+          damageType: 'poison',
+          context: {},
+          stats: damageResolutionStatsFrom({ immunities: ['poison-damage'] })
+        }
+      });
+      expect(result.targetHpAfter).toBe(20);
+      expect(result.narrowing?.kind).toBe('immune');
+      expect(lastBody?.notes).toBe('blast — immune to poison (9 → 0)');
+    });
+
+    it('doubles damage against a vulnerable target', async () => {
+      const { conn } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ currentHp: 20 }),
+        outcome: 'hit',
+        damage: 6,
+        attack: 15,
+        round: 1,
+        actionId: 'attack:club',
+        actionLabel: 'Club',
+        notes: '',
+        resolution: {
+          damageType: 'bludgeoning',
+          context: { damageSourceKind: 'nonmagical' },
+          stats: damageResolutionStatsFrom({ vulnerabilities: ['bludgeoning'] })
+        }
+      });
+      expect(result.targetHpAfter).toBe(8);
+      expect(result.narrowing?.label).toBe('bludgeoning vulnerable (6 → 12)');
+    });
+
+    it('leaves an unaffected type alone and annotates nothing', async () => {
+      const { conn, damageCalls } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ currentHp: 20 }),
+        outcome: 'hit',
+        damage: 7,
+        attack: 15,
+        round: 1,
+        actionId: 'attack:sword',
+        actionLabel: 'Sword',
+        notes: 'clean hit',
+        resolution: {
+          damageType: 'slashing',
+          context: {},
+          stats: damageResolutionStatsFrom({ resistances: ['fire'] })
+        }
+      });
+      expect(damageCalls[0].amount).toBe(7);
+      expect(result.targetHpAfter).toBe(13);
+      expect(result.narrowing).toBeNull();
+      expect(lastBody?.notes).toBe('clean hit');
+    });
+
+    it('never narrows healing', async () => {
+      const { conn, healCalls } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ currentHp: 10, maxHp: 30 }),
+        outcome: 'heal',
+        damage: 8,
+        attack: null,
+        round: 1,
+        actionId: 'spell:cure-wounds',
+        actionLabel: 'Cure Wounds',
+        notes: '',
+        // A radiant-resistant target still heals in full.
+        resolution: {
+          damageType: 'radiant',
+          context: {},
+          stats: damageResolutionStatsFrom({ resistances: ['radiant'] })
+        }
+      });
+      expect(healCalls[0].amount).toBe(8);
+      expect(result.targetHpAfter).toBe(18);
+      expect(result.narrowing).toBeNull();
+    });
+
+    it('is a no-op for PC targets — their HP lives on the sheet', async () => {
+      const { conn, damageCalls } = makeConn();
+      const result = await applyHpAndLog({
+        conn,
+        encounterId: 'E',
+        actingParticipantId: 'A',
+        target: target({ kind: 'pc' }),
+        outcome: 'hit',
+        damage: 12,
+        attack: 18,
+        round: 1,
+        actionId: 'spell:fireball',
+        actionLabel: 'Fireball',
+        notes: '',
+        resolution: fireResistant
+      });
+      expect(damageCalls).toEqual([]);
+      expect(result.narrowing).toBeNull();
+      expect(lastBody?.notes).toBeNull();
+    });
   });
 
   it('uses liveSeed when provided (amend path)', async () => {
