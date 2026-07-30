@@ -20,11 +20,20 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const RULES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
+const BOARD_DIR = resolve(RULES_DIR, '../board');
 
-function engineFiles(): string[] {
+/** Directories pinned by this guard. src/lib/board carries the same
+ *  contract as the rules engine: pure, deterministic, no imports beyond its
+ *  own siblings (docs/ws3-boards-plan.md §A). */
+const GUARDED = [
+  { label: 'rules', dir: RULES_DIR, sanityFiles: ['derive.ts', 'types.ts'], minFiles: 10 },
+  { label: 'board', dir: BOARD_DIR, sanityFiles: ['tileset.ts', 'geometry.ts'], minFiles: 3 }
+];
+
+function engineFiles(dir: string): string[] {
   const out: string[] = [];
-  for (const entry of readdirSync(RULES_DIR)) {
-    const full = join(RULES_DIR, entry);
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
     if (statSync(full).isDirectory()) continue; // skips __tests__ (and any future subdir — add a walk if the engine ever nests)
     if (entry.endsWith('.ts')) out.push(full);
   }
@@ -48,17 +57,16 @@ function importSpecifiers(source: string): string[] {
   return specs;
 }
 
-describe('rules engine purity', () => {
-  const files = engineFiles();
+describe.each(GUARDED)('$label engine purity', ({ label, dir, sanityFiles, minFiles }) => {
+  const files = engineFiles(dir);
 
   it('finds the engine files (sanity)', () => {
-    const names = files.map((f) => relative(RULES_DIR, f));
-    expect(names).toContain('derive.ts');
-    expect(names).toContain('types.ts');
-    expect(names.length).toBeGreaterThan(10);
+    const names = files.map((f) => relative(dir, f));
+    for (const expected of sanityFiles) expect(names).toContain(expected);
+    expect(names.length).toBeGreaterThanOrEqual(minFiles);
   });
 
-  it.each(files.map((f) => [relative(RULES_DIR, f), f]))(
+  it.each(files.map((f) => [relative(dir, f), f]))(
     '%s imports only relative siblings',
     (_name, full) => {
       const source = readFileSync(full, 'utf8');
@@ -68,16 +76,16 @@ describe('rules engine purity', () => {
   );
 
   // `../dice/roll` is relative, so the check above waves it through. The
-  // engine must not reach *outside* src/lib/rules/ at all.
-  it.each(files.map((f) => [relative(RULES_DIR, f), f]))(
-    '%s imports nothing outside the rules directory',
+  // engine must not reach *outside* its own directory at all.
+  it.each(files.map((f) => [relative(dir, f), f]))(
+    `%s imports nothing outside the ${label} directory`,
     (_name, full) => {
       const source = readFileSync(full, 'utf8');
       const escapes = importSpecifiers(source)
         .filter((spec) => spec.startsWith('.'))
         .filter((spec) => {
           const target = resolve(dirname(full), spec);
-          return target !== RULES_DIR && !target.startsWith(RULES_DIR + '/');
+          return target !== dir && !target.startsWith(dir + '/');
         });
       expect(escapes).toEqual([]);
     }
@@ -96,7 +104,7 @@ describe('rules engine purity', () => {
     { pattern: /\bcrypto\s*\.\s*randomUUID\b/, name: 'crypto.randomUUID' }
   ];
 
-  it.each(files.map((f) => [relative(RULES_DIR, f), f]))(
+  it.each(files.map((f) => [relative(dir, f), f]))(
     '%s is deterministic (no clock, no RNG)',
     (_name, full) => {
       // Strip comments first — several engine files *mention* Math.random in
