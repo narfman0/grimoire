@@ -11,6 +11,8 @@ import {
   requireValidTiles,
   UpdateMapRequest
 } from '$lib/server/api/board-schemas';
+import { parseLinks, pruneLinks, serializeLinks } from '$lib/server/api/dungeon-schemas';
+import { libraryFloorsOf } from '$lib/server/encounter/dungeon';
 import { OkResponse } from '$lib/server/api/responses';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
@@ -65,17 +67,73 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     requireValidTiles(tiles, w, h);
   }
 
+  // Dungeon membership (WS5). Joining requires owning the dungeon too;
+  // floorIdx defaults to the next free index. `dungeonId: null` detaches.
+  let membership: { dungeonId: string | null; floorIdx: number | null } | null = null;
+  if (body.dungeonId !== undefined) {
+    if (body.dungeonId === null) {
+      membership = { dungeonId: null, floorIdx: null };
+    } else {
+      const dRows = await db
+        .select()
+        .from(schema.dungeons)
+        .where(eq(schema.dungeons.id, body.dungeonId))
+        .limit(1);
+      // 404 over 403: don't confirm someone else's dungeon exists.
+      if (!dRows[0] || dRows[0].ownerUserId !== user.id) throw error(404, 'dungeon not found');
+      const siblings = await libraryFloorsOf(body.dungeonId);
+      const idx =
+        body.floorIdx ?? (siblings.length > 0 ? Math.max(...siblings.map((f) => f.floorIdx)) + 1 : 0);
+      if (siblings.some((f) => f.floorIdx === idx && f.mapId !== id)) {
+        throw error(400, `floor index ${idx} is taken`);
+      }
+      membership = { dungeonId: body.dungeonId, floorIdx: idx };
+    }
+  } else if (body.floorIdx !== undefined && map.dungeonId) {
+    const siblings = await libraryFloorsOf(map.dungeonId);
+    if (siblings.some((f) => f.floorIdx === body.floorIdx && f.mapId !== id)) {
+      throw error(400, `floor index ${body.floorIdx} is taken`);
+    }
+    membership = { dungeonId: map.dungeonId, floorIdx: body.floorIdx };
+  }
+
   await db
     .update(schema.maps)
     .set({
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.cellFt !== undefined ? { cellFt: body.cellFt } : {}),
+      ...(membership ?? {}),
       w,
       h,
       tilesJson: tiles,
       updatedAt: new Date()
     })
     .where(eq(schema.maps.id, id));
+
+  // Membership or geometry changes can strand links — an endpoint naming a
+  // departed floor, or a cell a shrink pushed off the grid. Prune every
+  // dungeon this map touched so no portal dangles.
+  const touched = new Set(
+    [map.dungeonId, membership?.dungeonId].filter((d): d is string => !!d)
+  );
+  for (const dungeonId of touched) {
+    const dRows = await db
+      .select()
+      .from(schema.dungeons)
+      .where(eq(schema.dungeons.id, dungeonId))
+      .limit(1);
+    if (!dRows[0]) continue;
+    const links = parseLinks(dRows[0].linksJson);
+    if (links.length === 0) continue;
+    const floors = await libraryFloorsOf(dungeonId);
+    const pruned = pruneLinks(links, floors);
+    if (pruned.length !== links.length) {
+      await db
+        .update(schema.dungeons)
+        .set({ linksJson: serializeLinks(pruned), updatedAt: new Date() })
+        .where(eq(schema.dungeons.id, dungeonId));
+    }
+  }
 
   const updated = await db.select().from(schema.maps).where(eq(schema.maps.id, id)).limit(1);
   return json(wire(updated[0]));
@@ -84,8 +142,26 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
   const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  await requireOwnMap(user.id, user.isAdmin, id);
+  const map = await requireOwnMap(user.id, user.isAdmin, id);
   await db.delete(schema.maps).where(eq(schema.maps.id, id));
+  // A deleted floor's links must not dangle (same rule as PATCH).
+  if (map.dungeonId) {
+    const dRows = await db
+      .select()
+      .from(schema.dungeons)
+      .where(eq(schema.dungeons.id, map.dungeonId))
+      .limit(1);
+    if (dRows[0]) {
+      const links = parseLinks(dRows[0].linksJson);
+      const pruned = pruneLinks(links, await libraryFloorsOf(map.dungeonId));
+      if (pruned.length !== links.length) {
+        await db
+          .update(schema.dungeons)
+          .set({ linksJson: serializeLinks(pruned), updatedAt: new Date() })
+          .where(eq(schema.dungeons.id, map.dungeonId));
+      }
+    }
+  }
   return json({ ok: true });
 };
 

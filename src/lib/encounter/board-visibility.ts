@@ -13,6 +13,8 @@ export interface TokenPositionRow {
   id: string;
   posX: number | null;
   posY: number | null;
+  /** Dungeon floor (WS5); null/undefined = the quick board / floor 0. */
+  posFloor?: number | null;
   sizeCells: number;
 }
 
@@ -26,6 +28,8 @@ export interface TokenPosition {
   x: number;
   y: number;
   sizeCells: number;
+  /** Which floor the token stands on. 0 for quick boards. */
+  floor: number;
 }
 
 export function visibleTokenPositions(
@@ -39,19 +43,56 @@ export function visibleTokenPositions(
     if (p.posX === null || p.posY === null) continue;
     const size = Math.max(1, p.sizeCells);
     if (fog && board) {
-      let anyRevealed = false;
-      for (let dy = 0; dy < size && !anyRevealed; dy++) {
-        for (let dx = 0; dx < size && !anyRevealed; dx++) {
-          const x = p.posX + dx;
-          const y = p.posY + dy;
-          if (x < board.w && y < board.h && fog[y * board.w + x] === 1) anyRevealed = true;
-        }
-      }
-      if (!anyRevealed) continue;
+      if (!footprintRevealed(fog, board, p.posX, p.posY, size)) continue;
     }
-    out[p.id] = { x: p.posX, y: p.posY, sizeCells: size };
+    out[p.id] = { x: p.posX, y: p.posY, sizeCells: size, floor: 0 };
   }
   return out;
+}
+
+/** Multi-floor variant for dungeon encounters: each token's footprint is
+ *  checked against *its own floor's* fog, and a token on a floor the
+ *  viewer has no fog data for fails closed. Same rule per floor as the
+ *  single-board path — one redaction, two surfaces. */
+export function visibleTokenPositionsOnFloors(
+  rows: readonly TokenPositionRow[],
+  floors: readonly (FogBoard & { floorIdx: number })[],
+  isDM: boolean
+): Record<string, TokenPosition> {
+  const byIdx = new Map(
+    floors.map((f) => [
+      f.floorIdx,
+      { w: f.w, h: f.h, fog: isDM ? null : safeDecode(f.revealedJson, f.w * f.h) }
+    ])
+  );
+  const out: Record<string, TokenPosition> = {};
+  for (const p of rows) {
+    if (p.posX === null || p.posY === null) continue;
+    const floor = p.posFloor ?? 0;
+    const f = byIdx.get(floor);
+    if (!f) continue; // floor gone (re-instantiate etc.) — fail closed
+    const size = Math.max(1, p.sizeCells);
+    if (f.fog && !footprintRevealed(f.fog, f, p.posX, p.posY, size)) continue;
+    out[p.id] = { x: p.posX, y: p.posY, sizeCells: size, floor };
+  }
+  return out;
+}
+
+function footprintRevealed(
+  fog: Uint16Array,
+  dims: { w: number; h: number },
+  posX: number,
+  posY: number,
+  size: number
+): boolean {
+  for (let dy = 0; dy < size; dy++) {
+    for (let dx = 0; dx < size; dx++) {
+      const x = posX + dx;
+      const y = posY + dy;
+      if (x < dims.w && y < dims.h && fog[y * dims.w + x] === 1) return true;
+    }
+  }
+  return false;
 }
 
 export interface CellNote {
@@ -91,6 +132,65 @@ export function visibleAnnotations(
     if (x < 0 || y < 0 || x >= board.w || y >= board.h) continue;
     if (fog[y * board.w + x] !== 1) continue;
     out[key] = { note: entry.note };
+  }
+  return out;
+}
+
+export interface VisibleFloorLink {
+  id: string;
+  kind: string;
+  costFt: number;
+  oneWay?: boolean;
+  a: { floorIdx: number; x: number; y: number };
+  /** Null for a player who hasn't revealed the far end — the stairs they
+   *  found "lead somewhere" until they see where. */
+  b: { floorIdx: number; x: number; y: number } | null;
+}
+
+/** Which floor links a viewer may see, and how much of each.
+ *
+ *  DM: everything. Player: a link ships only when at least one endpoint
+ *  sits on a revealed cell; the revealed endpoint is normalized into `a`
+ *  and the far end ships only if it too is revealed. Both endpoints
+ *  fogged → the link doesn't exist yet, because a portal's position is a
+ *  tell exactly like a note's ("stairs here" says there's a here).
+ *
+ *  Same fail-closed posture as everything else in this module: a floor
+ *  whose fog mask can't be read reveals nothing. */
+export function visibleFloorLinks(
+  links: readonly VisibleFloorLink[] | readonly (Omit<VisibleFloorLink, 'b'> & {
+    b: { floorIdx: number; x: number; y: number };
+  })[],
+  floors: readonly (FogBoard & { floorIdx: number })[],
+  isDM: boolean
+): VisibleFloorLink[] {
+  if (isDM) return links.map((l) => ({ ...l }));
+  const fogByFloor = new Map<number, { w: number; h: number; fog: Uint16Array }>();
+  for (const f of floors) {
+    fogByFloor.set(f.floorIdx, { w: f.w, h: f.h, fog: safeDecode(f.revealedJson, f.w * f.h) });
+  }
+  const revealed = (e: { floorIdx: number; x: number; y: number }): boolean => {
+    const f = fogByFloor.get(e.floorIdx);
+    if (!f) return false;
+    if (e.x < 0 || e.y < 0 || e.x >= f.w || e.y >= f.h) return false;
+    return f.fog[e.y * f.w + e.x] === 1;
+  };
+  const out: VisibleFloorLink[] = [];
+  for (const l of links) {
+    if (!l.b) continue; // defensive: inputs are full links server-side
+    const aSeen = revealed(l.a);
+    const bSeen = revealed(l.b);
+    if (!aSeen && !bSeen) continue;
+    const near = aSeen ? l.a : l.b;
+    const far = aSeen ? l.b : l.a;
+    out.push({
+      id: l.id,
+      kind: l.kind,
+      costFt: l.costFt,
+      ...(l.oneWay ? { oneWay: true } : {}),
+      a: near,
+      b: aSeen && bSeen ? far : null
+    });
   }
   return out;
 }

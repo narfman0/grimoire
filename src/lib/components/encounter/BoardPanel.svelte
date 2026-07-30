@@ -17,6 +17,41 @@
      *  only non-dmOnly notes on revealed cells. */
     annotations?: Record<string, CellAnnotation>;
     version: number;
+    /** Which dungeon floor this surface is (0 for quick boards). Geometry
+     *  consumers scope themselves to participants on this floor. */
+    floorIdx?: number;
+  }
+
+  /** What the panel actually draws and edits — the quick board or one
+   *  dungeon floor, normalized. Everything below the surface layer is
+   *  agnostic about which it is. */
+  export interface Surface {
+    w: number;
+    h: number;
+    cellFt: number;
+    tiles: string;
+    revealed: string;
+    background: string | null;
+    annotations?: Record<string, CellAnnotation>;
+    version: number;
+  }
+
+  export interface WireLinkShape {
+    id: string;
+    kind: string;
+    costFt: number;
+    oneWay?: boolean;
+    a: { floorIdx: number; x: number; y: number };
+    b: { floorIdx: number; x: number; y: number } | null;
+  }
+
+  export interface DungeonBlockShape {
+    instanceId: string;
+    name: string;
+    instanceVersion: number;
+    floors: Array<{ idx: number; name: string }>;
+    floorVersions: Record<string, number>;
+    links: WireLinkShape[];
   }
 </script>
 
@@ -62,7 +97,13 @@
   export let role: 'dm' | 'player';
   export let board: BoardWireShape | null = null;
   export let boardVersion: number | null = null;
-  export let tokens: BoardToken[] = [];
+  /** Attached dungeon instance (WS5). Mutually exclusive with `board`;
+   *  when set, the panel views one floor at a time and every edit routes
+   *  to the floor API instead of the board one. */
+  export let dungeon: DungeonBlockShape | null = null;
+  /** Tokens carry `floor` on dungeon encounters; the panel renders the
+   *  viewed floor's and lists the rest as jump chips. */
+  export let tokens: Array<BoardToken & { floor?: number }> = [];
   export let unplaced: Array<{ id: string; label: string }> = [];
   /** Selected participant context for planning overlays. `plannable` also
    *  arms click-to-plan: a click on a reachable cell becomes the plan's
@@ -79,13 +120,16 @@
     attackRangeFt?: number | null;
   } | null = null;
   export let busy = false;
+  /** Campaign code, for the DM's attach-a-dungeon-instance picker. Optional
+   *  — without it the panel simply doesn't offer instances. */
+  export let campaignCode: string | null = null;
   /** The AoE template of the action currently being resolved, when its
    *  prose describes one — offered as a one-click arm so the DM previews
    *  the breath weapon they're rolling, not a shape they re-enter by hand. */
   export let armAoe: { shape: AoeShape; sizeFt: number; label: string } | null = null;
 
   const dispatch = createEventDispatcher<{
-    moveToken: { id: string; x: number; y: number };
+    moveToken: { id: string; x: number; y: number; floor: number };
     planMove: { id: string; x: number; y: number; path: Cell[] | null };
     /** Fired whenever the panel's board copy changes (attach, paint,
      *  refetch, detach) so the parent's geometry consumers (resolve
@@ -98,6 +142,9 @@
     /** A click on a token — inspection, so the parent opens the detail panel
      *  and nothing else. */
     selectToken: { id: string };
+    /** Take a floor link: the parent POSTs the traversal (server-validated
+     *  one writer). */
+    traverse: { id: string; linkId: string };
   }>();
 
   let liveBoard: BoardWireShape | null = board;
@@ -108,7 +155,106 @@
     if (b && liveBoard && b.version < liveBoard.version) return;
     liveBoard = b;
   }
-  $: dispatch('boardChanged', liveBoard);
+
+  // --- dungeon floors -------------------------------------------------------
+  let viewedFloor = 0;
+  let floorCache: Record<number, Surface> = {};
+  let fetchingFloorKey: string | null = null;
+  $: if (dungeon && dungeon.floors.length > 0 && !dungeon.floors.some((f) => f.idx === viewedFloor)) {
+    viewedFloor = dungeon.floors[0].idx;
+  }
+  /** Same guard as acceptBoard, per floor. */
+  function acceptFloor(idx: number, f: Surface) {
+    const have = floorCache[idx];
+    if (have && f.version < have.version) return;
+    floorCache = { ...floorCache, [idx]: f };
+  }
+  $: if (dungeon) {
+    const want = dungeon.floorVersions[String(viewedFloor)];
+    const have = floorCache[viewedFloor]?.version ?? -1;
+    const key = `${viewedFloor}:${want}`;
+    if (want !== undefined && want > have && fetchingFloorKey !== key) {
+      fetchingFloorKey = key;
+      void api
+        .get<Surface>(`/api/encounters/${encounterId}/floors/${viewedFloor}`, { silent: true })
+        .then((f) => acceptFloor(viewedFloor, f))
+        .catch(() => {})
+        .finally(() => (fetchingFloorKey = null));
+    }
+  }
+
+  /** The drawing surface: the viewed floor on dungeon encounters, the quick
+   *  board otherwise. Null while a floor is still fetching. */
+  $: surface = dungeon ? floorCache[viewedFloor] ?? null : liveBoard;
+  // Parent geometry consumers (resolve warnings, optimizer) read the same
+  // shape they always did; on dungeons it is the *viewed* floor.
+  $: dispatch(
+    'boardChanged',
+    surface
+      ? { encounterId, sourceMapId: null, ...surface, floorIdx: dungeon ? viewedFloor : 0 }
+      : null
+  );
+
+  /** Tokens standing on the drawing surface. */
+  $: floorTokens = dungeon ? tokens.filter((t) => (t.floor ?? 0) === viewedFloor) : tokens;
+  /** Placed tokens elsewhere in the dungeon — jump chips, not ghosts. */
+  $: offFloorTokens = dungeon ? tokens.filter((t) => (t.floor ?? 0) !== viewedFloor) : [];
+  $: floorNameOf = (idx: number) =>
+    dungeon?.floors.find((f) => f.idx === idx)?.name ?? `Floor ${idx}`;
+
+  /** Portal glyphs on the viewed floor. A far end the viewer hasn't earned
+   *  draws as an orange '?' — the stairs they found "lead somewhere". */
+  $: linkMarks = ((): Array<{ x: number; y: number; glyph: string; color?: string }> => {
+    if (!dungeon) return [];
+    const KIND_GLYPHS: Record<string, string> = {
+      stairs: '𝌆',
+      ladder: '☰',
+      rope: '𝜁',
+      hatch: '◫',
+      passage: '⇄'
+    };
+    const out: Array<{ x: number; y: number; glyph: string; color?: string }> = [];
+    for (const l of dungeon.links) {
+      const known = l.b !== null;
+      for (const e of [l.a, l.b]) {
+        if (!e || e.floorIdx !== viewedFloor) continue;
+        out.push({
+          x: e.x,
+          y: e.y,
+          glyph: known ? KIND_GLYPHS[l.kind] ?? '⇄' : '?',
+          ...(known ? {} : { color: 'rgba(251,146,60,0.95)' })
+        });
+      }
+    }
+    return out;
+  })();
+
+  /** Take the link the selected token is standing on. DM goes immediately;
+   *  players confirm — a mis-click that changes floors is disorienting in a
+   *  way a mis-move on the same floor isn't. */
+  async function traverseLink(link: WireLinkShape) {
+    if (!selected) return;
+    if (role !== 'dm') {
+      const exitName = link.b ? floorNameOf(link.b.floorIdx) : 'somewhere unknown';
+      const ok = await confirmDialog({
+        title: `Take the ${link.kind}?`,
+        message: `Leads to ${exitName}.`,
+        confirmLabel: 'Go'
+      });
+      if (!ok) return;
+    }
+    dispatch('traverse', { id: selected.id, linkId: link.id });
+  }
+
+  /** Link with an endpoint on this cell of the viewed floor. */
+  function linkAtCell(cell: Cell): WireLinkShape | undefined {
+    if (!dungeon) return undefined;
+    return dungeon.links.find(
+      (l) =>
+        (l.a.floorIdx === viewedFloor && l.a.x === cell.x && l.a.y === cell.y) ||
+        (l.b !== null && l.b.floorIdx === viewedFloor && l.b.x === cell.x && l.b.y === cell.y)
+    );
+  }
   let collapsed = false;
   type Mode = 'tokens' | 'ruler' | 'aoe' | 'notes' | 'fog' | 'terrain';
   let mode: Mode = 'tokens';
@@ -125,10 +271,11 @@
 
   // --- keep the board fresh off the poll's change token -------------------
   let fetchingVersion: number | null = null;
-  $: if (boardVersion === null && liveBoard) {
+  $: if (!dungeon && boardVersion === null && liveBoard) {
     liveBoard = null; // detached in another tab
   }
   $: if (
+    !dungeon &&
     boardVersion !== null &&
     boardVersion !== fetchingVersion &&
     (!liveBoard || boardVersion > liveBoard.version)
@@ -147,7 +294,7 @@
   let blankW = 20;
   let blankH = 15;
   let attaching = false;
-  $: if (role === 'dm' && !liveBoard && mapsList === null) {
+  $: if (role === 'dm' && !liveBoard && !dungeon && mapsList === null) {
     mapsList = [];
     void api
       .get<{ maps: Array<{ id: string; name: string; w: number; h: number }> }>('/api/maps', {
@@ -155,6 +302,91 @@
       })
       .then((r) => (mapsList = r.maps))
       .catch(() => {});
+  }
+
+  let instancesList: Array<{ id: string; name: string; floorCount: number }> | null = null;
+  let attachInstanceId = '';
+  let dungeonsList: Array<{ id: string; name: string; floorCount: number }> | null = null;
+  let newCrawlDungeonId = '';
+  $: if (role === 'dm' && campaignCode && !liveBoard && !dungeon && instancesList === null) {
+    instancesList = [];
+    void api
+      .get<{ instances: Array<{ id: string; name: string; floorCount: number }> }>(
+        `/api/campaigns/${campaignCode}/dungeon-instances`,
+        { silent: true }
+      )
+      .then((r) => (instancesList = r.instances))
+      .catch(() => {});
+    dungeonsList = [];
+    void api
+      .get<{ dungeons: Array<{ id: string; name: string; floorCount: number }> }>('/api/dungeons', {
+        silent: true
+      })
+      .then((r) => (dungeonsList = r.dungeons.filter((d) => d.floorCount > 0)))
+      .catch(() => {});
+  }
+
+  /** Fresh crawl: instantiate the library dungeon for this campaign, then
+   *  attach the new instance. Continuing an existing crawl is the other
+   *  select — the difference between "the party returns" and "a new party
+   *  enters". */
+  async function startFreshCrawl() {
+    if (!newCrawlDungeonId || !campaignCode) return;
+    attaching = true;
+    try {
+      const inst = await api.post<{ id: string }>(
+        `/api/campaigns/${campaignCode}/dungeon-instances`,
+        { dungeonId: newCrawlDungeonId }
+      );
+      await api(`/api/encounters/${encounterId}/dungeon`, {
+        method: 'PUT',
+        body: { instanceId: inst.id }
+      });
+      mode = 'tokens';
+    } catch {
+      // api() already toasted
+    } finally {
+      attaching = false;
+    }
+  }
+
+  /** Re-hide the crawl: fog + notes reset, terrain kept (see the reset
+   *  route). The instance belongs to the campaign, so this affects every
+   *  encounter sharing it — the confirm says so. */
+  async function resetCrawl() {
+    if (!dungeon || !campaignCode) return;
+    const ok = await confirmDialog({
+      title: `Reset "${dungeon.name}"?`,
+      message:
+        'Fog re-hides and notes clear on every floor, for every encounter using this crawl. Terrain edits are kept.',
+      confirmLabel: 'Reset crawl',
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      await api.post(`/api/campaigns/${campaignCode}/dungeon-instances/${dungeon.instanceId}`);
+      floorCache = {};
+    } catch {
+      // api() already toasted
+    }
+  }
+
+  async function attachDungeon() {
+    if (!attachInstanceId) return;
+    attaching = true;
+    try {
+      await api(`/api/encounters/${encounterId}/dungeon`, {
+        method: 'PUT',
+        body: { instanceId: attachInstanceId }
+      });
+      // The dungeon block arrives on the next poll (≤2s); nothing to accept
+      // locally — the panel switches modes when the prop lands.
+      mode = 'tokens';
+    } catch {
+      // api() already toasted
+    } finally {
+      attaching = false;
+    }
   }
 
   async function attach(body: Record<string, unknown>) {
@@ -176,15 +408,22 @@
 
   async function detach() {
     const ok = await confirmDialog({
-      title: 'Detach the board?',
-      message: 'Token positions are kept; the tiles and fog are discarded.',
+      title: dungeon ? 'Detach the dungeon?' : 'Detach the board?',
+      message: dungeon
+        ? 'The instance and its crawl state survive on the campaign; only this encounter unlinks.'
+        : 'Token positions are kept; the tiles and fog are discarded.',
       confirmLabel: 'Detach',
       danger: true
     });
     if (!ok) return;
     try {
-      await api.del(`/api/encounters/${encounterId}/board`);
-      liveBoard = null;
+      if (dungeon) {
+        await api.del(`/api/encounters/${encounterId}/dungeon`);
+        floorCache = {};
+      } else {
+        await api.del(`/api/encounters/${encounterId}/board`);
+        liveBoard = null;
+      }
     } catch {
       // api() already toasted
     }
@@ -196,15 +435,23 @@
     annotations?: Record<string, CellAnnotation>;
   }) {
     try {
-      acceptBoard(await api.patch<BoardWireShape>(`/api/encounters/${encounterId}/board`, body));
+      if (dungeon) {
+        const idx = viewedFloor;
+        acceptFloor(
+          idx,
+          await api.patch<Surface>(`/api/encounters/${encounterId}/floors/${idx}`, body)
+        );
+      } else {
+        acceptBoard(await api.patch<BoardWireShape>(`/api/encounters/${encounterId}/board`, body));
+      }
     } catch {
       // api() already toasted
     }
   }
 
   function bulkFog(bit: 0 | 1) {
-    if (!liveBoard) return;
-    void patchBoard({ revealed: encodeRuns(new Array(liveBoard.w * liveBoard.h).fill(bit)) });
+    if (!surface) return;
+    void patchBoard({ revealed: encodeRuns(new Array(surface.w * surface.h).fill(bit)) });
   }
 
   // --- cell notes -----------------------------------------------------------
@@ -214,7 +461,7 @@
   // per-cell, and either shared with the table or DM-only — the server
   // redacts the DM-only ones (and any note on a fogged cell) before they
   // reach a player, the same single path the background URL takes.
-  $: annotations = liveBoard?.annotations ?? {};
+  $: annotations = surface?.annotations ?? {};
   /** The note under the pointer, for the readout below the canvas. This is
    *  the only way a *player* can read a note — the marks render for everyone
    *  but the editable chips list is DM-gated, so without this a shared note
@@ -327,19 +574,19 @@
   let lastRevealSig = '';
   let revealing = false;
 
-  $: pcVisionCells = tokens
+  $: pcVisionCells = floorTokens
     .filter((t) => (t.team ?? 'foe') === 'pc')
     .map((t) => ({ x: t.x, y: t.y }));
 
-  $: if (autoReveal && role === 'dm' && liveBoard && grid && !revealing) {
-    const sig = `${liveBoard.version}:${pcVisionCells.map((c) => `${c.x},${c.y}`).join('|')}`;
+  $: if (autoReveal && role === 'dm' && surface && grid && !revealing) {
+    const sig = `${dungeon ? `f${viewedFloor}:` : ''}${surface.version}:${pcVisionCells.map((c) => `${c.x},${c.y}`).join('|')}`;
     if (sig !== lastRevealSig) {
       lastRevealSig = sig;
-      applyAutoReveal(liveBoard, grid, pcVisionCells);
+      applyAutoReveal(surface, grid, pcVisionCells);
     }
   }
 
-  function applyAutoReveal(b: BoardWireShape, g: Grid, froms: Cell[]) {
+  function applyAutoReveal(b: Surface, g: Grid, froms: Cell[]) {
     if (froms.length === 0) return;
     let fog: Uint16Array;
     try {
@@ -354,16 +601,18 @@
   }
 
   // --- planning overlays ----------------------------------------------------
-  function tryGrid(b: BoardWireShape): Grid | null {
+  function tryGrid(b: Surface): Grid | null {
     try {
       return decodeBoard({ w: b.w, h: b.h, cellFt: b.cellFt, tiles: b.tiles });
     } catch {
       return null;
     }
   }
-  $: grid = liveBoard ? tryGrid(liveBoard) : null;
+  $: grid = surface ? tryGrid(surface) : null;
 
-  $: selectedToken = selected ? tokens.find((t) => t.id === selected.id) : undefined;
+  // The selected token only participates in overlays/click-to-plan while it
+  // stands on the viewed floor — its reach means nothing on another one.
+  $: selectedToken = selected ? floorTokens.find((t) => t.id === selected.id) : undefined;
   $: planContext = ((): {
     reach: ReturnType<typeof reachableCells>;
     threat: Set<string>;
@@ -375,7 +624,7 @@
     const occupied = { allies: [] as Cell[], enemies: [] as Cell[] };
     const threatSources: Array<{ cell: Cell; team: string; sizeCells: number; reachFt?: number }> =
       [];
-    for (const t of tokens) {
+    for (const t of floorTokens) {
       if (t.id === selected.id) continue;
       const tTeam = t.team ?? 'foe';
       const cells = footprintCells({ x: t.x, y: t.y }, t.sizeCells);
@@ -398,7 +647,7 @@
         ? targetsInRangeCells(
             grid,
             selected.moveTo ?? { x: selectedToken.x, y: selectedToken.y },
-            tokens,
+            floorTokens,
             team,
             selected.attackRangeFt,
             selected.id
@@ -500,9 +749,12 @@
    *  and the handoff button would be a moving target. */
   $: aoeCaught =
     aoeLocked && aoeFootprint.length > 0
-      ? tokensInCells(aoeFootprint, tokens).map((id) => ({
+      ? tokensInCells(aoeFootprint, floorTokens).map((id) => ({
           id,
-          name: tokens.find((t) => t.id === id)?.title ?? tokens.find((t) => t.id === id)?.label ?? id
+          name:
+            floorTokens.find((t) => t.id === id)?.title ??
+            floorTokens.find((t) => t.id === id)?.label ??
+            id
         }))
       : [];
   $: aoeLabel = `${aoeShape} ${aoeSizeFt} ft`;
@@ -559,9 +811,25 @@
       return;
     }
     if (mode === 'tokens' && placing) {
-      dispatch('moveToken', { id: placing, x: cell.x, y: cell.y });
+      dispatch('moveToken', { id: placing, x: cell.x, y: cell.y, floor: viewedFloor });
       placing = null;
       return;
+    }
+    // Standing on a portal and clicking it takes it. Checked before doors
+    // and click-to-plan: the token's own cell is never a plan destination,
+    // so this claims only the click nothing else wants.
+    if (
+      mode === 'tokens' &&
+      dungeon &&
+      selectedToken &&
+      cell.x === selectedToken.x &&
+      cell.y === selectedToken.y
+    ) {
+      const link = linkAtCell(cell);
+      if (link) {
+        void traverseLink(link);
+        return;
+      }
     }
     // Doors open on a click — the at-the-table verb, not a trip through the
     // terrain painter. A *closed* door can never conflict with click-to-plan
@@ -589,10 +857,10 @@
 
   /** Swap the door tile at `cell` for its counterpart when its current
    *  state matches `when`. Returns whether a door was toggled. DM-only at
-   *  the call sites — `liveBoard.tiles` is the unmasked layer only for the
+   *  the call sites — the surface tiles are the unmasked layer only for the
    *  DM, and the PATCH is DM-gated server-side anyway. */
   function toggleDoor(cell: Cell, when: 'closed' | 'open'): boolean {
-    if (!liveBoard || !grid) return false;
+    if (!surface || !grid) return false;
     const tile = tileAt(grid, cell);
     if (tile.door !== when) return false;
     const counterpart = doorCounterpart(tile.id);
@@ -604,7 +872,7 @@
   }
 </script>
 
-{#if liveBoard || role === 'dm'}
+{#if surface || dungeon || role === 'dm'}
   <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/30 p-4" data-testid="board-panel">
     <div class="mb-2 flex flex-wrap items-center gap-2">
       <button
@@ -613,9 +881,24 @@
       >
         {collapsed ? '▸' : '▾'} Battle map
       </button>
-      {#if liveBoard && !collapsed}
+      {#if dungeon && !collapsed}
+        <span class="flex items-center gap-1 text-xs" data-testid="floor-switcher">
+          <span class="text-violet-300/90">🏰 {dungeon.name}</span>
+          {#each dungeon.floors as f (f.idx)}
+            <button
+              class="rounded border px-2 py-0.5 {f.idx === viewedFloor
+                ? 'border-violet-500 text-violet-100'
+                : 'border-slate-700 text-slate-400 hover:text-slate-200'}"
+              on:click={() => (viewedFloor = f.idx)}
+            >
+              {f.name}
+            </button>
+          {/each}
+        </span>
+      {/if}
+      {#if surface && !collapsed}
         <span class="text-[10px] text-slate-600">
-          {liveBoard.w}×{liveBoard.h} · {liveBoard.cellFt} ft cells
+          {surface.w}×{surface.h} · {surface.cellFt} ft cells
         </span>
         <span class="mx-1 text-slate-700">|</span>
         <button
@@ -719,7 +1002,7 @@
               : ''}"
             title="Trace over a scanned or drawn map. Players never receive the image."
           >
-            🖼 {liveBoard.background ? 'Replace' : 'Background'}
+            🖼 {surface?.background ? 'Replace' : 'Background'}
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -728,7 +1011,7 @@
               on:change={uploadBackground}
             />
           </label>
-          {#if liveBoard.background}
+          {#if surface?.background}
             <button
               class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
               disabled={backgroundBusy}
@@ -744,8 +1027,17 @@
           >
             🧹 Clear tokens
           </button>
+          {#if dungeon}
+            <button
+              class="ml-auto rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-amber-300"
+              title="Fog re-hides + notes clear on every floor; terrain kept"
+              on:click={resetCrawl}
+            >
+              ♻ Reset crawl
+            </button>
+          {/if}
           <button
-            class="ml-auto rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
+            class="{dungeon ? '' : 'ml-auto '}rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-500 hover:text-red-400"
             on:click={detach}
           >
             Detach
@@ -761,7 +1053,9 @@
     </div>
 
     {#if !collapsed}
-      {#if !liveBoard}
+      {#if dungeon && !surface}
+        <p class="text-xs text-slate-500">Loading {floorNameOf(viewedFloor)}…</p>
+      {:else if !surface}
         <!-- DM attach flow (players never see this branch — the whole panel
              is hidden for them when no board exists). -->
         <div class="flex flex-wrap items-end gap-3 text-xs">
@@ -815,27 +1109,68 @@
           <a class="text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline" href="/maps">
             Map builder →
           </a>
+          {#if campaignCode}
+            <span class="text-slate-600">or</span>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] uppercase tracking-wide text-slate-500">Dungeon</span>
+              <select
+                class="rounded border border-violet-900 bg-slate-950 px-2 py-1"
+                bind:value={attachInstanceId}
+              >
+                <option value="">— pick an instance —</option>
+                {#each instancesList ?? [] as inst}
+                  <option value={inst.id}>{inst.name} ({inst.floorCount} floors)</option>
+                {/each}
+              </select>
+            </label>
+            <button
+              class="rounded border border-violet-700 bg-violet-950/40 px-3 py-1 text-violet-200 disabled:opacity-40"
+              disabled={!attachInstanceId || attaching}
+              on:click={attachDungeon}
+            >
+              Continue crawl
+            </button>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] uppercase tracking-wide text-slate-500">Fresh crawl</span>
+              <select
+                class="rounded border border-violet-900 bg-slate-950 px-2 py-1"
+                bind:value={newCrawlDungeonId}
+              >
+                <option value="">— pick a dungeon —</option>
+                {#each dungeonsList ?? [] as d}
+                  <option value={d.id}>{d.name} ({d.floorCount} floors)</option>
+                {/each}
+              </select>
+            </label>
+            <button
+              class="rounded border border-violet-700 px-3 py-1 text-violet-200 disabled:opacity-40"
+              disabled={!newCrawlDungeonId || attaching}
+              on:click={startFreshCrawl}
+            >
+              Start fresh
+            </button>
+          {/if}
         </div>
       {:else if mode === 'fog' && role === 'dm'}
         <BoardPainter
-          w={liveBoard.w}
-          h={liveBoard.h}
-          tiles={liveBoard.tiles}
-          revealed={liveBoard.revealed}
+          w={surface.w}
+          h={surface.h}
+          tiles={surface.tiles}
+          revealed={surface.revealed}
           mode="fog"
-          background={liveBoard.background}
+          background={surface.background}
           autosave
           {busy}
           on:save={(e) => e.detail.revealed && patchBoard({ revealed: e.detail.revealed })}
         />
       {:else if mode === 'terrain' && role === 'dm'}
         <BoardPainter
-          w={liveBoard.w}
-          h={liveBoard.h}
-          tiles={liveBoard.tiles}
-          revealed={liveBoard.revealed}
+          w={surface.w}
+          h={surface.h}
+          tiles={surface.tiles}
+          revealed={surface.revealed}
           mode="edit"
-          background={liveBoard.background}
+          background={surface.background}
           {busy}
           on:save={(e) => patchBoard({ tiles: e.detail.tiles })}
         />
@@ -900,6 +1235,20 @@
             </span>
           </div>
         {/if}
+        {#if offFloorTokens.length > 0 && mode === 'tokens'}
+          <div class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
+            elsewhere:
+            {#each offFloorTokens as t (t.id)}
+              <button
+                class="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:text-violet-200"
+                title="Jump to {floorNameOf(t.floor ?? 0)}"
+                on:click={() => (viewedFloor = t.floor ?? 0)}
+              >
+                {t.title ?? t.label} ⇒ {floorNameOf(t.floor ?? 0)}
+              </button>
+            {/each}
+          </div>
+        {/if}
         {#if unplaced.length > 0 && mode === 'tokens'}
           <div class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
             place:
@@ -920,19 +1269,20 @@
           </div>
         {/if}
         <BoardCanvas
-          w={liveBoard.w}
-          h={liveBoard.h}
-          tiles={liveBoard.tiles}
-          revealed={liveBoard.revealed}
+          w={surface.w}
+          h={surface.h}
+          tiles={surface.tiles}
+          revealed={surface.revealed}
           fogStyle={role === 'dm' ? 'dm' : 'player'}
-          background={liveBoard.background}
+          background={surface.background}
           backgroundOpacity={0.45}
-          {tokens}
+          tokens={floorTokens}
           {overlays}
+          marks={linkMarks}
           path={planPath}
           ruler={ruler}
           {annotations}
-          on:tokendrop={(e) => dispatch('moveToken', e.detail)}
+          on:tokendrop={(e) => dispatch('moveToken', { ...e.detail, floor: viewedFloor })}
           on:tokenclick={(e) => dispatch('selectToken', e.detail)}
           on:cellclick={(e) => onCellClick(e.detail)}
           on:cellhover={(e) => {

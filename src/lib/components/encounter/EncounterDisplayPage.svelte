@@ -33,6 +33,7 @@
   } from '$lib/encounter/display-list';
   import BoardCanvas, { type BoardToken } from '$lib/components/board/BoardCanvas.svelte';
   import { maskTilesForPlayer } from '$lib/board/fog';
+  import { decodeRuns } from '$lib/board/rle';
   import { visibleAnnotations, visibleTokenPositions } from '$lib/encounter/board-visibility';
   import type { EncounterDisplayData } from '$lib/server/encounter-display';
 
@@ -133,16 +134,96 @@
       .finally(() => (fetchingVersion = null));
   }
 
+  // ---- dungeon floors (table mode) ----------------------------------------
+  //
+  // Same posture as the quick board above: whatever the wire gave us (and a
+  // DM's poll gives everything), the wall shows the player lens. Floors are
+  // fetched lazily and re-masked client-side; the switcher lists only floors
+  // with a revealed cell, and the default view follows the party.
+  $: dungeon =
+    liveState && liveState.participants !== null ? liveState.dungeon : data.dungeon ?? null;
+  let floorCache: Record<number, DisplayBoard & { floorIdx: number }> = {};
+  let fetchingFloorKey: string | null = null;
+  let manualFloor: number | null = null;
+
+  $: rawPositions =
+    liveState && liveState.participants !== null
+      ? liveState.positions
+      : data.participantPositions ?? {};
+
+  /** Follow the party: the floor holding the most PC tokens, else the first
+   *  listed. A manual pick from the switcher wins until the party moves. */
+  $: partyFloor = ((): number => {
+    if (!dungeon || dungeon.floors.length === 0) return 0;
+    const counts = new Map<number, number>();
+    for (const p of participants) {
+      if (p.kind !== 'pc') continue;
+      const pos = rawPositions[p.id];
+      if (!pos) continue;
+      counts.set(pos.floor ?? 0, (counts.get(pos.floor ?? 0) ?? 0) + 1);
+    }
+    let best = dungeon.floors[0].idx;
+    let bestCount = -1;
+    for (const f of dungeon.floors) {
+      const c = counts.get(f.idx) ?? 0;
+      if (c > bestCount) {
+        best = f.idx;
+        bestCount = c;
+      }
+    }
+    return best;
+  })();
+  $: viewedFloor =
+    manualFloor !== null && dungeon?.floors.some((f) => f.idx === manualFloor)
+      ? manualFloor
+      : partyFloor;
+
+  $: if (dungeon) {
+    const want = dungeon.floorVersions[String(viewedFloor)];
+    const have = floorCache[viewedFloor]?.version ?? -1;
+    const key = `${viewedFloor}:${want}`;
+    if (want !== undefined && want > have && fetchingFloorKey !== key) {
+      fetchingFloorKey = key;
+      void fetch(`/api/encounters/${data.encounter.id}/floors/${viewedFloor}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((f) => {
+          const next = f as (DisplayBoard & { floorIdx: number }) | null;
+          if (next && next.version >= (floorCache[next.floorIdx]?.version ?? -1)) {
+            floorCache = {
+              ...floorCache,
+              [next.floorIdx]: { ...playerBoard(next), floorIdx: next.floorIdx }
+            };
+          }
+        })
+        .catch(() => {})
+        .finally(() => (fetchingFloorKey = null));
+    }
+  }
+
+  /** Floors fit for the wall: any revealed cell. Recomputed from fetched
+   *  masks so a DM's all-floors list never leaks unentered levels. */
+  $: wallFloors = (dungeon?.floors ?? []).filter((f) => {
+    const cached = floorCache[f.idx];
+    if (!cached) return f.idx === viewedFloor; // let the current fetch settle
+    try {
+      return Array.from(decodeRuns(cached.revealed, cached.w * cached.h)).some((b) => b === 1);
+    } catch {
+      return false;
+    }
+  });
+
+  $: surface = dungeon ? floorCache[viewedFloor] ?? null : board;
+
   $: boardTokens = ((): BoardToken[] => {
+    const board = surface;
     if (!board) return [];
     // First-poll guard: the channel store exists (empty) synchronously, so
     // fall back to the SSR seed until a poll has actually landed.
-    const raw =
-      liveState && liveState.participants !== null
-        ? liveState.positions
-        : data.participantPositions ?? {};
+    const raw = rawPositions;
     const visible = visibleTokenPositions(
-      Object.entries(raw).map(([id, p]) => ({ id, posX: p.x, posY: p.y, sizeCells: p.sizeCells })),
+      Object.entries(raw)
+        .filter(([, p]) => (dungeon ? (p.floor ?? 0) === viewedFloor : true))
+        .map(([id, p]) => ({ id, posX: p.x, posY: p.y, sizeCells: p.sizeCells })),
       { w: board.w, h: board.h, revealedJson: board.revealed },
       false
     );
@@ -199,16 +280,30 @@
     </p>
   {/if}
 
-  {#if board}
+  {#if dungeon && wallFloors.length > 1}
+    <div class="mb-2 flex items-center gap-2 text-sm" data-testid="display-floors">
+      {#each wallFloors as f (f.idx)}
+        <button
+          class="rounded border px-3 py-1 {f.idx === viewedFloor
+            ? 'border-violet-500 text-violet-100'
+            : 'border-slate-700 text-slate-400'}"
+          on:click={() => (manualFloor = f.idx)}
+        >
+          {f.name}
+        </button>
+      {/each}
+    </div>
+  {/if}
+  {#if surface}
     <div class="mb-6" data-testid="display-board">
       <BoardCanvas
-        w={board.w}
-        h={board.h}
-        tiles={board.tiles}
-        revealed={board.revealed}
+        w={surface.w}
+        h={surface.h}
+        tiles={surface.tiles}
+        revealed={surface.revealed}
         fogStyle="player"
         tokens={boardTokens}
-        annotations={board.annotations ?? {}}
+        annotations={surface.annotations ?? {}}
         interactive={false}
         maxCellPx={44}
       />

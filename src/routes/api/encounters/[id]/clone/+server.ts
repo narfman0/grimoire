@@ -93,6 +93,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     activeParticipantId: null,
     // Prep, not per-run state — the DM's notes describe the setup.
     notesJson: src.notesJson ?? null,
+    // The dungeon instance is prep too — the clone continues the same
+    // crawl, fog and all; "fresh dungeon" is an explicit instance action.
+    dungeonInstanceId: src.dungeonInstanceId ?? null,
     createdAt: now,
     endedAt: null
   };

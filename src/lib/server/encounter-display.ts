@@ -57,6 +57,8 @@ export async function buildEncounterDisplayData(
     // Player-redacted by construction (isDM=false above): fog-masked tiles,
     // no background URL, fog-visible token positions only.
     board: core.board,
+    // Same lens for the dungeon block: revealed floors, earned links.
+    dungeon: core.dungeon,
     participantPositions: core.participantPositions
   };
 }

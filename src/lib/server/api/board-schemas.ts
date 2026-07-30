@@ -59,7 +59,11 @@ export const UpdateMapRequest = z
     w: BoardDim.optional(),
     h: BoardDim.optional(),
     cellFt: CellFt.optional(),
-    tiles: TilesString.optional()
+    tiles: TilesString.optional(),
+    /** Dungeon membership (WS5): set to join as a floor (floorIdx defaults
+     *  to the next free index), null to become a standalone map again. */
+    dungeonId: Uuid.nullable().optional(),
+    floorIdx: z.number().int().min(0).max(999).optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateMapRequest');
@@ -148,7 +152,10 @@ export type TBoardWire = z.infer<typeof BoardWire>;
 export const SetPositionRequest = z
   .object({
     x: z.number().int().min(0).max(BOARD_MAX_DIM - 1).nullable(),
-    y: z.number().int().min(0).max(BOARD_MAX_DIM - 1).nullable()
+    y: z.number().int().min(0).max(BOARD_MAX_DIM - 1).nullable(),
+    /** Dungeon floor the cell is on (WS5). Omitted → the quick board /
+     *  floor 0; ignored (nulled) when clearing. */
+    floor: z.number().int().min(0).max(999).optional()
   })
   .refine((v) => (v.x === null) === (v.y === null), {
     message: 'x and y must both be set or both be null'
