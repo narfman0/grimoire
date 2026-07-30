@@ -1,4 +1,16 @@
 <script lang="ts" context="module">
+  /** A small dot on the token's edge: conditions, concentration, whatever
+   *  the caller wants to flag without opening the row. */
+  export interface TokenBadge {
+    /** Dot fill. */
+    color: string;
+    /** One character drawn inside the dot, when cells are big enough for it
+     *  to be legible. */
+    glyph?: string;
+    /** Tooltip text — the caller joins these into the token's title. */
+    title?: string;
+  }
+
   export interface BoardToken {
     id: string;
     x: number;
@@ -12,7 +24,12 @@
     /** HP-bucket ring color; null hides the ring. */
     ring?: string | null;
     active?: boolean;
+    /** Drawn with its own ring, outside the active-turn one — being
+     *  inspected is not the same as being up. */
+    selected?: boolean;
     draggable?: boolean;
+    /** Status dots on the disc edge; at most the first three are drawn. */
+    badges?: TokenBadge[];
     /** Side marker for occupancy/threat math ('pc' vs anything else); the
      *  canvas itself ignores it. */
     team?: string;
@@ -70,6 +87,9 @@
     cellclick: Cell;
     cellhover: Cell | null;
     tokendrop: { id: string; x: number; y: number };
+    /** A click on a token that didn't move it. Inspection, not a move — the
+     *  encounter page selects the row, nothing else. */
+    tokenclick: { id: string };
   }>();
 
   let canvas: HTMLCanvasElement;
@@ -112,6 +132,12 @@
   let dragCell: Cell | null = null;
   let painting = false;
   let lastPaintKey: string | null = null;
+  /** Did the pointer cross into another cell during this press? Separates a
+   *  paint *stroke* from a plain click: a stroke must not also read as a
+   *  click (it used to, so ending a fog stroke fired `cellclick` at the
+   *  consumers too), and a click must still get through, because that's how
+   *  every non-painter tool on this canvas is driven. */
+  let paintMoved = false;
   let hoverCell: Cell | null = null;
 
   function cellFromEvent(e: PointerEvent): Cell | null {
@@ -144,6 +170,7 @@
       return;
     }
     painting = true;
+    paintMoved = false;
     lastPaintKey = `${cell.x},${cell.y}`;
     dispatch('paintstart', cell);
   }
@@ -169,6 +196,7 @@
       const key = `${cell.x},${cell.y}`;
       if (key !== lastPaintKey) {
         lastPaintKey = key;
+        paintMoved = true;
         dispatch('paintmove', cell);
       }
     }
@@ -176,19 +204,37 @@
 
   function onPointerUp(e: PointerEvent) {
     if (!interactive) return;
-    if (dragTokenId && dragCell) {
-      dispatch('tokendrop', { id: dragTokenId, x: dragCell.x, y: dragCell.y });
+    if (dragTokenId) {
+      const id = dragTokenId;
+      const start = tokens.find((t) => t.id === id);
+      const dropped = dragCell;
       dragTokenId = null;
       dragCell = null;
+      // Dropping a token back where it started is a click, not a move: the
+      // old code POSTed the same coordinates back, bumping the board version
+      // and making every other tab refetch for nothing.
+      if (dropped && start && (dropped.x !== start.x || dropped.y !== start.y)) {
+        dispatch('tokendrop', { id, x: dropped.x, y: dropped.y });
+      } else {
+        dispatch('tokenclick', { id });
+      }
       return;
     }
+    const wasStroke = painting && paintMoved;
     if (painting) {
       painting = false;
+      paintMoved = false;
       lastPaintKey = null;
       dispatch('paintend');
     }
+    if (wasStroke) return; // a drag across cells is a stroke, not a click
     const cell = cellFromEvent(e);
-    if (cell) dispatch('cellclick', cell);
+    if (!cell) return;
+    // A non-draggable token still reports the click (players can inspect the
+    // board without being able to move anything).
+    const token = tokenAt(cell);
+    if (token) dispatch('tokenclick', { id: token.id });
+    dispatch('cellclick', cell);
   }
 
   function onPointerLeave() {
@@ -298,6 +344,17 @@
       const cy = ((isDragged && dragCell ? dragCell.y : t.y) + size / 2) * cellPx;
       const r = (size * cellPx) / 2 - 2;
       if (isDragged) ctx.globalAlpha = 0.7;
+      // Selection sits outside the active ring so a token can be both the
+      // creature whose turn it is and the one being inspected.
+      if (t.selected) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(125,211,252,0.9)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       if (t.active) {
         ctx.beginPath();
         ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
@@ -322,6 +379,30 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(t.label.slice(0, 2), cx, cy + 1);
+      }
+      // Status dots, walking down the disc's right edge. Three at most —
+      // beyond that they'd overlap and the row card is the honest answer.
+      const badges = (t.badges ?? []).slice(0, 3);
+      if (badges.length > 0 && cellPx >= 12) {
+        const br = Math.max(3, Math.floor(cellPx * 0.16));
+        for (const [i, badge] of badges.entries()) {
+          const bx = cx + r - br * 0.4;
+          const by = cy - r + br + i * (br * 2 + 1);
+          ctx.beginPath();
+          ctx.arc(bx, by, br, 0, Math.PI * 2);
+          ctx.fillStyle = badge.color;
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(2,6,23,0.85)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          if (badge.glyph && br >= 5) {
+            ctx.fillStyle = 'rgba(2,6,23,0.95)';
+            ctx.font = `700 ${Math.floor(br * 1.4)}px system-ui, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(badge.glyph.slice(0, 1), bx, by + 0.5);
+          }
+        }
       }
       ctx.globalAlpha = 1;
     }

@@ -640,6 +640,7 @@
           <input
             type="number"
             class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+            aria-label="Attack"
             bind:value={attack}
           />
           <button
@@ -657,6 +658,7 @@
           <input
             type="number"
             class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center font-mono text-sm"
+            aria-label="Damage"
             bind:value={damage}
           />
           <button

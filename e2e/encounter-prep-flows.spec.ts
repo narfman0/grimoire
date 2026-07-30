@@ -33,8 +33,8 @@ test('a round-scoped condition raises a DM-confirmed expiry prompt on its turn',
   await page.goto(`/c/${code}/encounters/${encounterId}`);
   await expect(page.getByRole('heading', { name: /Participants \(2\)/ })).toBeVisible();
 
-  // Select the goblin, pick a 1-round duration, apply poisoned.
-  await page.locator('li').filter({ hasText: 'Goblin 2' }).first().click();
+  // The goblin is the active participant, so its detail panel is already
+  // open — pick a 1-round duration and apply poisoned.
   const detail = page.locator('section').filter({ hasText: 'Conditions' }).last();
   await detail
     .getByTitle('Rounds the next condition you apply to this creature should last')
@@ -86,6 +86,8 @@ test('an armed condition duration does not follow the DM to another creature', a
   const picker = 'Rounds the next condition you apply to this creature should last';
 
   // Arm 3 rounds on the goblin and apply prone: the chip carries a timer.
+  // (This encounter has no active participant, so the row tap is what opens
+  // the detail panel.)
   await page.locator('li').filter({ hasText: 'Goblin 2' }).first().click();
   const goblin = page.locator('section').filter({ hasText: 'Conditions' }).last();
   await goblin.getByTitle(picker).selectOption('3');

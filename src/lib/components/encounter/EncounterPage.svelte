@@ -96,6 +96,7 @@
     type ConditionTimer
   } from '$lib/encounter/condition-timers';
   import BoardPanel, { type BoardWireShape } from './BoardPanel.svelte';
+  import type { TokenBadge } from '$lib/components/board/BoardCanvas.svelte';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import OpportunityPromptCard from './OpportunityPromptCard.svelte';
@@ -371,6 +372,41 @@
     // (permissive-by-default table policy) and DM-only for everything else.
     return data.role === 'dm' || p.kind === 'pc';
   }
+  /** Status dots for a token: how many conditions it's carrying, and whether
+   *  it's concentrating. Gated on the same visibility the row card uses — a
+   *  hidden monster's dots would tell players it's stunned before they know
+   *  it's there. */
+  function badgesFor(p: {
+    id: string;
+    kind: string;
+    conditions?: string[];
+    reveals?: { vitals?: boolean };
+  }): TokenBadge[] {
+    if (!(data.role === 'dm' || p.kind === 'pc' || p.reveals?.vitals)) return [];
+    const live = liveHpMap[p.id];
+    const conditions = live?.conditions ?? p.conditions ?? [];
+    const badges: TokenBadge[] = [];
+    if (conditions.length > 0) {
+      badges.push({
+        color: '#fbbf24',
+        glyph: conditions.length <= 9 ? String(conditions.length) : '+',
+        title: conditions.join(', ')
+      });
+    }
+    if (live?.concentrating) {
+      const label =
+        typeof live.concentrating === 'object' && live.concentrating
+          ? live.concentrating.label
+          : '';
+      badges.push({
+        color: '#c4b5fd',
+        glyph: 'C',
+        title: label ? `concentrating on ${label}` : 'concentrating'
+      });
+    }
+    return badges;
+  }
+
   $: boardTokens = liveParticipants
     .filter((p) => livePositions[p.id])
     .map((p) => {
@@ -378,16 +414,21 @@
       const hp = liveHpMap[p.id];
       const cur = hp?.currentHp ?? p.currentHp;
       const max = p.maxHp;
+      const name = p.placeholderName ?? p.name;
+      const badges = badgesFor(p);
+      const notes = badges.map((b) => b.title).filter(Boolean);
       return {
         id: p.id,
         x: pos.x,
         y: pos.y,
         sizeCells: pos.sizeCells,
-        label: initialsOf(p.placeholderName ?? p.name),
-        title: p.placeholderName ?? p.name,
+        label: initialsOf(name),
+        title: notes.length > 0 ? `${name} — ${notes.join(' · ')}` : name,
         color: TOKEN_COLORS[p.kind] ?? TOKEN_COLORS.monster,
         ring: BUCKET_RING[hpBucket(cur, max)] ?? null,
         active: p.id === liveActive,
+        selected: p.id === selectedId,
+        badges,
         draggable: canMoveToken(p),
         team: p.kind === 'pc' ? 'pc' : 'foe'
       };
@@ -2003,7 +2044,17 @@
   /** Which participant is selected (detail panel shown below). Auto-advances
    *  with the active turn; DM/players can also click any row to inspect. */
   let selectedId: string | null = null;
-  $: if (liveActive && liveActive !== selectedId) { selectedId = liveActive; ensureEconomy(liveActive); }
+  /** The active id this block last followed. Keyed on that rather than on
+   *  `selectedId !== liveActive`, which re-ran on every selection change and
+   *  snapped straight back — so inspecting anyone but the active creature
+   *  was impossible, and the documented "tap the active row to close the
+   *  panel" toggle re-opened itself immediately. */
+  let followedActiveId: string | null = null;
+  $: if (liveActive && liveActive !== followedActiveId) {
+    followedActiveId = liveActive;
+    selectedId = liveActive;
+    ensureEconomy(liveActive);
+  }
 
   /** Initiative cell edit mode. */
   let initiativeEditFor: string | null = null;
@@ -2307,6 +2358,15 @@
    *  round bump). Server allows any member to set activeParticipantId; the
    *  reactive `selectedId = liveActive` block keeps the detail panel in
    *  sync. Tapping the already-active row toggles the detail panel. */
+  /** Click on a board token: open its detail panel. Deliberately *not* the
+   *  row-tap behaviour — a board click is inspection, so it never moves the
+   *  active turn out from under the DM. */
+  function selectToken(id: string) {
+    if (!liveParticipants.some((q) => q.id === id)) return;
+    selectedId = selectedId === id ? null : id;
+    if (selectedId) ensureEconomy(id);
+  }
+
   function selectParticipant(p: { id: string }, isCurrentlySelected: boolean) {
     if (conn && p.id !== liveActive) {
       ensureEconomy(p.id);
@@ -2639,6 +2699,7 @@
   selected={boardSelected}
   {busy}
   on:moveToken={onMoveToken}
+  on:selectToken={(e) => selectToken(e.detail.id)}
   on:planMove={onPlanMove}
   on:boardChanged={(e) => (liveBoardWire = e.detail)}
   on:aoeTargets={(e) => takeAoeTargets(e.detail)}

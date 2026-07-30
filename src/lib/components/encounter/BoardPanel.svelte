@@ -76,6 +76,9 @@
     /** A locked AoE template's caught participants, handed to the resolve
      *  panel as its multi-save target list. */
     aoeTargets: { participantIds: string[]; label: string };
+    /** A click on a token — inspection, so the parent opens the detail panel
+     *  and nothing else. */
+    selectToken: { id: string };
   }>();
 
   let liveBoard: BoardWireShape | null = board;
@@ -679,6 +682,7 @@
           path={planPath}
           ruler={ruler}
           on:tokendrop={(e) => dispatch('moveToken', e.detail)}
+          on:tokenclick={(e) => dispatch('selectToken', e.detail)}
           on:cellclick={(e) => onCellClick(e.detail)}
           on:cellhover={(e) => (hoverCell = e.detail ?? hoverCell)}
         />

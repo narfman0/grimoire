@@ -69,8 +69,8 @@ test('DM adds participants and resolves a turn through the encounter UI', async 
   await expect(resolve.getByLabel('Action label')).toHaveValue('Dodge');
 
   await resolve.getByLabel('Target').selectOption({ label: 'Kobold #1 (npc)' });
-  await resolve.getByLabel('Attack').fill('18');
-  await resolve.getByLabel('Damage').fill('4');
+  await resolve.getByLabel('Attack', { exact: true }).fill('18');
+  await resolve.getByLabel('Damage', { exact: true }).fill('4');
   await resolve.getByLabel('Outcome').selectOption('hit');
   await resolve.getByLabel('Notes').fill('refactor check');
   await resolve.getByRole('button', { name: 'Submit' }).click();
@@ -179,7 +179,7 @@ test('multi-target save raises a queued CON save per concentrating target', asyn
     await row.getByRole('checkbox').check();
     await row.getByPlaceholder('save').fill('7');
   }
-  await resolve.getByLabel('Damage').fill('22');
+  await resolve.getByLabel('Damage', { exact: true }).fill('22');
   await resolve.getByRole('button', { name: 'Submit' }).click();
 
   const callout = page.locator('div').filter({ hasText: /is concentrating — CON save DC/ }).last();
@@ -232,7 +232,9 @@ test('NPC spell-slot tally survives a reload and reaches a second DM tab', async
 
   // The tally is server state now.
   await page.reload();
-  await page.locator('li').filter({ hasText: 'Drow Mage' }).first().click();
+  // No click needed: the detail panel opens on the active participant, and the
+  // first click above made the mage active. Tapping its row again would close
+  // the panel.
   const afterReload = page.getByTestId('npc-spell-slots');
   await expect(afterReload.getByTitle('Restore slot')).toHaveCount(2);
   await expect(afterReload.getByTitle('Expend slot')).toHaveCount(1);
@@ -245,7 +247,6 @@ test('NPC spell-slot tally survives a reload and reaches a second DM tab', async
   // …and a second DM tab agrees, via the poll.
   const second = await newPageAs(browser, dm);
   await second.goto(`/c/${code}/encounters/${encounterId}`);
-  await second.locator('li').filter({ hasText: 'Drow Mage' }).first().click();
   await expect(second.getByTestId('npc-spell-slots').getByTitle('Restore slot')).toHaveCount(2);
 
   const state = (await (await dm.api.get(`/api/encounters/${encounterId}/state`)).json()) as {
