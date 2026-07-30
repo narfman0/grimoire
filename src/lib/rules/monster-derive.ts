@@ -33,6 +33,12 @@ export interface MonsterAction {
    *  "Wing Attack (Costs 2 Actions)" — parsed here so consumers get a
    *  number; absent means 1. */
   cost?: number;
+  /** Explicit save DC and ability, when the row states them outright.
+   *  Most statblocks only spell the save out in `description`, which
+   *  $lib/encounter/save-prose parses; these fields let a homebrew row
+   *  skip the prose-matching entirely. */
+  saveDC?: number;
+  saveAbility?: string;
 }
 
 export interface MonsterDerived {
@@ -212,6 +218,8 @@ function asActions(v: unknown): MonsterAction[] {
           }))
         : undefined,
       description: typeof a.description === 'string' ? a.description : undefined,
+      saveDC: typeof a.saveDC === 'number' ? a.saveDC : undefined,
+      saveAbility: typeof a.saveAbility === 'string' ? a.saveAbility : undefined,
       cost:
         typeof a.cost === 'number' && a.cost > 0
           ? Math.floor(a.cost)

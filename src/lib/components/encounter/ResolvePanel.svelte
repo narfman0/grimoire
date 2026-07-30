@@ -14,12 +14,19 @@
   import { recordRoll } from '$lib/client/dice-log';
   import RollResultChip from '$lib/components/dice/RollResultChip.svelte';
   import { DAMAGE_TYPES, normalizeDamageType } from '$lib/encounter/damage-resolution';
+  import { ABILITY_LABEL, saveForAction } from '$lib/encounter/save-prose';
+  import type { AbilityKey } from '$lib/rules/types';
 
   type StatblockAction = {
     name: string;
     attackBonus?: number;
     range?: string;
     damage?: Array<{ dice: string; type: string }>;
+    /** Prose the save DC is parsed out of; structured saveDC/saveAbility
+     *  win when the row carries them. See $lib/encounter/save-prose. */
+    description?: string;
+    saveDC?: number;
+    saveAbility?: string;
   };
   type ResolveParticipant = {
     id: string;
@@ -74,6 +81,10 @@
    *  Bound out so the parent can persist it on the log row; null when the DM
    *  typed the totals. */
   export let rollDetail: string | null = null;
+  /** Parent-supplied save bonuses: participant id → ability → bonus. PCs
+   *  come from their derived stats, monsters from the statblock's saves.
+   *  Absent entries roll a bare d20, which is what every row did before. */
+  export let saveBonuses: Record<string, Partial<Record<AbilityKey, number>>> = {};
 
   const dispatch = createEventDispatcher<{ submit: void; cancel: void }>();
 
@@ -146,13 +157,43 @@
     recordRoll(`${picked?.name ?? 'Damage'} (damage)`, result);
   }
 
-  /** Roll one target's saving throw. The DM has no derived stats for a PC
-   *  target here, so this rolls a bare d20 and the DM adds the modifier — the
-   *  same thing they'd do with physical dice. */
+  // ---- save DC + per-target save bonuses ----
+  //
+  // The action states its own DC — "must make a DC 15 Dexterity saving
+  // throw" — and the page already knows every target's save bonuses. Both
+  // used to be the DM's problem: retype the DC each round, and add each
+  // modifier to a bare d20 by hand.
+  $: pickedSave = saveForAction(picked);
+  /** True once the DM has typed a DC this resolution; their number always
+   *  wins over the parsed one. */
+  let saveDCTouched = false;
+  $: if (!saveDCTouched && pickedSave && saveDC !== pickedSave.dc) saveDC = pickedSave.dc;
+
+  /** The save bonus to add for one target, given the ability the action
+   *  calls for. Undefined ability (prose named none) or a target with no
+   *  stats → 0, i.e. the bare d20 this always rolled. */
+  function saveBonusFor(targetId: string): number {
+    const ability = pickedSave?.ability;
+    if (!ability) return 0;
+    return saveBonuses[targetId]?.[ability] ?? 0;
+  }
+
+  function saveBonusLabel(targetId: string): string {
+    const bonus = saveBonusFor(targetId);
+    if (!pickedSave?.ability) return '';
+    const sign = bonus >= 0 ? '+' : '';
+    return `${ABILITY_LABEL[pickedSave.ability]} ${sign}${bonus}`;
+  }
+
+  /** Roll one target's saving throw, including their bonus for the ability
+   *  the action calls for. A DM rolling physical dice still types the total;
+   *  this just saves the arithmetic. */
   function rollTargetSave(targetId: string) {
-    const result = rollD20(0);
+    const bonus = saveBonusFor(targetId);
+    const result = rollD20(bonus);
     targetSaveRolls = { ...targetSaveRolls, [targetId]: result.total };
-    recordRoll('Save', result);
+    const who = participants.find((q) => q.id === targetId)?.name ?? 'Target';
+    recordRoll(pickedSave?.ability ? `${who} ${ABILITY_LABEL[pickedSave.ability]} save` : 'Save', result);
   }
 
   /** One click for the whole AoE: roll every checked target's save. */
@@ -179,9 +220,10 @@
     attackRoll = null;
     damageRoll = null;
     rollDetail = null;
-    // A fresh action re-arms the type select even if the DM overrode it
-    // for the previous pick.
+    // A fresh action re-arms the type select and the DC even if the DM
+    // overrode them for the previous pick.
     damageTypeTouched = false;
+    saveDCTouched = false;
   }
 
   /** Standard non-attack action options every creature has. Picking one
@@ -258,12 +300,22 @@
             class="w-14 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono"
             placeholder="—"
             bind:value={saveDC}
+            on:input={() => (saveDCTouched = true)}
           />
         </label>
+        {#if pickedSave}
+          <span class="text-[10px] text-slate-500" data-testid="parsed-save">
+            from {picked?.name}{pickedSave.ability
+              ? ` · ${ABILITY_LABEL[pickedSave.ability]} save`
+              : ''}
+          </span>
+        {/if}
         {#if multiTargetIds.length > 0 && saveDC != null}
           <button
             class="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] hover:border-emerald-600 hover:text-emerald-200"
-            title="Roll a bare d20 for every checked target — add their modifiers"
+            title={pickedSave?.ability
+              ? "Roll every checked target's save, each with their own bonus"
+              : 'Roll a bare d20 for every checked target — add their modifiers'}
             on:click={rollAllSaves}
           >🎲 roll all</button>
         {/if}
@@ -301,6 +353,11 @@
                   }}
                 />
                 <span class="flex-1 truncate text-slate-300">{q.name}</span>
+                {#if pickedSave?.ability}
+                  <span class="font-mono text-[9px] text-slate-500" title="Applied by the 🎲">
+                    {saveBonusLabel(q.id)}
+                  </span>
+                {/if}
                 <input
                   type="number"
                   class="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center font-mono text-[10px]"
@@ -311,7 +368,9 @@
                 <button
                   class="rounded border border-slate-700 px-1 text-[10px] hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-30"
                   disabled={!checked}
-                  title="Roll a bare d20 for this target's save — add their modifier"
+                  title={pickedSave?.ability
+                    ? `Roll d20 ${saveBonusLabel(q.id)} for this target's save`
+                    : "Roll a bare d20 for this target's save — add their modifier"}
                   on:click={() => rollTargetSave(q.id)}
                 >🎲</button>
                 {#if outcome}

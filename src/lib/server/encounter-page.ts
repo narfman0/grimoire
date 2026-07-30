@@ -68,7 +68,18 @@ export async function buildEncounterPageData(
   );
   const statblockActions = new Map<
     string,
-    Array<{ name: string; attackBonus?: number; range?: string; damage?: Array<{ dice: string; type: string }> }>
+    Array<{
+      name: string;
+      attackBonus?: number;
+      range?: string;
+      damage?: Array<{ dice: string; type: string }>;
+      /** Prose, shipped so the resolve panel can pre-fill a save DC from
+       *  "DC 15 Dexterity saving throw" instead of making the DM retype it
+       *  every round (see $lib/encounter/save-prose). */
+      description?: string;
+      saveDC?: number;
+      saveAbility?: string;
+    }>
   >();
   // Full derived statblock per monster slug — UI uses this to render the
   // inline expandable sheet view next to each non-PC participant.
@@ -92,7 +103,10 @@ export async function buildEncounterPageData(
           name: a.name,
           attackBonus: a.attackBonus,
           range: a.range,
-          damage: a.damage
+          damage: a.damage,
+          description: a.description,
+          saveDC: a.saveDC,
+          saveAbility: a.saveAbility
         }))
       );
       monsterDex.set(r.slug, derived.abilityScores.dex);
@@ -633,7 +647,10 @@ export async function buildEncounterPageData(
                   name: a.name,
                   attackBonus: a.attackBonus,
                   range: a.range,
-                  damage: a.damage
+                  damage: a.damage,
+                  description: a.description,
+                  saveDC: a.saveDC,
+                  saveAbility: a.saveAbility
                 })),
             statblock,
             initiative: p.initiative,

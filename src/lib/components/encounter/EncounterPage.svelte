@@ -36,6 +36,7 @@
     type Grid
   } from '$lib/board/geometry';
   import { coverEffect } from '$lib/board/aoe';
+  import type { AbilityKey } from '$lib/rules/types';
   import {
     suggestLegendary,
     suggestTurn,
@@ -535,6 +536,30 @@
       }
     }
     return warnings;
+  })();
+
+  /** Save bonuses for every participant, keyed id → ability → bonus, for
+   *  the multi-save rows' 🎲. PCs carry them on their derived stats
+   *  (`saves[ability].bonus`); monsters carry a flat number per ability on
+   *  the derived statblock. Both were on the page already; the panel just
+   *  had no way to reach them, so every save rolled a bare d20 and the DM
+   *  added the modifier by hand. */
+  $: resolveSaveBonuses = ((): Record<string, Partial<Record<AbilityKey, number>>> => {
+    const out: Record<string, Partial<Record<AbilityKey, number>>> = {};
+    for (const p of liveParticipants) {
+      const pcSaves = data.participantPcStats?.[p.id]?.saves;
+      if (pcSaves) {
+        const row: Partial<Record<AbilityKey, number>> = {};
+        for (const [ability, entry] of Object.entries(pcSaves)) {
+          row[ability as AbilityKey] = entry.bonus;
+        }
+        out[p.id] = row;
+        continue;
+      }
+      const monsterSaves = p.statblock?.saves;
+      if (monsterSaves) out[p.id] = { ...monsterSaves };
+    }
+    return out;
   })();
 
   /** Cover the resolve target has from the acting participant, read off the
@@ -2800,6 +2825,7 @@
     targetCritImmune={pcCritImmune(resolveTargetId)}
     damagePreview={resolveDamagePreview}
     coverNote={resolveCoverNote}
+    saveBonuses={resolveSaveBonuses}
     bind:actionLabel={resolveActionLabel}
     bind:targetId={resolveTargetId}
     bind:attack={resolveAttack}

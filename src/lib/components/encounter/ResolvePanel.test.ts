@@ -17,6 +17,21 @@ const goblin = {
 };
 const hero = { id: 'pc-1', name: 'Hero', kind: 'pc' };
 
+const dragon = {
+  id: 'drg-1',
+  name: 'Wyrmling',
+  kind: 'monster',
+  statblockActions: [
+    {
+      name: 'Fire Breath',
+      description:
+        'Each creature in a 15-foot cone must make a DC 13 Dexterity saving throw, taking 16 fire damage on a failed save, or half as much on a successful one.',
+      damage: [{ dice: '4d6', type: 'fire' }]
+    },
+    { name: 'Bite', attackBonus: 4, damage: [{ dice: '1d10+3', type: 'piercing' }] }
+  ]
+};
+
 const baseProps = {
   participants: [goblin, hero],
   actingParticipantId: 'gob-1'
@@ -94,6 +109,70 @@ describe('ResolvePanel roll arming', () => {
       props: { ...baseProps, damagePreview: 'fire resisted (12 → 6)' }
     });
     expect(screen.getByTestId('damage-preview').textContent).toContain('fire resisted (12 → 6)');
+  });
+
+  // The DM used to retype the DC every round and add each target's modifier
+  // to a bare d20 by hand; both numbers were already on the page.
+  it('pre-fills the save DC and ability from the action prose', async () => {
+    render(ResolvePanel, {
+      props: {
+        participants: [dragon, hero],
+        actingParticipantId: 'drg-1',
+        actionLabel: 'Fire Breath'
+      }
+    });
+    const dcInput = screen.getByText('DC').parentElement!.querySelector('input') as HTMLInputElement;
+    expect(dcInput.value).toBe('13');
+    expect(screen.getByTestId('parsed-save').textContent).toContain('DEX save');
+  });
+
+  it("keeps the DM's typed DC, and re-arms it on a fresh action pick", async () => {
+    const { rerender } = render(ResolvePanel, {
+      props: { participants: [dragon, hero], actingParticipantId: 'drg-1' }
+    });
+    const dcInput = screen.getByText('DC').parentElement!.querySelector('input') as HTMLInputElement;
+    await fireEvent.input(dcInput, { target: { value: '19' } });
+    // The label moving on its own (plan seed, hand-typing) leaves it alone…
+    await rerender({ actionLabel: 'Fire Breath' });
+    expect(dcInput.value).toBe('19');
+    // …but clicking the chip is an explicit "resolve this action" and re-arms.
+    await fireEvent.click(screen.getByRole('button', { name: /Fire Breath/ }));
+    expect(dcInput.value).toBe('13');
+  });
+
+  it("rolls a target's save with their own bonus for the named ability", async () => {
+    render(ResolvePanel, {
+      props: {
+        participants: [dragon, hero],
+        actingParticipantId: 'drg-1',
+        actionLabel: 'Fire Breath',
+        // A +9 DEX save can't roll below 10, so the bonus is unmistakable.
+        saveBonuses: { 'pc-1': { dex: 9, con: 1 } }
+      }
+    });
+    await fireEvent.click(screen.getByRole('checkbox'));
+    await fireEvent.click(screen.getByTitle(/Roll d20 DEX \+9/));
+    const saveInput = screen.getByPlaceholderText('save') as HTMLInputElement;
+    expect(Number(saveInput.value)).toBeGreaterThanOrEqual(10);
+    expect(Number(saveInput.value)).toBeLessThanOrEqual(29);
+  });
+
+  it('rolls a bare d20 when the action names no save ability', async () => {
+    render(ResolvePanel, {
+      props: {
+        participants: [dragon, hero],
+        actingParticipantId: 'drg-1',
+        actionLabel: 'Bite',
+        saveDC: 12,
+        saveBonuses: { 'pc-1': { dex: 9 } }
+      }
+    });
+    await fireEvent.click(screen.getByRole('checkbox'));
+    await fireEvent.click(
+      screen.getByTitle("Roll a bare d20 for this target's save — add their modifier")
+    );
+    const saveInput = screen.getByPlaceholderText('save') as HTMLInputElement;
+    expect(Number(saveInput.value)).toBeLessThanOrEqual(20);
   });
 
   it('offers roll-all for checked multi-save targets', async () => {
