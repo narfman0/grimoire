@@ -365,6 +365,17 @@
    *  channel store exists with nulls from the first synchronous frame). */
   $: liveDungeon =
     liveState && liveState.participants !== null ? liveState.dungeon : data.dungeon ?? null;
+  /** The floor the panel's dispatched surface belongs to (0 on quick
+   *  boards). Geometry consumers — warnings, cover, OA, the optimizer —
+   *  only reason about tokens on this floor: two creatures at (3, 4) on
+   *  different floors are 3-D neighbours, not adjacent. */
+  $: surfaceFloor = liveBoardWire?.floorIdx ?? 0;
+  /** A participant's position, only when it is on the dispatched surface. */
+  function positionOnSurface(pid: string): { x: number; y: number; sizeCells: number } | null {
+    const pos = livePositions[pid];
+    if (!pos) return null;
+    return (pos.floor ?? 0) === surfaceFloor ? pos : null;
+  }
   $: liveBoardVersion =
     liveState && liveState.participants !== null
       ? liveState.boardVersion
@@ -638,7 +649,7 @@
       return [];
     }
     const warnings: string[] = [];
-    const pos = livePositions[p.id];
+    const pos = positionOnSurface(p.id);
     const plan = livePlans[p.id];
     if (pos && plan?.moveTo) {
       const reach = reachableCells(grid, { x: pos.x, y: pos.y }, speedFtOf(p));
@@ -649,7 +660,7 @@
       }
     }
     const actingCell = plan?.moveTo ?? (pos ? { x: pos.x, y: pos.y } : null);
-    const targetPos = resolveTargetId ? livePositions[resolveTargetId] : null;
+    const targetPos = resolveTargetId ? positionOnSurface(resolveTargetId) : null;
     if (actingCell && targetPos && resolveActionLabel) {
       const rangeFt = actionRangeFt(p, resolveActionLabel);
       if (rangeFt !== null) {
@@ -734,8 +745,8 @@
     if (!resolveForParticipantId || !resolveTargetId || !liveBoardWire) return null;
     if (resolveMultiTargetIds.length > 0) return null;
     const p = liveParticipants.find((q) => q.id === resolveForParticipantId);
-    const pos = p ? livePositions[p.id] : null;
-    const targetPos = livePositions[resolveTargetId];
+    const pos = p ? positionOnSurface(p.id) : null;
+    const targetPos = positionOnSurface(resolveTargetId);
     if (!p || !targetPos) return null;
     const from = livePlans[p.id]?.moveTo ?? (pos ? { x: pos.x, y: pos.y } : null);
     if (!from) return null;
@@ -836,7 +847,7 @@
     const out: SuggestCombatant[] = [];
     for (const q of liveParticipants) {
       if (q.id === excludeId) continue;
-      const pos = cells ? cells.get(q.id) : livePositions[q.id];
+      const pos = cells ? cells.get(q.id) : positionOnSurface(q.id);
       if (!pos) continue;
       const hp = liveHpMap[q.id];
       const cur = hp?.currentHp ?? q.currentHp;
@@ -845,7 +856,7 @@
         id: q.id,
         name: q.name,
         cell: { x: pos.x, y: pos.y },
-        sizeCells: cells ? 1 : livePositions[q.id].sizeCells,
+        sizeCells: cells ? 1 : positionOnSurface(q.id)?.sizeCells ?? 1,
         team: q.kind === 'pc' ? 'pc' : 'foe',
         ac,
         currentHp: cur ?? null,
@@ -861,7 +872,7 @@
     p: (typeof liveParticipants)[number],
     cells?: Map<string, { x: number; y: number }>
   ): SuggestActor | null {
-    const pos = cells ? cells.get(p.id) : livePositions[p.id];
+    const pos = cells ? cells.get(p.id) : positionOnSurface(p.id);
     if (!pos) return null;
     const actions = suggestActionsFrom(p.statblock?.actions ?? []);
     if (actions.length === 0) return null;
@@ -869,7 +880,7 @@
       id: p.id,
       name: p.name,
       cell: { x: pos.x, y: pos.y },
-      sizeCells: cells ? 1 : livePositions[p.id].sizeCells,
+      sizeCells: cells ? 1 : positionOnSurface(p.id)?.sizeCells ?? 1,
       team: p.kind === 'pc' ? 'pc' : 'foe',
       speedFt: speedFtOf(p),
       actions
@@ -1041,6 +1052,11 @@
     if (planSuppressesOa(plan)) return;
     const mover = liveParticipants.find((q) => q.id === moverId);
     if (!mover || !liveBoardWire) return;
+    // The path being judged happened on the mover's floor; without that
+    // floor's geometry on hand (it isn't the viewed surface) there is
+    // nothing sound to compute — skip rather than guess.
+    const moverFloor = livePositions[moverId]?.floor ?? 0;
+    if (moverFloor !== surfaceFloor) return;
     let grid: Grid;
     try {
       grid = decodeBoard({
@@ -1065,7 +1081,7 @@
     const others: ThreatenedBy[] = [];
     for (const q of liveParticipants) {
       if (q.id === moverId) continue;
-      const pos = livePositions[q.id];
+      const pos = positionOnSurface(q.id);
       if (!pos) continue;
       const hp = liveHpMap[q.id]?.currentHp;
       if (typeof hp === 'number' && hp <= 0) continue; // the downed don't swing

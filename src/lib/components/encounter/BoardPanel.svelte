@@ -17,6 +17,9 @@
      *  only non-dmOnly notes on revealed cells. */
     annotations?: Record<string, CellAnnotation>;
     version: number;
+    /** Which dungeon floor this surface is (0 for quick boards). Geometry
+     *  consumers scope themselves to participants on this floor. */
+    floorIdx?: number;
   }
 
   /** What the panel actually draws and edits — the quick board or one
@@ -187,7 +190,9 @@
   // shape they always did; on dungeons it is the *viewed* floor.
   $: dispatch(
     'boardChanged',
-    surface ? { encounterId, sourceMapId: null, ...surface } : null
+    surface
+      ? { encounterId, sourceMapId: null, ...surface, floorIdx: dungeon ? viewedFloor : 0 }
+      : null
   );
 
   /** Tokens standing on the drawing surface. */

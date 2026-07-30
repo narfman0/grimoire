@@ -38,7 +38,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (body.x !== null && body.y !== null) {
     const size = Math.max(1, part.sizeCells);
     if (enc.dungeonInstanceId) {
-      floor = body.floor ?? 0;
+      // Default to the floor the token already stands on, not floor 0 — a
+      // planned-move apply (which never names a floor) must slide the token
+      // across its own floor, not teleport it up the stairwell.
+      floor = body.floor ?? part.posFloor ?? 0;
       const f = await loadInstanceFloor(enc.dungeonInstanceId, floor);
       if (!f) throw error(400, `floor ${floor} does not exist`);
       if (body.x + size > f.w || body.y + size > f.h) {
