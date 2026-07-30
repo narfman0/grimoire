@@ -23,7 +23,16 @@ import { hasResourceBudget } from '$lib/rules/apply-grants';
 import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import { boardWire, loadEncounterBoard } from '$lib/server/encounter/board';
-import { visibleTokenPositions } from '$lib/encounter/board-visibility';
+import {
+  visibleTokenPositions,
+  visibleTokenPositionsOnFloors
+} from '$lib/encounter/board-visibility';
+import {
+  instanceWireLinks,
+  loadInstance,
+  loadInstanceFloors,
+  visibleFloorList
+} from '$lib/server/encounter/dungeon';
 
 export async function buildEncounterPageData(
   campaign: { id: string },
@@ -57,6 +66,16 @@ export async function buildEncounterPageData(
   // boardWire; token positions go through visibleTokenPositions — the same
   // two paths the /state poll and the board REST route use.
   const boardRow = await loadEncounterBoard(enc.id);
+  // Dungeon instance context (WS5): floor list + links only — floor tiles
+  // load lazily through GET .../floors/[idx] as the client views them.
+  const instance = enc.dungeonInstanceId ? await loadInstance(enc.dungeonInstanceId) : undefined;
+  const instanceFloors = instance ? await loadInstanceFloors(instance.id) : [];
+
+  /** One position-visibility call for both board shapes. */
+  const positionsFor = (rows: typeof partRows) =>
+    instance
+      ? visibleTokenPositionsOnFloors(rows, instanceFloors, isDM)
+      : visibleTokenPositions(rows, boardRow, isDM);
 
   // Pull each unique monster statblock's `actions` so the DM resolve panel
   // can offer a picker instead of free-text. We only ship the per-action
@@ -399,10 +418,7 @@ export async function buildEncounterPageData(
         // the visibility set; it's computed after this loop, so strip
         // against the raw inputs here.
         if (!isDM && (plan.moveTo || plan.path)) {
-          const visible =
-            Object.keys(
-              visibleTokenPositions([p], boardRow, false)
-            ).length > 0;
+          const visible = Object.keys(positionsFor([p])).length > 0;
           if (!visible) {
             delete plan.moveTo;
             delete plan.path;
@@ -636,10 +652,23 @@ export async function buildEncounterPageData(
       endedAt: enc.endedAt ? enc.endedAt.getTime() : null
     },
     board: boardRow ? boardWire(boardRow, isDM) : null,
-    participantPositions: visibleTokenPositions(
-      partRows.filter((p) => isDM || p.kind === 'pc' || !parseReveals(p.revealsJson).hidden),
-      boardRow,
-      isDM
+    dungeon: instance
+      ? {
+          instanceId: instance.id,
+          name: instance.name,
+          instanceVersion: instance.version,
+          floors: visibleFloorList(instanceFloors, isDM),
+          floorVersions: Object.fromEntries(
+            visibleFloorList(instanceFloors, isDM).map((f) => [
+              String(f.idx),
+              instanceFloors.find((r) => r.floorIdx === f.idx)?.version ?? 0
+            ])
+          ),
+          links: instanceWireLinks(instance, instanceFloors, isDM)
+        }
+      : null,
+    participantPositions: positionsFor(
+      partRows.filter((p) => isDM || p.kind === 'pc' || !parseReveals(p.revealsJson).hidden)
     ),
     participants: (() => {
       // Always assemble the DM-shaped row first; then for player viewers,

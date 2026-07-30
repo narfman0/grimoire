@@ -13,7 +13,18 @@ import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
 import { normalizeSpentPools } from '$lib/encounter/action-availability';
-import { visibleTokenPositions } from '$lib/encounter/board-visibility';
+import {
+  visibleTokenPositions,
+  visibleTokenPositionsOnFloors
+} from '$lib/encounter/board-visibility';
+import {
+  floorHasRevealedCell,
+  instanceWireLinks,
+  loadInstance,
+  loadInstanceFloors,
+  visibleFloorList
+} from '$lib/server/encounter/dungeon';
+import { WireFloorLink } from '$lib/server/api/dungeon-schemas';
 import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
@@ -115,6 +126,8 @@ const ParticipantResourcesSchema = z.record(z.string(), z.number().int().nonnega
 const ParticipantPositionSchema = z.object({
   x: z.number().int().nonnegative(),
   y: z.number().int().nonnegative(),
+  /** Dungeon floor the token stands on; 0 on quick boards. */
+  floor: z.number().int().nonnegative(),
   sizeCells: z.number().int().min(1)
 });
 
@@ -132,6 +145,21 @@ const EncounterStateResponse = z.object({
   participantLair: z.record(z.string(), z.boolean()),
   participantResources: z.record(z.string(), ParticipantResourcesSchema),
   positions: z.record(z.string(), ParticipantPositionSchema),
+  /** Attached dungeon instance (WS5); null for quick-board / mapless
+   *  encounters. `floorVersions` is the per-floor refetch signal (clients
+   *  re-GET only the floor they're viewing); the floor list and links are
+   *  role-filtered — players see floors with ≥1 revealed cell and links
+   *  with a revealed endpoint, nothing else. */
+  dungeon: z
+    .object({
+      instanceId: Uuid,
+      name: z.string(),
+      instanceVersion: z.number().int().nonnegative(),
+      floors: z.array(z.object({ idx: z.number().int(), name: z.string() })),
+      floorVersions: z.record(z.string(), z.number().int()),
+      links: z.array(WireFloorLink)
+    })
+    .nullable(),
   /** encounter_boards.version, or null when no board is attached. The
    *  client refetches GET .../board only when this bumps — the 2s poll
    *  stays a few bytes. */
@@ -145,7 +173,13 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
   const { id } = parseParams(params, Params);
 
   const encRows = await db
-    .select({ campaignId: schema.encounters.campaignId, round: schema.encounters.round, status: schema.encounters.status, activeParticipantId: schema.encounters.activeParticipantId })
+    .select({
+      campaignId: schema.encounters.campaignId,
+      round: schema.encounters.round,
+      status: schema.encounters.status,
+      activeParticipantId: schema.encounters.activeParticipantId,
+      dungeonInstanceId: schema.encounters.dungeonInstanceId
+    })
     .from(schema.encounters)
     .where(eq(schema.encounters.id, id))
     .limit(1);
@@ -175,6 +209,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       revealsJson: schema.participants.revealsJson,
       posX: schema.participants.posX,
       posY: schema.participants.posY,
+      posFloor: schema.participants.posFloor,
       sizeCells: schema.participants.sizeCells
     })
     .from(schema.participants)
@@ -194,6 +229,12 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     .where(eq(schema.encounterBoards.encounterId, id))
     .limit(1);
   const board = boardRows[0];
+
+  // Dungeon instance context (WS5). Floors carry fog + versions — the same
+  // roles the quick board's row plays, per floor; everything folds into the
+  // ETag so a fog stroke or a traversal invalidates player caches.
+  const instance = enc.dungeonInstanceId ? await loadInstance(enc.dungeonInstanceId) : undefined;
+  const instanceFloors = instance ? await loadInstanceFloors(instance.id) : [];
 
   // Players never receive hidden participants — the SSR loader filters them
   // out of the page data, and this poll endpoint must apply the same
@@ -246,6 +287,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
         enc.activeParticipantId ?? null,
         pcDocsUpdatedMax,
         board?.version ?? null,
+        instance ? [instance.version, instanceFloors.map((f) => [f.floorIdx, f.version])] : null,
         // Sort for a deterministic hash — SQLite row order is unspecified.
         [...partRows].sort((a, b) => (a.id < b.id ? -1 : 1))
       ])
@@ -474,7 +516,9 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
   // Token positions — shared redaction path with the SSR loader. Hidden
   // participants were already dropped from partRows above.
-  const positions = visibleTokenPositions(partRows, board, role === 'dm');
+  const positions = instance
+    ? visibleTokenPositionsOnFloors(partRows, instanceFloors, role === 'dm')
+    : visibleTokenPositions(partRows, board, role === 'dm');
 
   // Fog redaction for planned movement: a viewer who may not see a token's
   // position may not see where it intends to go either. Same visibility set
@@ -499,7 +543,21 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     participantLair,
     participantResources,
     positions,
-    boardVersion: board?.version ?? null
+    boardVersion: board?.version ?? null,
+    dungeon: instance
+      ? {
+          instanceId: instance.id,
+          name: instance.name,
+          instanceVersion: instance.version,
+          floors: visibleFloorList(instanceFloors, role === 'dm'),
+          floorVersions: Object.fromEntries(
+            instanceFloors
+              .filter((f) => role === 'dm' || floorHasRevealedCell(f))
+              .map((f) => [String(f.floorIdx), f.version])
+          ),
+          links: instanceWireLinks(instance, instanceFloors, role === 'dm')
+        }
+      : null
   };
 
   return json(body, { headers: { etag } });

@@ -206,7 +206,7 @@ describe('board data on GET /api/encounters/[id]/state', () => {
     // DM sees the position regardless of fog.
     const dmState = await (await STATE(makeEvent({ user: dm, params: { id: encounterId } }))).json();
     expect(dmState.boardVersion).toBe(1);
-    expect(Object.values(dmState.positions)).toEqual([{ x: 2, y: 0, sizeCells: 1 }]);
+    expect(Object.values(dmState.positions)).toEqual([{ x: 2, y: 0, sizeCells: 1, floor: 0 }]);
 
     // Player: the token sits in unrevealed fog → no position on the wire.
     const before = await STATE(makeEvent({ user: player, params: { id: encounterId } }));
@@ -228,7 +228,7 @@ describe('board data on GET /api/encounters/[id]/state', () => {
       makeEvent({ user: player, params: { id: encounterId } })
     );
     const playerAfter = await after.json();
-    expect(Object.values(playerAfter.positions)).toEqual([{ x: 2, y: 0, sizeCells: 1 }]);
+    expect(Object.values(playerAfter.positions)).toEqual([{ x: 2, y: 0, sizeCells: 1, floor: 0 }]);
     expect(playerAfter.boardVersion).toBe(2);
     expect(after.headers.get('etag')).not.toBe(playerEtag);
   });
