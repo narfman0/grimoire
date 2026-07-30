@@ -28,7 +28,14 @@
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
   import { hpBucket } from '$lib/realtime/reveals';
-  import { decodeBoard, distanceFt, reachableCells, type Grid } from '$lib/board/geometry';
+  import {
+    coverBetween,
+    decodeBoard,
+    distanceFt,
+    reachableCells,
+    type Grid
+  } from '$lib/board/geometry';
+  import { coverEffect } from '$lib/board/aoe';
   import {
     suggestLegendary,
     suggestTurn,
@@ -529,6 +536,59 @@
     }
     return warnings;
   })();
+
+  /** Cover the resolve target has from the acting participant, read off the
+   *  intervening tiles. The geometry has always been there (coverBetween);
+   *  only the optimizer was consulting it. Advisory: it's a reminder to add
+   *  the AC bonus before comparing the attack roll, not a modifier the app
+   *  applies — the DM types the roll they made.
+   *
+   *  Uses the acting participant's *planned* destination when they have one,
+   *  matching how the range warning above sights the shot. */
+  $: resolveCoverNote = ((): string | null => {
+    if (!resolveForParticipantId || !resolveTargetId || !liveBoardWire) return null;
+    if (resolveMultiTargetIds.length > 0) return null;
+    const p = liveParticipants.find((q) => q.id === resolveForParticipantId);
+    const pos = p ? livePositions[p.id] : null;
+    const targetPos = livePositions[resolveTargetId];
+    if (!p || !targetPos) return null;
+    const from = livePlans[p.id]?.moveTo ?? (pos ? { x: pos.x, y: pos.y } : null);
+    if (!from) return null;
+    let grid: Grid;
+    try {
+      grid = decodeBoard({
+        w: liveBoardWire.w,
+        h: liveBoardWire.h,
+        cellFt: liveBoardWire.cellFt,
+        tiles: liveBoardWire.tiles
+      });
+    } catch {
+      return null;
+    }
+    const effect = coverEffect(coverBetween(grid, from, { x: targetPos.x, y: targetPos.y }));
+    return effect.label || null;
+  })();
+
+  /** Hand a locked AoE template's caught participants to the resolve panel
+   *  as its multi-save target list, opening the panel for the active
+   *  participant if the DM hasn't already. */
+  function takeAoeTargets(detail: { participantIds: string[]; label: string }) {
+    if (data.role !== 'dm') return;
+    if (!resolveForParticipantId) {
+      const actor = liveParticipants.find((q) => q.id === liveActive);
+      if (!actor) return;
+      openResolve(actor);
+    }
+    // The caster isn't a target of their own burst by default — the DM can
+    // tick them back on if the template really does include them.
+    resolveMultiTargetIds = detail.participantIds.filter((id) => id !== resolveForParticipantId);
+    resolveTargetSaveRolls = {};
+    // The multi-save rows only render once a DC exists, so seed a
+    // placeholder rather than checking targets the DM can't see. Task #13
+    // will pre-fill this from the action's own DC.
+    if (resolveSaveDC == null) resolveSaveDC = 10;
+    if (!resolveActionLabel || resolveActionLabel === 'Ad-hoc') resolveActionLabel = detail.label;
+  }
 
   // ---- NPC turn optimizer ---------------------------------------------------
   //
@@ -2372,6 +2432,7 @@
   on:moveToken={onMoveToken}
   on:planMove={onPlanMove}
   on:boardChanged={(e) => (liveBoardWire = e.detail)}
+  on:aoeTargets={(e) => takeAoeTargets(e.detail)}
 />
 
 {#if liveStatus === 'live' && data.role === 'dm'}
@@ -2738,6 +2799,7 @@
     warnings={resolveWarnings}
     targetCritImmune={pcCritImmune(resolveTargetId)}
     damagePreview={resolveDamagePreview}
+    coverNote={resolveCoverNote}
     bind:actionLabel={resolveActionLabel}
     bind:targetId={resolveTargetId}
     bind:attack={resolveAttack}

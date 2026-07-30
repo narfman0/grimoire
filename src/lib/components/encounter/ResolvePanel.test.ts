@@ -79,6 +79,16 @@ describe('ResolvePanel roll arming', () => {
     expect(select.value).toBe('slashing');
   });
 
+  it('renders the board cover readout beside the target select', () => {
+    render(ResolvePanel, { props: { ...baseProps, coverNote: 'half cover — +2 AC' } });
+    expect(screen.getByTestId('cover-note').textContent).toContain('half cover — +2 AC');
+  });
+
+  it('shows no cover chip when the parent reports none', () => {
+    render(ResolvePanel, { props: baseProps });
+    expect(screen.queryByTestId('cover-note')).toBeNull();
+  });
+
   it('renders the parent-computed narrowing preview', () => {
     render(ResolvePanel, {
       props: { ...baseProps, damagePreview: 'fire resisted (12 → 6)' }

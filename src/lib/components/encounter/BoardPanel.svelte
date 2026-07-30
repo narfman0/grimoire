@@ -19,9 +19,10 @@
   // position writes (tokens arrive pre-redacted and pre-labeled, moves
   // leave as `moveToken` events).
   //
-  // Modes: tokens (drag + placement + planning overlays), ruler, and — DM
-  // only — fog (reveal brush, autosaves per stroke) and terrain (embedded
-  // painter, explicit save).
+  // Modes: tokens (drag + placement + planning overlays), ruler, AoE
+  // (template preview + caught-creature handoff to the resolve panel), and
+  // — DM only — fog (reveal brush, autosaves per stroke) and terrain
+  // (embedded painter, explicit save).
   import { createEventDispatcher } from 'svelte';
   import { api } from '$lib/client/api';
   import { confirmDialog } from '$lib/components/ui/confirm';
@@ -33,14 +34,17 @@
   import BoardPainter from '$lib/components/board/BoardPainter.svelte';
   import { encodeRuns } from '$lib/board/rle';
   import {
+    aoeCells,
     decodeBoard,
     distanceFt,
     footprintCells,
     pathTo,
     reachableCells,
     threatenedCells,
+    type AoeShape,
     type Grid
   } from '$lib/board/geometry';
+  import { AOE_PRESETS, tokensInCells } from '$lib/board/aoe';
   import { cellKey, type Cell } from '$lib/board/types';
 
   export let encounterId: string;
@@ -68,6 +72,9 @@
      *  refetch, detach) so the parent's geometry consumers (resolve
      *  warnings, turn suggestions) never work from a stale SSR board. */
     boardChanged: BoardWireShape | null;
+    /** A locked AoE template's caught participants, handed to the resolve
+     *  panel as its multi-save target list. */
+    aoeTargets: { participantIds: string[]; label: string };
   }>();
 
   let liveBoard: BoardWireShape | null = board;
@@ -80,11 +87,11 @@
   }
   $: dispatch('boardChanged', liveBoard);
   let collapsed = false;
-  type Mode = 'tokens' | 'ruler' | 'fog' | 'terrain';
+  type Mode = 'tokens' | 'ruler' | 'aoe' | 'fog' | 'terrain';
   let mode: Mode = 'tokens';
   let placing: string | null = null;
   let rulerAnchor: Cell | null = null;
-  let rulerHover: Cell | null = null;
+  let hoverCell: Cell | null = null;
   let overlaysOn = true;
 
   // --- keep the board fresh off the poll's change token -------------------
@@ -204,6 +211,18 @@
     };
   })();
   $: overlays = ((): OverlayLayer[] => {
+    // The AoE template owns the canvas while that tool is active — stacking
+    // reach and threat under it makes the burst unreadable.
+    if (mode === 'aoe') {
+      return aoeFootprint.length > 0
+        ? [
+            {
+              cells: aoeFootprint.map(cellKey),
+              color: aoeLocked ? 'rgba(251,146,60,0.42)' : 'rgba(251,146,60,0.26)'
+            }
+          ]
+        : [];
+    }
     if (!planContext) return [];
     const layers: OverlayLayer[] = [
       { cells: planContext.reach.costFt.keys(), color: 'rgba(52,211,153,0.18)' },
@@ -220,17 +239,102 @@
 
   // --- ruler ----------------------------------------------------------------
   $: ruler = ((): RulerLine | null => {
-    if (mode !== 'ruler' || !rulerAnchor || !rulerHover || !grid) return null;
+    if (mode !== 'ruler' || !rulerAnchor || !hoverCell || !grid) return null;
     return {
       a: rulerAnchor,
-      b: rulerHover,
-      label: `${distanceFt(grid, rulerAnchor, rulerHover)} ft`
+      b: hoverCell,
+      label: `${distanceFt(grid, rulerAnchor, hoverCell)} ft`
     };
   })();
 
+  // --- AoE templates --------------------------------------------------------
+  //
+  // The optimizer has been using aoeCells to score its own AoE picks since
+  // §F; this puts the same geometry under the DM's cursor. Sphere and cube
+  // centre on the hovered cell; cone and line project *from* a caster, so
+  // they need an origin — the selected token, or an explicit anchor click
+  // when nothing is selected.
+  let aoeShape: AoeShape = 'sphere';
+  let aoeSizeFt = 20;
+  /** Explicit origin for cone/line when no token is selected. */
+  let aoeAnchor: Cell | null = null;
+  /** Locked template — survives the cursor leaving the canvas so the DM can
+   *  read the caught list and hand it to the resolve panel. */
+  let aoeLocked: { origin: Cell; dir: Cell | null } | null = null;
+
+  $: aoeNeedsDirection = aoeShape === 'cone' || aoeShape === 'line';
+  /** Where the template emanates from, for the *live* (unlocked) preview. */
+  $: aoeOrigin = ((): Cell | null => {
+    if (mode !== 'aoe') return null;
+    if (aoeNeedsDirection) {
+      if (selectedToken) return { x: selectedToken.x, y: selectedToken.y };
+      return aoeAnchor;
+    }
+    return hoverCell;
+  })();
+  /** The template actually being displayed: the locked one if there is one,
+   *  otherwise whatever the cursor implies. */
+  $: aoeTemplate = ((): { origin: Cell; dir: Cell | null } | null => {
+    if (mode !== 'aoe' || !grid) return null;
+    if (aoeLocked) return aoeLocked;
+    if (!aoeOrigin) return null;
+    if (aoeNeedsDirection && !hoverCell) return null;
+    // Sphere ignores `dir`; cube reads it as a facing, and origin===dir
+    // (the cursor cell) means "centred here", which is what we want.
+    return { origin: aoeOrigin, dir: hoverCell };
+  })();
+  $: aoeFootprint =
+    grid && aoeTemplate
+      ? aoeCells(grid, aoeTemplate.origin, aoeShape, aoeSizeFt, aoeTemplate.dir ?? undefined)
+      : [];
+  /** Participants the locked template catches, in roster order. Only for a
+   *  locked template: a list that flickers under the cursor is unreadable
+   *  and the handoff button would be a moving target. */
+  $: aoeCaught =
+    aoeLocked && aoeFootprint.length > 0
+      ? tokensInCells(aoeFootprint, tokens).map((id) => ({
+          id,
+          name: tokens.find((t) => t.id === id)?.title ?? tokens.find((t) => t.id === id)?.label ?? id
+        }))
+      : [];
+  $: aoeLabel = `${aoeShape} ${aoeSizeFt} ft`;
+
+  function resetAoe() {
+    aoeLocked = null;
+    aoeAnchor = null;
+  }
+
+  function applyAoePreset(value: string) {
+    const preset = AOE_PRESETS[Number(value)];
+    if (!preset) return;
+    aoeShape = preset.shape;
+    aoeSizeFt = preset.sizeFt;
+    aoeLocked = null;
+  }
+
   function onCellClick(cell: Cell) {
     if (mode === 'ruler') {
-      rulerAnchor = rulerAnchor && rulerHover ? null : cell;
+      rulerAnchor = rulerAnchor && hoverCell ? null : cell;
+      return;
+    }
+    if (mode === 'aoe') {
+      // Locked → clicking anywhere releases. Cone/line with no caster and
+      // no anchor yet → this click is the anchor. Otherwise lock here.
+      if (aoeLocked) {
+        aoeLocked = null;
+        return;
+      }
+      if (aoeNeedsDirection && !selectedToken && !aoeAnchor) {
+        aoeAnchor = cell;
+        return;
+      }
+      const origin = aoeNeedsDirection
+        ? selectedToken
+          ? { x: selectedToken.x, y: selectedToken.y }
+          : aoeAnchor
+        : cell;
+      if (!origin) return;
+      aoeLocked = { origin, dir: cell };
       return;
     }
     if (mode === 'tokens' && placing) {
@@ -285,6 +389,17 @@
           }}
         >
           📏 Ruler
+        </button>
+        <button
+          class="rounded border px-2 py-0.5 text-xs {mode === 'aoe'
+            ? 'border-orange-500 text-orange-200'
+            : 'border-slate-700 text-slate-400 hover:text-slate-200'}"
+          on:click={() => {
+            mode = 'aoe';
+            resetAoe();
+          }}
+        >
+          💥 AoE
         </button>
         {#if role === 'dm'}
           <button
@@ -413,6 +528,66 @@
           on:save={(e) => patchBoard({ tiles: e.detail.tiles })}
         />
       {:else}
+        {#if mode === 'aoe'}
+          <div
+            class="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400"
+            data-testid="aoe-controls"
+          >
+            <select
+              class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5"
+              aria-label="AoE shape"
+              bind:value={aoeShape}
+              on:change={() => (aoeLocked = null)}
+            >
+              <option value="sphere">sphere</option>
+              <option value="cone">cone</option>
+              <option value="line">line</option>
+              <option value="cube">cube</option>
+            </select>
+            <label class="flex items-center gap-1">
+              <input
+                type="number"
+                min="5"
+                max="200"
+                step="5"
+                class="w-16 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-center"
+                aria-label="AoE size in feet"
+                bind:value={aoeSizeFt}
+                on:input={() => (aoeLocked = null)}
+              />
+              ft
+            </label>
+            <select
+              class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5"
+              aria-label="AoE preset"
+              on:change={(e) => applyAoePreset(e.currentTarget.value)}
+            >
+              <option value="">— preset —</option>
+              {#each AOE_PRESETS as p, i}
+                <option value={String(i)}>{p.label}</option>
+              {/each}
+            </select>
+            {#if aoeLocked}
+              <button
+                class="rounded border border-slate-700 px-1.5 py-0.5 hover:text-slate-200"
+                on:click={resetAoe}
+              >
+                clear
+              </button>
+            {/if}
+            <span class="text-slate-600">
+              {#if aoeLocked}
+                · locked — {aoeFootprint.length} cell(s)
+              {:else if aoeNeedsDirection && !selectedToken && !aoeAnchor}
+                · click the caster's cell, then aim
+              {:else if aoeNeedsDirection}
+                · aim from {selectedToken ? 'the selected token' : 'the anchor'}, click to lock
+              {:else}
+                · hover to aim, click to lock
+              {/if}
+            </span>
+          </div>
+        {/if}
         {#if unplaced.length > 0 && mode === 'tokens'}
           <div class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
             place:
@@ -446,12 +621,40 @@
           ruler={ruler}
           on:tokendrop={(e) => dispatch('moveToken', e.detail)}
           on:cellclick={(e) => onCellClick(e.detail)}
-          on:cellhover={(e) => (rulerHover = e.detail ?? rulerHover)}
+          on:cellhover={(e) => (hoverCell = e.detail ?? hoverCell)}
         />
         {#if mode === 'ruler'}
           <p class="mt-1 text-[10px] text-slate-600">
             Click to anchor the ruler, click again to clear.
           </p>
+        {/if}
+        {#if mode === 'aoe' && aoeLocked}
+          <div class="mt-2 rounded border border-orange-900/60 bg-orange-950/20 p-2" data-testid="aoe-caught">
+            {#if aoeCaught.length === 0}
+              <p class="text-[11px] text-slate-500">Nothing caught in the template.</p>
+            {:else}
+              <div class="mb-1 flex flex-wrap items-center gap-1 text-[11px]">
+                <span class="text-slate-500">Caught ({aoeCaught.length}):</span>
+                {#each aoeCaught as c (c.id)}
+                  <span class="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-slate-300">
+                    {c.name}
+                  </span>
+                {/each}
+              </div>
+              {#if role === 'dm'}
+                <button
+                  class="rounded border border-orange-700 bg-orange-900/40 px-2 py-0.5 text-[11px] text-orange-200 hover:border-orange-500"
+                  on:click={() =>
+                    dispatch('aoeTargets', {
+                      participantIds: aoeCaught.map((c) => c.id),
+                      label: aoeLabel
+                    })}
+                >
+                  → check all as multi-save targets
+                </button>
+              {/if}
+            {/if}
+          </div>
         {/if}
       {/if}
     {/if}

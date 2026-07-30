@@ -40,6 +40,11 @@
   export let warnings: string[] = [];
   /** Parent-computed: the currently picked single target is crit-immune. */
   export let targetCritImmune = false;
+  /** Parent-computed cover the target has from the acting participant,
+   *  read off the board's intervening tiles ('half cover — +2 AC'). Null
+   *  when there's no board, no placement, or no cover. Advisory: add the
+   *  bonus to the target's AC before comparing the attack roll. */
+  export let coverNote: string | null = null;
   /** Parent-computed preview of what the target's defences will do to the
    *  damage entered above ('fire resisted (12 → 6)'); null when nothing
    *  applies. Advisory — the narrowing is applied at HP-application time
@@ -348,6 +353,15 @@
         {/each}
       </select>
     </label>
+    {#if coverNote}
+      <span
+        class="self-end rounded border border-slate-600 bg-slate-950 px-2 py-1 text-xs text-slate-300"
+        data-testid="cover-note"
+        title="From the board's intervening tiles — add it to the target's AC yourself"
+      >
+        🛡 {coverNote}
+      </span>
+    {/if}
     <label class="text-xs">
       <span class="block text-slate-400">Attack</span>
       <span class="flex items-center gap-1">
