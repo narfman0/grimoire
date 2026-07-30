@@ -32,7 +32,7 @@
     type RulerLine
   } from '$lib/components/board/BoardCanvas.svelte';
   import BoardPainter from '$lib/components/board/BoardPainter.svelte';
-  import { encodeRuns } from '$lib/board/rle';
+  import { decodeRuns, encodeRuns } from '$lib/board/rle';
   import {
     aoeCells,
     decodeBoard,
@@ -45,6 +45,7 @@
     type Grid
   } from '$lib/board/geometry';
   import { AOE_PRESETS, tokensInCells } from '$lib/board/aoe';
+  import { revealVisible, visibleFromAny } from '$lib/board/vision';
   import { cellKey, type Cell } from '$lib/board/types';
 
   export let encounterId: string;
@@ -172,6 +173,54 @@
   function bulkFog(bit: 0 | 1) {
     if (!liveBoard) return;
     void patchBoard({ revealed: encodeRuns(new Array(liveBoard.w * liveBoard.h).fill(bit)) });
+  }
+
+  // --- fog auto-reveal from PC line of sight ---------------------------------
+  //
+  // With this on, the DM stops hand-brushing corridors: whenever the party's
+  // token positions change, whatever the PCs can see is ORed into the fog
+  // mask. Fog only grows — a room the party walked through stays revealed
+  // after they leave, which is how table fog behaves.
+  //
+  // Applied from the DM tab rather than server-side on the position write:
+  // it needs no schema column for the toggle, and the DM's tab is the fog
+  // writer in practice anyway. Players never run it (the button is DM-only),
+  // so two DM tabs are the only concurrency, and the PATCH is idempotent —
+  // ORing the same cells twice is a no-op that skips the write entirely.
+  //
+  // One consequence worth knowing at the table: "Hide all" while this is on
+  // re-reveals everything the party can currently see on the next tick. Turn
+  // the toggle off first to black out a map they're standing on.
+  let autoReveal = false;
+  /** Signature of the PC token layout the last reveal ran against, so a
+   *  poll tick that changes nothing doesn't re-walk the board. */
+  let lastRevealSig = '';
+  let revealing = false;
+
+  $: pcVisionCells = tokens
+    .filter((t) => (t.team ?? 'foe') === 'pc')
+    .map((t) => ({ x: t.x, y: t.y }));
+
+  $: if (autoReveal && role === 'dm' && liveBoard && grid && !revealing) {
+    const sig = `${liveBoard.version}:${pcVisionCells.map((c) => `${c.x},${c.y}`).join('|')}`;
+    if (sig !== lastRevealSig) {
+      lastRevealSig = sig;
+      applyAutoReveal(liveBoard, grid, pcVisionCells);
+    }
+  }
+
+  function applyAutoReveal(b: BoardWireShape, g: Grid, froms: Cell[]) {
+    if (froms.length === 0) return;
+    let fog: Uint16Array;
+    try {
+      fog = decodeRuns(b.revealed, b.w * b.h);
+    } catch {
+      return; // corrupt mask: leave it to the DM's brush rather than guessing
+    }
+    const next = revealVisible(fog, visibleFromAny(g, froms), b.w, b.h);
+    if (!next) return; // already lit — no version bump, no refetch storm
+    revealing = true;
+    void patchBoard({ revealed: encodeRuns(next) }).finally(() => (revealing = false));
   }
 
   // --- planning overlays ----------------------------------------------------
@@ -417,6 +466,16 @@
             on:click={() => (mode = 'terrain')}
           >
             ⛰ Terrain
+          </button>
+          <button
+            class="rounded border px-2 py-0.5 text-xs {autoReveal
+              ? 'border-amber-500 text-amber-200'
+              : 'border-slate-700 text-slate-400 hover:text-slate-200'}"
+            on:click={() => (autoReveal = !autoReveal)}
+            title="Reveal what the party can see as they move. Fog only grows — revealed stays revealed."
+            data-testid="auto-reveal-toggle"
+          >
+            🔭 Auto-reveal{autoReveal ? ' on' : ''}
           </button>
           <button
             class="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200"
