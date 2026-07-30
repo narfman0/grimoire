@@ -70,6 +70,7 @@
     type ConditionTimer
   } from '$lib/encounter/condition-timers';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
+  import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
   import { applyReorderPatches, reorderInitiative } from '$lib/encounter/reorder';
   import { initiativeCompare } from '$lib/realtime/participants';
@@ -1522,7 +1523,10 @@
     if (current !== prevActive) {
       if (prevActive != null) {
         const leaving = liveParticipants.find((q) => q.id === prevActive);
-        if (leaving) resetEconomy(leaving);
+        if (leaving) {
+          resetEconomy(leaving);
+          enqueueLegendaryPrompts(leaving);
+        }
       }
       prevActive = current;
     }
@@ -1720,6 +1724,68 @@
   $: lairReminderKey = `${liveRound}:${liveActive ?? ''}`;
   $: showLairReminder = lairReminder !== null && lairReminderDismissedFor !== lairReminderKey;
 
+  // ---- end-of-turn legendary prompts --------------------------------------
+  //
+  // RAW: a legendary creature can take one legendary action at the end of
+  // another creature's turn, budget permitting. When a PC's turn ends, queue
+  // one prompt per legendary creature with budget left (DM-only; same
+  // head-of-queue pattern as the reaction and condition-expiry prompts).
+  // Raised keys dedupe per (round, ending turn, creature) so polls and
+  // re-renders don't re-raise a skipped prompt.
+  type LegendaryPrompt = { key: string; participantId: string };
+  let legendaryPrompts: LegendaryPrompt[] = [];
+  const raisedLegendaryKeys = new Set<string>();
+
+  /** Per-round budget from the statblock; falls back to the standard 3 for
+   *  rows serialized before `legendaryBudget` existed. */
+  function legendaryBudgetFor(p: { statblock?: { legendaryBudget?: number; legendaryActions?: unknown[] } | null }): number {
+    const sb = p.statblock;
+    if (!sb) return 0;
+    if (typeof sb.legendaryBudget === 'number') return sb.legendaryBudget;
+    return (sb.legendaryActions?.length ?? 0) > 0 ? 3 : 0;
+  }
+
+  function enqueueLegendaryPrompts(leaving: { id: string; kind: string }) {
+    if (data.role !== 'dm' || liveStatus !== 'live' || leaving.kind !== 'pc') return;
+    for (const q of liveParticipants) {
+      if (q.kind === 'pc' || q.id === leaving.id) continue;
+      const budget = legendaryBudgetFor(q);
+      if (budget <= 0) continue;
+      const remaining = budget - legendaryUsedForRound(economyFor(q.id), liveRound);
+      if (remaining <= 0) continue;
+      const hp = liveHpMap[q.id]?.currentHp;
+      if (typeof hp === 'number' && hp <= 0) continue; // defeated creatures don't act
+      const key = `${liveRound}:${leaving.id}:${q.id}`;
+      if (raisedLegendaryKeys.has(key)) continue;
+      raisedLegendaryKeys.add(key);
+      legendaryPrompts = [...legendaryPrompts, { key, participantId: q.id }];
+    }
+  }
+
+  /** Spend the chosen legendary action: cost-aware counter write + action
+   *  log entry. One legendary action per trigger moment (RAW), so either
+   *  answer shifts the queue. */
+  function useLegendaryAction(prompt: LegendaryPrompt, action: { name: string; cost: number }) {
+    const p = liveParticipants.find((q) => q.id === prompt.participantId);
+    if (p) {
+      const used = legendaryUsedForRound(economyFor(p.id), liveRound);
+      setLegendaryUsed(p, used + action.cost);
+      api
+        .post(`/api/encounters/${data.encounter.id}/log`, {
+          participantId: p.id,
+          actionId: 'legendary',
+          actionLabel: `★ ${action.name}`.slice(0, 200),
+          round: liveRound,
+          notes: ''
+        })
+        .then(() => invalidateAll())
+        .catch(() => {
+          // api() already toasted; the counter write stands
+        });
+    }
+    legendaryPrompts = legendaryPrompts.slice(1);
+  }
+
   // Legendary action tracker. Persisted on the monster participant (see
   // $lib/realtime/economy) with the round it was written in, so it survives
   // a reload, agrees across DM tabs, and reads as spent-nothing again on
@@ -1793,14 +1859,6 @@
 
 {#if data.role === 'dm'}
   <EncounterDifficultyPanel {difficulty} loading={difficultyLoading} />
-{/if}
-
-{#if showLairReminder && lairReminder}
-  <LairActionReminder
-    sourceNames={lairReminder.sourceNames}
-    hasLair={lairReminder.hasLair}
-    on:dismiss={() => (lairReminderDismissedFor = lairReminderKey)}
-  />
 {/if}
 
 {#if liveStatus === 'live' && data.role === 'dm'}
@@ -2011,7 +2069,7 @@
 
       <!-- Legendary actions tracker (DM only, non-PC with legendary actions) -->
       {#if data.role === 'dm' && !isPc && (p.statblock?.legendaryActions?.length ?? 0) > 0}
-        {@const legMax = 3}
+        {@const legMax = legendaryBudgetFor(p)}
         <LegendaryActionTracker
           legendaryActions={p.statblock?.legendaryActions ?? []}
           used={legendaryUsedForRound(economyByParticipant[p.id], liveRound)}
@@ -2158,6 +2216,43 @@
       closeResolve();
     }}
   />
+{/if}
+
+<!-- The "DM, it's the monster's moment" channel: the initiative-20 lair
+     reminder and the end-of-turn legendary prompts render in the same slot
+     as the other DM prompt queues, so every monster beat surfaces in one
+     consistent place. -->
+{#if showLairReminder && lairReminder}
+  <LairActionReminder
+    sourceNames={lairReminder.sourceNames}
+    hasLair={lairReminder.hasLair}
+    on:dismiss={() => (lairReminderDismissedFor = lairReminderKey)}
+  />
+{/if}
+
+{#if legendaryPrompts.length > 0 && data.role === 'dm'}
+  {@const legPrompt = legendaryPrompts[0]}
+  {@const legP = liveParticipants.find((q) => q.id === legPrompt.participantId)}
+  {#if legP}
+    {@const legBudget = legendaryBudgetFor(legP)}
+    {@const legRemaining = Math.max(
+      0,
+      legBudget - legendaryUsedForRound(economyByParticipant[legP.id], liveRound)
+    )}
+    <LegendaryPromptCard
+      participantName={legP.name}
+      budget={legBudget}
+      remaining={legRemaining}
+      actions={(legP.statblock?.legendaryActions ?? []).map((a) => ({
+        name: a.name,
+        cost: a.cost ?? 1,
+        affordable: (a.cost ?? 1) <= legRemaining
+      }))}
+      queuedBehind={legendaryPrompts.length - 1}
+      on:use={(e) => useLegendaryAction(legPrompt, e.detail)}
+      on:skip={() => (legendaryPrompts = legendaryPrompts.slice(1))}
+    />
+  {/if}
 {/if}
 
 {#if conditionExpiryPrompts.length > 0 && data.role === 'dm'}

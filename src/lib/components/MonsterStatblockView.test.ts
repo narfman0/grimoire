@@ -20,6 +20,7 @@ const acOnlyStatblock: MonsterDerived = {
   traits: [],
   actions: [],
   legendaryActions: [],
+  legendaryBudget: 0,
   reactions: [],
   damageImmunities: [],
   damageResistances: [],

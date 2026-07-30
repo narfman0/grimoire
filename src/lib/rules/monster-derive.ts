@@ -29,6 +29,10 @@ export interface MonsterAction {
   attackBonus?: number;
   damage?: Array<{ dice: string; type: string }>;
   description?: string;
+  /** Legendary-action cost. Statblocks carry it as a name suffix —
+   *  "Wing Attack (Costs 2 Actions)" — parsed here so consumers get a
+   *  number; absent means 1. */
+  cost?: number;
 }
 
 export interface MonsterDerived {
@@ -52,6 +56,10 @@ export interface MonsterDerived {
   traits: Array<{ name: string; description?: string }>;
   actions: MonsterAction[];
   legendaryActions: MonsterAction[];
+  /** Legendary actions per round. Explicit `legendaryActionCount` on the
+   *  row wins, then the "can take N legendary actions" preamble prose, then
+   *  the standard 3 for any creature with legendary actions; 0 otherwise. */
+  legendaryBudget: number;
   reactions: MonsterAction[];
   damageImmunities: string[];
   damageResistances: string[];
@@ -98,6 +106,13 @@ function asStringArray(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === 'string');
 }
 
+/** "Wing Attack (Costs 2 Actions)" → 2. Absent or unparseable → undefined
+ *  (readers treat that as 1). */
+function costFromName(name: string): number | undefined {
+  const m = /\(costs\s+(\d+)\s+actions?\)/i.exec(name);
+  return m ? Number(m[1]) : undefined;
+}
+
 function asActions(v: unknown): MonsterAction[] {
   if (!Array.isArray(v)) return [];
   return v
@@ -114,11 +129,41 @@ function asActions(v: unknown): MonsterAction[] {
             type: String(d.type ?? '')
           }))
         : undefined,
-      description: typeof a.description === 'string' ? a.description : undefined
+      description: typeof a.description === 'string' ? a.description : undefined,
+      cost:
+        typeof a.cost === 'number' && a.cost > 0
+          ? Math.floor(a.cost)
+          : costFromName(String(a.name ?? ''))
     }));
 }
 
+const WORD_NUMBERS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6
+};
+
+/** The per-round legendary-action budget. No row in the known corpus carries
+ *  the "can take N legendary actions" preamble in machine-readable form, so
+ *  the standard 3 is the fallback whenever the creature has legendary
+ *  actions at all; an explicit count or recognizable prose overrides. */
+function legendaryBudgetOf(data: Record<string, unknown>, actions: MonsterAction[]): number {
+  if (typeof data.legendaryActionCount === 'number' && data.legendaryActionCount >= 0) {
+    return Math.floor(data.legendaryActionCount);
+  }
+  const prose = [data.legendaryDescription, data.legendaryActionsDescription].find(
+    (v): v is string => typeof v === 'string'
+  );
+  if (prose) {
+    const m = /can take (\w+) legendary actions/i.exec(prose);
+    if (m) {
+      const n = WORD_NUMBERS[m[1].toLowerCase()] ?? Number(m[1]);
+      if (Number.isFinite(n) && n > 0) return Math.floor(n);
+    }
+  }
+  return actions.length > 0 ? 3 : 0;
+}
+
 export function monsterDerive(data: Record<string, unknown>): MonsterDerived {
+  const legendaryActions = asActions(data.legendaryActions);
   const scores: Record<AbilityKey, number> = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
   const rawScores = (data.abilityScores as Record<string, number> | undefined) ?? {};
   for (const ab of ABILITIES) {
@@ -177,7 +222,8 @@ export function monsterDerive(data: Record<string, unknown>): MonsterDerived {
         }))
       : [],
     actions: asActions(data.actions),
-    legendaryActions: asActions(data.legendaryActions),
+    legendaryActions,
+    legendaryBudget: legendaryBudgetOf(data, legendaryActions),
     reactions: asActions(data.reactions),
     damageImmunities: asStringArray(data.damageImmunities),
     damageResistances: asStringArray(data.damageResistances),
