@@ -34,6 +34,9 @@
   export let concLabel: string | null;
   export let liveCurrentHp: number | null | undefined;
   export let liveTempHp: number | undefined;
+  /** Server-computed health band from the poll. Authoritative for a viewer
+   *  who isn't shown the numbers — they receive this and nothing else. */
+  export let liveHpBucket: string | undefined = undefined;
   export let editingInitiative: boolean;
   export let busy: boolean;
   /** DM-only manual reorder. The parent owns the list and computes the
@@ -63,6 +66,9 @@
     return (e.currentTarget as HTMLInputElement).value;
   }
 
+  /** The band to show. Prefers the live/SSR value the server computed, since
+   *  a viewer who may not see the numbers receives only that; falls back to
+   *  bucketing the numbers when they are visible and fresher than the poll. */
   function bucketFor(current: number | null | undefined, max: number | null, fallback: HpBucket | string | null | undefined): HpBucket {
     const computed = computeHpBucket(current ?? null, max ?? null);
     if (computed !== 'unknown') return computed;
@@ -164,7 +170,7 @@
       </span>
     {/if}
   {:else}
-    <HpBucketBadge value={bucketFor(liveCurrentHp, p.maxHp, p.hpBucket)} />
+    <HpBucketBadge value={bucketFor(liveCurrentHp, p.maxHp, liveHpBucket ?? p.hpBucket)} />
   {/if}
   {#if role === 'dm'}
     <button

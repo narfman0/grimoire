@@ -19,7 +19,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
-  import { hpBucket } from '$lib/realtime/reveals';
+  import { hpBucket, type HpBucket } from '$lib/realtime/reveals';
   import {
     connectEncounter,
     type ConnectedEncounter,
@@ -242,7 +242,12 @@
             </span>
           {:else}
             <span class="shrink-0">
-              <HpBucketBadge value={hpBucket(p.currentHp, p.maxHp)} size="lg" />
+              <!-- The band comes from the server: an unrevealed row's exact
+                   HP never reaches this screen to be bucketed here. -->
+              <HpBucketBadge
+                value={(p.hpBucket as HpBucket | null) ?? hpBucket(p.currentHp, p.maxHp)}
+                size="lg"
+              />
             </span>
           {/if}
         </li>

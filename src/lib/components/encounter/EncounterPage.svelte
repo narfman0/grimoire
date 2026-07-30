@@ -97,6 +97,7 @@
   } from '$lib/encounter/condition-timers';
   import BoardPanel, { type BoardWireShape } from './BoardPanel.svelte';
   import type { TokenBadge } from '$lib/components/board/BoardCanvas.svelte';
+  import { liveEncounterRound } from '$lib/client/encounter-round';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import OpportunityPromptCard from './OpportunityPromptCard.svelte';
@@ -218,10 +219,15 @@
   onDestroy(() => {
     conn?.destroy();
     conn = null;
+    liveEncounterRound.set(null);
   });
 
   // Effective values: SSE snapshot when available, fall back to SSR seed.
   $: liveRound = liveState?.round ?? data.encounter.round;
+  // Publish the live round for the layout's dice tray, which stamps shared
+  // rolls with it. Its own `$page.data` copy is the SSR value and rounds
+  // advance without re-running the load, so a round-4 share logged as round 1.
+  $: liveEncounterRound.set({ encounterId: data.encounter.id, round: liveRound });
   $: liveActive = liveState?.activeParticipantId ?? data.encounter.activeParticipantId;
   $: liveStatus = liveState?.status ?? data.encounter.status;
   $: livePlans = liveState?.plans ?? {};
@@ -425,7 +431,10 @@
         label: initialsOf(name),
         title: notes.length > 0 ? `${name} — ${notes.join(' · ')}` : name,
         color: TOKEN_COLORS[p.kind] ?? TOKEN_COLORS.monster,
-        ring: BUCKET_RING[hpBucket(cur, max)] ?? null,
+        // Prefer the server-computed band — the poll's, then the SSR row's:
+        // a player looking at an unrevealed monster receives only that, so
+        // bucketing the (redacted, null) numbers here would blank the ring.
+        ring: BUCKET_RING[hp?.hpBucket ?? p.hpBucket ?? hpBucket(cur, max)] ?? null,
         active: p.id === liveActive,
         selected: p.id === selectedId,
         badges,
@@ -439,23 +448,34 @@
 
   /** Token footprint by creature size, applied once at first placement. */
   const SIZE_CELLS: Record<string, number> = { large: 2, huge: 3, gargantuan: 4 };
-  function onMoveToken(e: CustomEvent<{ id: string; x: number; y: number }>) {
+  async function onMoveToken(e: CustomEvent<{ id: string; x: number; y: number }>) {
     const { id, x, y } = e.detail;
     if (!conn) return;
     const p = liveParticipants.find((q) => q.id === id);
-    if (data.role === 'dm' && p && !livePositions[id]) {
+    const cur = livePositions[id];
+    let sizeCells = cur?.sizeCells;
+    if (data.role === 'dm' && p && !cur) {
       const size = SIZE_CELLS[(p.statblock?.size ?? '').toLowerCase()];
       if (size && size > 1) {
-        void api
-          .patch(`/api/encounters/${data.encounter.id}/participants/${id}`, { sizeCells: size })
-          .catch(() => {});
+        // Awaited, not fired alongside: the position route bounds-checks the
+        // footprint against the *stored* size, so an Ogre dropped near the
+        // right edge used to 400 or not depending on which request landed
+        // first. Carrying the size into the optimistic entry below also stops
+        // the token drawing 1×1 until the next poll.
+        try {
+          await api.patch(`/api/encounters/${data.encounter.id}/participants/${id}`, {
+            sizeCells: size
+          });
+          sizeCells = size;
+        } catch {
+          // api() already toasted; place at 1×1 rather than not at all
+        }
       }
     }
     // A drag is a move like any other: if it leaves an enemy's reach, the
     // enemy gets asked. First placement (no prior position) never provokes.
-    const cur = livePositions[id];
     if (cur) raiseOaPrompts(id, { x: cur.x, y: cur.y }, { x, y }, null, livePlans[id] ?? null);
-    conn.setPosition(id, { x, y }).catch(() => {});
+    conn.setPosition(id, { x, y, ...(sizeCells ? { sizeCells } : {}) }).catch(() => {});
   }
 
   function speedFtOf(p: {
@@ -590,6 +610,29 @@
     }
     return warnings;
   })();
+
+  /** The participant list the resolve panel gets: `liveParticipants` with PC
+   *  rows' `statblockActions` synthesized from their derived actions.
+   *
+   *  The panel's action chips and 🎲 buttons read `statblockActions`, which is
+   *  monster-only — so a PC's turn resolved with dead roll buttons and the DM
+   *  looking their attack bonus up on the sheet. The derived rows carry the
+   *  same dice; this maps them into the shape the panel already speaks. */
+  $: resolveParticipants = liveParticipants.map((p) => {
+    if (p.kind !== 'pc') return p;
+    const actions = data.participantPcActions?.[p.id] ?? [];
+    if (actions.length === 0) return p;
+    return {
+      ...p,
+      statblockActions: actions.map((a) => ({
+        name: a.name,
+        ...(a.attackBonus !== undefined ? { attackBonus: a.attackBonus } : {}),
+        ...(a.damage ? { damage: a.damage } : {}),
+        ...(a.saveDC !== undefined ? { saveDC: a.saveDC } : {}),
+        ...(a.saveAbility !== undefined ? { saveAbility: a.saveAbility } : {})
+      }))
+    };
+  });
 
   /** Attack counts for the acting PC's own actions, keyed by action name, so
    *  the panel can expand an Extra Attack the way it expands a monster's
@@ -2812,6 +2855,7 @@
           )}
           liveCurrentHp={liveHpMap[p.id]?.currentHp}
           liveTempHp={liveHpMap[p.id]?.tempHp}
+          liveHpBucket={liveHpMap[p.id]?.hpBucket}
           editingInitiative={initiativeEditFor === p.id}
           {busy}
           reorderable={data.role === 'dm'}
@@ -3061,7 +3105,7 @@
 
 {#if resolveForParticipantId && data.role === 'dm'}
   <ResolvePanel
-    participants={liveParticipants}
+    participants={resolveParticipants}
     actingParticipantId={resolveForParticipantId}
     amending={amendingLogId !== null}
     submitting={resolveSubmitting}

@@ -30,6 +30,10 @@ export interface DisplayParticipant {
   currentHp: number | null;
   maxHp: number | null;
   tempHp: number;
+  /** Server-computed health band. The only HP signal for a row whose vitals
+   *  aren't revealed — the numbers above come through null, because they are
+   *  redacted before they leave the server rather than merely hidden here. */
+  hpBucket?: string | null;
   conditions: string[];
   reveals: ParticipantReveals;
 }
@@ -40,6 +44,7 @@ export interface DisplayHp {
   currentHp: number | null;
   tempHp: number;
   maxHp?: number | null;
+  hpBucket?: string;
   conditions: string[];
 }
 
@@ -98,6 +103,7 @@ export function mergeDisplayParticipants(
       // PC rows come back from the poll with maxHp null (it needs derive());
       // the SSR row has it.
       maxHp: h?.maxHp ?? base?.maxHp ?? null,
+      hpBucket: h?.hpBucket ?? base?.hpBucket ?? null,
       conditions: h ? h.conditions : base?.conditions ?? [],
       reveals: entry?.reveals ??
         base?.reveals ?? { identity: false, vitals: false, combat: false, hidden: false }

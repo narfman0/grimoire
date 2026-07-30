@@ -20,6 +20,73 @@ describe('GET /api/encounters/[id]/state', () => {
   let db: Db;
   beforeEach(() => { db = setupTestDb(); });
 
+  // ---- vitals redaction --------------------------------------------------
+  //
+  // The bucket badge was always the intended player-facing view for an
+  // unrevealed monster, but the exact HP shipped anyway and the client did
+  // the bucketing — so the numbers sat in devtools, and the board token's
+  // ring was drawn from them.
+  describe('HP redaction for players', () => {
+    async function fixture(vitals: boolean) {
+      const dmId = await seedUser(db, { username: 'dm' });
+      const playerId = await seedUser(db, { username: 'player' });
+      const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const mobId = await seedParticipant(db, {
+        encounterId,
+        kind: 'monster',
+        name: 'Goblin',
+        currentHp: 3,
+        maxHp: 12,
+        reveals: { identity: true, vitals, combat: false, hidden: false }
+      });
+      const read = async (userId: string, name: string) =>
+        (await (await GET(makeEvent({ user: userOf(userId, name), params: { id: encounterId } }))).json())
+          .participantHp[mobId];
+      return { dm: () => read(dmId, 'dm'), player: () => read(playerId, 'player') };
+    }
+
+    it('gives a player the band only, and the DM the numbers', async () => {
+      const { dm, player } = await fixture(false);
+      expect(await dm()).toMatchObject({ currentHp: 3, maxHp: 12, hpBucket: 'critical' });
+      // 3/12 is critical — the band still crosses the wire, the numbers don't.
+      expect(await player()).toMatchObject({
+        currentHp: null,
+        maxHp: null,
+        tempHp: 0,
+        hpBucket: 'critical'
+      });
+    });
+
+    it('gives a player the numbers once vitals are revealed', async () => {
+      const { player } = await fixture(true);
+      expect(await player()).toMatchObject({ currentHp: 3, maxHp: 12, hpBucket: 'critical' });
+    });
+
+    it('never redacts a PC row from its party', async () => {
+      const dmId = await seedUser(db, { username: 'dm2' });
+      const playerId = await seedUser(db, { username: 'player2' });
+      const { campaignId } = await seedCampaign(db, { dmId, playerIds: [playerId] });
+      const charId = await seedCharacter(db, {
+        campaignId,
+        ownerUserId: playerId,
+        name: 'Hero',
+        document: { ...minCharDoc('hero-vitals'), currentHp: 7, tempHp: 2 }
+      });
+      const encounterId = await seedEncounter(db, { campaignId, status: 'live' });
+      const pcId = await seedParticipant(db, {
+        encounterId,
+        kind: 'pc',
+        name: 'Hero',
+        characterId: charId
+      });
+      const body = await (
+        await GET(makeEvent({ user: userOf(playerId, 'player2'), params: { id: encounterId } }))
+      ).json();
+      expect(body.participantHp[pcId]).toMatchObject({ currentHp: 7, tempHp: 2 });
+    });
+  });
+
   // ---- combat economy (WS2 phase 4) --------------------------------------
   //
   // The planner's spent-slot flags and the legendary counter must ride the

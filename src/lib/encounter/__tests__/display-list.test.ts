@@ -93,7 +93,23 @@ describe('redactLiveParticipants', () => {
 describe('mergeDisplayParticipants', () => {
   it('falls back to the SSR rows before the first poll lands', () => {
     const rows = [ssr({ id: 'a', name: 'Goblin', currentHp: 3, maxHp: 7, reveals: ALL })];
-    expect(mergeDisplayParticipants(rows, null)).toEqual(rows);
+    // `hpBucket` is normalized to null when neither side carries one — the
+    // display prefers the server's band over bucketing the numbers itself.
+    expect(mergeDisplayParticipants(rows, null)).toEqual(rows.map((r) => ({ ...r, hpBucket: null })));
+  });
+
+  // The band is what a viewer gets when the numbers are redacted, so it has
+  // to survive the merge from either side.
+  it('prefers the poll band, then the SSR one', () => {
+    const rows = [ssr({ id: 'a', name: 'Enemy 1', currentHp: null, maxHp: null })];
+    rows[0].hpBucket = 'bloodied';
+    // No poll yet → the SSR band stands.
+    expect(mergeDisplayParticipants(rows, null)[0].hpBucket).toBe('bloodied');
+    // Poll lands with a fresher band → it wins.
+    const merged = mergeDisplayParticipants(rows, [live({ id: 'a', name: 'Enemy 1' })], {
+      a: { currentHp: null, tempHp: 0, hpBucket: 'critical', conditions: [] }
+    });
+    expect(merged[0].hpBucket).toBe('critical');
   });
 
   it('takes order, names and reveals from the poll and max HP from SSR', () => {
@@ -144,6 +160,7 @@ describe('mergeDisplayParticipants', () => {
         currentHp: null,
         maxHp: null,
         tempHp: 0,
+        hpBucket: null,
         conditions: [],
         reveals: NONE
       }

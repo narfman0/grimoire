@@ -14,7 +14,7 @@ import { OkResponse } from '$lib/server/api/responses';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
-import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
+import { requirePlanWriteAccess } from '$lib/server/encounter/vitals-access';
 import type { RouteOpenApi } from '$lib/server/api/openapi';
 import type { RequestHandler } from './$types';
 
@@ -25,20 +25,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { id, pid } = parseParams(params, Params);
   const { enc, part, role } = await requireParticipantAccess(user.id, id, pid);
 
-  if (role !== 'dm') {
-    if (!part.characterId) throw error(403, 'players cannot move non-PC participants');
-    const perms = await getCampaignPermissions(enc.campaignId);
-    if (!perms.planForOthers) {
-      const owned = await db
-        .select({ ownerUserId: schema.characters.ownerUserId })
-        .from(schema.characters)
-        .where(eq(schema.characters.id, part.characterId))
-        .limit(1);
-      if (!owned[0] || owned[0].ownerUserId !== user.id) {
-        throw error(403, 'you do not own this character');
-      }
-    }
-  }
+  await requirePlanWriteAccess(user.id, role, enc.campaignId, part, 'move');
 
   const body = await parseJson(request, SetPositionRequest);
 

@@ -11,6 +11,32 @@ import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid, pid: Uuid });
 
+/** Would this participant's footprint hang off the attached board at
+ *  `sizeCells`? False when it isn't placed, or when no board is attached
+ *  (positions are accepted freely then — the DM may be pre-placing). */
+async function footprintEscapesBoard(
+  encounterId: string,
+  participantId: string,
+  sizeCells: number
+): Promise<boolean> {
+  const rows = await db
+    .select({ posX: schema.participants.posX, posY: schema.participants.posY })
+    .from(schema.participants)
+    .where(eq(schema.participants.id, participantId))
+    .limit(1);
+  const pos = rows[0];
+  if (!pos || pos.posX === null || pos.posY === null) return false;
+  const boards = await db
+    .select({ w: schema.encounterBoards.w, h: schema.encounterBoards.h })
+    .from(schema.encounterBoards)
+    .where(eq(schema.encounterBoards.encounterId, encounterId))
+    .limit(1);
+  const board = boards[0];
+  if (!board) return false;
+  const size = Math.max(1, sizeCells);
+  return pos.posX + size > board.w || pos.posY + size > board.h;
+}
+
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const user = requireUser(locals);
   const { id, pid } = parseParams(params, Params);
@@ -44,7 +70,19 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (body.statblockSlug !== undefined) updates.statblockSlug = body.statblockSlug;
   if (body.characterId !== undefined) updates.characterId = body.characterId;
   if (body.conditions !== undefined) updates.conditionsJson = JSON.stringify(body.conditions);
-  if (body.sizeCells !== undefined) updates.sizeCells = body.sizeCells;
+  if (body.sizeCells !== undefined) {
+    updates.sizeCells = body.sizeCells;
+    // Growing a token can push its footprint off the board. The position
+    // route bounds-checks every move for exactly this reason, so leaving the
+    // size write unchecked was a second way into the same broken state: a
+    // token drawn hanging over the edge, un-draggable, still counted as
+    // placed. Unplace it rather than refusing — the DM asked for the size,
+    // and re-dropping the token is one click.
+    if (await footprintEscapesBoard(id, pid, body.sizeCells)) {
+      updates.posX = null;
+      updates.posY = null;
+    }
+  }
 
   await db
     .update(schema.participants)

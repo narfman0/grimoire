@@ -10,17 +10,23 @@ import {
 describe('parseCombatState', () => {
   it('parses every slot', () => {
     const raw = JSON.stringify({
-      combat: { reactionUsed: true },
+      combat: { reactionUsed: true, spellSlots: { 3: { max: 3, used: 2 } } },
       conditionTimers: [{ condition: 'poisoned', untilRound: 9 }],
-      spellSlots: { 3: { max: 3, used: 2 } },
       lair: true
     });
     expect(parseCombatState(raw)).toEqual({
-      combat: { reactionUsed: true },
+      combat: { reactionUsed: true, spellSlots: { 3: { max: 3, used: 2 } } },
       conditionTimers: [{ condition: 'poisoned', untilRound: 9 }],
-      spellSlots: { 3: { max: 3, used: 2 } },
       lair: true
     });
+  });
+
+  // The NPC spell-slot tally lives inside `combat` (normalizeEconomy owns it,
+  // and that's the only shape the poll projects). A top-level key was
+  // accepted by the write schema and silently never read, so it's gone.
+  it('drops a stray top-level spellSlots key rather than storing a second home', () => {
+    const raw = JSON.stringify({ spellSlots: { 3: { max: 3, used: 2 } }, lair: true });
+    expect(parseCombatState(raw)).toEqual({ lair: true });
   });
 
   it.each([[null], [undefined], [''], ['{not json'], ['null'], ['[]'], ['"nope"']])(
@@ -128,7 +134,7 @@ describe('mergeCombatState', () => {
 describe('serializeCombatState', () => {
   it('collapses empty state to null so the column is dropped', () => {
     expect(serializeCombatState({})).toBeNull();
-    expect(serializeCombatState({ combat: {}, conditionTimers: [], spellSlots: {} })).toBeNull();
+    expect(serializeCombatState({ combat: {}, conditionTimers: [] })).toBeNull();
   });
 
   it('round-trips through parse', () => {

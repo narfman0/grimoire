@@ -230,7 +230,25 @@
     });
   }
 
+  /** The painter's own wrapper, for scoping the keyboard shortcuts. */
+  let wrapper: HTMLElement | null = null;
+  let pointerInside = false;
+
+  /** Are the shortcuts live? Only while the pointer is over the painter or
+   *  something inside it has focus.
+   *
+   *  They used to be bound to the window unconditionally, which is fine on
+   *  the map-builder page where the painter *is* the page — but the encounter
+   *  board embeds it, so typing `3` while scrolling the participant list
+   *  changed the DM's brush, and Ctrl+S saved the terrain from anywhere. */
+  function shortcutsActive(): boolean {
+    if (pointerInside) return true;
+    if (!wrapper || typeof document === 'undefined') return false;
+    return wrapper.contains(document.activeElement);
+  }
+
   function onKeydown(e: KeyboardEvent) {
+    if (!shortcutsActive()) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -267,7 +285,17 @@
 
 <svelte:window on:keydown={onKeydown} />
 
-<div data-testid="board-painter">
+<!-- `group` labels the painter as one widget, which is also what makes the
+     pointer handlers below legitimate: they only scope the keyboard
+     shortcuts, and every one of them has a button in here to click instead. -->
+<div
+  data-testid="board-painter"
+  role="group"
+  aria-label="Board painter"
+  bind:this={wrapper}
+  on:pointerenter={() => (pointerInside = true)}
+  on:pointerleave={() => (pointerInside = false)}
+>
   <div class="mb-2 flex flex-wrap items-center gap-2 text-xs">
     {#each tools as t}
       <button
@@ -354,6 +382,6 @@
     on:paintend={onPaintEnd}
   />
   <p class="mt-1 text-[10px] text-slate-600">
-    Keys: 1–9 palette · [ ] brush size · Ctrl+Z undo · Ctrl+S save
+    Keys (while hovering here): 1–9 palette · [ ] brush size · Ctrl+Z undo · Ctrl+S save
   </p>
 </div>

@@ -337,10 +337,11 @@ export const SetCombatStateRequest = z
     // 400s the write while the client's optimistic update still renders, so
     // the chip shows a duration the server never stored.
     conditionTimers: z.array(ConditionTimerJson).max(40).nullable().optional(),
-    spellSlots: z
-      .record(z.string(), z.object({ max: z.number().int().nonnegative(), used: z.number().int().nonnegative() }))
-      .nullable()
-      .optional(),
+    // No top-level `spellSlots`: the NPC slot tally lives inside `combat`
+    // (normalizeEconomy owns it, and that's what the poll projects). A
+    // second home for the same concept accepted writes here and 200'd while
+    // the poll never read them, so the DM's tally silently vanished — the
+    // exact class of defect the combat-state column exists to end.
     lair: z.boolean().nullable().optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })

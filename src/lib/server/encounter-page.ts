@@ -307,6 +307,14 @@ export async function buildEncounterPageData(
     resourceMax?: number;
     /** hasResourceBudget(action, derived.resources) at load time. */
     affordable: boolean;
+    /** Dice for the DM's resolve panel. Monster actions have always shipped
+     *  these (see `statblockActions`), so a PC's rows were the only ones
+     *  whose 🎲 buttons stayed dead — the DM had to look the numbers up on
+     *  the sheet and type them. */
+    attackBonus?: number;
+    damage?: Array<{ dice: string; type: string }>;
+    saveDC?: number;
+    saveAbility?: string;
   };
   const participantPcActions: Record<string, PcActionChoice[]> = {};
   /** Per-PC action-economy flags, read straight off the character document
@@ -485,7 +493,22 @@ export async function buildEncounterPageData(
               affordable: hasResourceBudget(
                 { spendsResource: pool ? poolId : undefined, resourceCost: a.resourceCost },
                 pools
-              )
+              ),
+              // Dice for the resolve panel's roll buttons. `damageRolls`
+              // carries a formula per damage type; the panel's shape calls
+              // that `dice`, same as a monster action's.
+              ...(a.attackBonus != null ? { attackBonus: a.attackBonus } : {}),
+              ...((a.damageRolls ?? []).length > 0
+                ? {
+                    damage: (a.damageRolls ?? []).map((r) => ({
+                      dice: r.formula,
+                      type: r.type
+                    }))
+                  }
+                : {}),
+              ...(a.saveDC
+                ? { saveDC: a.saveDC.value, saveAbility: a.saveDC.ability }
+                : {})
             };
           });
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({
@@ -700,13 +723,15 @@ export async function buildEncounterPageData(
                 // UI can show AC without leaking attacks/traits.
                 ({ ac: r.statblock.ac } as MonsterDerived)
               : null,
-          // Note: maxHp + currentHp stay shipped to players because the
-          // client computes the live HP bucket from them as SSE HP updates
-          // flow through. The display layer is responsible for not showing
-          // the raw numbers when `reveals.vitals` is false.
-          currentHp: r.currentHp,
-          maxHp: r.maxHp,
-          tempHp: r.tempHp
+          // Vitals: exact numbers only when the DM has revealed them. They
+          // used to ship regardless, with the display layer responsible for
+          // hiding them — so a player could read a monster's HP out of
+          // devtools, and the board token's ring was drawn from the real
+          // number. `hpBucket` above is the band they're meant to see, and
+          // the poll redacts the same way (see the state route).
+          currentHp: r.reveals.vitals ? r.currentHp : null,
+          maxHp: r.reveals.vitals ? r.maxHp : null,
+          tempHp: r.reveals.vitals ? r.tempHp : 0
         };
       });
     })(),

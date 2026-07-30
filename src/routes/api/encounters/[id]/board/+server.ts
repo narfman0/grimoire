@@ -74,6 +74,11 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   if (body.mapId) {
     const rows = await db.select().from(schema.maps).where(eq(schema.maps.id, body.mapId)).limit(1);
     const map = rows[0];
+    // Strict ownership, deliberately narrower than /api/maps/[id], which lets
+    // admins read and edit any map: that's the content-moderation role, and it
+    // doesn't extend to pulling someone else's private map into your own
+    // encounter. 404 rather than 403 so the response doesn't confirm the map
+    // exists.
     if (!map || map.ownerUserId !== user.id) throw error(404, 'map not found');
     ({ w, h, cellFt } = map);
     tiles = map.tilesJson;

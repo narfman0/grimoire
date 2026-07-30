@@ -72,6 +72,11 @@ export interface TurnPlan {
 export interface ParticipantHp {
   currentHp: number | null;
   tempHp: number;
+  /** Coarse health band, server-computed. For a player looking at a non-PC
+   *  row whose `vitals` flag is off this is the only HP signal they get —
+   *  `currentHp` / `maxHp` come through null. Read it rather than bucketing
+   *  the numbers yourself. */
+  hpBucket?: string;
   conditions: string[];
   /** Duration overlay on `conditions`, server-projected from the character
    *  document (PCs) or plan_json (everyone else). */
@@ -160,7 +165,14 @@ export interface ConnectedEncounter {
   /** Move a token on the board (null = take it off). DM moves anyone;
    *  players their own PC (server-enforced). Optimistic and covered by the
    *  stale-poll guard like every other mutator. */
-  setPosition(participantId: string, pos: { x: number; y: number } | null): Promise<void>;
+  /** Move or unplace a token. `sizeCells` is optional and display-only: it
+   *  seeds the optimistic entry's footprint so a big token doesn't draw 1×1
+   *  until the next poll. The server takes the size from the participant row,
+   *  never from here. */
+  setPosition(
+    participantId: string,
+    pos: { x: number; y: number; sizeCells?: number } | null
+  ): Promise<void>;
   /** Damage helper: subtract amount from current HP, draining temp HP first.
    *  Returns the new HP shape (for log-entry bookkeeping). Re-uses the SSR
    *  seed when no live entry exists yet. Fires `setHp` under the hood.
@@ -614,8 +626,15 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
       const prev = snap.positions[participantId];
       state.update((s) => {
         const positions = { ...s.positions };
-        if (pos) positions[participantId] = { ...pos, sizeCells: prev?.sizeCells ?? 1 };
-        else delete positions[participantId];
+        if (pos) {
+          positions[participantId] = {
+            x: pos.x,
+            y: pos.y,
+            sizeCells: pos.sizeCells ?? prev?.sizeCells ?? 1
+          };
+        } else {
+          delete positions[participantId];
+        }
         return { ...s, positions };
       });
       try {

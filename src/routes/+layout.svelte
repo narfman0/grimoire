@@ -6,6 +6,7 @@
   import { api } from '$lib/client/api';
   import ConfirmHost from '$lib/components/ui/ConfirmHost.svelte';
   import DiceTray from '$lib/components/dice/DiceTray.svelte';
+  import { liveEncounterRound, roundFor } from '$lib/client/encounter-round';
   import type { LayoutData } from './$types';
   export let data: LayoutData;
 
@@ -123,7 +124,10 @@
        here and passed down, keeping the tray itself presentational. -->
   <DiceTray
     encounter={data.user && encounterContext
-      ? { id: encounterContext.id, round: encounterContext.round }
+      ? {
+          id: encounterContext.id,
+          round: roundFor(encounterContext.id, encounterContext.round, $liveEncounterRound)
+        }
       : null}
     myParticipantIds={($page.data.myParticipantIds as string[] | undefined) ?? []}
   />

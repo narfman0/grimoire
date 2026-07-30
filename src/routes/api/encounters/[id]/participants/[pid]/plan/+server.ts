@@ -6,7 +6,7 @@ import { SetPlanRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
-import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
+import { requirePlanWriteAccess } from '$lib/server/encounter/vitals-access';
 import { OkResponse } from '$lib/server/api/responses';
 import { legacyCombatStateFromPlan } from '$lib/encounter/combat-state';
 import type { RequestHandler } from './$types';
@@ -40,20 +40,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   // Planning for someone else is a per-campaign policy, permissive by
   // default. The DM can always broadcast on behalf of anyone (table screens).
-  if (role !== 'dm') {
-    // Non-PC rows are DM-only whatever the policy — see campaign-permissions.
-    if (!part.characterId) throw error(403, 'players cannot plan for non-PC participants');
-    const perms = await getCampaignPermissions(enc.campaignId);
-    if (!perms.planForOthers) {
-      const owned = await db
-        .select({ ownerUserId: schema.characters.ownerUserId })
-        .from(schema.characters)
-        .where(eq(schema.characters.id, part.characterId))
-        .limit(1);
-      if (!owned[0] || owned[0].ownerUserId !== user.id)
-        throw error(403, 'you do not own this character');
-    }
-  }
+  await requirePlanWriteAccess(user.id, role, enc.campaignId, part, 'plan');
 
   const body = await parseJson(request, SetPlanRequest);
   const planJson = JSON.stringify(body.plan);
@@ -70,19 +57,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const { id, pid } = parseParams(params, Params);
   const { enc, part, role } = await requireParticipantAccess(user.id, id, pid);
 
-  if (role !== 'dm') {
-    if (!part.characterId) throw error(403, 'players cannot clear plans for non-PC participants');
-    const perms = await getCampaignPermissions(enc.campaignId);
-    if (!perms.planForOthers) {
-      const owned = await db
-        .select({ ownerUserId: schema.characters.ownerUserId })
-        .from(schema.characters)
-        .where(eq(schema.characters.id, part.characterId))
-        .limit(1);
-      if (!owned[0] || owned[0].ownerUserId !== user.id)
-        throw error(403, 'you do not own this character');
-    }
-  }
+  await requirePlanWriteAccess(user.id, role, enc.campaignId, part, 'clear plans');
 
   // A plain clear, as the name has always promised. Until migration 0009
   // this had to preserve the combat economy, the condition timers and the

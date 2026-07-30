@@ -1,7 +1,7 @@
 // Encounter-scoped, non-PC combat state: what a creature has *already spent*,
 // as opposed to what it *intends to do* (that's `plan_json`).
 //
-// These four concerns rode `plan_json` because participants had no column of
+// These concerns rode `plan_json` because participants had no column of
 // their own. That coupling produced two live defects:
 //
 //   (a) `DELETE .../participants/[pid]/plan` is documented as "clear the turn
@@ -29,9 +29,6 @@ export interface CombatState {
   combat?: Partial<CombatEconomy>;
   /** Round-scoped condition durations (DM-confirmed, never automatic). */
   conditionTimers?: ConditionTimer[];
-  /** DM-tracked NPC spell slots. Was client-only in-memory state before this
-   *  column — it did not survive a reload. */
-  spellSlots?: Record<number, { max: number; used: number }>;
   /** DM marker: this creature has lair actions in this encounter. Prep, not
    *  ephemera — which is why the clone route carries it forward. */
   lair?: boolean;
@@ -77,9 +74,6 @@ export function parseCombatState(raw: string | null | undefined): CombatState | 
     out.combat = p.combat as Partial<CombatEconomy>;
   }
   if (Array.isArray(p.conditionTimers)) out.conditionTimers = p.conditionTimers as ConditionTimer[];
-  if (p.spellSlots && typeof p.spellSlots === 'object' && !Array.isArray(p.spellSlots)) {
-    out.spellSlots = p.spellSlots as Record<number, { max: number; used: number }>;
-  }
   if (p.lair === true) out.lair = true;
   return out;
 }
@@ -109,7 +103,7 @@ export function mergeCombatState(
   patch: Partial<Record<keyof CombatState, unknown>>
 ): CombatState {
   const next: CombatState = { ...current };
-  for (const key of ['combat', 'conditionTimers', 'spellSlots', 'lair'] as const) {
+  for (const key of ['combat', 'conditionTimers', 'lair'] as const) {
     if (!(key in patch)) continue;
     const value = patch[key];
     if (value == null || value === false) delete next[key];
@@ -124,9 +118,6 @@ export function serializeCombatState(state: CombatState): string | null {
   const pruned: CombatState = {
     ...(state.combat && Object.keys(state.combat).length > 0 ? { combat: state.combat } : {}),
     ...(state.conditionTimers?.length ? { conditionTimers: state.conditionTimers } : {}),
-    ...(state.spellSlots && Object.keys(state.spellSlots).length > 0
-      ? { spellSlots: state.spellSlots }
-      : {}),
     ...(state.lair ? { lair: true as const } : {})
   };
   return Object.keys(pruned).length > 0 ? JSON.stringify(pruned) : null;

@@ -8,7 +8,7 @@ import { PlanJson, SpellSlotsJson, salvagePlanJson } from '$lib/server/api/encou
 import { readCombatState } from '$lib/encounter/combat-state';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
-import { parseReveals } from '$lib/realtime/reveals';
+import { hpBucket, parseReveals } from '$lib/realtime/reveals';
 import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
@@ -28,6 +28,13 @@ const ParticipantHpSchema = z.object({
   currentHp: z.number().int().nullable(),
   tempHp: z.number().int().nonnegative(),
   maxHp: z.number().int().nullable(),
+  /** Coarse health band. Always present; it is the *only* HP signal a player
+   *  gets for a non-PC row whose `vitals` flag is off — the numbers above
+   *  come through null in that case. The badge was always the intended
+   *  player-facing view, but the exact HP used to ship anyway and the client
+   *  bucketed it, so the numbers sat in devtools (and in the board token's
+   *  ring) for anyone who looked. */
+  hpBucket: z.string(),
   conditions: z.array(z.string()),
   /** Round-scoped duration overlay on `conditions` — the flat list above is
    *  still the source of truth for "is this on". PCs source it from the
@@ -426,10 +433,17 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       conditions
     );
 
+    // Vitals redaction. The DM sees everything; players see exact numbers for
+    // their own party and for any non-PC row the DM has revealed, and the
+    // bucket alone for the rest. Computed here, once, from the real numbers —
+    // the same discipline as the fog and token-position redactions.
+    const bucket = hpBucket(currentHp, maxHp);
+    const revealVitals = role === 'dm' || isPc || parseReveals(p.revealsJson).vitals;
     participantHp[p.id] = {
-      currentHp,
-      tempHp,
-      maxHp,
+      currentHp: revealVitals ? currentHp : null,
+      tempHp: revealVitals ? tempHp : 0,
+      maxHp: revealVitals ? maxHp : null,
+      hpBucket: bucket,
       conditions,
       conditionTimers,
       concentrating

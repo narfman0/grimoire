@@ -6,7 +6,7 @@ import { SetCombatStateRequest } from '$lib/server/api/encounter-schemas';
 import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
-import { requireVitalsWriteAccess } from '$lib/server/encounter/vitals-access';
+import { requirePlanWriteAccess } from '$lib/server/encounter/vitals-access';
 import {
   mergeCombatState,
   readCombatState,
@@ -38,7 +38,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   }
   // Same authority as HP/conditions: this is spent-resource state for a
   // creature, and non-PC rows are DM-only whatever the campaign policy says.
-  await requireVitalsWriteAccess(user.id, role, enc.campaignId, part);
+  // The combat economy is "what this creature is doing", so it answers to
+  // planForOthers alongside plans and positions — it used to read
+  // editOthersVitals, splitting one concept across two switches.
+  await requirePlanWriteAccess(user.id, role, enc.campaignId, part, 'edit combat state');
 
   const body = await parseJson(request, SetCombatStateRequest);
   const current = readCombatState(part.combatStateJson, part.planJson);

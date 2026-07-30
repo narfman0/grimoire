@@ -38,6 +38,9 @@ export async function buildEncounterDisplayData(
     currentHp: p.currentHp,
     maxHp: p.maxHp,
     tempHp: p.tempHp ?? 0,
+    // The band survives redaction; the numbers above don't, for a row whose
+    // vitals the DM hasn't revealed.
+    hpBucket: p.hpBucket,
     conditions: p.conditions,
     reveals: p.reveals
   }));
