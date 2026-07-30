@@ -175,6 +175,101 @@ describe('ResolvePanel roll arming', () => {
     expect(Number(saveInput.value)).toBeLessThanOrEqual(20);
   });
 
+  // Resolving a Multiattack used to be one submit per attack.
+  describe('multiattack expansion', () => {
+    const ogre = {
+      id: 'ogr-1',
+      name: 'Ogre',
+      kind: 'monster',
+      statblockActions: [
+        {
+          name: 'Multiattack',
+          description: 'The ogre makes two greatclub attacks and one bite attack.'
+        },
+        { name: 'Greatclub', attackBonus: 6, damage: [{ dice: '2d8+4', type: 'bludgeoning' }] },
+        { name: 'Bite', attackBonus: 6, damage: [{ dice: '1d6+4', type: 'piercing' }] }
+      ]
+    };
+
+    it('renders one row per strike, in prose order', () => {
+      render(ResolvePanel, {
+        props: {
+          participants: [ogre, hero],
+          actingParticipantId: 'ogr-1',
+          actionLabel: 'Multiattack'
+        }
+      });
+      const rows = screen.getByTestId('strike-rows').querySelectorAll('li');
+      expect(rows).toHaveLength(3);
+      expect(screen.getByText('3 attacks — one log row each')).toBeTruthy();
+      expect([...rows].map((r) => r.querySelector('span')!.textContent)).toEqual([
+        'Greatclub',
+        'Greatclub',
+        'Bite'
+      ]);
+    });
+
+    it('leaves a single attack unexpanded', () => {
+      render(ResolvePanel, {
+        props: { participants: [ogre, hero], actingParticipantId: 'ogr-1', actionLabel: 'Bite' }
+      });
+      expect(screen.queryByTestId('strike-rows')).toBeNull();
+    });
+
+    it('expands a PC action with an attackCount', () => {
+      render(ResolvePanel, {
+        props: {
+          participants: [{ ...hero, statblockActions: [] }],
+          actingParticipantId: 'pc-1',
+          actionLabel: 'Attack',
+          pcAttackCounts: { Attack: 2 }
+        }
+      });
+      expect(screen.getByTestId('strike-rows').querySelectorAll('li')).toHaveLength(2);
+    });
+
+    it('rolls every strike in one click, each with its own dice', async () => {
+      render(ResolvePanel, {
+        props: {
+          participants: [ogre, hero],
+          actingParticipantId: 'ogr-1',
+          actionLabel: 'Multiattack'
+        }
+      });
+      await fireEvent.click(screen.getByRole('button', { name: /roll all attacks/ }));
+      const num = (label: string) =>
+        Number((screen.getByLabelText(label) as HTMLInputElement).value);
+      const crit = (label: string) =>
+        (screen.getByLabelText(`Outcome for ${label}`) as HTMLSelectElement).value === 'crit';
+      for (const label of ['Greatclub 1', 'Greatclub 2', 'Bite 3']) {
+        expect(num(`Attack roll for ${label}`)).toBeGreaterThanOrEqual(7); // d20+6
+      }
+      // Greatclub is 2d8+4, Bite 1d6+4 — the rows rolled their own dice
+      // rather than sharing one number. A natural 20 doubles the dice, so the
+      // ceiling depends on the outcome the roll landed on.
+      expect(num('Damage for Greatclub 1')).toBeGreaterThanOrEqual(6);
+      expect(num('Damage for Greatclub 1')).toBeLessThanOrEqual(crit('Greatclub 1') ? 36 : 20);
+      expect(num('Damage for Bite 3')).toBeGreaterThanOrEqual(5);
+      expect(num('Damage for Bite 3')).toBeLessThanOrEqual(crit('Bite 3') ? 16 : 10);
+    });
+
+    it('carries each strike its own damage type for the resistance pass', () => {
+      render(ResolvePanel, {
+        props: {
+          participants: [ogre, hero],
+          actingParticipantId: 'ogr-1',
+          actionLabel: 'Multiattack'
+        }
+      });
+      const rows = [...screen.getByTestId('strike-rows').querySelectorAll('li')];
+      expect(rows.map((r) => r.lastElementChild!.textContent!.trim())).toEqual([
+        'bludgeoning',
+        'bludgeoning',
+        'piercing'
+      ]);
+    });
+  });
+
   it('offers roll-all for checked multi-save targets', async () => {
     render(ResolvePanel, { props: baseProps });
     // No DC / no targets → no roll-all button.

@@ -26,7 +26,7 @@
   import NpcSpellSlotTracker from './NpcSpellSlotTracker.svelte';
   import RevealControls from './RevealControls.svelte';
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
-  import ResolvePanel from './ResolvePanel.svelte';
+  import ResolvePanel, { type StrikeDraft } from './ResolvePanel.svelte';
   import { hpBucket } from '$lib/realtime/reveals';
   import {
     coverBetween,
@@ -538,6 +538,18 @@
     return warnings;
   })();
 
+  /** Attack counts for the acting PC's own actions, keyed by action name, so
+   *  the panel can expand an Extra Attack the way it expands a monster's
+   *  Multiattack. Monsters carry the structure in prose instead. */
+  $: resolvePcAttackCounts = ((): Record<string, number> => {
+    if (!resolveForParticipantId) return {};
+    const out: Record<string, number> = {};
+    for (const a of data.participantPcActions?.[resolveForParticipantId] ?? []) {
+      if (a.attackCount && a.attackCount > 1) out[a.name] = a.attackCount;
+    }
+    return out;
+  })();
+
   /** Save bonuses for every participant, keyed id → ability → bonus, for
    *  the multi-save rows' 🎲. PCs carry them on their derived stats
    *  (`saves[ability].bonus`); monsters carry a flat number per ability on
@@ -811,6 +823,10 @@
    *  typed the totals. Persisted on the log row so the table can see how a
    *  number was reached — and, for a hidden actor, redacted out server-side. */
   let resolveRollDetail: string | null = null;
+  /** Per-strike drafts when the picked action is a multiattack (or a PC
+   *  action with attackCount > 1). Empty for a single attack; the panel owns
+   *  the expansion, this side just submits one log row per strike. */
+  let resolveStrikes: StrikeDraft[] = [];
   let resolveSubmitting = false;
   let resolveError: string | null = null;
 
@@ -838,6 +854,7 @@
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
     resolveRollDetail = null;
+    resolveStrikes = [];
   }
 
   function closeResolve() {
@@ -847,20 +864,29 @@
     resolveMultiTargetIds = [];
     resolveTargetSaveRolls = {};
     resolveRollDetail = null;
+    resolveStrikes = [];
   }
 
-  /** Single-target apply: HP delta via participant API + one log entry. */
+  /** Single-target apply: HP delta via participant API + one log entry.
+   *
+   *  `over` lets a multiattack strike carry its own label and damage type —
+   *  the log then names the individual attack ('Claw'), not the multiattack
+   *  wrapper, and a fire-breathing bite narrows against fire resistance
+   *  while the claws don't. */
   async function dmApplyToTarget(
     targetId: string | null,
     outcome: HitOutcome,
     damage: number | null,
     attack: number | null,
-    round: number
+    round: number,
+    over: { actionLabel?: string; damageType?: string | null; rollDetail?: string | null } = {}
   ): Promise<{ ok: boolean; hpBefore: number | null; hpAfter: number | null }> {
     if (!conn || !resolveForParticipantId) return { ok: false, hpBefore: null, hpAfter: null };
     const target = (targetId
       ? liveParticipants.find((p) => p.id === targetId) ?? null
       : null) as ResolveTarget | null;
+    const actionLabel = over.actionLabel ?? resolveActionLabel;
+    const damageType = over.damageType !== undefined ? over.damageType : resolveDamageType;
     const result = await applyHpAndLog({
       conn,
       encounterId: data.encounter.id,
@@ -873,14 +899,14 @@
       actionId: resolvedActionId({
         seededActionId: resolveSeedActionId,
         seededActionLabel: resolveSeedActionLabel,
-        label: resolveActionLabel
+        label: actionLabel
       }),
-      actionLabel: resolveActionLabel,
+      actionLabel,
       notes: resolveNotes,
-      rollDetail: resolveRollDetail,
+      rollDetail: over.rollDetail !== undefined ? over.rollDetail : resolveRollDetail,
       // Per-target: an AoE hitting a fire-immune imp and a plain bandit
       // narrows for one and not the other.
-      resolution: resolutionFor(targetId, resolveDamageType)
+      resolution: resolutionFor(targetId, damageType)
     });
     return {
       ok: result.ok,
@@ -1020,6 +1046,38 @@
             participantName: t.name,
             outcome: perTargetOutcome,
             damage: resolveDamage,
+            concentrating: isConcentrating(tid),
+            hpBefore,
+            hpAfter
+          });
+        }
+      } else if (resolveStrikes.length > 0) {
+        // Multiattack: one log row per strike, in order, each with its own
+        // target / outcome / damage type. Sequential rather than parallel so
+        // temp HP drains and HP floors in the order the attacks happened —
+        // and so a mid-multiattack failure stops rather than half-applying.
+        for (const [i, s] of resolveStrikes.entries()) {
+          if (!s.hit) continue; // blank outcome = the DM skipped this attack
+          const tid = s.targetId ?? resolveTargetId;
+          const outcome = downgradeCritForTarget(s.hit, pcCritImmune(tid));
+          const { ok, hpBefore, hpAfter } = await dmApplyToTarget(
+            tid,
+            outcome,
+            s.damage,
+            s.attack,
+            round,
+            { actionLabel: s.label, damageType: s.damageType, rollDetail: null }
+          );
+          if (!ok) {
+            resolveError = `log entry failed for attack ${i + 1} (${s.label})`;
+            return;
+          }
+          if (!tid) continue;
+          resolutions.push({
+            participantId: tid,
+            participantName: liveParticipants.find((p) => p.id === tid)?.name ?? 'Target',
+            outcome,
+            damage: s.damage,
             concentrating: isConcentrating(tid),
             hpBefore,
             hpAfter
@@ -2837,6 +2895,8 @@
     bind:multiTargetIds={resolveMultiTargetIds}
     bind:targetSaveRolls={resolveTargetSaveRolls}
     bind:rollDetail={resolveRollDetail}
+    bind:strikes={resolveStrikes}
+    pcAttackCounts={resolvePcAttackCounts}
     on:submit={() => (amendingLogId ? submitAmend() : submitDmResolve())}
     on:cancel={() => {
       amendingLogId = null;

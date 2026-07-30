@@ -65,13 +65,61 @@ export function isRecharge(a: MonsterAction): boolean {
 /** Strip "(Costs 2 Actions)" / "(Recharge 5–6)" suffixes for matching. */
 const bareName = (name: string): string => name.replace(/\s*\(.*\)\s*$/, '').trim();
 
+export function isMultiattack(a: { name: string }): boolean {
+  return /multiattack/i.test(a.name);
+}
+
+/** One line of a multiattack: an attack and how many times it's made. */
+export interface MultiattackStrike {
+  action: MonsterAction;
+  count: number;
+}
+
+/** Decompose a Multiattack into the strikes it actually makes.
+ *
+ *  Two shapes, in order of preference:
+ *    1. Named references — "makes two claw attacks and one bite attack"
+ *       resolves each name against the creature's other attacks.
+ *    2. A bare count — "makes two attacks" with nothing to resolve becomes
+ *       N× its best single attack, the same fallback the optimizer's EV
+ *       math uses.
+ *
+ *  Returns [] when neither parses, which callers read as "not expandable,
+ *  treat it as one action". Shared by the optimizer's EV sum and the resolve
+ *  panel's per-strike rows so the two never disagree about what a
+ *  multiattack is. */
+export function multiattackStrikes(
+  multiattack: MonsterAction,
+  actions: readonly MonsterAction[]
+): MultiattackStrike[] {
+  const desc = multiattack.description ?? '';
+  const attacks = actions.filter((a) => actionEV(a) > 0 && !isMultiattack(a));
+  if (attacks.length === 0) return [];
+
+  const strikes: MultiattackStrike[] = [];
+  for (const m of desc.matchAll(/(one|two|three|four|five|six|\d+)\s+([a-z][a-z\s-]*?)\s+attacks?/gi)) {
+    const count = countOf(m[1]);
+    const ref = attacks.find((x) =>
+      bareName(x.name).toLowerCase().includes(m[2].trim().toLowerCase())
+    );
+    if (!ref || count <= 0) continue;
+    strikes.push({ action: ref, count });
+  }
+  if (strikes.length > 0) return strikes;
+
+  const m = /makes\s+(one|two|three|four|five|six|\d+)/i.exec(desc);
+  const count = m ? countOf(m[1]) : 0;
+  if (count <= 0) return [];
+  const best = [...attacks].sort((x, y) => actionEV(y) - actionEV(x))[0];
+  return [{ action: best, count }];
+}
+
 /**
  * Build the optimizer's action list from a statblock's actions.
  *
- * Multiattack expands into one synthetic action: "makes two claw attacks
- * and one bite attack" sums 2×claw EV + 1×bite EV (attack bonus and reach
- * from the referenced attacks); an unreferenced "makes two attacks" doubles
- * the best single attack. Plain attacks ride through as themselves, so the
+ * Multiattack expands into one synthetic action whose EV is the sum of the
+ * strikes `multiattackStrikes` finds (attack bonus and reach come from the
+ * referenced attacks). Plain attacks ride through as themselves, so the
  * optimizer can still prefer a single big hit when multiattack references
  * fail to parse.
  */
@@ -80,37 +128,19 @@ export function suggestActionsFrom(
   opts: { excludeRecharge?: boolean } = {}
 ): SuggestAction[] {
   const out: SuggestAction[] = [];
-  const attacks = actions.filter((a) => actionEV(a) > 0 && !/multiattack/i.test(a.name));
 
   for (const a of actions) {
-    if (/multiattack/i.test(a.name)) {
-      const desc = a.description ?? '';
+    if (isMultiattack(a)) {
+      // Same decomposition the resolve panel expands into per-strike rows.
       let totalEV = 0;
       let bonus: number | undefined;
       let rangeFt = Infinity;
-      // "<count> <name> attacks" pairs referencing sibling attacks.
-      for (const m of desc.matchAll(/(one|two|three|four|five|six|\d+)\s+([a-z][a-z\s-]*?)\s+attacks?/gi)) {
-        const count = countOf(m[1]);
-        const ref = attacks.find((x) =>
-          bareName(x.name).toLowerCase().includes(m[2].trim().toLowerCase())
-        );
-        if (!ref || count <= 0) continue;
+      for (const { action: ref, count } of multiattackStrikes(a, actions)) {
         totalEV += actionEV(ref) * count;
         if (ref.attackBonus !== undefined && (bonus === undefined || ref.attackBonus > bonus)) {
           bonus = ref.attackBonus;
         }
         rangeFt = Math.min(rangeFt, actionRangeFt(ref));
-      }
-      if (totalEV === 0 && attacks.length > 0) {
-        // "makes two attacks" with no parseable references → N× best attack.
-        const m = /makes\s+(one|two|three|four|five|six|\d+)/i.exec(desc);
-        const count = m ? countOf(m[1]) : 0;
-        if (count > 0) {
-          const best = [...attacks].sort((x, y) => actionEV(y) - actionEV(x))[0];
-          totalEV = actionEV(best) * count;
-          bonus = best.attackBonus;
-          rangeFt = actionRangeFt(best);
-        }
       }
       if (totalEV > 0) {
         out.push({

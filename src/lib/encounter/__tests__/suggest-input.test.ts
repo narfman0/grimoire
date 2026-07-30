@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { diceEV, suggestActionsFrom, suggestLegendaryActionsFrom } from '../suggest-input';
+import {
+  diceEV,
+  isMultiattack,
+  multiattackStrikes,
+  suggestActionsFrom,
+  suggestLegendaryActionsFrom
+} from '../suggest-input';
 import type { MonsterAction } from '$lib/rules/monster-derive';
 
 describe('diceEV', () => {
@@ -95,5 +101,87 @@ describe('suggestActionsFrom', () => {
       }
     ]);
     expect(out.map((a) => a.legendaryCost)).toEqual([1, 2]);
+  });
+});
+
+describe('multiattackStrikes', () => {
+  const claw: MonsterAction = {
+    name: 'Claw',
+    attackBonus: 7,
+    reach: 5,
+    damage: [{ dice: '2d6+4', type: 'slashing' }]
+  };
+  const bite: MonsterAction = {
+    name: 'Bite',
+    attackBonus: 7,
+    reach: 10,
+    damage: [{ dice: '2d10+4', type: 'piercing' }]
+  };
+
+  it('decomposes named references into counted strikes', () => {
+    const multi: MonsterAction = {
+      name: 'Multiattack',
+      description: 'The dragon makes two claw attacks and one bite attack.'
+    };
+    expect(multiattackStrikes(multi, [multi, claw, bite])).toEqual([
+      { action: claw, count: 2 },
+      { action: bite, count: 1 }
+    ]);
+  });
+
+  it('falls back to N× the best attack when nothing is referenced', () => {
+    const multi: MonsterAction = {
+      name: 'Multiattack',
+      description: 'The veteran makes two attacks.'
+    };
+    // Bite has the higher EV, so it is the one repeated.
+    expect(multiattackStrikes(multi, [multi, claw, bite])).toEqual([{ action: bite, count: 2 }]);
+  });
+
+  it('matches a reference against a suffixed action name', () => {
+    const gore: MonsterAction = {
+      name: 'Gore (Recharge 5–6)',
+      attackBonus: 6,
+      damage: [{ dice: '2d8', type: 'piercing' }]
+    };
+    const multi: MonsterAction = {
+      name: 'Multiattack',
+      description: 'It makes one gore attack and one claw attack.'
+    };
+    expect(multiattackStrikes(multi, [multi, gore, claw])).toEqual([
+      { action: gore, count: 1 },
+      { action: claw, count: 1 }
+    ]);
+  });
+
+  it('returns nothing when the prose is unparseable or there is nothing to strike with', () => {
+    const vague: MonsterAction = { name: 'Multiattack', description: 'It attacks a lot.' };
+    expect(multiattackStrikes(vague, [vague, claw])).toEqual([]);
+    const noDesc: MonsterAction = { name: 'Multiattack' };
+    expect(multiattackStrikes(noDesc, [noDesc, claw])).toEqual([]);
+    const multi: MonsterAction = { name: 'Multiattack', description: 'makes two attacks' };
+    expect(multiattackStrikes(multi, [multi])).toEqual([]);
+  });
+
+  it('agrees with the optimizer EV built on top of it', () => {
+    const multi: MonsterAction = {
+      name: 'Multiattack',
+      description: 'The dragon makes two claw attacks and one bite attack.'
+    };
+    const strikes = multiattackStrikes(multi, [multi, claw, bite]);
+    const evFromStrikes = strikes.reduce(
+      (sum, s) => sum + s.count * (s.action.damage ?? []).reduce((n, d) => n + diceEV(d.dice), 0),
+      0
+    );
+    const ma = suggestActionsFrom([multi, claw, bite]).find((a) => a.name === 'Multiattack')!;
+    expect(ma.damageEV).toBe(evFromStrikes);
+  });
+});
+
+describe('isMultiattack', () => {
+  it('matches the name however it is cased or suffixed', () => {
+    expect(isMultiattack({ name: 'Multiattack' })).toBe(true);
+    expect(isMultiattack({ name: 'multiattack (special)' })).toBe(true);
+    expect(isMultiattack({ name: 'Claw' })).toBe(false);
   });
 });
