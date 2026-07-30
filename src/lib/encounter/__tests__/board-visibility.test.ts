@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { visibleAnnotations, type CellNote } from '../board-visibility';
+import { visibleAnnotations, visibleFloorLinks, type CellNote } from '../board-visibility';
 import { encodeRuns } from '$lib/board/rle';
 
 /** 3×2 board whose only revealed cell is (1,0). */
@@ -63,5 +63,66 @@ describe('visibleAnnotations', () => {
     const out = visibleAnnotations(notes, board, true);
     out['5,5'] = { note: 'injected' };
     expect(notes['5,5']).toBeUndefined();
+  });
+});
+
+describe('visibleFloorLinks', () => {
+  const floors = [
+    // Floor 0: only (5,0) revealed — the head of the stairs.
+    { floorIdx: 0, w: 6, h: 4, revealedJson: encodeRuns([0, 0, 0, 0, 0, 1, ...new Array(18).fill(0)]) },
+    // Floor 1: fully fogged.
+    { floorIdx: 1, w: 6, h: 4, revealedJson: encodeRuns(new Array(24).fill(0)) }
+  ];
+  const links = [
+    {
+      id: 'L1',
+      kind: 'stairs',
+      costFt: 5,
+      a: { floorIdx: 0, x: 5, y: 0 },
+      b: { floorIdx: 1, x: 0, y: 3 }
+    },
+    {
+      id: 'L2',
+      kind: 'rope',
+      costFt: 10,
+      a: { floorIdx: 0, x: 1, y: 1 },
+      b: { floorIdx: 1, x: 1, y: 1 }
+    }
+  ];
+
+  it('gives the DM every link, both ends', () => {
+    const out = visibleFloorLinks(links, floors, true);
+    expect(out).toHaveLength(2);
+    expect(out[0].b).toEqual({ floorIdx: 1, x: 0, y: 3 });
+  });
+
+  it('gives a player only links with a revealed endpoint, far end withheld', () => {
+    const out = visibleFloorLinks(links, floors, false);
+    // L1's head is revealed → it ships, but "leads somewhere": b is null.
+    // L2 is fully fogged → it does not exist yet.
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('L1');
+    expect(out[0].a).toEqual({ floorIdx: 0, x: 5, y: 0 });
+    expect(out[0].b).toBeNull();
+  });
+
+  it('ships both ends once both are revealed, normalized near-first', () => {
+    const lit = [
+      floors[0],
+      { floorIdx: 1, w: 6, h: 4, revealedJson: encodeRuns(new Array(24).fill(1)) }
+    ];
+    const out = visibleFloorLinks(links, lit, false);
+    const l1 = out.find((l) => l.id === 'L1')!;
+    expect(l1.b).toEqual({ floorIdx: 1, x: 0, y: 3 });
+    // L2's only revealed endpoint is on floor 1 → it is normalized into `a`.
+    const l2 = out.find((l) => l.id === 'L2')!;
+    expect(l2.a.floorIdx).toBe(1);
+    expect(l2.b).toBeNull();
+  });
+
+  it('fails closed on a corrupt fog mask', () => {
+    const broken = [{ floorIdx: 0, w: 6, h: 4, revealedJson: 'garbage' }];
+    expect(visibleFloorLinks(links, broken, false)).toEqual([]);
+    expect(visibleFloorLinks(links, broken, true)).toHaveLength(2);
   });
 });

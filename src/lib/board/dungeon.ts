@@ -12,8 +12,10 @@ import type { Board } from './types';
 
 export type FloorLinkKind = 'stairs' | 'ladder' | 'rope' | 'hatch' | 'passage';
 
-/** One floor is exactly today's Board. `idx` is the stable ordering key
- *  (0-based, contiguous) that positions, links and the wire refer to. */
+/** One floor is exactly today's Board. `idx` is the *stable* ordering key
+ *  that positions, links and the wire refer to — it never shifts when a
+ *  floor is removed (gaps are fine), because a reindex would silently
+ *  retarget every link and token that names the old numbers. */
 export interface DungeonFloor {
   idx: number;
   name: string;

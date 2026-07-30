@@ -306,6 +306,12 @@ export const encounters = sqliteTable('encounters', {
   round: integer('round').notNull().default(0), // 0 pre-combat, 1+ active round
   activeParticipantId: text('active_participant_id'),
   notesJson: text('notes_json'), // arbitrary DM notes
+  /** Attached dungeon instance (WS5). Mutually exclusive with an
+   *  encounter_boards row — an encounter has a quick board OR a dungeon.
+   *  Null = quick board / mapless, byte-for-byte the pre-WS5 behavior. */
+  dungeonInstanceId: text('dungeon_instance_id').references(() => dungeonInstances.id, {
+    onDelete: 'set null'
+  }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
   endedAt: integer('ended_at', { mode: 'timestamp_ms' })
 });
@@ -368,6 +374,9 @@ export const participants = sqliteTable(
      *  these columns existed. See docs/ws3-boards-plan.md §B. */
     posX: integer('pos_x'),
     posY: integer('pos_y'),
+    /** Which floor of the attached dungeon instance the token stands on
+     *  (WS5). Null = the quick board / floor 0 — every pre-WS5 row. */
+    posFloor: integer('pos_floor'),
     /** Token footprint edge in cells (Large = 2, Huge = 3, …). */
     sizeCells: integer('size_cells').notNull().default(1)
   },
@@ -379,6 +388,20 @@ export const participants = sqliteTable(
 
 /** A user's reusable map library. Tiles are the RLE string defined by
  *  $lib/board/rle over the $lib/board/tileset wire codes. */
+/** A dungeon groups maps into floors joined by links (WS5). Owner-scoped
+ *  library content like maps; `linksJson` is a validated FloorLink[]
+ *  ($lib/board/dungeon), checked against the member floors on write. */
+export const dungeons = sqliteTable('dungeons', {
+  id: text('id').primaryKey(),
+  ownerUserId: text('owner_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  linksJson: text('links_json'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+});
+
 export const maps = sqliteTable(
   'maps',
   {
@@ -394,11 +417,59 @@ export const maps = sqliteTable(
     /** Optional uploaded background image path under /data (served via
      *  /api/map-backgrounds/[id]); null when none. */
     backgroundPath: text('background_path'),
+    /** Floor membership (WS5): both null for a standalone map — which is
+     *  every map that existed before dungeons, unchanged in meaning. */
+    dungeonId: text('dungeon_id').references(() => dungeons.id, { onDelete: 'set null' }),
+    floorIdx: integer('floor_idx'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
   },
   (t) => ({
     byOwner: index('maps_owner').on(t.ownerUserId)
+  })
+);
+
+/** The campaign's living copy of a dungeon — the crawl state that persists
+ *  across encounters (WS5). Copy-on-instantiate: floors AND links are
+ *  snapshotted at creation, so editing the library dungeon never mutates a
+ *  live crawl. `version` bumps on any floor write; the /state poll folds it
+ *  into the ETag as the cheap "anything changed anywhere" token. */
+export const dungeonInstances = sqliteTable('dungeon_instances', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  /** Library dungeon this was instantiated from; informational only. */
+  dungeonId: text('dungeon_id').references(() => dungeons.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  linksJson: text('links_json'),
+  version: integer('version').notNull().default(1),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+/** One floor of an instance: the same mutable state shape as
+ *  encounter_boards (tiles/fog/annotations, per-floor version so clients
+ *  refetch only the floor they're viewing), keyed by (instance, floorIdx). */
+export const instanceFloors = sqliteTable(
+  'instance_floors',
+  {
+    instanceId: text('instance_id')
+      .notNull()
+      .references(() => dungeonInstances.id, { onDelete: 'cascade' }),
+    floorIdx: integer('floor_idx').notNull(),
+    name: text('name').notNull(),
+    w: integer('w').notNull(),
+    h: integer('h').notNull(),
+    cellFt: integer('cell_ft').notNull().default(5),
+    tilesJson: text('tiles_json').notNull(),
+    revealedJson: text('revealed_json').notNull(),
+    annotationsJson: text('annotations_json'),
+    backgroundPath: text('background_path'),
+    version: integer('version').notNull().default(1)
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.instanceId, t.floorIdx] })
   })
 );
 
@@ -521,6 +592,9 @@ export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
 export type MapRow = typeof maps.$inferSelect;
 export type NewMapRow = typeof maps.$inferInsert;
+export type Dungeon = typeof dungeons.$inferSelect;
+export type DungeonInstance = typeof dungeonInstances.$inferSelect;
+export type InstanceFloor = typeof instanceFloors.$inferSelect;
 export type EncounterBoard = typeof encounterBoards.$inferSelect;
 export type NewEncounterBoard = typeof encounterBoards.$inferInsert;
 export type ActionLogEntry = typeof actionLog.$inferSelect;

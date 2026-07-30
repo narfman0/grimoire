@@ -36,7 +36,11 @@ const Params = z.object({ id: Uuid });
 
 async function requireEncounterAccess(userId: string, encounterId: string) {
   const rows = await db
-    .select({ id: schema.encounters.id, campaignId: schema.encounters.campaignId })
+    .select({
+      id: schema.encounters.id,
+      campaignId: schema.encounters.campaignId,
+      dungeonInstanceId: schema.encounters.dungeonInstanceId
+    })
     .from(schema.encounters)
     .where(eq(schema.encounters.id, encounterId))
     .limit(1);
@@ -62,8 +66,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
   const user = requireUser(locals);
   const { id } = parseParams(params, Params);
-  const { role } = await requireEncounterAccess(user.id, id);
+  const { enc, role } = await requireEncounterAccess(user.id, id);
   if (role !== 'dm') throw error(403, 'only the DM can attach a board');
+  // One spatial truth per encounter: the dungeon PUT 409s the same way in
+  // the other direction.
+  if (enc.dungeonInstanceId) throw error(409, 'a dungeon is attached — detach it first');
   const body = await parseJson(request, AttachBoardRequest);
 
   let w: number;
@@ -214,7 +221,11 @@ export const _openapi: RouteOpenApi = {
     params: Params,
     body: AttachBoardRequest,
     response: BoardWire,
-    errors: [{ status: 403, description: 'DM only' }, 404]
+    errors: [
+      { status: 403, description: 'DM only' },
+      404,
+      { status: 409, description: 'A dungeon instance is attached' }
+    ]
   },
   PATCH: {
     summary: 'Edit the board tiles, fog mask and/or cell notes (DM only; bumps version)',
