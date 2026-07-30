@@ -131,7 +131,9 @@ export const UpdateParticipantRequest = z
      *  caps from the new slug on the next SSR pass. */
     statblockSlug: z.string().nullable().optional(),
     /** Link or unlink a PC participant to a character sheet. */
-    characterId: Uuid.nullable().optional()
+    characterId: Uuid.nullable().optional(),
+    /** Token footprint edge in cells (Large = 2, Huge = 3, …). */
+    sizeCells: z.number().int().min(1).max(6).optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateParticipantRequest');
@@ -199,6 +201,15 @@ export const PlanJson = z
     bonusTargetParticipantIds: z.array(z.string()).optional(),
     notes: z.string().max(500),
     updatedAt: z.number().int().nonnegative(),
+    /** Planned board destination (cells). Bounds are validated against the
+     *  board at apply time, not here — the board can change under a plan. */
+    moveTo: z
+      .object({ x: z.number().int().min(0).max(99), y: z.number().int().min(0).max(99) })
+      .optional(),
+    path: z
+      .array(z.object({ x: z.number().int().min(0).max(99), y: z.number().int().min(0).max(99) }))
+      .max(200)
+      .optional(),
     combat: CombatEconomyJson.optional(),
     conditionTimers: z.array(ConditionTimerJson).max(40).optional(),
     /** DM marker: this creature has lair actions in this encounter. No SRD
@@ -268,6 +279,26 @@ export function salvagePlanJson(
   if (Array.isArray(r.bonusTargetParticipantIds)) {
     plan.bonusTargetParticipantIds = ids(r.bonusTargetParticipantIds);
   }
+  // Planned movement salvages like the intent fields: keep it when it is
+  // individually valid, drop it (never the whole plan) when it isn't.
+  const cellOf = (v: unknown): { x: number; y: number } | undefined => {
+    if (!v || typeof v !== 'object') return undefined;
+    const c = v as { x?: unknown; y?: unknown };
+    if (
+      typeof c.x === 'number' && Number.isInteger(c.x) && c.x >= 0 && c.x < 100 &&
+      typeof c.y === 'number' && Number.isInteger(c.y) && c.y >= 0 && c.y < 100
+    ) {
+      return { x: c.x, y: c.y };
+    }
+    return undefined;
+  };
+  const moveTo = cellOf(r.moveTo);
+  if (moveTo) plan.moveTo = moveTo;
+  if (Array.isArray(r.path)) {
+    const path = r.path.map(cellOf).filter((c): c is { x: number; y: number } => !!c);
+    if (path.length > 0 && path.length === r.path.length) plan.path = path.slice(0, 200);
+  }
+
   // The three extras are independent of the intent and of each other — a
   // broken one must not cost the others. Each is coerced by the same
   // tolerant normalizer the reader would have applied anyway.

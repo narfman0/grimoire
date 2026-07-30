@@ -1,0 +1,82 @@
+// Token position writes. Same permission shape as the plan endpoint: the DM
+// moves anyone; a player moves a PC token only — their own unless the
+// campaign's planForOthers policy is on. Non-PC rows stay DM-only
+// regardless: hidden monsters are redacted from the player list, and
+// accepting an arbitrary participant id would let a player probe which
+// creatures exist.
+
+import { json, error } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { db, schema } from '$lib/server/db';
+import { SetPositionRequest } from '$lib/server/api/board-schemas';
+import { OkResponse } from '$lib/server/api/responses';
+import { Uuid } from '$lib/server/api/schemas';
+import { parseJson, parseParams } from '$lib/server/api/validate';
+import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
+import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
+import type { RouteOpenApi } from '$lib/server/api/openapi';
+import type { RequestHandler } from './$types';
+
+const Params = z.object({ id: Uuid, pid: Uuid });
+
+export const POST: RequestHandler = async ({ params, request, locals }) => {
+  const user = requireUser(locals);
+  const { id, pid } = parseParams(params, Params);
+  const { enc, part, role } = await requireParticipantAccess(user.id, id, pid);
+
+  if (role !== 'dm') {
+    if (!part.characterId) throw error(403, 'players cannot move non-PC participants');
+    const perms = await getCampaignPermissions(enc.campaignId);
+    if (!perms.planForOthers) {
+      const owned = await db
+        .select({ ownerUserId: schema.characters.ownerUserId })
+        .from(schema.characters)
+        .where(eq(schema.characters.id, part.characterId))
+        .limit(1);
+      if (!owned[0] || owned[0].ownerUserId !== user.id) {
+        throw error(403, 'you do not own this character');
+      }
+    }
+  }
+
+  const body = await parseJson(request, SetPositionRequest);
+
+  // Keep the token's whole footprint on the attached board, when there is
+  // one. Without a board any in-range coordinate is accepted — the DM may
+  // be pre-placing tokens before attaching the map.
+  if (body.x !== null && body.y !== null) {
+    const boards = await db
+      .select({ w: schema.encounterBoards.w, h: schema.encounterBoards.h })
+      .from(schema.encounterBoards)
+      .where(eq(schema.encounterBoards.encounterId, id))
+      .limit(1);
+    const board = boards[0];
+    if (board) {
+      const size = Math.max(1, part.sizeCells);
+      if (body.x + size > board.w || body.y + size > board.h) {
+        throw error(400, 'position out of board bounds');
+      }
+    }
+  }
+
+  await db
+    .update(schema.participants)
+    .set({ posX: body.x, posY: body.y })
+    .where(eq(schema.participants.id, pid));
+  return json({ ok: true });
+};
+
+export const _openapi: RouteOpenApi = {
+  POST: {
+    summary: 'Move a token (DM: anyone; player: PC tokens per campaign policy). Both null clears.',
+    params: Params,
+    body: SetPositionRequest,
+    response: OkResponse,
+    errors: [
+      { status: 400, description: 'Position out of board bounds' },
+      { status: 403, description: 'Not allowed to move this participant' },
+      404
+    ]
+  }
+};

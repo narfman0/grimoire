@@ -71,6 +71,13 @@
       "when": 1785334963290,
       "tag": "0009_nice_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1785381546035,
+      "tag": "0010_strange_sprite",
+      "breakpoints": true
     }
   ]
 }

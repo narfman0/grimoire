@@ -51,6 +51,11 @@ export interface TurnPlan {
   bonusTargetParticipantIds?: string[];
   notes: string;
   updatedAt: number;
+  /** Planned board destination; applied to posX/posY when the turn
+   *  advances past this participant. */
+  moveTo?: { x: number; y: number };
+  /** Cheapest path to moveTo, for opportunity-attack-aware display. */
+  path?: Array<{ x: number; y: number }>;
   /** Non-PC combat economy (used-slot flags, legendary counter, the DM's
    *  NPC spell-slot tally). Rides plan_json because participants have no
    *  combat-state column of their own; PCs keep the same state on the
@@ -102,6 +107,19 @@ export interface EncounterSnapshot {
    *  instead of waiting for the next `invalidateAll`. See
    *  `withLiveResources` in $lib/encounter/action-availability. */
   participantResources: Record<string, Record<string, number>>;
+  /** Board token positions for placed participants. Role-redacted server
+   *  side: a player never receives a token sitting entirely in unrevealed
+   *  fog. */
+  positions: Record<string, ParticipantPosition>;
+  /** encounter_boards.version, or null when no board is attached. The
+   *  encounter page refetches GET .../board when this bumps. */
+  boardVersion: number | null;
+}
+
+export interface ParticipantPosition {
+  x: number;
+  y: number;
+  sizeCells: number;
 }
 
 export interface ConnectedEncounter {
@@ -139,6 +157,10 @@ export interface ConnectedEncounter {
    *  encounter. Persists to combat_state_json — no statblock carries lair
    *  data. */
   setLair(participantId: string, lair: boolean): Promise<void>;
+  /** Move a token on the board (null = take it off). DM moves anyone;
+   *  players their own PC (server-enforced). Optimistic and covered by the
+   *  stale-poll guard like every other mutator. */
+  setPosition(participantId: string, pos: { x: number; y: number } | null): Promise<void>;
   /** Damage helper: subtract amount from current HP, draining temp HP first.
    *  Returns the new HP shape (for log-entry bookkeeping). Re-uses the SSR
    *  seed when no live entry exists yet. Fires `setHp` under the hood.
@@ -199,7 +221,9 @@ const EMPTY: EncounterSnapshot = {
   participantHp: {},
   participantEconomy: {},
   participantLair: {},
-  participantResources: {}
+  participantResources: {},
+  positions: {},
+  boardVersion: null
 };
 
 export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncounter {
@@ -212,7 +236,9 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     participantHp: opts.seed?.participantHp ?? {},
     participantEconomy: opts.seed?.participantEconomy ?? {},
     participantLair: opts.seed?.participantLair ?? {},
-    participantResources: opts.seed?.participantResources ?? {}
+    participantResources: opts.seed?.participantResources ?? {},
+    positions: opts.seed?.positions ?? {},
+    boardVersion: opts.seed?.boardVersion ?? null
   };
 
   const state = writable<EncounterSnapshot>(initial);
@@ -304,7 +330,9 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
         participantResources: (data.participantResources ?? {}) as Record<
           string,
           Record<string, number>
-        >
+        >,
+        positions: (data.positions ?? {}) as Record<string, ParticipantPosition>,
+        boardVersion: data.boardVersion ?? null
       });
       lastEtag = res.headers.get('etag');
       status.set('open');
@@ -571,6 +599,34 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           if (prev) participantLair[participantId] = true;
           else delete participantLair[participantId];
           return { ...s, participantLair };
+        });
+        throw err;
+      } finally {
+        endMutation();
+      }
+    },
+
+    async setPosition(participantId, pos) {
+      const endMutation = beginMutation();
+      const snap = readSnap(state);
+      const prev = snap.positions[participantId];
+      state.update((s) => {
+        const positions = { ...s.positions };
+        if (pos) positions[participantId] = { ...pos, sizeCells: prev?.sizeCells ?? 1 };
+        else delete positions[participantId];
+        return { ...s, positions };
+      });
+      try {
+        await send(
+          `/api/encounters/${opts.encounterId}/participants/${participantId}/position`,
+          { method: 'POST', body: JSON.stringify(pos ? { x: pos.x, y: pos.y } : { x: null, y: null }) }
+        );
+      } catch (err) {
+        state.update((s) => {
+          const positions = { ...s.positions };
+          if (prev) positions[participantId] = prev;
+          else delete positions[participantId];
+          return { ...s, positions };
         });
         throw err;
       } finally {

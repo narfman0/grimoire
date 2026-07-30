@@ -362,13 +362,68 @@ export const participants = sqliteTable(
    *  load layers filter player-facing data based on these flags. See
    *  $lib/realtime/reveals.ts. */
     revealsJson: text('reveals_json').notNull().default('{}'),
-    sortOrder: integer('sort_order').notNull().default(0)
+    sortOrder: integer('sort_order').notNull().default(0),
+    /** Board position in cells (top-left anchor of the token footprint).
+     *  Null = untracked; a board-less encounter behaves exactly as before
+     *  these columns existed. See docs/ws3-boards-plan.md §B. */
+    posX: integer('pos_x'),
+    posY: integer('pos_y'),
+    /** Token footprint edge in cells (Large = 2, Huge = 3, …). */
+    sizeCells: integer('size_cells').notNull().default(1)
   },
   (t) => ({
     // WHERE clause of the 2-second /state poll and every encounter load.
     byEncounter: index('participants_encounter').on(t.encounterId)
   })
 );
+
+/** A user's reusable map library. Tiles are the RLE string defined by
+ *  $lib/board/rle over the $lib/board/tileset wire codes. */
+export const maps = sqliteTable(
+  'maps',
+  {
+    id: text('id').primaryKey(),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    w: integer('w').notNull(),
+    h: integer('h').notNull(),
+    cellFt: integer('cell_ft').notNull().default(5),
+    tilesJson: text('tiles_json').notNull(),
+    /** Optional uploaded background image path under /data (served via
+     *  /api/map-backgrounds/[id]); null when none. */
+    backgroundPath: text('background_path'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (t) => ({
+    byOwner: index('maps_owner').on(t.ownerUserId)
+  })
+);
+
+/** The per-encounter board instance. Copy-on-attach: attaching a library map
+ *  snapshots its tiles here, so mid-fight edits (a door opens, a wall
+ *  crumbles) never mutate the library original. `revealedJson` is the fog
+ *  mask — an RLE bitmask (1 = revealed) over the same grid; `version`
+ *  increments on every tiles/fog write so the 2s poll can carry a cheap
+ *  change token instead of the board itself. */
+export const encounterBoards = sqliteTable('encounter_boards', {
+  encounterId: text('encounter_id')
+    .primaryKey()
+    .references(() => encounters.id, { onDelete: 'cascade' }),
+  /** Library map this board was attached from; informational only. */
+  sourceMapId: text('source_map_id').references(() => maps.id, { onDelete: 'set null' }),
+  w: integer('w').notNull(),
+  h: integer('h').notNull(),
+  cellFt: integer('cell_ft').notNull().default(5),
+  tilesJson: text('tiles_json').notNull(),
+  backgroundPath: text('background_path'),
+  revealedJson: text('revealed_json').notNull(),
+  version: integer('version').notNull().default(1),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+});
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;
@@ -455,6 +510,10 @@ export type Encounter = typeof encounters.$inferSelect;
 export type NewEncounter = typeof encounters.$inferInsert;
 export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
+export type MapRow = typeof maps.$inferSelect;
+export type NewMapRow = typeof maps.$inferInsert;
+export type EncounterBoard = typeof encounterBoards.$inferSelect;
+export type NewEncounterBoard = typeof encounterBoards.$inferInsert;
 export type ActionLogEntry = typeof actionLog.$inferSelect;
 export type NewActionLogEntry = typeof actionLog.$inferInsert;
 

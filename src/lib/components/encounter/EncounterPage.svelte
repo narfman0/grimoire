@@ -27,6 +27,17 @@
   import RevealControls from './RevealControls.svelte';
   import ReactionPromptQueue from './ReactionPromptQueue.svelte';
   import ResolvePanel from './ResolvePanel.svelte';
+  import { hpBucket } from '$lib/realtime/reveals';
+  import { decodeBoard, distanceFt, reachableCells, type Grid } from '$lib/board/geometry';
+  import {
+    suggestLegendary,
+    suggestTurn,
+    type RankedPlan,
+    type SuggestActor,
+    type SuggestCombatant
+  } from '$lib/board/suggest-turn';
+  import { suggestActionsFrom, suggestLegendaryActionsFrom } from '$lib/encounter/suggest-input';
+  import SuggestTurnPanel from './SuggestTurnPanel.svelte';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import {
@@ -69,6 +80,7 @@
     type ConditionExpiryPrompt,
     type ConditionTimer
   } from '$lib/encounter/condition-timers';
+  import BoardPanel from './BoardPanel.svelte';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
@@ -286,6 +298,371 @@
       lastRefreshSig = sig;
       invalidateAll().catch(() => {});
     }
+  }
+
+  // ---- battle board -------------------------------------------------------
+  //
+  // Positions ride the poll (role-redacted server-side); the SSR map seeds
+  // the first paint. Token visuals derive from the same live maps the row
+  // cards use. The BoardPanel owns the board wire state + DM paint tools;
+  // moves come back as events and go through the channel's setPosition.
+  $: livePositions = liveState?.positions ?? data.participantPositions ?? {};
+  $: liveBoardVersion =
+    liveState && liveState.participants !== null
+      ? liveState.boardVersion
+      : data.board?.version ?? null;
+
+  const TOKEN_COLORS: Record<string, string> = {
+    pc: '#065f46', // emerald-800
+    npc: '#7c2d12', // orange-900
+    monster: '#7f1d1d' // red-900
+  };
+  const BUCKET_RING: Record<string, string | null> = {
+    healthy: '#34d399',
+    wounded: '#fbbf24',
+    bloodied: '#f97316',
+    critical: '#ef4444',
+    defeated: '#475569',
+    unknown: null
+  };
+  function initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase();
+  }
+  function canMoveToken(p: { kind: string }): boolean {
+    // The server enforces ownership/policy; the UI is permissive for PCs
+    // (permissive-by-default table policy) and DM-only for everything else.
+    return data.role === 'dm' || p.kind === 'pc';
+  }
+  $: boardTokens = liveParticipants
+    .filter((p) => livePositions[p.id])
+    .map((p) => {
+      const pos = livePositions[p.id];
+      const hp = liveHpMap[p.id];
+      const cur = hp?.currentHp ?? p.currentHp;
+      const max = p.maxHp;
+      return {
+        id: p.id,
+        x: pos.x,
+        y: pos.y,
+        sizeCells: pos.sizeCells,
+        label: initialsOf(p.placeholderName ?? p.name),
+        title: p.placeholderName ?? p.name,
+        color: TOKEN_COLORS[p.kind] ?? TOKEN_COLORS.monster,
+        ring: BUCKET_RING[hpBucket(cur, max)] ?? null,
+        active: p.id === liveActive,
+        draggable: canMoveToken(p),
+        team: p.kind === 'pc' ? 'pc' : 'foe'
+      };
+    });
+  $: unplacedTokens = liveParticipants
+    .filter((p) => !livePositions[p.id] && canMoveToken(p))
+    .map((p) => ({ id: p.id, label: p.placeholderName ?? p.name }));
+
+  /** Token footprint by creature size, applied once at first placement. */
+  const SIZE_CELLS: Record<string, number> = { large: 2, huge: 3, gargantuan: 4 };
+  function onMoveToken(e: CustomEvent<{ id: string; x: number; y: number }>) {
+    const { id, x, y } = e.detail;
+    if (!conn) return;
+    const p = liveParticipants.find((q) => q.id === id);
+    if (data.role === 'dm' && p && !livePositions[id]) {
+      const size = SIZE_CELLS[(p.statblock?.size ?? '').toLowerCase()];
+      if (size && size > 1) {
+        void api
+          .patch(`/api/encounters/${data.encounter.id}/participants/${id}`, { sizeCells: size })
+          .catch(() => {});
+      }
+    }
+    conn.setPosition(id, { x, y }).catch(() => {});
+  }
+
+  function speedFtOf(p: {
+    id: string;
+    kind: string;
+    characterId: string | null;
+    statblock?: { speeds?: Record<string, number> } | null;
+  }): number {
+    const cs = p.characterId ? data.participantPcStats?.[p.id] : undefined;
+    const speeds =
+      p.kind === 'pc' ? (cs?.speeds ?? { walk: 30 }) : (p.statblock?.speeds ?? { walk: 30 });
+    return speeds.walk ?? speeds.fly ?? speeds.swim ?? 30;
+  }
+
+  $: boardSelected = ((): {
+    id: string;
+    speedFt: number;
+    kind: string;
+    plannable: boolean;
+    moveTo: { x: number; y: number } | null;
+  } | null => {
+    if (!selectedId) return null;
+    const p = liveParticipants.find((q) => q.id === selectedId);
+    if (!p || !livePositions[p.id]) return null;
+    return {
+      id: p.id,
+      speedFt: speedFtOf(p),
+      kind: p.kind,
+      // The server enforces who may actually write the plan; the UI arms
+      // click-to-plan for the DM and for PC rows (permissive table policy).
+      plannable: data.role === 'dm' || p.kind === 'pc',
+      moveTo: livePlans[p.id]?.moveTo ?? null
+    };
+  })();
+
+  /** Rebuild a full TurnPlan from the previous one with movement patched
+   *  in/out. Everything else (intent, targets, extras) rides along. */
+  function planWithMove(
+    prev: TurnPlan | undefined,
+    move: { moveTo: { x: number; y: number }; path?: Array<{ x: number; y: number }> } | null
+  ): TurnPlan {
+    const base: TurnPlan = {
+      actionId: prev?.actionId ?? '',
+      actionLabel: prev?.actionLabel ?? '',
+      ...(prev?.bonusActionId ? { bonusActionId: prev.bonusActionId } : {}),
+      ...(prev?.bonusActionLabel ? { bonusActionLabel: prev.bonusActionLabel } : {}),
+      targetParticipantIds: prev?.targetParticipantIds ?? [],
+      ...(prev?.bonusTargetParticipantIds
+        ? { bonusTargetParticipantIds: prev.bonusTargetParticipantIds }
+        : {}),
+      notes: prev?.notes ?? '',
+      updatedAt: Date.now()
+    };
+    if (move) {
+      base.moveTo = move.moveTo;
+      if (move.path) base.path = move.path;
+    }
+    return base;
+  }
+
+  function onPlanMove(
+    e: CustomEvent<{ id: string; x: number; y: number; path: Array<{ x: number; y: number }> | null }>
+  ) {
+    if (!conn) return;
+    const { id, x, y, path } = e.detail;
+    conn
+      .setPlan(id, planWithMove(livePlans[id], { moveTo: { x, y }, ...(path ? { path } : {}) }))
+      .catch(() => {});
+  }
+
+  function clearPlanMove(pid: string) {
+    if (!conn) return;
+    const prev = livePlans[pid];
+    if (!prev?.moveTo) return;
+    conn.setPlan(pid, planWithMove(prev, null)).catch(() => {});
+  }
+
+  /** "80/320 ft." → 320; reach 10 → 10. Null when the action carries no
+   *  parseable range — no warning is better than a wrong one. */
+  function actionRangeFt(
+    p: { statblock?: { actions?: Array<{ name: string; reach?: number; range?: string }> } | null },
+    actionLabel: string
+  ): number | null {
+    const action = p.statblock?.actions?.find((a) => a.name === actionLabel);
+    if (!action) return null;
+    if (typeof action.reach === 'number') return action.reach;
+    if (action.range) {
+      const m = /(\d+)(?:\s*\/\s*(\d+))?\s*ft/i.exec(action.range);
+      if (m) return Number(m[2] ?? m[1]);
+    }
+    return null;
+  }
+
+  /** Soft warnings for the resolve panel — unreachable planned move,
+   *  out-of-range target. Advisory chips only; DM fiat always wins. */
+  $: resolveWarnings = ((): string[] => {
+    if (!resolveForParticipantId || !data.board) return [];
+    const p = liveParticipants.find((q) => q.id === resolveForParticipantId);
+    if (!p) return [];
+    let grid: Grid;
+    try {
+      grid = decodeBoard({
+        w: data.board.w,
+        h: data.board.h,
+        cellFt: data.board.cellFt,
+        tiles: data.board.tiles
+      });
+    } catch {
+      return [];
+    }
+    const warnings: string[] = [];
+    const pos = livePositions[p.id];
+    const plan = livePlans[p.id];
+    if (pos && plan?.moveTo) {
+      const reach = reachableCells(grid, { x: pos.x, y: pos.y }, speedFtOf(p));
+      if (!reach.costFt.has(`${plan.moveTo.x},${plan.moveTo.y}`)) {
+        warnings.push(
+          `Planned move to (${plan.moveTo.x}, ${plan.moveTo.y}) is beyond ${p.name}'s reach this turn`
+        );
+      }
+    }
+    const actingCell = plan?.moveTo ?? (pos ? { x: pos.x, y: pos.y } : null);
+    const targetPos = resolveTargetId ? livePositions[resolveTargetId] : null;
+    if (actingCell && targetPos && resolveActionLabel) {
+      const rangeFt = actionRangeFt(p, resolveActionLabel);
+      if (rangeFt !== null) {
+        const dist = distanceFt(grid, actingCell, { x: targetPos.x, y: targetPos.y });
+        if (dist > rangeFt) {
+          warnings.push(`Target is ${dist} ft away — beyond the ${rangeFt} ft range`);
+        }
+      }
+    }
+    return warnings;
+  })();
+
+  // ---- NPC turn optimizer ---------------------------------------------------
+  //
+  // Pure ranking over the live board ($lib/board/suggest-turn); statblocks
+  // are digested to plain inputs by $lib/encounter/suggest-input. DM-only
+  // surfaces. Player hints (running the same ranking against the redacted
+  // snapshot) are deliberately not built until campaign settings have a
+  // storage home (campaigns.permissions_json, PR #11).
+  let suggestionsFor: Record<string, RankedPlan[]> = {};
+
+  function suggestGrid(): Grid | null {
+    if (!data.board) return null;
+    try {
+      return decodeBoard({
+        w: data.board.w,
+        h: data.board.h,
+        cellFt: data.board.cellFt,
+        tiles: data.board.tiles
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  function suggestCombatants(excludeId: string): SuggestCombatant[] {
+    const out: SuggestCombatant[] = [];
+    for (const q of liveParticipants) {
+      if (q.id === excludeId) continue;
+      const pos = livePositions[q.id];
+      if (!pos) continue;
+      const hp = liveHpMap[q.id];
+      const cur = hp?.currentHp ?? q.currentHp;
+      const ac = q.kind === 'pc' ? data.participantPcStats?.[q.id]?.ac ?? null : q.statblock?.ac ?? null;
+      out.push({
+        id: q.id,
+        name: q.name,
+        cell: { x: pos.x, y: pos.y },
+        sizeCells: pos.sizeCells,
+        team: q.kind === 'pc' ? 'pc' : 'foe',
+        ac,
+        currentHp: cur ?? null,
+        maxHp: q.maxHp ?? null,
+        downed: typeof cur === 'number' && cur <= 0,
+        concentrating: !!hp?.concentrating
+      });
+    }
+    return out;
+  }
+
+  function suggestActorFor(p: (typeof liveParticipants)[number]): SuggestActor | null {
+    const pos = livePositions[p.id];
+    if (!pos) return null;
+    const actions = suggestActionsFrom(p.statblock?.actions ?? []);
+    if (actions.length === 0) return null;
+    return {
+      id: p.id,
+      name: p.name,
+      cell: { x: pos.x, y: pos.y },
+      sizeCells: pos.sizeCells,
+      team: p.kind === 'pc' ? 'pc' : 'foe',
+      speedFt: speedFtOf(p),
+      actions
+    };
+  }
+
+  function suggestUnavailableReason(p: (typeof liveParticipants)[number]): string | null {
+    if (!data.board) return 'attach a board first';
+    if (!livePositions[p.id]) return 'place the token first';
+    if (suggestActionsFrom(p.statblock?.actions ?? []).length === 0) {
+      return 'no damaging statblock actions';
+    }
+    return null;
+  }
+
+  function computeSuggestions(p: (typeof liveParticipants)[number]) {
+    const grid = suggestGrid();
+    const actor = suggestActorFor(p);
+    if (!grid || !actor) return;
+    suggestionsFor = { ...suggestionsFor, [p.id]: suggestTurn(grid, actor, suggestCombatants(p.id)) };
+  }
+
+  /** Confirming a suggestion writes it as an ordinary draft plan — the same
+   *  TurnPlan every other path writes; resolve confirms it as usual. */
+  function applySuggestion(p: { id: string }, s: RankedPlan) {
+    if (!conn) return;
+    const cur = livePlans[p.id];
+    conn
+      .setPlan(p.id, {
+        actionId: s.actionId,
+        actionLabel: s.actionName,
+        targetParticipantIds: s.targetIds,
+        notes: cur?.notes ?? '',
+        ...(s.moveTo ? { moveTo: s.moveTo } : {}),
+        ...(s.path ? { path: s.path } : {}),
+        updatedAt: Date.now()
+      })
+      .catch(() => {});
+  }
+
+  /** Fill a draft plan for every unplanned, placed NPC at round start. */
+  function autoPlanRound() {
+    const grid = suggestGrid();
+    if (!grid || !conn) return;
+    for (const p of liveParticipants) {
+      if (p.kind === 'pc') continue;
+      if (livePlans[p.id]?.actionId) continue;
+      const actor = suggestActorFor(p);
+      if (!actor) continue;
+      const top = suggestTurn(grid, actor, suggestCombatants(p.id), { topN: 1 })[0];
+      if (top) applySuggestion(p, top);
+    }
+  }
+
+  /** The optimizer's pick among a legendary creature's affordable actions,
+   *  shown as a hint on the end-of-turn prompt. */
+  function legendarySuggestionFor(pid: string, remaining: number): string | null {
+    const grid = suggestGrid();
+    const p = liveParticipants.find((q) => q.id === pid);
+    if (!grid || !p || !livePositions[pid]) return null;
+    const actions = suggestLegendaryActionsFrom(p.statblock?.legendaryActions ?? []);
+    if (actions.length === 0) return null;
+    const actor = suggestActorFor(p);
+    if (!actor) return null;
+    const top = suggestLegendary(
+      grid,
+      { ...actor, actions },
+      suggestCombatants(pid),
+      remaining,
+      { topN: 1 }
+    )[0];
+    return top?.actionName ?? null;
+  }
+
+  /** Turn advance applies the departing participant's planned move to the
+   *  board and logs it. DM-only so exactly one client writes. */
+  function applyPlannedMove(leaving: { id: string; name: string }) {
+    if (data.role !== 'dm' || !conn) return;
+    const plan = livePlans[leaving.id];
+    if (!plan?.moveTo) return;
+    const { x, y } = plan.moveTo;
+    const cur = livePositions[leaving.id];
+    if (!cur || cur.x !== x || cur.y !== y) {
+      conn.setPosition(leaving.id, { x, y }).catch(() => {});
+      api
+        .post(`/api/encounters/${data.encounter.id}/log`, {
+          participantId: leaving.id,
+          actionId: 'move',
+          actionLabel: `➜ moved to (${x}, ${y})`,
+          round: liveRound,
+          notes: ''
+        })
+        .then(() => invalidateAll())
+        .catch(() => {});
+    }
+    conn.setPlan(leaving.id, planWithMove(plan, null)).catch(() => {});
   }
 
   function clearPlan(participantId: string) {
@@ -1432,6 +1809,12 @@
         targetParticipantIds,
         bonusTargetParticipantIds,
         notes: cur?.notes ?? '',
+        // plan_json is overwritten whole server-side, so the planned
+        // movement must ride along through action/target picks. (The combat
+        // counters / timers / lair live on combat_state_json since 0009 and
+        // no longer share this column.)
+        ...(cur?.moveTo ? { moveTo: cur.moveTo } : {}),
+        ...(cur?.path ? { path: cur.path } : {}),
         updatedAt: Date.now()
       })
       .catch(() => {});
@@ -1538,6 +1921,7 @@
         if (leaving) {
           resetEconomy(leaving);
           enqueueLegendaryPrompts(leaving);
+          applyPlannedMove(leaving);
         }
       }
       prevActive = current;
@@ -1873,6 +2257,19 @@
   <EncounterDifficultyPanel {difficulty} loading={difficultyLoading} />
 {/if}
 
+<BoardPanel
+  encounterId={data.encounter.id}
+  role={data.role}
+  board={data.board ?? null}
+  boardVersion={liveBoardVersion}
+  tokens={boardTokens}
+  unplaced={unplacedTokens}
+  selected={boardSelected}
+  {busy}
+  on:moveToken={onMoveToken}
+  on:planMove={onPlanMove}
+/>
+
 {#if liveStatus === 'live' && data.role === 'dm'}
   <TurnControls
     round={liveRound}
@@ -1940,6 +2337,16 @@
           on:click={rollInitiativeAll}
         >
           🎲 Roll initiative (NPCs)
+        </button>
+      {/if}
+      {#if data.role === 'dm' && data.board && liveParticipants.some((p) => p.kind !== 'pc' && livePositions[p.id] && !livePlans[p.id]?.actionId)}
+        <button
+          class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
+          disabled={busy}
+          title="Draft a suggested plan for every unplanned, placed NPC"
+          on:click={autoPlanRound}
+        >
+          💡 Auto-plan round
         </button>
       {/if}
     </div>
@@ -2130,6 +2537,17 @@
         </div>
       {/if}
 
+      <!-- NPC turn optimizer (DM only, non-PC) -->
+      {#if data.role === 'dm' && !isPc}
+        <SuggestTurnPanel
+          suggestions={suggestionsFor[p.id] ?? null}
+          {busy}
+          unavailableReason={suggestUnavailableReason(p)}
+          on:compute={() => computeSuggestions(p)}
+          on:apply={(e) => applySuggestion(p, e.detail)}
+        />
+      {/if}
+
       <!-- Plan / action economy -->
       {#if econOpen[p.id] && (data.role === 'dm' || isPc)}
         {@const eco = economyByParticipant[p.id] ?? EMPTY_ECONOMY}
@@ -2165,6 +2583,7 @@
             on:freeActionsChange={(e) => { econOpen[p.id].freeActions = e.detail; econOpen = econOpen; }}
             on:resolve={() => openResolve(p)}
             on:clear={() => clearPlan(p.id)}
+            on:clearMove={() => clearPlanMove(p.id)}
           />
         </div>
       {/if}
@@ -2212,6 +2631,7 @@
     amending={amendingLogId !== null}
     submitting={resolveSubmitting}
     error={resolveError}
+    warnings={resolveWarnings}
     targetCritImmune={pcCritImmune(resolveTargetId)}
     bind:actionLabel={resolveActionLabel}
     bind:targetId={resolveTargetId}
@@ -2252,6 +2672,7 @@
       0,
       legBudget - legendaryUsedForRound(economyByParticipant[legP.id], liveRound)
     )}
+    {@const legHint = legendarySuggestionFor(legP.id, legRemaining)}
     <LegendaryPromptCard
       participantName={legP.name}
       budget={legBudget}
@@ -2259,7 +2680,8 @@
       actions={(legP.statblock?.legendaryActions ?? []).map((a) => ({
         name: a.name,
         cost: a.cost ?? 1,
-        affordable: (a.cost ?? 1) <= legRemaining
+        affordable: (a.cost ?? 1) <= legRemaining,
+        suggested: a.name === legHint
       }))}
       queuedBehind={legendaryPrompts.length - 1}
       on:use={(e) => useLegendaryAction(legPrompt, e.detail)}

@@ -31,6 +31,9 @@
     showsExactHp,
     type DisplayHp
   } from '$lib/encounter/display-list';
+  import BoardCanvas, { type BoardToken } from '$lib/components/board/BoardCanvas.svelte';
+  import { maskTilesForPlayer } from '$lib/board/fog';
+  import { visibleTokenPositions } from '$lib/encounter/board-visibility';
   import type { EncounterDisplayData } from '$lib/server/encounter-display';
 
   export let data: EncounterDisplayData;
@@ -80,6 +83,73 @@
     liveHp
   );
   $: activeName = participants.find((p) => p.id === activeId)?.name ?? null;
+
+  // ---- battle board (player lens, always) ---------------------------------
+  //
+  // Same rule as the participant list above: the poll and the board GET
+  // redact for the *viewer*, and the viewer here may be the DM — so tiles
+  // are re-masked and positions re-filtered against the fog client-side,
+  // unconditionally. Idempotent when the payload was already player-shaped.
+  type DisplayBoard = NonNullable<EncounterDisplayData['board']>;
+  function playerBoard(b: DisplayBoard): DisplayBoard {
+    try {
+      return {
+        ...b,
+        tiles: maskTilesForPlayer(b.tiles, b.revealed, b.w, b.h),
+        background: null
+      };
+    } catch {
+      return b;
+    }
+  }
+  let board: DisplayBoard | null = data.board ? playerBoard(data.board) : null;
+  let fetchingVersion: number | null = null;
+  $: liveBoardVersion =
+    liveState && liveState.participants !== null
+      ? liveState.boardVersion
+      : data.board?.version ?? null;
+  $: if (liveBoardVersion === null && board) board = null;
+  $: if (
+    liveBoardVersion !== null &&
+    liveBoardVersion !== fetchingVersion &&
+    (!board || liveBoardVersion > board.version)
+  ) {
+    fetchingVersion = liveBoardVersion;
+    void fetch(`/api/encounters/${data.encounter.id}/board`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (b) board = playerBoard(b as DisplayBoard);
+      })
+      .catch(() => {})
+      .finally(() => (fetchingVersion = null));
+  }
+
+  $: boardTokens = ((): BoardToken[] => {
+    if (!board) return [];
+    const raw = liveState?.positions ?? data.participantPositions ?? {};
+    const visible = visibleTokenPositions(
+      Object.entries(raw).map(([id, p]) => ({ id, posX: p.x, posY: p.y, sizeCells: p.sizeCells })),
+      { w: board.w, h: board.h, revealedJson: board.revealed },
+      false
+    );
+    return participants
+      .filter((p) => visible[p.id])
+      .map((p) => {
+        const pos = visible[p.id];
+        const parts = p.name.trim().split(/\s+/);
+        return {
+          id: p.id,
+          x: pos.x,
+          y: pos.y,
+          sizeCells: pos.sizeCells,
+          label: ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase(),
+          title: p.name,
+          color: p.kind === 'pc' ? '#065f46' : '#7f1d1d',
+          ring: null,
+          active: p.id === activeId
+        };
+      });
+  })();
 </script>
 
 <svelte:head>
@@ -113,6 +183,21 @@
       <span class="text-emerald-400">▶</span>
       <span class="font-semibold text-slate-100">{activeName}</span>'s turn
     </p>
+  {/if}
+
+  {#if board}
+    <div class="mb-6" data-testid="display-board">
+      <BoardCanvas
+        w={board.w}
+        h={board.h}
+        tiles={board.tiles}
+        revealed={board.revealed}
+        fogStyle="player"
+        tokens={boardTokens}
+        interactive={false}
+        maxCellPx={44}
+      />
+    </div>
   {/if}
 
   {#if participants.length === 0}

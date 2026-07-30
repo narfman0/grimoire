@@ -22,6 +22,8 @@ const TABLE_NAMES = [
   'homebrew_subscriptions',
   'campaign_content_grants',
   'action_log',
+  'encounter_boards',
+  'maps',
   'participants',
   'encounters',
   'campaign_characters',
