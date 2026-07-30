@@ -427,6 +427,10 @@
       return;
     }
     planSubmitting = true;
+    // plan_json is overwritten whole server-side, so a planned board move
+    // (set from the encounter page's battle map) must ride along or a
+    // sheet-side action pick silently deletes it.
+    const prevPlan = encState?.plans[data.liveEncounter.selfParticipantId];
     const plan: TurnPlan = {
       actionId: action?.id ?? '',
       actionLabel: action ? `${action.name} (${action.costLabel})` : '',
@@ -435,6 +439,8 @@
       targetParticipantIds: planTargetIds,
       bonusTargetParticipantIds: planBonusTargetIds.length > 0 ? planBonusTargetIds : undefined,
       notes: planNotes.slice(0, 200),
+      ...(prevPlan?.moveTo ? { moveTo: prevPlan.moveTo } : {}),
+      ...(prevPlan?.path ? { path: prevPlan.path } : {}),
       updatedAt: Date.now()
     };
     encConn

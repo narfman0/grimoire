@@ -1,4 +1,5 @@
 import { json, error } from '@sveltejs/kit';
+import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '$lib/server/db';
@@ -74,11 +75,106 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     updates.notesJson = patch.notesJson;
   }
 
+  // Turn advance applies the departing participant's planned board move.
+  // Server-side on purpose: exactly one writer regardless of how many DM
+  // tabs observe the change, and it works when no DM client is open at all.
+  // (Resolving a turn applies the move client-side before clearing the
+  // plan; by the time the advance lands here the plan is gone — no double
+  // application.)
+  if (
+    patch.activeParticipantId !== undefined &&
+    enc.activeParticipantId &&
+    patch.activeParticipantId !== enc.activeParticipantId
+  ) {
+    await applyPlannedMove(id, enc.activeParticipantId, enc.round, user.id, role);
+  }
+
   await db.update(schema.encounters).set(updates).where(eq(schema.encounters.id, id));
   const next = await loadEncounter(id);
 
   return json(serializeEncounter(next!));
 };
+
+/** Apply `plan.moveTo` for the participant whose turn is ending: write
+ *  posX/posY (footprint bounds-checked against any attached board), append
+ *  a `➜ moved` action-log row, and strip the movement from the plan so a
+ *  later advance can't re-apply it. Best-effort — a malformed plan is
+ *  ignored, never a 500 on the turn-advance path. */
+async function applyPlannedMove(
+  encounterId: string,
+  participantId: string,
+  round: number,
+  submittedByUserId: string,
+  submitterRole: string
+) {
+  const rows = await db
+    .select({
+      id: schema.participants.id,
+      planJson: schema.participants.planJson,
+      sizeCells: schema.participants.sizeCells,
+      posX: schema.participants.posX,
+      posY: schema.participants.posY
+    })
+    .from(schema.participants)
+    .where(eq(schema.participants.id, participantId))
+    .limit(1);
+  const part = rows[0];
+  if (!part?.planJson) return;
+
+  let plan: Record<string, unknown>;
+  try {
+    plan = JSON.parse(part.planJson) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const moveTo = plan.moveTo as { x?: unknown; y?: unknown } | undefined;
+  if (
+    !moveTo ||
+    typeof moveTo.x !== 'number' ||
+    typeof moveTo.y !== 'number' ||
+    !Number.isInteger(moveTo.x) ||
+    !Number.isInteger(moveTo.y) ||
+    moveTo.x < 0 ||
+    moveTo.y < 0
+  ) {
+    return;
+  }
+
+  const boards = await db
+    .select({ w: schema.encounterBoards.w, h: schema.encounterBoards.h })
+    .from(schema.encounterBoards)
+    .where(eq(schema.encounterBoards.encounterId, encounterId))
+    .limit(1);
+  const board = boards[0];
+  const size = Math.max(1, part.sizeCells);
+  const inBounds = !board || (moveTo.x + size <= board.w && moveTo.y + size <= board.h);
+
+  const { moveTo: _m, path: _p, ...stripped } = plan;
+  const moved = inBounds && (part.posX !== moveTo.x || part.posY !== moveTo.y);
+  await db
+    .update(schema.participants)
+    .set({
+      planJson: JSON.stringify(stripped),
+      ...(moved ? { posX: moveTo.x, posY: moveTo.y } : {})
+    })
+    .where(eq(schema.participants.id, participantId));
+
+  if (moved) {
+    await db.insert(schema.actionLog).values({
+      id: randomUUID(),
+      encounterId,
+      participantId,
+      targetParticipantId: null,
+      round,
+      actionId: 'move',
+      actionLabel: `➜ moved to (${moveTo.x}, ${moveTo.y})`,
+      submittedByUserId,
+      submitterRole,
+      notes: null,
+      createdAt: new Date()
+    });
+  }
+}
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
   const user = requireUser(locals);

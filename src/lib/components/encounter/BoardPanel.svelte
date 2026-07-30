@@ -64,9 +64,21 @@
   const dispatch = createEventDispatcher<{
     moveToken: { id: string; x: number; y: number };
     planMove: { id: string; x: number; y: number; path: Cell[] | null };
+    /** Fired whenever the panel's board copy changes (attach, paint,
+     *  refetch, detach) so the parent's geometry consumers (resolve
+     *  warnings, turn suggestions) never work from a stale SSR board. */
+    boardChanged: BoardWireShape | null;
   }>();
 
   let liveBoard: BoardWireShape | null = board;
+
+  /** Version-guarded assignment: an in-flight GET must never reinstate an
+   *  older board over fog strokes that already landed locally. */
+  function acceptBoard(b: BoardWireShape | null) {
+    if (b && liveBoard && b.version < liveBoard.version) return;
+    liveBoard = b;
+  }
+  $: dispatch('boardChanged', liveBoard);
   let collapsed = false;
   type Mode = 'tokens' | 'ruler' | 'fog' | 'terrain';
   let mode: Mode = 'tokens';
@@ -88,7 +100,7 @@
     fetchingVersion = boardVersion;
     void api
       .get<BoardWireShape>(`/api/encounters/${encounterId}/board`, { silent: true })
-      .then((b) => (liveBoard = b))
+      .then((b) => acceptBoard(b))
       .catch(() => {})
       .finally(() => (fetchingVersion = null));
   }
@@ -112,10 +124,12 @@
   async function attach(body: Record<string, unknown>) {
     attaching = true;
     try {
-      liveBoard = await api<BoardWireShape>(`/api/encounters/${encounterId}/board`, {
-        method: 'PUT',
-        body
-      });
+      acceptBoard(
+        await api<BoardWireShape>(`/api/encounters/${encounterId}/board`, {
+          method: 'PUT',
+          body
+        })
+      );
       mode = 'tokens';
     } catch {
       // api() already toasted
@@ -142,7 +156,7 @@
 
   async function patchBoard(body: { tiles?: string; revealed?: string }) {
     try {
-      liveBoard = await api.patch<BoardWireShape>(`/api/encounters/${encounterId}/board`, body);
+      acceptBoard(await api.patch<BoardWireShape>(`/api/encounters/${encounterId}/board`, body));
     } catch {
       // api() already toasted
     }

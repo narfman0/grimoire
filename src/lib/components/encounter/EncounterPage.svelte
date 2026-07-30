@@ -80,7 +80,7 @@
     type ConditionExpiryPrompt,
     type ConditionTimer
   } from '$lib/encounter/condition-timers';
-  import BoardPanel from './BoardPanel.svelte';
+  import BoardPanel, { type BoardWireShape } from './BoardPanel.svelte';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import { lairReminderForTurn } from '$lib/encounter/lair';
@@ -206,7 +206,14 @@
   $: livePlans = liveState?.plans ?? {};
   /** DM lair markers. Projected by the poll since migration 0009 moved the
    *  marker off plan_json — reading it from the plan would now miss it. */
-  $: liveLair = liveState?.participantLair ?? data.participantLair ?? {};
+  // The channel store exists (with empty maps) from the first synchronous
+  // frame, so a bare `liveState?.x ?? seed` never reaches the SSR seed.
+  // `participants === null` is the "no poll yet" signal — same guard
+  // liveBoardVersion uses.
+  $: liveLair =
+    liveState && liveState.participants !== null
+      ? liveState.participantLair
+      : data.participantLair ?? {};
   $: liveHpMap = liveState?.participantHp ?? {};
 
   // --- live participant list ----------------------------------------------
@@ -306,7 +313,17 @@
   // the first paint. Token visuals derive from the same live maps the row
   // cards use. The BoardPanel owns the board wire state + DM paint tools;
   // moves come back as events and go through the channel's setPosition.
-  $: livePositions = liveState?.positions ?? data.participantPositions ?? {};
+  // The panel owns the board wire (attach/paint/refetch); this mirror keeps
+  // the page's geometry consumers (resolve warnings, turn suggestions) on
+  // the live copy instead of the SSR snapshot.
+  let liveBoardWire: BoardWireShape | null = data.board ?? null;
+
+  // Same first-poll guard as liveLair: the SSR positions seed paints the
+  // tokens on hydration; the poll takes over once it has actually landed.
+  $: livePositions =
+    liveState && liveState.participants !== null
+      ? liveState.positions
+      : data.participantPositions ?? {};
   $: liveBoardVersion =
     liveState && liveState.participants !== null
       ? liveState.boardVersion
@@ -470,16 +487,16 @@
   /** Soft warnings for the resolve panel — unreachable planned move,
    *  out-of-range target. Advisory chips only; DM fiat always wins. */
   $: resolveWarnings = ((): string[] => {
-    if (!resolveForParticipantId || !data.board) return [];
+    if (!resolveForParticipantId || !liveBoardWire) return [];
     const p = liveParticipants.find((q) => q.id === resolveForParticipantId);
     if (!p) return [];
     let grid: Grid;
     try {
       grid = decodeBoard({
-        w: data.board.w,
-        h: data.board.h,
-        cellFt: data.board.cellFt,
-        tiles: data.board.tiles
+        w: liveBoardWire.w,
+        h: liveBoardWire.h,
+        cellFt: liveBoardWire.cellFt,
+        tiles: liveBoardWire.tiles
       });
     } catch {
       return [];
@@ -519,13 +536,13 @@
   let suggestionsFor: Record<string, RankedPlan[]> = {};
 
   function suggestGrid(): Grid | null {
-    if (!data.board) return null;
+    if (!liveBoardWire) return null;
     try {
       return decodeBoard({
-        w: data.board.w,
-        h: data.board.h,
-        cellFt: data.board.cellFt,
-        tiles: data.board.tiles
+        w: liveBoardWire.w,
+        h: liveBoardWire.h,
+        cellFt: liveBoardWire.cellFt,
+        tiles: liveBoardWire.tiles
       });
     } catch {
       return null;
@@ -573,8 +590,14 @@
     };
   }
 
-  function suggestUnavailableReason(p: (typeof liveParticipants)[number]): string | null {
-    if (!data.board) return 'attach a board first';
+  /** `board` is a parameter (not the closure var) so the markup call site
+   *  names it and Svelte re-renders the reason when the panel attaches or
+   *  detaches a board. */
+  function suggestUnavailableReason(
+    p: (typeof liveParticipants)[number],
+    board: BoardWireShape | null
+  ): string | null {
+    if (!board) return 'attach a board first';
     if (!livePositions[p.id]) return 'place the token first';
     if (suggestActionsFrom(p.statblock?.actions ?? []).length === 0) {
       return 'no damaging statblock actions';
@@ -641,28 +664,17 @@
     return top?.actionName ?? null;
   }
 
-  /** Turn advance applies the departing participant's planned move to the
-   *  board and logs it. DM-only so exactly one client writes. */
-  function applyPlannedMove(leaving: { id: string; name: string }) {
-    if (data.role !== 'dm' || !conn) return;
-    const plan = livePlans[leaving.id];
+  /** Resolving a turn applies the planned move before the plan clears —
+   *  otherwise the natural DM order (plan → resolve → next turn) deleted
+   *  the move before the server's turn-advance application ever saw it. */
+  function applyPlannedMoveOnResolve(participantId: string) {
+    if (!conn) return;
+    const plan = livePlans[participantId];
     if (!plan?.moveTo) return;
-    const { x, y } = plan.moveTo;
-    const cur = livePositions[leaving.id];
-    if (!cur || cur.x !== x || cur.y !== y) {
-      conn.setPosition(leaving.id, { x, y }).catch(() => {});
-      api
-        .post(`/api/encounters/${data.encounter.id}/log`, {
-          participantId: leaving.id,
-          actionId: 'move',
-          actionLabel: `➜ moved to (${x}, ${y})`,
-          round: liveRound,
-          notes: ''
-        })
-        .then(() => invalidateAll())
-        .catch(() => {});
+    const cur = livePositions[participantId];
+    if (!cur || cur.x !== plan.moveTo.x || cur.y !== plan.moveTo.y) {
+      conn.setPosition(participantId, plan.moveTo).catch(() => {});
     }
-    conn.setPlan(leaving.id, planWithMove(plan, null)).catch(() => {});
   }
 
   function clearPlan(participantId: string) {
@@ -889,7 +901,8 @@
         reactionUsedByParticipantId
       });
       if (newPrompts.length > 0) reactionPrompts = [...reactionPrompts, ...newPrompts];
-      // Clear the plan if there was one.
+      // Apply any planned board move, then clear the plan if there was one.
+      applyPlannedMoveOnResolve(resolveForParticipantId);
       if (livePlans[resolveForParticipantId]) {
         conn.clearPlan(resolveForParticipantId).catch(() => {});
       }
@@ -1921,7 +1934,8 @@
         if (leaving) {
           resetEconomy(leaving);
           enqueueLegendaryPrompts(leaving);
-          applyPlannedMove(leaving);
+          // Planned moves apply SERVER-side when the turn advances (the
+          // encounter PATCH handler) — one writer, no two-tab double logs.
         }
       }
       prevActive = current;
@@ -2268,6 +2282,7 @@
   {busy}
   on:moveToken={onMoveToken}
   on:planMove={onPlanMove}
+  on:boardChanged={(e) => (liveBoardWire = e.detail)}
 />
 
 {#if liveStatus === 'live' && data.role === 'dm'}
@@ -2339,7 +2354,7 @@
           🎲 Roll initiative (NPCs)
         </button>
       {/if}
-      {#if data.role === 'dm' && data.board && liveParticipants.some((p) => p.kind !== 'pc' && livePositions[p.id] && !livePlans[p.id]?.actionId)}
+      {#if data.role === 'dm' && liveBoardWire && liveParticipants.some((p) => p.kind !== 'pc' && livePositions[p.id] && !livePlans[p.id]?.actionId)}
         <button
           class="rounded border border-slate-700 px-2 py-0.5 text-xs hover:bg-slate-800 disabled:opacity-40"
           disabled={busy}
@@ -2542,7 +2557,7 @@
         <SuggestTurnPanel
           suggestions={suggestionsFor[p.id] ?? null}
           {busy}
-          unavailableReason={suggestUnavailableReason(p)}
+          unavailableReason={suggestUnavailableReason(p, liveBoardWire)}
           on:compute={() => computeSuggestions(p)}
           on:apply={(e) => applySuggestion(p, e.detail)}
         />

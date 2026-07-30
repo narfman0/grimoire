@@ -118,7 +118,9 @@
     void fetch(`/api/encounters/${data.encounter.id}/board`)
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => {
-        if (b) board = playerBoard(b as DisplayBoard);
+        // Version guard: an in-flight GET must not reinstate an older board.
+        const next = b as DisplayBoard | null;
+        if (next && (!board || next.version >= board.version)) board = playerBoard(next);
       })
       .catch(() => {})
       .finally(() => (fetchingVersion = null));
@@ -126,7 +128,12 @@
 
   $: boardTokens = ((): BoardToken[] => {
     if (!board) return [];
-    const raw = liveState?.positions ?? data.participantPositions ?? {};
+    // First-poll guard: the channel store exists (empty) synchronously, so
+    // fall back to the SSR seed until a poll has actually landed.
+    const raw =
+      liveState && liveState.participants !== null
+        ? liveState.positions
+        : data.participantPositions ?? {};
     const visible = visibleTokenPositions(
       Object.entries(raw).map(([id, p]) => ({ id, posX: p.x, posY: p.y, sizeCells: p.sizeCells })),
       { w: board.w, h: board.h, revealedJson: board.revealed },
