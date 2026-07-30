@@ -345,9 +345,10 @@ export async function buildEncounterPageData(
   const participantPlans: Record<string, unknown> = {};
   /** Non-PC combat state (migration 0009), read with the one-release
    *  fallback to the legacy plan_json keys. Only the lair marker is shipped
-   *  to the page — the economy and timers already ride their own projections
-   *  through the poll. */
-  const combatStates: Record<string, { lair?: boolean }> = {};
+   *  to the page — and the whole state ships as `participantCombatState`
+   *  so the encounter page can seed the channel's economy/timers for the
+   *  first paint (writers stopped putting them on plan_json in 0009). */
+  const combatStates: Record<string, ReturnType<typeof readCombatState>> = {};
   /** Persisted concentration target per non-PC participant. PC concentration
    *  lives on the character document and rides through participantPcConcentrating
    *  below. */
@@ -623,7 +624,17 @@ export async function buildEncounterPageData(
             kind: p.kind,
             statblockSlug: p.statblockSlug,
             statblockJson: p.statblockJson ? JSON.parse(p.statblockJson) : null,
-            statblockActions: p.statblockSlug ? statblockActions.get(p.statblockSlug) ?? [] : [],
+            // Slug monsters use the per-slug cache; ad-hoc/inline monsters
+            // (statblockJson only) derive theirs directly, so the resolve
+            // panel's roll buttons arm for them too.
+            statblockActions: p.statblockSlug
+              ? statblockActions.get(p.statblockSlug) ?? []
+              : (statblock?.actions ?? []).map((a) => ({
+                  name: a.name,
+                  attackBonus: a.attackBonus,
+                  range: a.range,
+                  damage: a.damage
+                })),
             statblock,
             initiative: p.initiative,
             dexScore: dexForParticipant(p),
@@ -701,6 +712,14 @@ export async function buildEncounterPageData(
     participantPcConcentrating,
     participantPcReceivedBuffs,
     participantPlans,
+    // First-paint seed for the poll's economy/timers projections. `lair` is
+    // stripped for players below (DM-only prep), matching participantLair.
+    participantCombatState: Object.fromEntries(
+      Object.entries(combatStates).map(([pid, cs]) => [
+        pid,
+        isDM ? cs : { ...cs, lair: undefined }
+      ])
+    ),
     // DM-only, mirroring the /state poll: "which creature is legendary /
     // lairing here" is prep, and only DM-gated UI reads it.
     participantLair: isDM

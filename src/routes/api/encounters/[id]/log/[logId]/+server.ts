@@ -63,6 +63,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (patch.targetHpBefore !== undefined) updates.targetHpBefore = patch.targetHpBefore;
   if (patch.targetHpAfter !== undefined) updates.targetHpAfter = patch.targetHpAfter;
   if (patch.notes !== undefined) updates.notes = patch.notes;
+  // Amending the totals without a fresh in-app roll clears the stale per-die
+  // breakdown (the client sends null); a re-rolled amend sends the new one.
+  if (patch.rollDetail !== undefined) updates.rollDetailJson = patch.rollDetail;
 
   if (Object.keys(updates).length > 0) {
     await db.update(schema.actionLog).set(updates).where(eq(schema.actionLog.id, logId));

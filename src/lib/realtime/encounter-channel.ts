@@ -476,6 +476,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
             currentHp: hp.currentHp !== undefined ? hp.currentHp : prev?.currentHp ?? null,
             tempHp: hp.tempHp !== undefined ? hp.tempHp : prev?.tempHp ?? 0,
             conditions: prev?.conditions ?? [],
+            conditionTimers: prev?.conditionTimers,
             concentrating: prev?.concentrating ?? null
           }
         };
@@ -509,6 +510,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
             currentHp: prev?.currentHp ?? null,
             tempHp: prev?.tempHp ?? 0,
             conditions,
+            conditionTimers: prev?.conditionTimers,
             concentrating: prev?.concentrating ?? null
           }
         };
@@ -669,6 +671,7 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
               currentHp: cur?.currentHp ?? null,
               tempHp: cur?.tempHp ?? 0,
               conditions: cur?.conditions ?? [],
+              conditionTimers: cur?.conditionTimers,
               concentrating
             }
           }

@@ -395,6 +395,9 @@ export const ActionLogEntry = z
     targetHpBefore: z.number().int().nullable(),
     targetHpAfter: z.number().int().nullable(),
     notes: z.string().nullable(),
+    /** Per-die breakdown when the rolls were made in-app (blanked for
+     *  hidden actors — see HIDDEN_ACTOR_BLANKS in $lib/realtime/action-log). */
+    rollDetail: z.string().nullable().optional(),
     /** True when the viewer is a player and the row describes (or targets)
      *  a participant they may not see: the actor, action, rolls and HP
      *  snapshot are withheld and `actionLabel` is a neutral placeholder.
@@ -444,7 +447,11 @@ export const UpdateActionLogRequest = z
     hit: HitOutcome.nullable().optional(),
     targetHpBefore: z.number().int().nullable().optional(),
     targetHpAfter: z.number().int().nullable().optional(),
-    notes: z.string().max(500).nullable().optional()
+    notes: z.string().max(500).nullable().optional(),
+    /** Per-die breakdown when the corrected rolls were re-rolled in-app;
+     *  explicit null clears a stale breakdown that no longer matches the
+     *  amended totals. */
+    rollDetail: z.string().max(300).nullable().optional()
   })
   .openapi('UpdateActionLogRequest');
 

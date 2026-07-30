@@ -140,9 +140,8 @@
     // for the ~2s until the first poll lands. PCs seed from
     // data.participantPcEconomy via `economyFor`.
     const seedEconomy: Record<string, CombatEconomy> = {};
-    for (const [pid, plan] of Object.entries(data.participantPlans ?? {})) {
-      const combat = (plan as { combat?: unknown } | null)?.combat;
-      if (combat) seedEconomy[pid] = normalizeEconomy(combat);
+    for (const [pid, cs] of Object.entries(data.participantCombatState ?? {})) {
+      if (cs?.combat) seedEconomy[pid] = normalizeEconomy(cs.combat);
     }
     const seedHp: Record<string, ParticipantHp> = {};
     for (const p of data.participants) {
@@ -153,15 +152,13 @@
           ? data.participantPcConcentrating?.[p.id] ?? null
           : data.participantNonPcConcentrating?.[p.id] ?? null;
       // Condition timers seed from the character document (PCs) or the
-      // participant's plan_json (everyone else) — the same two homes the
-      // poll projects from, so first paint agrees with the first poll.
+      // participant's combat_state_json (everyone else) — the same two
+      // homes the poll projects from, so first paint agrees with the first
+      // poll. (They rode plan_json before migration 0009.)
       const conditionTimers =
         p.kind === 'pc'
           ? (data.participantPcConditionTimers?.[p.id] ?? [])
-          : normalizeTimers(
-              (data.participantPlans?.[p.id] as { conditionTimers?: unknown } | undefined)
-                ?.conditionTimers
-            );
+          : normalizeTimers(data.participantCombatState?.[p.id]?.conditionTimers);
       seedHp[p.id] = {
         currentHp: stats ? stats.hp.current : p.currentHp,
         tempHp: stats ? stats.hp.temp : (p.tempHp ?? 0),

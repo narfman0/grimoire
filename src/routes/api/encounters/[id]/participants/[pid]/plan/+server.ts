@@ -8,7 +8,28 @@ import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
 import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
 import { OkResponse } from '$lib/server/api/responses';
+import { legacyCombatStateFromPlan } from '$lib/encounter/combat-state';
 import type { RequestHandler } from './$types';
+
+/** Migration-0009 backfill: while `combat_state_json` is still null, the
+ *  poll reads the legacy extras (economy / timers / lair) off `plan_json` —
+ *  so a plan write that overwrites or nulls the blob without first copying
+ *  them across destroys a live fight's counters, the exact defect the
+ *  column exists to prevent. Persist them once, here, before the plan blob
+ *  changes; drop this together with `legacyCombatStateFromPlan` one release
+ *  after 0009. */
+function legacyBackfill(part: {
+  combatStateJson: string | null;
+  planJson: string | null;
+}): { combatStateJson: string } | Record<string, never> {
+  if (part.combatStateJson !== null || !part.planJson) return {};
+  try {
+    const legacy = legacyCombatStateFromPlan(JSON.parse(part.planJson));
+    return legacy ? { combatStateJson: JSON.stringify(legacy) } : {};
+  } catch {
+    return {};
+  }
+}
 
 const Params = z.object({ id: Uuid, pid: Uuid });
 
@@ -38,7 +59,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const planJson = JSON.stringify(body.plan);
   await db
     .update(schema.participants)
-    .set({ planJson })
+    .set({ planJson, ...legacyBackfill(part) })
     .where(eq(schema.participants.id, pid));
 
   return json({ ok: true });
@@ -73,7 +94,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   // route does not touch and cannot wipe.
   await db
     .update(schema.participants)
-    .set({ planJson: null })
+    .set({ planJson: null, ...legacyBackfill(part) })
     .where(eq(schema.participants.id, pid));
 
   return new Response(null, { status: 204 });
