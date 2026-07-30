@@ -65,6 +65,7 @@
       </div>
       <div class="flex items-center gap-3 text-slate-400">
         {#if data.user}
+          <a href="/maps" class="text-xs hover:text-slate-200">Maps</a>
           <!-- Homebrew menu: admin-only until feature is opened up. -->
           {#if data.user?.isAdmin}
           <div class="relative">
