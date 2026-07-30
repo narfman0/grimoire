@@ -43,7 +43,13 @@ function actionRangeFt(a: MonsterAction): number {
 
 const AOE_RE = /(\d+)-foot(?:-radius)?\s+(cone|line|cube|sphere|radius)/i;
 
-function actionAoe(a: MonsterAction): { shape: AoeShape; sizeFt: number } | null {
+/** Parse an action's AoE template out of its prose — "exhales fire in a
+ *  15-foot cone", "20-foot-radius sphere". Exported so the resolve flow can
+ *  arm the board's AoE tool from the picked action; null when the prose
+ *  names no template. */
+export function actionAoe(a: {
+  description?: string;
+}): { shape: AoeShape; sizeFt: number } | null {
   const m = a.description ? AOE_RE.exec(a.description) : null;
   if (!m) return null;
   const shape = m[2].toLowerCase();
@@ -51,6 +57,22 @@ function actionAoe(a: MonsterAction): { shape: AoeShape; sizeFt: number } | null
     shape: shape === 'radius' || shape === 'sphere' ? 'sphere' : (shape as AoeShape),
     sizeFt: Number(m[1])
   };
+}
+
+/** The actor's action whose template matches a locked board AoE, if any.
+ *  Used when the DM aims a template first and hands its targets to the
+ *  resolve panel with no action picked: adopting the matching action's name
+ *  arms the DC pre-fill, damage type and dice, instead of logging the turn
+ *  as "sphere 20 ft". */
+export function matchAoeAction<T extends { description?: string }>(
+  actions: readonly T[],
+  shape: AoeShape,
+  sizeFt: number
+): T | undefined {
+  return actions.find((a) => {
+    const aoe = actionAoe(a);
+    return aoe !== null && aoe.shape === shape && aoe.sizeFt === sizeFt;
+  });
 }
 
 const WORD_COUNTS: Record<string, number> = {

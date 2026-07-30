@@ -79,6 +79,10 @@
     attackRangeFt?: number | null;
   } | null = null;
   export let busy = false;
+  /** The AoE template of the action currently being resolved, when its
+   *  prose describes one — offered as a one-click arm so the DM previews
+   *  the breath weapon they're rolling, not a shape they re-enter by hand. */
+  export let armAoe: { shape: AoeShape; sizeFt: number; label: string } | null = null;
 
   const dispatch = createEventDispatcher<{
     moveToken: { id: string; x: number; y: number };
@@ -88,8 +92,9 @@
      *  warnings, turn suggestions) never work from a stale SSR board. */
     boardChanged: BoardWireShape | null;
     /** A locked AoE template's caught participants, handed to the resolve
-     *  panel as its multi-save target list. */
-    aoeTargets: { participantIds: string[]; label: string };
+     *  panel as its multi-save target list. Shape + size ride along so the
+     *  parent can match the template back to one of the actor's actions. */
+    aoeTargets: { participantIds: string[]; label: string; shape: AoeShape; sizeFt: number };
     /** A click on a token — inspection, so the parent opens the detail panel
      *  and nothing else. */
     selectToken: { id: string };
@@ -507,6 +512,15 @@
     aoeAnchor = null;
   }
 
+  /** Arm the tool with the resolving action's own template. */
+  function applyArmAoe() {
+    if (!armAoe) return;
+    mode = 'aoe';
+    aoeShape = armAoe.shape;
+    aoeSizeFt = armAoe.sizeFt;
+    resetAoe();
+  }
+
   function applyAoePreset(value: string) {
     const preset = AOE_PRESETS[Number(value)];
     if (!preset) return;
@@ -634,6 +648,16 @@
         >
           💥 AoE
         </button>
+        {#if armAoe && role === 'dm'}
+          <button
+            class="rounded border border-orange-700 bg-orange-950/30 px-2 py-0.5 text-xs text-orange-200 hover:border-orange-500"
+            title="Preview this action's template on the board"
+            data-testid="arm-aoe"
+            on:click={applyArmAoe}
+          >
+            💥 {armAoe.label}
+          </button>
+        {/if}
         {#if role === 'dm'}
           <button
             class="rounded border px-2 py-0.5 text-xs {mode === 'notes'
@@ -1019,7 +1043,9 @@
                   on:click={() =>
                     dispatch('aoeTargets', {
                       participantIds: aoeCaught.map((c) => c.id),
-                      label: aoeLabel
+                      label: aoeLabel,
+                      shape: aoeShape,
+                      sizeFt: aoeSizeFt
                     })}
                 >
                   → check all as multi-save targets

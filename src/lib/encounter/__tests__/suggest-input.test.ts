@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  actionAoe,
   diceEV,
   isMultiattack,
+  matchAoeAction,
   multiattackStrikes,
   suggestActionsFrom,
   suggestLegendaryActionsFrom
@@ -183,5 +185,32 @@ describe('isMultiattack', () => {
     expect(isMultiattack({ name: 'Multiattack' })).toBe(true);
     expect(isMultiattack({ name: 'multiattack (special)' })).toBe(true);
     expect(isMultiattack({ name: 'Claw' })).toBe(false);
+  });
+});
+
+describe('actionAoe / matchAoeAction', () => {
+  const breath = {
+    name: 'Fire Breath',
+    description:
+      'The dragon exhales fire in a 15-foot cone. Each creature must make a DC 13 Dexterity saving throw.'
+  };
+  const burst = { name: 'Shatter', description: 'A 10-foot-radius sphere of thunder.' };
+  const bite = { name: 'Bite', description: 'Melee Weapon Attack: +6 to hit.' };
+
+  it('parses cone / radius-as-sphere shapes out of the prose', () => {
+    expect(actionAoe(breath)).toEqual({ shape: 'cone', sizeFt: 15 });
+    expect(actionAoe(burst)).toEqual({ shape: 'sphere', sizeFt: 10 });
+    expect(actionAoe(bite)).toBeNull();
+    expect(actionAoe({})).toBeNull();
+  });
+
+  it('matches a locked template back to the action that describes it', () => {
+    const actions = [bite, breath, burst];
+    expect(matchAoeAction(actions, 'cone', 15)).toBe(breath);
+    expect(matchAoeAction(actions, 'sphere', 10)).toBe(burst);
+    // Same shape, wrong size — or a shape nobody has — matches nothing, so
+    // the handoff falls back to the bare geometry label.
+    expect(matchAoeAction(actions, 'cone', 30)).toBeUndefined();
+    expect(matchAoeAction(actions, 'line', 30)).toBeUndefined();
   });
 });

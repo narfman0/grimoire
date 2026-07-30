@@ -193,3 +193,24 @@ describe('BoardPanel door toggle', () => {
     expect(apiMock.patch).not.toHaveBeenCalled();
   });
 });
+
+describe('BoardPanel AoE arm from the resolve action', () => {
+  it('offers the action template and arms the tool on click', async () => {
+    renderPanel({
+      role: 'dm',
+      board: boardFixture(),
+      armAoe: { shape: 'cone', sizeFt: 15, label: 'Fire Breath' }
+    });
+    const arm = screen.getByTestId('arm-aoe');
+    expect(arm.textContent).toContain('Fire Breath');
+    await fireEvent.click(arm);
+    const controls = screen.getByTestId('aoe-controls');
+    expect((controls.querySelector('select') as HTMLSelectElement).value).toBe('cone');
+    expect((screen.getByLabelText('AoE size in feet') as HTMLInputElement).value).toBe('15');
+  });
+
+  it('offers nothing without a template, and never to players', () => {
+    renderPanel({ role: 'dm', board: boardFixture() });
+    expect(screen.queryByTestId('arm-aoe')).toBeNull();
+  });
+});

@@ -34,6 +34,7 @@
     distanceFt,
     pathTo,
     reachableCells,
+    type AoeShape,
     type Grid
   } from '$lib/board/geometry';
   import { coverEffect } from '$lib/board/aoe';
@@ -51,7 +52,12 @@
     type SuggestActor,
     type SuggestCombatant
   } from '$lib/board/suggest-turn';
-  import { suggestActionsFrom, suggestLegendaryActionsFrom } from '$lib/encounter/suggest-input';
+  import {
+    actionAoe,
+    matchAoeAction,
+    suggestActionsFrom,
+    suggestLegendaryActionsFrom
+  } from '$lib/encounter/suggest-input';
   import SuggestTurnPanel from './SuggestTurnPanel.svelte';
   import { impliedBy } from '$lib/rules/conditions';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
@@ -98,6 +104,7 @@
   import BoardPanel, { type BoardWireShape } from './BoardPanel.svelte';
   import type { TokenBadge } from '$lib/components/board/BoardCanvas.svelte';
   import { liveEncounterRound } from '$lib/client/encounter-round';
+  import { saveForAction } from '$lib/encounter/save-prose';
   import ConditionExpiryPromptCard from './ConditionExpiryPrompt.svelte';
   import LegendaryPromptCard from './LegendaryPromptCard.svelte';
   import OpportunityPromptCard from './OpportunityPromptCard.svelte';
@@ -644,7 +651,8 @@
         ...(a.attackBonus !== undefined ? { attackBonus: a.attackBonus } : {}),
         ...(a.damage ? { damage: a.damage } : {}),
         ...(a.saveDC !== undefined ? { saveDC: a.saveDC } : {}),
-        ...(a.saveAbility !== undefined ? { saveAbility: a.saveAbility } : {})
+        ...(a.saveAbility !== undefined ? { saveAbility: a.saveAbility } : {}),
+        ...(a.description !== undefined ? { description: a.description } : {})
       }))
     };
   });
@@ -717,10 +725,27 @@
     return effect.label || null;
   })();
 
+  /** The AoE template the action being resolved describes, if any — parsed
+   *  from the picked action's prose so the board can offer a one-click
+   *  preview while the DM aims. §D promised the template as part of the
+   *  flow, not only as a freestanding tool. */
+  $: resolveAoe = ((): { shape: AoeShape; sizeFt: number; label: string } | null => {
+    if (!resolveForParticipantId || !resolveActionLabel) return null;
+    const acting = resolveParticipants.find((q) => q.id === resolveForParticipantId);
+    const action = acting?.statblockActions?.find((a) => a.name === resolveActionLabel);
+    const aoe = action ? actionAoe(action) : null;
+    return aoe ? { ...aoe, label: resolveActionLabel } : null;
+  })();
+
   /** Hand a locked AoE template's caught participants to the resolve panel
    *  as its multi-save target list, opening the panel for the active
    *  participant if the DM hasn't already. */
-  function takeAoeTargets(detail: { participantIds: string[]; label: string }) {
+  function takeAoeTargets(detail: {
+    participantIds: string[];
+    label: string;
+    shape?: AoeShape;
+    sizeFt?: number;
+  }) {
     if (data.role !== 'dm') return;
     if (!resolveForParticipantId) {
       const actor = liveParticipants.find((q) => q.id === liveActive);
@@ -731,11 +756,25 @@
     // tick them back on if the template really does include them.
     resolveMultiTargetIds = detail.participantIds.filter((id) => id !== resolveForParticipantId);
     resolveTargetSaveRolls = {};
-    // The multi-save rows only render once a DC exists, so seed a
-    // placeholder rather than checking targets the DM can't see. Task #13
-    // will pre-fill this from the action's own DC.
-    if (resolveSaveDC == null) resolveSaveDC = 10;
-    if (!resolveActionLabel || resolveActionLabel === 'Ad-hoc') resolveActionLabel = detail.label;
+    if (!resolveActionLabel || resolveActionLabel === 'Ad-hoc') {
+      // Template first, action second: if the locked shape matches one of
+      // the actor's own AoE actions, adopt that action — its name arms the
+      // DC pre-fill, damage type and dice. Only unmatched templates fall
+      // back to the bare geometry label.
+      const acting = resolveParticipants.find((q) => q.id === resolveForParticipantId);
+      const match =
+        detail.shape !== undefined && detail.sizeFt !== undefined
+          ? matchAoeAction(acting?.statblockActions ?? [], detail.shape, detail.sizeFt)
+          : undefined;
+      resolveActionLabel = match?.name ?? detail.label;
+    }
+    // The multi-save rows only render once a DC exists. When the adopted
+    // action states its own DC the panel pre-fills it (task #13); the
+    // placeholder is only for a template that matched nothing.
+    const adopted = resolveParticipants
+      .find((q) => q.id === resolveForParticipantId)
+      ?.statblockActions?.find((a) => a.name === resolveActionLabel);
+    if (resolveSaveDC == null && !saveForAction(adopted)) resolveSaveDC = 10;
   }
 
   // ---- NPC turn optimizer ---------------------------------------------------
@@ -2770,6 +2809,7 @@
   on:moveToken={onMoveToken}
   on:selectToken={(e) => selectToken(e.detail.id)}
   on:planMove={onPlanMove}
+  armAoe={resolveAoe}
   on:boardChanged={(e) => (liveBoardWire = e.detail)}
   on:aoeTargets={(e) => takeAoeTargets(e.detail)}
 />

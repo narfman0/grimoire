@@ -315,6 +315,10 @@ export async function buildEncounterPageData(
     damage?: Array<{ dice: string; type: string }>;
     saveDC?: number;
     saveAbility?: string;
+    /** Prose, when the derived action carries any — lets the resolve flow
+     *  parse an AoE template ("20-foot-radius sphere") and a save DC out of
+     *  a PC action exactly as it does for monster actions. */
+    description?: string;
     /** Range in feet + melee/ranged classification, for the board: melee
      *  reach feeds threat envelopes and opportunity-attack prompts (a
      *  glaive PC threatens 10 ft, not the flat 5 the statblock-only reader
@@ -516,7 +520,8 @@ export async function buildEncounterPageData(
                 ? { saveDC: a.saveDC.value, saveAbility: a.saveDC.ability }
                 : {}),
               ...(a.range?.value ? { rangeFt: a.range.value } : {}),
-              ...(a.attackRange ? { attackRange: a.attackRange } : {})
+              ...(a.attackRange ? { attackRange: a.attackRange } : {}),
+              ...(a.description ? { description: a.description } : {})
             };
           });
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({
