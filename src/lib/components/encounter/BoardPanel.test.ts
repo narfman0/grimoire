@@ -83,7 +83,7 @@ function renderPanel(
   events: Record<string, (e: CustomEvent) => void> = {}
 ) {
   const utils = render(BoardPanel, {
-    props: { encounterId: 'E', boardVersion: 1, tokens: [], unplaced: [], ...props },
+    props: { encounterId: 'E', role: 'dm' as const, boardVersion: 1, tokens: [], unplaced: [], ...props },
     events
   });
   const canvas = utils.container.querySelector('canvas')!;
