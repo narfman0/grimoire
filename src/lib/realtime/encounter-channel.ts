@@ -100,6 +100,19 @@ export interface EncounterSnapshot {
    *  instead of waiting for the next `invalidateAll`. See
    *  `withLiveResources` in $lib/encounter/action-availability. */
   participantResources: Record<string, Record<string, number>>;
+  /** Board token positions for placed participants. Role-redacted server
+   *  side: a player never receives a token sitting entirely in unrevealed
+   *  fog. */
+  positions: Record<string, ParticipantPosition>;
+  /** encounter_boards.version, or null when no board is attached. The
+   *  encounter page refetches GET .../board when this bumps. */
+  boardVersion: number | null;
+}
+
+export interface ParticipantPosition {
+  x: number;
+  y: number;
+  sizeCells: number;
 }
 
 export interface ConnectedEncounter {
@@ -136,6 +149,10 @@ export interface ConnectedEncounter {
   /** Flag/unflag a non-PC participant as having lair actions in this
    *  encounter. Persists to plan_json — no statblock carries lair data. */
   setLair(participantId: string, lair: boolean): Promise<void>;
+  /** Move a token on the board (null = take it off). DM moves anyone;
+   *  players their own PC (server-enforced). Optimistic and covered by the
+   *  stale-poll guard like every other mutator. */
+  setPosition(participantId: string, pos: { x: number; y: number } | null): Promise<void>;
   /** Damage helper: subtract amount from current HP, draining temp HP first.
    *  Returns the new HP shape (for log-entry bookkeeping). Re-uses the SSR
    *  seed when no live entry exists yet. Fires `setHp` under the hood.
@@ -195,7 +212,9 @@ const EMPTY: EncounterSnapshot = {
   plans: {},
   participantHp: {},
   participantEconomy: {},
-  participantResources: {}
+  participantResources: {},
+  positions: {},
+  boardVersion: null
 };
 
 export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncounter {
@@ -207,7 +226,9 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
     plans: opts.seed?.plans ?? {},
     participantHp: opts.seed?.participantHp ?? {},
     participantEconomy: opts.seed?.participantEconomy ?? {},
-    participantResources: opts.seed?.participantResources ?? {}
+    participantResources: opts.seed?.participantResources ?? {},
+    positions: opts.seed?.positions ?? {},
+    boardVersion: opts.seed?.boardVersion ?? null
   };
 
   const state = writable<EncounterSnapshot>(initial);
@@ -298,7 +319,9 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
         participantResources: (data.participantResources ?? {}) as Record<
           string,
           Record<string, number>
-        >
+        >,
+        positions: (data.positions ?? {}) as Record<string, ParticipantPosition>,
+        boardVersion: data.boardVersion ?? null
       });
       lastEtag = res.headers.get('etag');
       status.set('open');
@@ -571,6 +594,34 @@ export function connectEncounter(opts: EncounterConnectOptions): ConnectedEncoun
           if (prevPlan) plans[participantId] = prevPlan;
           else delete plans[participantId];
           return { ...s, plans };
+        });
+        throw err;
+      } finally {
+        endMutation();
+      }
+    },
+
+    async setPosition(participantId, pos) {
+      const endMutation = beginMutation();
+      const snap = readSnap(state);
+      const prev = snap.positions[participantId];
+      state.update((s) => {
+        const positions = { ...s.positions };
+        if (pos) positions[participantId] = { ...pos, sizeCells: prev?.sizeCells ?? 1 };
+        else delete positions[participantId];
+        return { ...s, positions };
+      });
+      try {
+        await send(
+          `/api/encounters/${opts.encounterId}/participants/${participantId}/position`,
+          { method: 'POST', body: JSON.stringify(pos ? { x: pos.x, y: pos.y } : { x: null, y: null }) }
+        );
+      } catch (err) {
+        state.update((s) => {
+          const positions = { ...s.positions };
+          if (prev) positions[participantId] = prev;
+          else delete positions[participantId];
+          return { ...s, positions };
         });
         throw err;
       } finally {

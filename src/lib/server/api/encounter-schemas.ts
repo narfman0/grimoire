@@ -131,7 +131,9 @@ export const UpdateParticipantRequest = z
      *  caps from the new slug on the next SSR pass. */
     statblockSlug: z.string().nullable().optional(),
     /** Link or unlink a PC participant to a character sheet. */
-    characterId: Uuid.nullable().optional()
+    characterId: Uuid.nullable().optional(),
+    /** Token footprint edge in cells (Large = 2, Huge = 3, …). */
+    sizeCells: z.number().int().min(1).max(6).optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
   .openapi('UpdateParticipantRequest');

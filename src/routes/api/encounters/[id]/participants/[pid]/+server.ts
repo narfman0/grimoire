@@ -44,6 +44,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (body.statblockSlug !== undefined) updates.statblockSlug = body.statblockSlug;
   if (body.characterId !== undefined) updates.characterId = body.characterId;
   if (body.conditions !== undefined) updates.conditionsJson = JSON.stringify(body.conditions);
+  if (body.sizeCells !== undefined) updates.sizeCells = body.sizeCells;
 
   await db
     .update(schema.participants)

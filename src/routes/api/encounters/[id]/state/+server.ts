@@ -12,6 +12,7 @@ import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
 import { normalizeSpentPools } from '$lib/encounter/action-availability';
+import { decodeRuns } from '$lib/board/rle';
 import { monsterDerive } from '$lib/rules/monster-derive';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
@@ -100,6 +101,15 @@ const ParticipantEconomySchema = z.object({
  *  (empty when nothing is spent), absent for everyone else. */
 const ParticipantResourcesSchema = z.record(z.string(), z.number().int().nonnegative());
 
+/** Token position for participants placed on the board. `sizeCells` rides
+ *  along so the client can draw the footprint without an SSR pass. Players
+ *  only receive entries whose token is on a revealed cell (see below). */
+const ParticipantPositionSchema = z.object({
+  x: z.number().int().nonnegative(),
+  y: z.number().int().nonnegative(),
+  sizeCells: z.number().int().min(1)
+});
+
 const EncounterStateResponse = z.object({
   round: z.number().int().nonnegative(),
   status: z.enum(['staging', 'live', 'ended']),
@@ -108,7 +118,12 @@ const EncounterStateResponse = z.object({
   plans: z.record(z.string(), PlanJson.nullable()),
   participantHp: z.record(z.string(), ParticipantHpSchema),
   participantEconomy: z.record(z.string(), ParticipantEconomySchema),
-  participantResources: z.record(z.string(), ParticipantResourcesSchema)
+  participantResources: z.record(z.string(), ParticipantResourcesSchema),
+  positions: z.record(z.string(), ParticipantPositionSchema),
+  /** encounter_boards.version, or null when no board is attached. The
+   *  client refetches GET .../board only when this bumps — the 2s poll
+   *  stays a few bytes. */
+  boardVersion: z.number().int().nullable()
 });
 
 export type TEncounterStateResponse = z.infer<typeof EncounterStateResponse>;
@@ -144,10 +159,28 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
       conditionsJson: schema.participants.conditionsJson,
       planJson: schema.participants.planJson,
       concentratingJson: schema.participants.concentratingJson,
-      revealsJson: schema.participants.revealsJson
+      revealsJson: schema.participants.revealsJson,
+      posX: schema.participants.posX,
+      posY: schema.participants.posY,
+      sizeCells: schema.participants.sizeCells
     })
     .from(schema.participants)
     .where(eq(schema.participants.encounterId, id));
+
+  // Board change token + fog mask. One indexed read; the version folds into
+  // the ETag below (fog flips change which positions a player may see, and
+  // the client uses the version to decide when to refetch the board route).
+  const boardRows = await db
+    .select({
+      w: schema.encounterBoards.w,
+      h: schema.encounterBoards.h,
+      revealedJson: schema.encounterBoards.revealedJson,
+      version: schema.encounterBoards.version
+    })
+    .from(schema.encounterBoards)
+    .where(eq(schema.encounterBoards.encounterId, id))
+    .limit(1);
+  const board = boardRows[0];
 
   // Players never receive hidden participants — the SSR loader filters them
   // out of the page data, and this poll endpoint must apply the same
@@ -199,6 +232,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
         enc.status,
         enc.activeParticipantId ?? null,
         pcDocsUpdatedMax,
+        board?.version ?? null,
         // Sort for a deterministic hash — SQLite row order is unspecified.
         [...partRows].sort((a, b) => (a.id < b.id ? -1 : 1))
       ])
@@ -407,6 +441,30 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     }
   }
 
+  // Token positions. DM sees every placed token; a player additionally
+  // loses any token whose footprint sits entirely in unrevealed fog —
+  // "where is the hidden thing" must not leak through coordinates.
+  // (Hidden participants were already dropped from partRows above.)
+  const positions: Record<string, z.infer<typeof ParticipantPositionSchema>> = {};
+  const fog =
+    board && role !== 'dm' ? decodeRuns(board.revealedJson, board.w * board.h) : null;
+  for (const p of partRows) {
+    if (p.posX === null || p.posY === null) continue;
+    if (fog && board) {
+      const size = Math.max(1, p.sizeCells);
+      let anyRevealed = false;
+      for (let dy = 0; dy < size && !anyRevealed; dy++) {
+        for (let dx = 0; dx < size && !anyRevealed; dx++) {
+          const x = p.posX + dx;
+          const y = p.posY + dy;
+          if (x < board.w && y < board.h && fog[y * board.w + x] === 1) anyRevealed = true;
+        }
+      }
+      if (!anyRevealed) continue;
+    }
+    positions[p.id] = { x: p.posX, y: p.posY, sizeCells: Math.max(1, p.sizeCells) };
+  }
+
   const body: TEncounterStateResponse = {
     round: enc.round,
     status: enc.status as TEncounterStateResponse['status'],
@@ -415,7 +473,9 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     plans,
     participantHp,
     participantEconomy,
-    participantResources
+    participantResources,
+    positions,
+    boardVersion: board?.version ?? null
   };
 
   return json(body, { headers: { etag } });

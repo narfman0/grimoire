@@ -360,6 +360,10 @@ export async function seedParticipant(
     currentHp?: number | null;
     maxHp?: number | null;
     planJson?: string | null;
+    /** Board token position; omitted → untracked (null). */
+    posX?: number | null;
+    posY?: number | null;
+    sizeCells?: number;
   }
 ): Promise<string> {
   const id = crypto.randomUUID();
@@ -379,7 +383,10 @@ export async function seedParticipant(
     planJson: opts.planJson ?? null,
     concentratingJson: null,
     revealsJson: opts.reveals ? JSON.stringify(opts.reveals) : '{}',
-    sortOrder: 0
+    sortOrder: 0,
+    posX: opts.posX ?? null,
+    posY: opts.posY ?? null,
+    sizeCells: opts.sizeCells ?? 1
   });
   return id;
 }
