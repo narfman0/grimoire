@@ -1,4 +1,9 @@
 <script lang="ts" context="module">
+  export interface CellAnnotation {
+    note: string;
+    dmOnly?: boolean;
+  }
+
   export interface BoardWireShape {
     encounterId: string;
     sourceMapId: string | null;
@@ -8,6 +13,9 @@
     tiles: string;
     revealed: string;
     background: string | null;
+    /** Per-cell notes, keyed `"x,y"`. Already role-redacted: players receive
+     *  only non-dmOnly notes on revealed cells. */
+    annotations?: Record<string, CellAnnotation>;
     version: number;
   }
 </script>
@@ -91,7 +99,7 @@
   }
   $: dispatch('boardChanged', liveBoard);
   let collapsed = false;
-  type Mode = 'tokens' | 'ruler' | 'aoe' | 'fog' | 'terrain';
+  type Mode = 'tokens' | 'ruler' | 'aoe' | 'notes' | 'fog' | 'terrain';
   let mode: Mode = 'tokens';
   let placing: string | null = null;
   let rulerAnchor: Cell | null = null;
@@ -165,7 +173,11 @@
     }
   }
 
-  async function patchBoard(body: { tiles?: string; revealed?: string }) {
+  async function patchBoard(body: {
+    tiles?: string;
+    revealed?: string;
+    annotations?: Record<string, CellAnnotation>;
+  }) {
     try {
       acceptBoard(await api.patch<BoardWireShape>(`/api/encounters/${encounterId}/board`, body));
     } catch {
@@ -176,6 +188,45 @@
   function bulkFog(bit: 0 | 1) {
     if (!liveBoard) return;
     void patchBoard({ revealed: encodeRuns(new Array(liveBoard.w * liveBoard.h).fill(bit)) });
+  }
+
+  // --- cell notes -----------------------------------------------------------
+  //
+  // Terrain semantics otherwise live only in the tile choice, so "this is a
+  // 10 ft ledge" or "the lever is here" had nowhere to go. Notes are sparse,
+  // per-cell, and either shared with the table or DM-only — the server
+  // redacts the DM-only ones (and any note on a fogged cell) before they
+  // reach a player, the same single path the background URL takes.
+  $: annotations = liveBoard?.annotations ?? {};
+  /** Cell the note editor is open for, and its draft. */
+  let noteCell: Cell | null = null;
+  let noteDraft = '';
+  let noteDmOnly = false;
+
+  function openNote(cell: Cell) {
+    const existing = annotations[cellKey(cell)];
+    noteCell = cell;
+    noteDraft = existing?.note ?? '';
+    noteDmOnly = existing?.dmOnly ?? false;
+  }
+
+  function saveNote() {
+    if (!noteCell) return;
+    const key = cellKey(noteCell);
+    const next = { ...annotations };
+    const note = noteDraft.trim().slice(0, 200);
+    // An emptied note deletes the entry: the map is sparse, so "no note" and
+    // "empty note" must not be two different states.
+    if (note) next[key] = { note, ...(noteDmOnly ? { dmOnly: true } : {}) };
+    else delete next[key];
+    noteCell = null;
+    void patchBoard({ annotations: next });
+  }
+
+  function deleteNote(key: string) {
+    const next = { ...annotations };
+    delete next[key];
+    void patchBoard({ annotations: next });
   }
 
   // --- background image -----------------------------------------------------
@@ -423,6 +474,10 @@
       rulerAnchor = rulerAnchor && hoverCell ? null : cell;
       return;
     }
+    if (mode === 'notes') {
+      if (role === 'dm') openNote(cell);
+      return;
+    }
     if (mode === 'aoe') {
       // Locked → clicking anywhere releases. Cone/line with no caster and
       // no anchor yet → this click is the anchor. Otherwise lock here.
@@ -507,6 +562,20 @@
         >
           💥 AoE
         </button>
+        {#if role === 'dm'}
+          <button
+            class="rounded border px-2 py-0.5 text-xs {mode === 'notes'
+              ? 'border-yellow-500 text-yellow-200'
+              : 'border-slate-700 text-slate-400 hover:text-slate-200'}"
+            on:click={() => {
+              mode = 'notes';
+              noteCell = null;
+            }}
+            title="Label cells — elevation, cover, whatever the table needs to remember"
+          >
+            📝 Notes
+          </button>
+        {/if}
         {#if role === 'dm'}
           <button
             class="rounded border px-2 py-0.5 text-xs {mode === 'fog'
@@ -766,6 +835,7 @@
           {overlays}
           path={planPath}
           ruler={ruler}
+          {annotations}
           on:tokendrop={(e) => dispatch('moveToken', e.detail)}
           on:tokenclick={(e) => dispatch('selectToken', e.detail)}
           on:cellclick={(e) => onCellClick(e.detail)}
@@ -775,6 +845,74 @@
           <p class="mt-1 text-[10px] text-slate-600">
             Click to anchor the ruler, click again to clear.
           </p>
+        {/if}
+        {#if mode === 'notes' && role === 'dm'}
+          <div class="mt-2 rounded border border-yellow-900/60 bg-yellow-950/10 p-2" data-testid="cell-notes">
+            {#if noteCell}
+              {@const key = cellKey(noteCell)}
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="font-mono text-slate-400">({noteCell.x}, {noteCell.y})</span>
+                <!-- svelte-ignore a11y-autofocus -->
+                <input
+                  class="min-w-40 flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1"
+                  placeholder="10 ft ledge · lever behind the tapestry"
+                  maxlength="200"
+                  autofocus
+                  aria-label="Note for this cell"
+                  bind:value={noteDraft}
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter') saveNote();
+                    if (e.key === 'Escape') noteCell = null;
+                  }}
+                />
+                <label class="flex items-center gap-1 text-[11px] text-slate-400">
+                  <input type="checkbox" bind:checked={noteDmOnly} class="accent-violet-500" />
+                  DM only
+                </label>
+                <button
+                  class="rounded border border-emerald-700 bg-emerald-900/40 px-2 py-1 text-emerald-200"
+                  on:click={saveNote}
+                >
+                  Save
+                </button>
+                <button
+                  class="rounded border border-slate-700 px-2 py-1 text-slate-400"
+                  on:click={() => (noteCell = null)}
+                >
+                  Cancel
+                </button>
+              </div>
+              {#if annotations[key]}
+                <p class="mt-1 text-[10px] text-slate-600">Clear the text to remove this note.</p>
+              {/if}
+            {:else}
+              <p class="text-[11px] text-slate-500">Click a cell to label it.</p>
+            {/if}
+            {#if Object.keys(annotations).length > 0}
+              <ul class="mt-2 flex flex-wrap gap-1 text-[11px]">
+                {#each Object.entries(annotations) as [key, entry] (key)}
+                  <li
+                    class="flex items-center gap-1 rounded border px-1.5 py-0.5 {entry.dmOnly
+                      ? 'border-violet-800 text-violet-200'
+                      : 'border-yellow-800 text-yellow-100'}"
+                  >
+                    <button
+                      class="font-mono text-slate-500 hover:text-slate-300"
+                      title="Edit this note"
+                      on:click={() => openNote({ x: Number(key.split(',')[0]), y: Number(key.split(',')[1]) })}
+                    >({key})</button>
+                    <span class="max-w-48 truncate">{entry.note}</span>
+                    {#if entry.dmOnly}<span class="text-[9px] uppercase text-violet-400">dm</span>{/if}
+                    <button
+                      class="text-slate-600 hover:text-red-400"
+                      title="Delete this note"
+                      on:click={() => deleteNote(key)}
+                    >✕</button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
         {/if}
         {#if mode === 'aoe' && aoeLocked}
           <div class="mt-2 rounded border border-orange-900/60 bg-orange-950/20 p-2" data-testid="aoe-caught">

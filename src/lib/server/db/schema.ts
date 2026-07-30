@@ -420,6 +420,15 @@ export const encounterBoards = sqliteTable('encounter_boards', {
   tilesJson: text('tiles_json').notNull(),
   backgroundPath: text('background_path'),
   revealedJson: text('revealed_json').notNull(),
+  /** Sparse per-cell notes, keyed by `"x,y"`:
+   *  `{ "4,7": { note: "10 ft ledge", dmOnly: true } }`.
+   *
+   *  Terrain semantics otherwise live only in the tile choice, so "this is a
+   *  ledge" / "the lever is here" had nowhere to go. Sparse and nullable: a
+   *  board with no notes stores nothing, so the column changed no existing
+   *  row when it landed. `dmOnly` entries are stripped for players by
+   *  `boardWire`, the same single redaction path as the background URL. */
+  annotationsJson: text('annotations_json'),
   version: integer('version').notNull().default(1),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()

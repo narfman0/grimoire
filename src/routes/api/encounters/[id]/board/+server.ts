@@ -17,8 +17,10 @@ import {
   BoardWire,
   hiddenFog,
   PatchBoardRequest,
+  requireValidAnnotations,
   requireValidFog,
-  requireValidTiles
+  requireValidTiles,
+  serializeAnnotations
 } from '$lib/server/api/board-schemas';
 import { boardWire, loadEncounterBoard } from '$lib/server/encounter/board';
 import { OkResponse } from '$lib/server/api/responses';
@@ -102,6 +104,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     tilesJson: tiles,
     backgroundPath,
     revealedJson: hiddenFog(w, h),
+    // A new board is a new map: keeping the previous one's notes would leave
+    // "10 ft ledge" pointing at whatever tile now sits in that cell.
+    annotationsJson: null,
     version: (existing?.version ?? 0) + 1,
     updatedAt: now
   };
@@ -165,12 +170,18 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   if (body.tiles !== undefined) requireValidTiles(body.tiles, board.w, board.h);
   if (body.revealed !== undefined) requireValidFog(body.revealed, board.w, board.h);
+  if (body.annotations !== undefined) {
+    requireValidAnnotations(body.annotations, board.w, board.h);
+  }
 
   await db
     .update(schema.encounterBoards)
     .set({
       ...(body.tiles !== undefined ? { tilesJson: body.tiles } : {}),
       ...(body.revealed !== undefined ? { revealedJson: body.revealed } : {}),
+      ...(body.annotations !== undefined
+        ? { annotationsJson: serializeAnnotations(body.annotations) }
+        : {}),
       version: board.version + 1,
       updatedAt: new Date()
     })
@@ -206,7 +217,7 @@ export const _openapi: RouteOpenApi = {
     errors: [{ status: 403, description: 'DM only' }, 404]
   },
   PATCH: {
-    summary: 'Edit the board tiles and/or fog mask (DM only; bumps version)',
+    summary: 'Edit the board tiles, fog mask and/or cell notes (DM only; bumps version)',
     params: Params,
     body: PatchBoardRequest,
     response: BoardWire,

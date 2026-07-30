@@ -371,3 +371,110 @@ describe('stranded tokens on re-attach', () => {
     expect([rows[0].posX, rows[0].posY]).toEqual([3, 3]);
   });
 });
+
+describe('cell annotations', () => {
+  let db: Db;
+  beforeEach(() => {
+    db = setupTestDb();
+  });
+
+  const attach = (dm: ReturnType<typeof userOf>, encounterId: string) =>
+    PUT(makeEvent({ user: dm, params: { id: encounterId }, body: { w: 3, h: 2 }, method: 'PUT' }));
+
+  const patch = (
+    user: ReturnType<typeof userOf>,
+    encounterId: string,
+    body: Record<string, unknown>
+  ) => PATCH(makeEvent({ user, params: { id: encounterId }, body, method: 'PATCH' }));
+
+  const NOTES = {
+    '1,0': { note: 'lever behind the tapestry' },
+    '2,0': { note: '10 ft ledge' },
+    '0,1': { note: 'pressure plate', dmOnly: true }
+  };
+
+  it('stores notes, bumps the version, and reads them back for the DM', async () => {
+    const { dm, encounterId } = await fixture(db);
+    const before = await (await attach(dm, encounterId)).json();
+    const after = await (await patch(dm, encounterId, { annotations: NOTES })).json();
+    expect(after.annotations).toEqual(NOTES);
+    expect(after.version).toBe(before.version + 1);
+  });
+
+  it('redacts dmOnly notes and notes on fogged cells from players', async () => {
+    const { dm, player, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await patch(dm, encounterId, { annotations: NOTES });
+    // Fully fogged board → a player sees nothing at all.
+    let seen = await (
+      await GET(makeEvent({ user: player, params: { id: encounterId } }))
+    ).json();
+    expect(seen.annotations).toEqual({});
+
+    // Reveal (1,0) only: its shared note crosses, the fogged one and the
+    // dmOnly one don't.
+    await patch(dm, encounterId, { revealed: encodeRuns([0, 1, 0, 0, 0, 0]) });
+    seen = await (await GET(makeEvent({ user: player, params: { id: encounterId } }))).json();
+    expect(seen.annotations).toEqual({ '1,0': { note: 'lever behind the tapestry' } });
+
+    // Reveal everything: still no dmOnly note.
+    await patch(dm, encounterId, { revealed: encodeRuns([1, 1, 1, 1, 1, 1]) });
+    seen = await (await GET(makeEvent({ user: player, params: { id: encounterId } }))).json();
+    expect(Object.keys(seen.annotations).sort()).toEqual(['1,0', '2,0']);
+  });
+
+  it('replaces the whole map, so an omitted key deletes that note', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await patch(dm, encounterId, { annotations: NOTES });
+    const after = await (
+      await patch(dm, encounterId, { annotations: { '2,0': { note: '10 ft ledge' } } })
+    ).json();
+    expect(after.annotations).toEqual({ '2,0': { note: '10 ft ledge' } });
+  });
+
+  it('collapses an empty map to a null column', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await patch(dm, encounterId, { annotations: NOTES });
+    await patch(dm, encounterId, { annotations: {} });
+    const rows = await db
+      .select()
+      .from(schema.encounterBoards)
+      .where(eq(schema.encounterBoards.encounterId, encounterId));
+    expect(rows[0].annotationsJson).toBeNull();
+  });
+
+  it('rejects off-board and malformed cell keys rather than dropping them', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await expectHttpError(patch(dm, encounterId, { annotations: { '9,9': { note: 'off' } } }), 400);
+    await expectHttpError(patch(dm, encounterId, { annotations: { nope: { note: 'bad' } } }), 400);
+  });
+
+  it('rejects an empty or over-long note', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await expectHttpError(patch(dm, encounterId, { annotations: { '0,0': { note: '' } } }), 400);
+    await expectHttpError(
+      patch(dm, encounterId, { annotations: { '0,0': { note: 'x'.repeat(201) } } }),
+      400
+    );
+  });
+
+  it('is DM-only to write', async () => {
+    const { dm, player, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await expectHttpError(patch(player, encounterId, { annotations: NOTES }), 403);
+  });
+
+  it('starts a re-attached board with no notes', async () => {
+    const { dm, encounterId } = await fixture(db);
+    await attach(dm, encounterId);
+    await patch(dm, encounterId, { annotations: NOTES });
+    // A new board is a new map — "10 ft ledge" must not point at whatever
+    // tile now occupies that cell.
+    const reattached = await (await attach(dm, encounterId)).json();
+    expect(reattached.annotations).toEqual({});
+  });
+});
