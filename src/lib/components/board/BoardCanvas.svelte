@@ -75,6 +75,9 @@
   /** Movement-path preview, drawn as a polyline through cell centers. */
   export let path: Cell[] = [];
   export let ruler: RulerLine | null = null;
+  /** Per-cell notes, keyed `"x,y"`. Drawn as a corner mark; the tooltip is
+   *  the consumer's job (the canvas has one title for the whole element). */
+  export let annotations: Record<string, { note: string; dmOnly?: boolean }> = {};
   /** When false the canvas is display-only (table mode). */
   export let interactive = true;
   /** Cap on the rendered cell size in CSS px. */
@@ -407,6 +410,24 @@
       ctx.globalAlpha = 1;
     }
 
+    // Annotation marks: a small corner triangle per noted cell, drawn over
+    // the fog so a DM-only note on a hidden cell is still visible to the DM.
+    for (const key of Object.keys(annotations)) {
+      const [x, y] = key.split(',').map(Number);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const size = Math.max(4, Math.floor(cellPx * 0.28));
+      const x0 = (x + 1) * cellPx;
+      const y0 = y * cellPx;
+      ctx.beginPath();
+      ctx.moveTo(x0 - size, y0);
+      ctx.lineTo(x0, y0);
+      ctx.lineTo(x0, y0 + size);
+      ctx.closePath();
+      ctx.fillStyle = annotations[key].dmOnly ? 'rgba(196,181,253,0.95)' : 'rgba(250,204,21,0.95)';
+      ctx.fill();
+    }
+
     // Ruler.
     if (ruler) {
       const ax = ruler.a.x * cellPx + cellPx / 2;
@@ -436,7 +457,19 @@
   // Redraw whenever anything visual changes. Listing the deps keeps Svelte's
   // tracker honest (a bare draw() call would never re-run).
   $: if (canvas && cellPx > 0) {
-    void [tileArr, fogArr, tokens, overlays, path, ruler, bgImage, backgroundOpacity, dragCell, fogStyle];
+    void [
+      tileArr,
+      fogArr,
+      tokens,
+      overlays,
+      path,
+      ruler,
+      annotations,
+      bgImage,
+      backgroundOpacity,
+      dragCell,
+      fogStyle
+    ];
     draw();
   }
 </script>

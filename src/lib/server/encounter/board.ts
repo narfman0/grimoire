@@ -4,7 +4,12 @@
 
 import { eq } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
-import { maskTilesForPlayer } from '$lib/server/api/board-schemas';
+import {
+  maskTilesForPlayer,
+  parseAnnotations,
+  type TCellAnnotations
+} from '$lib/server/api/board-schemas';
+import { visibleAnnotations } from '$lib/encounter/board-visibility';
 
 export type EncounterBoardRow = typeof schema.encounterBoards.$inferSelect;
 
@@ -26,12 +31,15 @@ export interface BoardWireShape {
   tiles: string;
   revealed: string;
   background: string | null;
+  annotations: TCellAnnotations;
   version: number;
 }
 
-/** Role-redacted wire shape: players get unrevealed cells masked to void
- *  and never the background URL (it would leak the layout under the fog). */
+/** Role-redacted wire shape: players get unrevealed cells masked to void,
+ *  never the background URL (it would leak the layout under the fog), and
+ *  only the notes they've earned. */
 export function boardWire(board: EncounterBoardRow, isDM: boolean): BoardWireShape {
+  const annotations = parseAnnotations(board.annotationsJson);
   return {
     encounterId: board.encounterId,
     sourceMapId: board.sourceMapId,
@@ -43,6 +51,7 @@ export function boardWire(board: EncounterBoardRow, isDM: boolean): BoardWireSha
       : maskTilesForPlayer(board.tilesJson, board.revealedJson, board.w, board.h),
     revealed: board.revealedJson,
     background: isDM ? board.backgroundPath : null,
+    annotations: visibleAnnotations(annotations, board, isDM),
     version: board.version
   };
 }

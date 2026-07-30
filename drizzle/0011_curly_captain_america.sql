@@ -1,0 +1,1 @@
+ALTER TABLE `encounter_boards` ADD `annotations_json` text;

@@ -79,17 +79,45 @@ export const AttachBoardRequest = z
   })
   .openapi('AttachBoardRequest');
 
+/** One cell's note. `dmOnly` notes are stripped for players by `boardWire`
+ *  — the same single redaction path the background URL goes through. */
+export const CellAnnotation = z
+  .object({
+    note: z.string().min(1).max(200),
+    dmOnly: z.boolean().optional()
+  })
+  .openapi('CellAnnotation');
+export type TCellAnnotation = z.infer<typeof CellAnnotation>;
+
+/** Sparse `"x,y"` → note map. Capped so a board can't become a document
+ *  store: 200 notes at 200 chars is ~40 KB, the same order as the tile
+ *  layer it rides alongside. */
+export const MAX_ANNOTATIONS = 200;
+export const CellAnnotations = z
+  .record(z.string(), CellAnnotation)
+  .refine((v) => Object.keys(v).length <= MAX_ANNOTATIONS, {
+    message: `at most ${MAX_ANNOTATIONS} annotations`
+  })
+  .openapi('CellAnnotations');
+export type TCellAnnotations = z.infer<typeof CellAnnotations>;
+
 /** PATCH /api/encounters/[id]/board — DM edits: replace the tile layer,
- *  the fog mask, or both. Every write bumps `version`. */
+ *  the fog mask, the annotations, or any combination. Every write bumps
+ *  `version`. */
 export const PatchBoardRequest = z
   .object({
     tiles: TilesString.optional(),
     /** RLE bitmask over the grid; 1 = revealed to players. */
-    revealed: TilesString.optional()
+    revealed: TilesString.optional(),
+    /** Replaces the whole map — send it without a key to delete that note.
+     *  Whole-map rather than per-cell because it is small, and because two
+     *  DMs writing different cells is not a case worth a merge protocol. */
+    annotations: CellAnnotations.optional()
   })
-  .refine((v) => v.tiles !== undefined || v.revealed !== undefined, {
-    message: 'tiles or revealed required'
-  })
+  .refine(
+    (v) => v.tiles !== undefined || v.revealed !== undefined || v.annotations !== undefined,
+    { message: 'tiles, revealed or annotations required' }
+  )
   .openapi('PatchBoardRequest');
 
 export const BoardWire = z
@@ -106,6 +134,10 @@ export const BoardWire = z
     /** DM-only; null for players (a background image would leak the whole
      *  layout underneath the fog). */
     background: z.string().nullable(),
+    /** Per-cell notes. Players receive only the non-`dmOnly` ones, and only
+     *  for cells the fog has revealed — a note is as much of a tell as the
+     *  tile under it. */
+    annotations: CellAnnotations,
     version: z.number().int().nonnegative()
   })
   .openapi('EncounterBoard');
@@ -165,6 +197,44 @@ export function blankTiles(w: number, h: number): string {
 /** All-hidden fog mask. */
 export function hiddenFog(w: number, h: number): string {
   return encodeRuns(new Array(w * h).fill(0));
+}
+
+/** Validate an annotation map against the grid: keys must be in-bounds
+ *  `"x,y"` cells. Returns the map; 400 on any bad key.
+ *
+ *  Out-of-bounds keys are rejected rather than dropped so a client bug
+ *  surfaces instead of quietly losing the DM's note. */
+export function requireValidAnnotations(
+  annotations: TCellAnnotations,
+  w: number,
+  h: number
+): TCellAnnotations {
+  for (const key of Object.keys(annotations)) {
+    const m = /^(\d{1,3}),(\d{1,3})$/.exec(key);
+    if (!m) throw error(400, `invalid annotation cell "${key}"`);
+    const x = Number(m[1]);
+    const y = Number(m[2]);
+    if (x >= w || y >= h) throw error(400, `annotation cell "${key}" is off the board`);
+  }
+  return annotations;
+}
+
+/** Parse a stored annotations blob. Never throws — a corrupt column must not
+ *  fail the board read; the DM's notes are an aid, not the map. */
+export function parseAnnotations(raw: string | null | undefined): TCellAnnotations {
+  if (!raw) return {};
+  try {
+    const parsed = CellAnnotations.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Serialize for storage, collapsing an empty map to null so a cleared board
+ *  drops its column rather than storing `{}`. */
+export function serializeAnnotations(annotations: TCellAnnotations): string | null {
+  return Object.keys(annotations).length > 0 ? JSON.stringify(annotations) : null;
 }
 
 export { maskTilesForPlayer } from '$lib/board/fog';

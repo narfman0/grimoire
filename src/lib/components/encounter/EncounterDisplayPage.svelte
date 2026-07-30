@@ -33,7 +33,7 @@
   } from '$lib/encounter/display-list';
   import BoardCanvas, { type BoardToken } from '$lib/components/board/BoardCanvas.svelte';
   import { maskTilesForPlayer } from '$lib/board/fog';
-  import { visibleTokenPositions } from '$lib/encounter/board-visibility';
+  import { visibleAnnotations, visibleTokenPositions } from '$lib/encounter/board-visibility';
   import type { EncounterDisplayData } from '$lib/server/encounter-display';
 
   export let data: EncounterDisplayData;
@@ -96,7 +96,14 @@
       return {
         ...b,
         tiles: maskTilesForPlayer(b.tiles, b.revealed, b.w, b.h),
-        background: null
+        background: null,
+        // A DM projecting table mode must not put their own DM-only notes on
+        // the wall, and a note on a fogged cell is a tell in itself.
+        annotations: visibleAnnotations(
+          b.annotations,
+          { w: b.w, h: b.h, revealedJson: b.revealed },
+          false
+        )
       };
     } catch {
       return b;
@@ -201,6 +208,7 @@
         revealed={board.revealed}
         fogStyle="player"
         tokens={boardTokens}
+        annotations={board.annotations ?? {}}
         interactive={false}
         maxCellPx={44}
       />
