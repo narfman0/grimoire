@@ -17,6 +17,8 @@
   import type { PendingFeatureChoice } from '$lib/rules/types';
 
   export let pendingChoices: PendingFeatureChoice[] = [];
+  /** Weapon kinds with a Weapon Mastery property, for the mastery picker. */
+  export let weaponOptions: Array<{ slug: string; name: string; mastery: string }> = [];
   /** Disable inputs (busy state from parent). */
   export let busy = false;
   /** Resolved character proficiency sets, used to surface the
@@ -599,6 +601,40 @@
               <p class="mt-1 text-[10px] text-amber-300">
                 Open tool pick — record manually via featureChoices JSON for now.
               </p>
+            {/if}
+          </div>
+        {/if}
+
+        {#if p.declarations.weaponMasteries}
+          {@const wmMax = multiPickMaxOf(p.declarations.weaponMasteries)}
+          {@const wmPicked = multiPickValuesFor(p.featureSlug, 'weaponMasteries', 'weapon')}
+          <div class="mt-2 border-t border-slate-800 pt-2">
+            <span class="text-[10px] uppercase tracking-wide text-slate-500">
+              Weapon masteries{#if wmMax} — pick {wmMax}{/if}
+            </span>
+            {#if weaponOptions.length === 0}
+              <p class="mt-1 text-[10px] text-amber-300">No weapons with a mastery property are loaded.</p>
+            {:else}
+              <ul class="mt-1 grid grid-cols-2 gap-1">
+                {#each weaponOptions as w (w.slug)}
+                  {@const checked = wmPicked.includes(w.slug)}
+                  {@const atCap = wmMax != null && wmPicked.length >= wmMax && !checked}
+                  <li>
+                    <label class="flex items-center gap-1 text-xs">
+                      <input
+                        type="checkbox"
+                        {checked}
+                        disabled={busy || atCap}
+                        on:change={(e) =>
+                          toggleMultiPick(p.featureSlug, 'weaponMasteries', 'weapon', w.slug, checkboxChecked(e), wmMax)}
+                      />
+                      <span class={atCap ? 'text-slate-600' : 'text-slate-300'}>
+                        {w.name} <span class="text-slate-500">({w.mastery})</span>
+                      </span>
+                    </label>
+                  </li>
+                {/each}
+              </ul>
             {/if}
           </div>
         {/if}

@@ -26,7 +26,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | barbarian | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d12 HD, STR/CON saves, all proficiencies and skill list correct | 2026-05-21 |
 | class | barbarian | Feature: rage (L1) | ✅ Full | Resistance modifiers, rage-damage action-modifier, enter-rage activity with per-level uses table | 2026-05-21 |
 | class | barbarian | Feature: unarmored-defense-barbarian (L1) | ✅ Full | ac.formula OVERRIDE 10+DEX+CON requires no-armor | 2026-05-21 |
-| class | barbarian | Feature: weapon-mastery (L1) | ⚠️ Partial | Feature entry exists; mastery effects (Cleave/Push/etc.) are unsupported engine targets — choice flag only | 2026-05-21 |
+| class | barbarian | Feature: weapon-mastery (L1) | ⚠️ Partial | choices.weaponMasteries picker (2/3/4 picks at L1/4/10); chosen weapons' attacks carry Action.weaponMastery. Mastery property effects are resolved at the table | 2026-10-08 |
 | class | barbarian | Feature: danger-sense (L2) | ✅ Full | save.advantage.dex OVERRIDE true; was silently dead (value "vs-seen-effects" failed boolean check); fixed to true; "unless incapacitated" not enforced (engine limitation) | 2026-05-22 |
 | class | barbarian | Feature: reckless-attack (L2) | ✅ Full | action-modifier toggle granting attack.advantage + attacker.grants-advantage-against | 2026-05-21 |
 | class | barbarian | Feature: primal-path (L3) | ✅ Full | Feature entry exists with subclass choice slot | 2026-05-21 |
@@ -65,7 +65,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | fighter | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/CON saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
 | class | fighter | Feature: fighting-style-fighter (L1) | ✅ Full | All 10 styles: archery (+2 attack.roll), blind-fighting (blindsight 10), defense (+1 AC), dueling (+2 damage.bonus melee), GWF (damage.die.min UPGRADE 3; was dead reroll-1s-and-2s tag), interception/protection (triggers), thrown-weapon (+2), two-weapon (trait flag), unarmed-fighting (1d6); dueling one-handed gate and GWF two-hand hold unsupported — engine limitation | 2026-05-22 |
 | class | fighter | Feature: second-wind (L2) | ✅ Full | Heal activity with per-level uses table and 1d10+fighterLevel damage part | 2026-05-21 |
-| class | fighter | Feature: weapon-mastery-fighter (L1) | ⚠️ Partial | Pick-3 choice flag; per-level scaling and mastery property effects unsupported | 2026-05-21 |
+| class | fighter | Feature: weapon-mastery-fighter (L1) | ⚠️ Partial | choices.weaponMasteries picker (3/4/5/6 picks at L1/4/10/16); chosen weapons' attacks carry Action.weaponMastery. Mastery property effects are resolved at the table | 2026-10-08 |
 | class | fighter | Feature: action-surge (L2) | ✅ Full | Utility activity with per-level uses table (1/short-rest, 2 at L17) | 2026-05-21 |
 | class | fighter | Feature: tactical-mind (L2) | ✅ Full | Utility activity, PB uses/long-rest, add 1d10 on failed check (refund if still fails — noted in activity) | 2026-05-21 |
 | class | fighter | Feature: fighter-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -89,7 +89,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | paladin | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, WIS/CHA saves, all armor + shield, simple/martial weapons, pick 2 from list | 2026-05-21 |
 | class | paladin | Feature: spellcasting-paladin (L1) | ✅ Full | spellcasting.ability OVERRIDE cha; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | paladin | Feature: lay-on-hands (L1) | ✅ Full | Bonus-action heal activity with 5×paladinLevel pool per-level table | 2026-05-21 |
-| class | paladin | Feature: weapon-mastery-paladin (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
+| class | paladin | Feature: weapon-mastery-paladin (L1) | ⚠️ Partial | choices.weaponMasteries picker (2 picks); chosen weapons' attacks carry Action.weaponMastery. Mastery property effects are resolved at the table | 2026-10-08 |
 | class | paladin | Feature: fighting-style-paladin (L2) | ✅ Full | 7 styles: blessed-warrior (choices.spell), blind-fighting, defense, dueling (unconditional), GWF (damage.die.min 3, fixed from dead reroll tag), interception/protection triggers; dueling one-handed gate engine limitation | 2026-05-22 |
 | class | paladin | Feature: divine-smite (L2) | ⚠️ Partial | Toggle adds 2d8 radiant via damage.dice (fixed: removed dead attack.result:hit predicate and unresolvable divineSmiteSlotDice); higher-slot +1d8/slot and Undead/Fiend +1d8 player-managed; slot not auto-consumed | 2026-05-22 |
 | class | paladin | Feature: channel-oath (L2) | ✅ Full | Utility activity with per-level uses table (2 at L2, 3 at L9) / short-rest | 2026-05-21 |
@@ -107,7 +107,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | ranger | Hit Die / Saves / Proficiencies / Skill Choices | ✅ Full | d10 HD, STR/DEX saves, light/medium armor + shield, simple/martial weapons, pick 3 from list | 2026-05-21 |
 | class | ranger | Feature: spellcasting-ranger (L1) | ✅ Full | spellcasting.ability OVERRIDE wis; class JSON uses progression:'half'; halfCasterSlots() implemented upstream | 2026-05-21 |
 | class | ranger | Feature: favored-enemy (L1) | ⚠️ Partial | Resource pool for slotless Hunter's Mark casts surfaced; auto-prepared spell and slotless-cast plumbing not wired | 2026-05-21 |
-| class | ranger | Feature: weapon-mastery-ranger (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
+| class | ranger | Feature: weapon-mastery-ranger (L1) | ⚠️ Partial | choices.weaponMasteries picker (2 picks); chosen weapons' attacks carry Action.weaponMastery. Mastery property effects are resolved at the table | 2026-10-08 |
 | class | ranger | Feature: deft-explorer (L2) | ✅ Full | choices.expertise (proficient) emits expertise modifier; choices.language emits language proficiency; terrain-bypass trait tag (spatial — 🚫 out of scope) | 2026-05-21 |
 | class | ranger | Feature: fighting-style-ranger (L2) | ✅ Full | 6 styles: archery (+2 ranged), blind-fighting, defense, druidic-warrior (choices.spell), thrown-weapon, two-weapon-fighting (trait flag); GWF via shared feature now uses damage.die.min 3 | 2026-05-22 |
 | class | ranger | Feature: ranger-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
@@ -126,7 +126,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | class | rogue | Feature: expertise-rogue (L1) + expertise-rogue-l6 (L6) | ✅ Full | choices.expertises {pick:2, allowedSkills:proficient} on each feature row; engine emits expertise.skill.<slug> modifiers | 2026-05-21 |
 | class | rogue | Feature: sneak-attack (L1) | ⚠️ Partial | damage.dice (fixed from dead damage.bonus + non-functional or-predicate; engine now supports or-predicate + dice bonus); once-per-turn cap and advantage/ally-adjacency gating still not enforced | 2026-05-22 |
 | class | rogue | Feature: thieves-cant (L1) | ✅ Full | proficiency.language.thieves-cant OVERRIDE true | 2026-05-21 |
-| class | rogue | Feature: weapon-mastery-rogue (L1) | ⚠️ Partial | Pick-2 choice flag; mastery property effects unsupported | 2026-05-21 |
+| class | rogue | Feature: weapon-mastery-rogue (L1) | ⚠️ Partial | choices.weaponMasteries picker (2 picks); chosen weapons' attacks carry Action.weaponMastery. Mastery property effects are resolved at the table | 2026-10-08 |
 | class | rogue | Feature: cunning-action (L2) | ✅ Full | Bonus-action utility activity (Dash/Disengage/Hide) | 2026-05-21 |
 | class | rogue | Feature: rogue-subclass (L3) | ✅ Full | Subclass choice slot present | 2026-05-21 |
 | class | rogue | Feature: steady-aim (L3) | ⚠️ Partial | Bonus-action utility activity surfaced; advantage-on-next-attack and speed=0 not evaluator targets | 2026-05-21 |

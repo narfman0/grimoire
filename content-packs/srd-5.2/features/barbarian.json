@@ -123,20 +123,37 @@
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 1,
-      "note": "At L1 pick 2 weapons to apply their mastery property. Count scales: L1=2, L4=3, L10=4. You can swap one chosen weapon's mastery when you finish a Long Rest. Mastery properties (Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex) are not yet first-class engine targets; surfaced as a choice+trait flag.",
-      "choice": {
-        "kind": "weapon-mastery",
-        "pick": 2,
-        "from": "weapons-with-proficiency"
-      },
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.weapon-mastery-chosen",
-          "mode": "OVERRIDE",
-          "value": true
+      "note": "Pick weapon kinds in Feature Choices; attacks with a chosen weapon show its mastery property (Cleave, Graze, Nick, Push, Sap, Slow, Topple, Vex), which is resolved at the table. Swapping one pick on a Long Rest is done by re-picking.",
+      "choices": {
+        "weaponMasteries": {
+          "picks": {
+            "perClass": "barbarian",
+            "table": [
+              2,
+              2,
+              2,
+              3,
+              3,
+              3,
+              3,
+              3,
+              3,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4
+            ]
+          },
+          "allowedWeapons": "with-mastery"
         }
-      ]
+      }
     }
   },
   {

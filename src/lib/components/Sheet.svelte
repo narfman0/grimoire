@@ -65,6 +65,7 @@
       cost: unknown;
       attackBonus?: number;
       attackRange?: string;
+      weaponMastery?: string;
       damageRolls?: Array<{ formula: string; type: string }>;
       saveDC?: { ability: string; value: number };
       upcastScaling?: {
@@ -369,6 +370,12 @@
               <span class="ml-1 font-mono">{fmt(action.attackBonus)}</span>
               {#if action.attackRange}
                 <span class="ml-2 text-xs text-slate-500">({action.attackRange})</span>
+              {/if}
+              {#if action.weaponMastery}
+                <span
+                  class="ml-2 rounded border border-amber-700 px-1 text-[10px] uppercase tracking-wide text-amber-300"
+                  title="Weapon Mastery property — apply its effect on a hit"
+                >mastery: {action.weaponMastery}</span>
               {/if}
             </div>
           {/if}

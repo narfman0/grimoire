@@ -177,6 +177,7 @@ export async function buildCharacterPageData(
         rarity?: string;
         charges?: { max?: number; per?: string };
         description?: string;
+        mastery?: string;
       };
       // Homebrew weapons sometimes serialize damage as a single dice string
       // with `damageType` alongside (the rules-engine attack shape) instead
@@ -205,6 +206,8 @@ export async function buildCharacterPageData(
         range: data.range ?? null,
         rarity: data.rarity ?? '',
         charges: data.charges ?? null,
+        /** Weapon Mastery property (cleave, push, …) — feeds the mastery picker. */
+        mastery: typeof data.mastery === 'string' ? data.mastery : null,
         description: typeof data.description === 'string' ? data.description : '',
         pickerId: pickerId(r.slug, r.ownerUserId),
         ...homebrewBadge(r.ownerUserId)

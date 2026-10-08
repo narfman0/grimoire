@@ -622,6 +622,10 @@ export interface Action {
   attackAbility?: AbilityKey;
   attackRange?: 'melee' | 'ranged';
   weaponProperties?: string[];
+  /** Weapon Mastery property (cleave, push, …) the character can apply with
+   *  this attack — set only when the weapon is one of their Weapon Mastery
+   *  picks. Display contract; the property's effect is resolved at the table. */
+  weaponMastery?: string;
   /** Description prose surfaced to the planner UI / hover tooltip. Populated
    *  on synthesized Actions (maneuvers etc.) so the player can read the
    *  RAW effect without leaving the planner. Optional everywhere else. */

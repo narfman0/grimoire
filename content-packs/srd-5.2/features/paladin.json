@@ -83,20 +83,13 @@
       "ownerKind": "class",
       "ownerSlug": "paladin",
       "minLevel": 1,
-      "note": "At L1 pick 2 weapons; gain access to their masteries. Swap one chosen weapon's mastery on each Long Rest. v0 surfaces the chosen-weapon flag; weapon-mastery effects (Cleave, Push, Slow, etc.) aren't simulated.",
-      "choice": {
-        "kind": "weapon-mastery-chosen",
-        "pick": 2,
-        "from": "weapons-with-mastery"
-      },
-      "modifiers": [
-        {
-          "kind": "stat-modifier",
-          "target": "trait.weapon-mastery-chosen",
-          "mode": "OVERRIDE",
-          "value": true
+      "note": "Pick weapon kinds in Feature Choices; attacks with a chosen weapon show its mastery property (Cleave, Graze, Nick, Push, Sap, Slow, Topple, Vex), which is resolved at the table. Swapping one pick on a Long Rest is done by re-picking.",
+      "choices": {
+        "weaponMasteries": {
+          "picks": 2,
+          "allowedWeapons": "with-mastery"
         }
-      ]
+      }
     }
   },
   {

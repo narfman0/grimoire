@@ -112,11 +112,12 @@
       "ownerKind": "class",
       "ownerSlug": "rogue",
       "minLevel": 1,
-      "note": "Choose 2 kinds of weapons you have proficiency with to apply their mastery property. You can change one chosen weapon when you finish a long rest. Mastery properties (Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex) aren't yet first-class targets in the engine; surfaced as a choice.",
-      "choice": {
-        "kind": "weapon-mastery",
-        "pick": 2,
-        "from": "weapons-with-proficiency"
+      "note": "Pick weapon kinds in Feature Choices; attacks with a chosen weapon show its mastery property (Cleave, Graze, Nick, Push, Sap, Slow, Topple, Vex), which is resolved at the table. Swapping one pick on a Long Rest is done by re-picking.",
+      "choices": {
+        "weaponMasteries": {
+          "picks": 2,
+          "allowedWeapons": "with-mastery"
+        }
       }
     }
   },

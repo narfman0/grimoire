@@ -685,7 +685,7 @@ function isSlotUnresolved(
   }
   // Maneuver slot: choices.maneuvers = { picks: <number | string | perClass-table>, allowedIds?: [...] }
   // picks.maneuvers = [{ maneuverId: '...' }, ...]
-  if (slotKey === 'maneuvers') {
+  if (slotKey === 'maneuvers' || slotKey === 'weaponMasteries') {
     const picksDeclared = decl?.picks;
     let cap: number | undefined;
     if (typeof picksDeclared === 'number') {
@@ -2651,6 +2651,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
   // -------------------------------------------------------------------------
   // Remaining Derived manifests, each assembled by its own helper.
   // -------------------------------------------------------------------------
+  tagWeaponMasteries(phase);
   const resources = collectResources(phase, freeCastEntries);
   const toggles = collectToggles(phase);
   const outboundEffects = collectOutboundEffects(phase);
@@ -2832,6 +2833,42 @@ function assembleActivities(s: DerivePhaseState): void {
         action.attackCount = 1 + totalExtraAttacks;
       }
     }
+  }
+}
+
+/** Weapon Mastery picks (`featureChoices[<feature>].weaponMasteries`,
+ *  `[{ weapon: 'greataxe' }, …]`) → `Action.weaponMastery` on attacks made
+ *  with a chosen weapon kind. A magic weapon matches through its own slug,
+ *  a declared `baseWeapon`, or its bound base weapon's mastery. */
+function tagWeaponMasteries(s: DerivePhaseState): void {
+  const { character, content, active, actions } = s;
+  const chosen = new Set<string>();
+  for (const a of active) {
+    if (a.row.kind !== 'feature') continue;
+    const decl = (a.data.choices as Record<string, unknown> | undefined)?.weaponMasteries;
+    if (!decl) continue;
+    const picks = character.featureChoices?.[a.row.slug]?.weaponMasteries;
+    if (!Array.isArray(picks)) continue;
+    for (const p of picks) {
+      const w = (p as { weapon?: unknown } | null)?.weapon;
+      if (typeof w === 'string' && w.length > 0) chosen.add(w);
+    }
+  }
+  if (chosen.size === 0) return;
+  for (const action of actions) {
+    if (action.type !== 'attack' || action.sourceContent.kind !== 'item') continue;
+    const row = content(action.sourceContent);
+    const data = s.boundWeaponData.get(action.id) ?? row?.data;
+    if (!data) continue;
+    const base = typeof data.baseWeapon === 'string' ? data.baseWeapon : undefined;
+    const kinds = [action.sourceContent.slug, base].filter((k): k is string => !!k);
+    if (!kinds.some((k) => chosen.has(k))) continue;
+    let mastery = typeof data.mastery === 'string' ? data.mastery : undefined;
+    if (!mastery && base) {
+      const baseMastery = content({ kind: 'item', slug: base })?.data?.mastery;
+      if (typeof baseMastery === 'string') mastery = baseMastery;
+    }
+    if (mastery) action.weaponMastery = mastery;
   }
 }
 
@@ -3604,6 +3641,12 @@ function collectPendingFeatureChoices(s: DerivePhaseState): PendingFeatureChoice
     const picks = (picksRaw ?? {}) as Record<string, unknown>;
     const declarations: Record<string, Record<string, unknown>> = {};
     for (const k of slotKeys) declarations[k] = decl[k] as Record<string, unknown>;
+    // Weapon Mastery's pick count scales with class level (perClass table);
+    // resolve it here so the picker gets a plain number.
+    if (declarations.weaponMasteries) {
+      const n = evaluateValue(declarations.weaponMasteries.picks, ctx);
+      if (typeof n === 'number') declarations.weaponMasteries = { ...declarations.weaponMasteries, picks: Math.max(0, Math.floor(n)) };
+    }
     pendingFeatureChoices.push({
       featureSlug: a.row.slug,
       featureName: a.row.name,

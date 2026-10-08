@@ -69,6 +69,18 @@
 
   let busy = false;
   let damageInput = 0;
+  /** Mundane weapon kinds with a mastery property, one per slug — the
+   *  Weapon Mastery picker's options (magic variants match via baseWeapon). */
+  $: masteryWeaponOptions = (() => {
+    const seen = new Set<string>();
+    const out: Array<{ slug: string; name: string; mastery: string }> = [];
+    for (const i of data.itemOptions ?? []) {
+      if (!i.mastery || i.rarity || seen.has(i.slug)) continue;
+      seen.add(i.slug);
+      out.push({ slug: i.slug, name: i.name, mastery: i.mastery });
+    }
+    return out;
+  })();
   /** Damage type for the HP box; '' = untyped (no resistance math). */
   let damageTypeInput = '';
   let showPortraitPicker = false;
@@ -3642,6 +3654,7 @@
       <FeatureChoicesPanel
         pendingChoices={derived.pendingFeatureChoices}
         stats={derived.stats}
+        weaponOptions={masteryWeaponOptions}
         {busy}
         on:pick={onFeaturePick}
       />
