@@ -144,9 +144,15 @@
   // spell manager owns that list), but grant-carrying casts (Armor of
   // Agathys temp HP, Lesser Restoration cleanses) surface here when a Use
   // handler is wired — this is the only sheet surface that can apply them.
+  // Item/feat cast-spell actions stay hidden when they're utility casts
+  // (a driftglobe's Light), but a cast that attacks, deals damage or forces
+  // a save is a combat option the player has no other place to see — a
+  // non-caster's at-will Ray of Frost from Lunar Dragon Raiment.
+  const combatCast = (a: (typeof actions)[number]) =>
+    a.attackBonus != null || (a.damageRolls?.length ?? 0) > 0 || a.saveDC != null;
   $: nonSpellActions = actions.filter(
     (a) =>
-      (a.sourceContent.kind !== 'spell' && a.type !== 'cast-spell') ||
+      (a.sourceContent.kind !== 'spell' && (a.type !== 'cast-spell' || combatCast(a))) ||
       (onUseAction != null && a.grants != null)
   );
 
