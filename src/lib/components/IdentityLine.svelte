@@ -14,7 +14,9 @@
   export let entries: IdentityEntry[] = [];
 </script>
 
-<p class="text-sm text-slate-400">
+<!-- div, not p: HoverPopup renders block <div>s, which a <p> cannot
+     contain — the browser repaired the markup and hydration failed. -->
+<div class="text-sm text-slate-400">
   {#each entries as entry}
     <span class="text-slate-500">{entry.sep}</span>
     <HoverPopup>
@@ -28,4 +30,4 @@
       </svelte:fragment>
     </HoverPopup>
   {/each}
-</p>
+</div>
