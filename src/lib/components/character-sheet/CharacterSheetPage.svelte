@@ -41,7 +41,9 @@
   import { SKILLS } from '$lib/rules/skills';
   import { costLabel, slotForCost } from '$lib/rules/action-cost';
   import { COMMON_CONDITIONS, impliedBy } from '$lib/rules/conditions';
-  import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
+  import { applyHealDelta } from '$lib/rules/hp';
+  import { applySheetDamage, planSheetDamage, reviveFromZero } from '$lib/rules/sheet-damage';
+  import { DAMAGE_TYPES, damageResolutionStatsFrom } from '$lib/encounter/damage-resolution';
   import {
     lookupFromMap,
     type Action,
@@ -67,6 +69,8 @@
 
   let busy = false;
   let damageInput = 0;
+  /** Damage type for the HP box; '' = untyped (no resistance math). */
+  let damageTypeInput = '';
   let showPortraitPicker = false;
 
   async function selectPortrait(url: string) {
@@ -834,14 +838,43 @@
   }
 
   async function applyDamage() {
-    if (damageInput <= 0) return;
+    if (damageInput <= 0 || !charDoc || !derived) return;
     const amount = damageInput;
-    await patchDocument((d) => {
-      const next = applyDamageDelta({ currentHp: d.currentHp, tempHp: d.tempHp }, amount);
-      d.currentHp = next.currentHp ?? 0;
-      d.tempHp = next.tempHp;
-    });
+    const type = damageTypeInput || null;
+    const ctx = {
+      stats: damageResolutionStatsFrom(derived.stats),
+      triggers: derived.triggers,
+      resources: derived.resources,
+      availableActivations: derived.availableActivations ?? [],
+      equipped: derived.equipped ?? { armorType: null, shield: false }
+    };
+    const plan = planSheetDamage(charDoc, amount, type, ctx);
+    // Reduce-to-zero savers are a choice (RAW "you can drop to 1 instead"),
+    // so ask before spending the use.
+    let saver = null;
+    for (const s of plan.savers) {
+      const yes = await confirmDialog({
+        title: `Use ${s.name}?`,
+        message: `This hit drops you to 0 HP. ${s.name} leaves you at ${s.setHpTo} HP instead.`,
+        confirmLabel: `Use ${s.name}`,
+        cancelLabel: 'Drop to 0'
+      });
+      if (yes) {
+        saver = s;
+        break;
+      }
+    }
+    await patchDocument((d) => applySheetDamage(d, plan, saver, ctx));
     damageInput = 0;
+    if (plan.amount !== plan.rawAmount) {
+      toasts.add({
+        type: 'info',
+        message: `${plan.rawAmount} ${type} → ${plan.amount} after ${plan.amount < plan.rawAmount ? 'resistance' : 'vulnerability'}`
+      });
+    }
+    if (plan.dropsToZero && !saver && plan.manual.length > 0) {
+      toasts.add({ type: 'info', message: `Dropped to 0 — check: ${plan.manual.join(', ')}` });
+    }
   }
 
   async function applyHeal() {
@@ -849,9 +882,11 @@
     const amount = healInput;
     const max = derived.stats.hp.max;
     await patchDocument((d) => {
+      const wasDown = d.currentHp <= 0;
       const next = applyHealDelta({ currentHp: d.currentHp, tempHp: d.tempHp }, amount, max);
       d.currentHp = next.currentHp ?? 0;
-      if (d.currentHp > 0) d.deathSaves = undefined;
+      if (wasDown) reviveFromZero(d);
+      else if (d.currentHp > 0) d.deathSaves = undefined;
     });
     healInput = 0;
   }
@@ -2529,6 +2564,16 @@
           class="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono"
           bind:value={damageInput}
         />
+        <select
+          class="rounded border border-slate-700 bg-slate-950 px-1 py-1 text-xs"
+          title="Damage type — applies your resistances, immunities and vulnerabilities"
+          bind:value={damageTypeInput}
+        >
+          <option value="">untyped</option>
+          {#each DAMAGE_TYPES as t}
+            <option value={t}>{t}</option>
+          {/each}
+        </select>
         <button class="rounded bg-red-700/70 px-3 py-1 hover:bg-red-700" disabled={busy} on:click={applyDamage}>
           Damage
         </button>
