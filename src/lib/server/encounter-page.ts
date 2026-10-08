@@ -20,6 +20,7 @@ import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
 import { buildRedactionMap, redactActionLog } from '$lib/realtime/action-log';
 import { derive } from '$lib/rules';
 import { hasResourceBudget } from '$lib/rules/apply-grants';
+import { normalizeCost, slotForCost } from '$lib/rules/action-cost';
 import type { ActionCost, CharacterDocument, ContentLookup } from '$lib/rules/types';
 import { buildContentLookup, serializeDerived } from '$lib/server/content/lookup';
 import { boardWire, loadEncounterBoard } from '$lib/server/encounter/board';
@@ -540,6 +541,26 @@ export async function buildEncounterPageData(
               ...(a.description ? { description: a.description } : {})
             };
           });
+          // Activations that cost a slot (Rage, Bladesong, a cloak's
+          // toggle) are what a player most often spends a bonus action
+          // on, but they aren't derived actions — without this the
+          // planner's bonus picker never offered Rage. The activation's
+          // own use counter stands in for a resource pool.
+          for (const act of d.availableActivations ?? []) {
+            const cost = normalizeCost(act.cost);
+            if (!slotForCost(cost)) continue;
+            // Uses live on character.activations, not resourcesSpent, so
+            // they ride the label rather than the spendsResource pool bits
+            // (withLiveResources would re-read the wrong counter).
+            const remaining = act.usesMax == null ? null : (act.usesRemaining ?? act.usesMax);
+            participantPcActions[participant.id].push({
+              id: `activation:${act.id}`,
+              name: remaining == null ? act.name : `${act.name} (${remaining}/${act.usesMax} left)`,
+              cost: cost as ActionCost,
+              affordable: remaining == null || remaining > 0,
+              ...(act.description ? { description: act.description } : {})
+            });
+          }
           participantPcTriggers[participant.id] = (d.triggers ?? []).map((t) => ({
             id: t.id,
             name: t.name,

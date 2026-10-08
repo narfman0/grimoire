@@ -507,6 +507,17 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
           category: 'wondrous',
           rarity: 'rare',
           charges: { max: 3, recharge: { per: 'dawn' } },
+          // Rage-shaped toggle: a bonus-action activation with its own
+          // per-long-rest uses, declared as an activation not an activity.
+          activations: [
+            {
+              id: 'wand-ward',
+              name: 'Ward',
+              condition: 'warded',
+              cost: 'bonus',
+              uses: { max: 2, per: 'long-rest' }
+            }
+          ],
           activities: [
             {
               id: 'wand-blast-small',
@@ -607,6 +618,23 @@ describe('/c/[code]/encounters/[id] +page.server load', () => {
     expect(small.resourceRemaining).toBe(3);
     expect(small.resourceMax).toBe(3);
     expect(small.affordable).toBe(true);
+  });
+
+  it('offers bonus-action activations (Rage) as planner choices', async () => {
+    // Regression: the planner only enumerated derived actions, so Rage —
+    // an activation — never appeared in a barbarian's bonus-action picker.
+    const { dmId, code, encounterId, pcId } = await wandFixture(db, 0);
+    const data = await runLoad(
+      load,
+      loadEvent({ user: dmUser(dmId), params: { code, id: encounterId } })
+    );
+    const ward = data.participantPcActions[pcId].find(
+      (a: { id: string }) => a.id === 'activation:wand-ward'
+    );
+    expect(ward).toBeDefined();
+    expect(ward.name).toBe('Ward (2/2 left)');
+    expect(ward.cost).toBe('bonus');
+    expect(ward.affordable).toBe(true);
   });
 
   it('marks an action unaffordable when its pool cannot cover the cost', async () => {
