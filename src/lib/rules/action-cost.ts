@@ -32,3 +32,12 @@ export function slotForCost(cost: unknown): 'action' | 'bonus' | 'reaction' | nu
   if (cost === 'reaction') return 'reaction';
   return null;
 }
+
+/** Canonicalize a content-authored cost. Packs spell the bonus slot several
+ *  ways ("bonus-action", "Bonus Action"); everything downstream (planner
+ *  slots, action-economy greying, labels) keys on the literal 'bonus'.
+ *  Other values pass through untouched. */
+export function normalizeCost<T>(cost: T): T | 'bonus' {
+  if (typeof cost === 'string' && /^bonus[\s_-]?action$/i.test(cost.trim())) return 'bonus';
+  return cost;
+}

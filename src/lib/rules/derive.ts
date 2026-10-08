@@ -20,6 +20,7 @@ import {
   predicateFromQualifierString,
   type DamageSourcePredicate
 } from './damage-source';
+import { normalizeCost } from './action-cost';
 import { abilityModifier, evaluateValue, proficiencyBonusFor, rageDamageFor, type EvalContext } from './evaluate';
 import { applyFormModifiers, isFormScoped } from './form-modifiers';
 import { applyNumericMode, defaultPriority, type Mode } from './modes';
@@ -1786,7 +1787,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         name: decl.name ?? decl.id,
         sourceContent: { kind: a.row.kind, slug: a.row.slug },
         description: decl.description,
-        cost: decl.cost,
+        cost: normalizeCost(decl.cost),
         duration: formatActivationDuration(decl.duration),
         usesMax,
         usesRemaining,
@@ -4628,7 +4629,7 @@ function realizeActivity(
   const type = act.type as string | undefined;
   const id = (act.id as string | undefined) ?? `${source.row.kind}/${source.row.slug}/act`;
   const name = (act.name as string | undefined) ?? id;
-  const cost = (act.cost ?? 'action') as Action['cost'];
+  const cost = normalizeCost(act.cost ?? 'action') as Action['cost'];
 
   const action: Action = {
     id: `${source.row.kind}/${source.row.slug}/${id}`,

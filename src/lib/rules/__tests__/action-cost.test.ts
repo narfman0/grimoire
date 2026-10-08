@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { costLabel, slotForCost } from '../action-cost';
+import { costLabel, normalizeCost, slotForCost } from '../action-cost';
+import { derive } from '../derive';
+import { loadAllPacks } from './setup/load-packs';
+import * as zealot from './fixtures/half-orc-zealot-barbarian';
+import type { ContentRow } from '../types';
 
 describe('costLabel', () => {
   it('maps the four core string costs to their display labels', () => {
@@ -50,5 +54,45 @@ describe('hit-dice costs', () => {
 
   it('maps to no action-economy slot (display-only cost)', () => {
     expect(slotForCost({ hitDice: 2 })).toBe(null);
+  });
+});
+
+describe('"bonus-action" cost spelling', () => {
+  // Regression: 86 grimoire-packs rows (Zealous Presence among them) spell
+  // the cost "bonus-action". The encounter planner keys on slotForCost, so
+  // those actions silently never appeared in the bonus-action picker.
+  it('normalizeCost maps bonus-action spellings to bonus', () => {
+    expect(normalizeCost('bonus-action')).toBe('bonus');
+    expect(normalizeCost('Bonus Action')).toBe('bonus');
+    expect(normalizeCost('bonus_action')).toBe('bonus');
+    expect(normalizeCost('reaction')).toBe('reaction');
+    expect(normalizeCost({ movement: 5 })).toEqual({ movement: 5 });
+    expect(normalizeCost(undefined)).toBeUndefined();
+  });
+
+  it('derive emits the canonical bonus cost so the planner slots it', () => {
+    const feat: ContentRow = {
+      kind: 'feat',
+      slug: 'test-battle-cry',
+      version: 1,
+      name: 'Test Battle Cry',
+      source: 'test',
+      data: {
+        activities: [{ id: 'cry', type: 'utility', name: 'Battle Cry', cost: 'bonus-action' }],
+        activations: [{ id: 'cry-buff', name: 'Battle Cry Buff', condition: 'battle-cry', cost: 'bonus-action', uses: { max: 1, per: 'long-rest' } }]
+      }
+    };
+    const base = zealot.makeLookup(loadAllPacks());
+    const lookup = (ref: { kind: string; slug: string }) =>
+      ref.kind === 'feat' && ref.slug === 'test-battle-cry' ? feat : base(ref);
+    const d = derive(
+      { ...zealot.CHARACTER, feats: [{ kind: 'feat', slug: 'test-battle-cry', version: 1 }] },
+      lookup as never
+    );
+    const action = d.actions.find((a) => a.name === 'Battle Cry')!;
+    expect(action.cost).toBe('bonus');
+    expect(slotForCost(action.cost)).toBe('bonus');
+    const activation = d.availableActivations.find((a) => a.id === 'cry-buff')!;
+    expect(activation.cost).toBe('bonus');
   });
 });
