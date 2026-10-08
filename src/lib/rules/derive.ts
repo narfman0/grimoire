@@ -4833,10 +4833,13 @@ function realizeActivity(
       action.attackRange = attack.range;
       action.weaponProperties = (source.data.properties as string[] | undefined) ?? [];
       if (attack.damage) {
-        action.damageRolls = attack.damage.map((d) => {
+        // The ability modifier applies once per hit, on the weapon's primary
+        // damage row. Extra rows (Elven Scorn's +2d6, a flame tongue's 2d6
+        // fire) are bare dice.
+        action.damageRolls = attack.damage.map((d, i) => {
           const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
           return {
-            formula: fixedBonus !== null ? formula : addAbilityToFormula(formula, mod),
+            formula: fixedBonus !== null || i > 0 ? formula : addAbilityToFormula(formula, mod),
             type: d.type
           };
         });

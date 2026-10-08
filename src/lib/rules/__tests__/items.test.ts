@@ -337,6 +337,20 @@ describe('Elven Scorn (Spelljammer) — two damage rolls (1d10 + 2d6 piercing)',
     expect(hasPike).toBe(true);
     expect(hasBonus).toBe(true);
   });
+
+  it('adds the ability modifier and +1 only to the primary row, never to the extra 2d6', () => {
+    // Regression: every damage row got the STR mod folded in, so Ogila's
+    // Elven Scorn read 1d10+5 / 2d6+4 instead of D&D Beyond's 1d10+5 / 2d6.
+    const character = withInventory([
+      { contentKind: 'item', contentSlug: 'elven-scorn', version: 1, equipped: true, attuned: true }
+    ]);
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+    const attack = d.actions.find((a) => a.sourceContent.slug === 'elven-scorn')!;
+    const strMod = d.stats.abilities.str.mod;
+    const expectedPrimary = `1d10${strMod + 1 >= 0 ? '+' : ''}${strMod + 1}`;
+    expect(attack.damageRolls![0]).toEqual({ formula: expectedPrimary, type: 'piercing' });
+    expect(attack.damageRolls![1]).toEqual({ formula: '2d6', type: 'piercing' });
+  });
 });
 
 describe('Polearm Master feat — bonus attack flag on reach weapon attacks', () => {
