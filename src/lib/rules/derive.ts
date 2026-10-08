@@ -5326,13 +5326,39 @@ function applyActionEffect(
         action.attackBonus = applyNumericMode(action.attackBonus, mode, rawValue);
       }
       break;
-    case 'damage.bonus':
-      if (typeof rawValue === 'number' && action.damageRolls && action.damageRolls.length > 0) {
+    case 'damage.bonus': {
+      if (typeof rawValue !== 'number') break;
+      // A typed bonus (Divine Fury: "1d6 + half your barbarian level
+      // radiant") belongs to the row of that type — the most recently
+      // added one, so it pairs with a damage.dice effect earlier in the same
+      // modifier. With no such row it becomes its own flat row. An untyped
+      // bonus bumps the weapon's primary row as before.
+      const dtype = eff.damageType as string | undefined;
+      if (dtype) {
+        if (!action.damageRolls) action.damageRolls = [];
+        let idx = -1;
+        for (let i = action.damageRolls.length - 1; i >= 0; i--) {
+          if (action.damageRolls[i].type === dtype) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx >= 0) {
+          action.damageRolls = action.damageRolls.map((d, i) =>
+            i === idx ? { ...d, formula: bumpFormula(d.formula, rawValue, mode) } : d
+          );
+        } else if (mode === 'ADD' || mode === 'OVERRIDE') {
+          action.damageRolls.push({ formula: String(rawValue), type: dtype });
+        }
+        break;
+      }
+      if (action.damageRolls && action.damageRolls.length > 0) {
         action.damageRolls = action.damageRolls.map((d, i) =>
           i === 0 ? { ...d, formula: bumpFormula(d.formula, rawValue, mode) } : d
         );
       }
       break;
+    }
     case 'attack.advantage':
       // Surface as a tag on the action; v0 doesn't formally model advantage.
       // (Tag persists via appliedModifiers entry the caller adds.)
