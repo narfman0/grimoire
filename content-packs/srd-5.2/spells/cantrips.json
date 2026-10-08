@@ -22,6 +22,39 @@
       "classes": [
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "acid-splash-cast",
+          "type": "save",
+          "name": "Acid Splash",
+          "cost": "action",
+          "save": {
+            "ability": "dex",
+            "dc": {
+              "calc": "spell"
+            }
+          },
+          "damage": {
+            "parts": [
+              {
+                "dice": "1d6",
+                "type": "acid",
+                "scalesWithCharacterLevel": {
+                  "at5": "2d6",
+                  "at11": "3d6",
+                  "at17": "4d6"
+                }
+              }
+            ]
+          },
+          "target": {
+            "affects": "area",
+            "shape": "sphere",
+            "radius": 5
+          },
+          "note": "5-foot-radius sphere centered on a point within range."
+        }
       ]
     }
   },
@@ -49,6 +82,31 @@
         "sorcerer",
         "warlock",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "chill-touch-cast",
+          "type": "attack",
+          "name": "Chill Touch",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "melee",
+            "damage": [
+              {
+                "dice": "1d10",
+                "type": "necrotic",
+                "scalesWithCharacterLevel": {
+                  "at5": "2d10",
+                  "at11": "3d10",
+                  "at17": "4d10"
+                }
+              }
+            ]
+          },
+          "note": "On a hit the target can't regain HP until the end of your next turn."
+        }
       ]
     }
   },
@@ -403,6 +461,31 @@
       "ritual": false,
       "classes": [
         "druid"
+      ],
+      "activities": [
+        {
+          "id": "produce-flame-cast",
+          "type": "attack",
+          "name": "Hurl Produce Flame",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [
+              {
+                "dice": "1d8",
+                "type": "fire",
+                "scalesWithCharacterLevel": {
+                  "at5": "2d8",
+                  "at11": "3d8",
+                  "at17": "4d8"
+                }
+              }
+            ]
+          },
+          "note": "Casting (Bonus Action) creates the flame; hurling it is a Magic action that ends the spell."
+        }
       ]
     }
   },
@@ -429,6 +512,31 @@
       "classes": [
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "ray-of-frost-cast",
+          "type": "attack",
+          "name": "Ray of Frost",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "ranged",
+            "damage": [
+              {
+                "dice": "1d8",
+                "type": "cold",
+                "scalesWithCharacterLevel": {
+                  "at5": "2d8",
+                  "at11": "3d8",
+                  "at17": "4d8"
+                }
+              }
+            ]
+          },
+          "note": "On a hit the target's Speed drops by 10 ft until the start of your next turn."
+        }
       ]
     }
   },
@@ -567,6 +675,31 @@
       "classes": [
         "sorcerer",
         "wizard"
+      ],
+      "activities": [
+        {
+          "id": "shocking-grasp-cast",
+          "type": "attack",
+          "name": "Shocking Grasp",
+          "cost": "action",
+          "attack": {
+            "ability": "spellcasting",
+            "classification": "spell",
+            "range": "melee",
+            "damage": [
+              {
+                "dice": "1d8",
+                "type": "lightning",
+                "scalesWithCharacterLevel": {
+                  "at5": "2d8",
+                  "at11": "3d8",
+                  "at17": "4d8"
+                }
+              }
+            ]
+          },
+          "note": "On a hit the target can't make Opportunity Attacks until the start of its next turn."
+        }
       ]
     }
   },
