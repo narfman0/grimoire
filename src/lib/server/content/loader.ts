@@ -20,13 +20,19 @@ const DEFAULT_REPO_PACKS_DIR = './content-packs';
 /** A row's `data` is "skeleton" when it contributes nothing to the rules
  *  engine — no activities, features, modifiers, or triggers. Display-only
  *  fields (name, school, range, description, etc.) don't count. */
-function isSkeletonData(data: Record<string, unknown>): boolean {
+export function isSkeletonData(data: Record<string, unknown>): boolean {
   const arr = (v: unknown) => Array.isArray(v) && v.length > 0;
+  // `activations` and `choices` are rules too: a row that is only a choice
+  // slot (Weapon Mastery's weaponMasteries) or a toggle must still be able
+  // to replace an older row, or the guard silently pins the stale version.
+  const obj = (v: unknown) => !!v && typeof v === 'object' && Object.keys(v as object).length > 0;
   return !(
     arr(data.activities) ||
     arr(data.features) ||
     arr(data.modifiers) ||
-    arr(data.triggers)
+    arr(data.triggers) ||
+    arr(data.activations) ||
+    obj(data.choices)
   );
 }
 

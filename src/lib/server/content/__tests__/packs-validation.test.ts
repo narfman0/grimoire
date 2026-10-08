@@ -15,6 +15,7 @@
 //
 // Run directly with: pnpm validate:packs
 
+import { isSkeletonData } from '../loader';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -94,10 +95,8 @@ function toContentRow(r: EnumeratedRow['row']): ContentRow {
   };
 }
 
-function isSkeleton(data: Record<string, unknown>): boolean {
-  const arr = (v: unknown) => Array.isArray(v) && v.length > 0;
-  return !(arr(data.activities) || arr(data.features) || arr(data.modifiers) || arr(data.triggers));
-}
+// Mirror the loader's skeleton-shadow guard exactly.
+const isSkeleton = isSkeletonData;
 
 function loadTierMap(packsDir: string): void {
   const invDir = join(packsDir, 'docs', 'audit', 'inventory');

@@ -5,8 +5,9 @@
 // /api/homebrew/import now.
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { and, eq, isNull } from 'drizzle-orm';
 import { setupTestDb, schema } from '$lib/server/__tests__/test-db';
-import { seedSrdIfMissing } from '../loader';
+import { isSkeletonData, seedSrdIfMissing } from '../loader';
 
 type Db = ReturnType<typeof setupTestDb>;
 
@@ -48,5 +49,35 @@ describe('seedSrdIfMissing', () => {
     // The only on-disk pack right now is srd-5.2. If the repo gains
     // additional SRD packs (e.g. srd-5.1) update this assertion.
     expect([...slugs].every((s) => s.startsWith('srd-'))).toBe(true);
+  });
+
+  // Regression: the skeleton-shadow guard counted only activities /
+  // features / modifiers / triggers. Weapon Mastery's new row carries just a
+  // `choices` slot, so a reseed kept the stale row (with its placeholder
+  // trait) forever — the fix would never have reached prod.
+  it('replaces an older row with a choices-only row on reseed', async () => {
+    await seedSrdIfMissing();
+    const where = and(
+      eq(schema.content.kind, 'feature'),
+      eq(schema.content.slug, 'weapon-mastery'),
+      isNull(schema.content.ownerUserId)
+    );
+    const stale = {
+      modifiers: [
+        { kind: 'stat-modifier', target: 'trait.weapon-mastery-chosen', mode: 'OVERRIDE', value: true }
+      ]
+    };
+    await db.update(schema.content).set({ data: JSON.stringify(stale) }).where(where);
+
+    await seedSrdIfMissing();
+    const [row] = await db.select({ data: schema.content.data }).from(schema.content).where(where);
+    expect(JSON.parse(row.data as string).choices?.weaponMasteries).toBeDefined();
+  });
+
+  it('isSkeletonData treats choices and activations as rules content', () => {
+    expect(isSkeletonData({ description: 'flavor only' })).toBe(true);
+    expect(isSkeletonData({ choices: {} })).toBe(true);
+    expect(isSkeletonData({ choices: { weaponMasteries: { picks: 2 } } })).toBe(false);
+    expect(isSkeletonData({ activations: [{ id: 'rage' }] })).toBe(false);
   });
 });
