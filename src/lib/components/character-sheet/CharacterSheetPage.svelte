@@ -2955,7 +2955,9 @@
 
   <ReceivedBuffsPanel
     buffs={charDoc.receivedBuffs ?? []}
-    spellOptions={data.spellOptions}
+    spellOptions={data.spellOptions.filter(
+      (s) => s.buffable || (charDoc?.receivedBuffs ?? []).some((b) => b.spellSlug === s.slug)
+    )}
     {busy}
     on:add={handleAddReceivedBuff}
     on:remove={handleRemoveReceivedBuff}

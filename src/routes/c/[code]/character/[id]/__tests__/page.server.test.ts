@@ -205,6 +205,50 @@ describe('/c/[code]/character/[id] +page.server load', () => {
     expect(acolyte.abilityChoices).toEqual(['int', 'wis', 'cha']);
   });
 
+  // Regression: the Received Buffs picker listed every spell (Fire Bolt,
+  // Eldritch Blast…), though only spells with modifiers or activations do
+  // anything as a received buff. spellOptions now carries `buffable`.
+  it('spellOptions flags only modifier/activation spells as buffable', async () => {
+    await seedMinimumContent(db);
+    await seedContent(db, [
+      {
+        kind: 'spell',
+        slug: 'test-buff',
+        name: 'Test Buff',
+        data: {
+          level: 1,
+          modifiers: [{ kind: 'stat-modifier', target: 'ac', mode: 'ADD', value: 2 }]
+        }
+      },
+      {
+        kind: 'spell',
+        slug: 'test-zap',
+        name: 'Test Zap',
+        data: {
+          level: 0,
+          activities: [{ id: 'zap', type: 'attack', name: 'Zap', cost: 'action' }]
+        }
+      }
+    ]);
+    const dmId = await seedUser(db, { username: 'dm3' });
+    const owner = await seedUser(db, { username: 'owner3' });
+    const { campaignId, code } = await seedCampaign(db, { dmId, playerIds: [owner] });
+    const characterId = await seedCharacter(db, {
+      campaignId,
+      ownerUserId: owner,
+      name: 'Hero',
+      document: minCharDoc('h3'),
+      linkToCampaign: true
+    });
+    const data = await runLoad(load, loadEvent({
+      user: { id: owner, username: 'owner3', isAdmin: false, email: null, emailVerified: false },
+      params: { code, id: characterId }
+    }));
+    const opt = (slug: string) => data.spellOptions.find((s: { slug: string }) => s.slug === slug);
+    expect(opt('test-buff').buffable).toBe(true);
+    expect(opt('test-zap').buffable).toBe(false);
+  });
+
   // Locks the featOptions.asiBudget / abilityChoices contract — the ASI
   // configure panel in +page.svelte reads both fields to decide whether to
   // show the ability-bump picker and which abilities are selectable. When

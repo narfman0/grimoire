@@ -236,6 +236,8 @@ export async function buildCharacterPageData(
         ritual?: boolean;
         description?: string;
         classes?: string[];
+        modifiers?: unknown[];
+        activations?: unknown[];
         activities?: Array<{
           attack?: { ability?: string; range?: string };
           save?: { ability?: string; dc?: { calc?: string; value?: number } };
@@ -261,6 +263,12 @@ export async function buildCharacterPageData(
         duration: data.duration ?? null,
         concentration: isConcentration,
         ritual: data.ritual === true,
+        // Received buffs only take effect through the spell's modifiers[]
+        // or activations[] (see derive's receivedBuffs pass); attack-only
+        // spells would be inert entries in the Received Buffs picker.
+        buffable:
+          (Array.isArray(data.modifiers) && data.modifiers.length > 0) ||
+          (Array.isArray(data.activations) && data.activations.length > 0),
         // Class spell lists — the item spell-choice picker filters on a
         // declaration's `allowedClasses` against these. Empty when the row
         // ships no class data (some homebrew) — consumers must treat that
