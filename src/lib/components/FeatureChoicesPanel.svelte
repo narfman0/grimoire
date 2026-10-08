@@ -184,20 +184,26 @@
   // script block keeps the markup TS-clean (Svelte 4 doesn't parse
   // `as` casts inside `{@const}` expressions).
   function allowedAbilitiesOf(decl: Record<string, unknown> | undefined): string[] {
-    return (decl?.allowedAbilities as string[] | undefined) ?? ABILITIES;
+    const v = decl?.allowedAbilities;
+    return Array.isArray(v) ? (v as string[]) : ABILITIES;
   }
   function allowedSkillsOf(decl: Record<string, unknown> | undefined): string[] {
-    return (decl?.allowedSkills as string[] | undefined) ?? SKILLS;
+    // Non-array values ("all") mean unrestricted; iterating the string
+    // rendered the options "a", "l", "l".
+    const v = decl?.allowedSkills;
+    return Array.isArray(v) ? (v as string[]) : SKILLS;
   }
   function allowedExpertiseOf(decl: Record<string, unknown> | undefined): string[] {
     const v = decl?.allowedSkills;
     return Array.isArray(v) ? (v as string[]) : SKILLS;
   }
   function allowedLanguagesOf(decl: Record<string, unknown> | undefined): string[] | null {
-    return (decl?.allowedLanguages as string[] | undefined) ?? null;
+    const v = decl?.allowedLanguages;
+    return Array.isArray(v) ? (v as string[]) : null;
   }
   function allowedToolsOf(decl: Record<string, unknown> | undefined): string[] | null {
-    return (decl?.allowedTools as string[] | undefined) ?? null;
+    const v = decl?.allowedTools;
+    return Array.isArray(v) ? (v as string[]) : null;
   }
   function allowedFeaturesOf(decl: Record<string, unknown> | undefined): string[] {
     return (decl?.allowedFeatures as string[] | undefined) ?? [];
@@ -216,8 +222,8 @@
     listKey: string,
     fallback: string[]
   ): string[] {
-    const v = decl?.[listKey] as string[] | undefined;
-    return v ?? fallback;
+    const v = decl?.[listKey];
+    return Array.isArray(v) ? (v as string[]) : fallback;
   }
   function multiPickMaxOf(decl: Record<string, unknown> | undefined): number | undefined {
     return decl?.picks as number | undefined;

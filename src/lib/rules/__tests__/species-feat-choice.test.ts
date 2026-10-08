@@ -113,4 +113,17 @@ describe('Custom Lineage — choices.feat engine support', () => {
     // STR base 16 + Custom Lineage ASI +2 = 18
     expect(d.stats.abilities.str.score).toBe(18);
   });
+
+  it('applies the skill pick when the species allows "all" skills', () => {
+    // Regression: allowedSkills: "all" was treated as a list, so
+    // "all".includes("stealth") was false and Ogila's Stealth pick was
+    // silently dropped (+3 instead of +7 at L10).
+    const char: CharacterDocument = {
+      ...BASE_CHAR,
+      species: { ...BASE_CHAR.species, choices: { skillProficiency: { skill: 'stealth' } } }
+    };
+    const d = derive(char, makeLookup());
+    expect(d.stats.skills.stealth.proficient).toBe(true);
+    expect(d.stats.skills.stealth.bonus).toBe(d.stats.abilities.dex.mod + d.stats.proficiencyBonus);
+  });
 });

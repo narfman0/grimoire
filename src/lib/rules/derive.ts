@@ -638,13 +638,16 @@ const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
 ];
 
 function isChoiceAllowed(
-  allowed: string[] | 'proficient' | undefined,
+  allowed: string[] | string | undefined,
   pick: string,
   defaultAllowed: string[] | undefined,
   allowProficient: boolean | undefined
 ): boolean {
   if (allowed === 'proficient') return !!allowProficient;
   if (!allowed) return defaultAllowed ? defaultAllowed.includes(pick) : true;
+  // "all" (Custom Lineage: "proficiency in one skill of your choice") is an
+  // explicit no-restriction marker, not a one-element list.
+  if (!Array.isArray(allowed)) return allowed === 'all' ? (defaultAllowed ? defaultAllowed.includes(pick) : true) : false;
   return allowed.includes(pick);
 }
 

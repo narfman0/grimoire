@@ -3410,7 +3410,7 @@
                     bind:value={featDraftSkillProf}
                   >
                     <option value="">—</option>
-                    {#each (pickedFeatChoices.skillProficiency.allowedSkills ?? SKILLS) as s}
+                    {#each (Array.isArray(pickedFeatChoices.skillProficiency.allowedSkills) ? pickedFeatChoices.skillProficiency.allowedSkills : SKILLS) as s}
                       <option value={s}>
                         {s}{#if derived?.stats.skills[s]?.proficient} (already proficient){/if}
                       </option>
