@@ -212,11 +212,30 @@ describe('abilityModifier', () => {
 });
 
 describe('rageDamageFor', () => {
-  // 2024 rules: rage damage = proficiency bonus. A regression that switches
-  // back to the 2014 table would silently change every barbarian's output.
-  it('returns the proficiency bonus unmodified', () => {
-    const fakeChar = {} as CharacterDocument;
-    expect(rageDamageFor(fakeChar, 2)).toBe(2);
-    expect(rageDamageFor(fakeChar, 6)).toBe(6);
+  // PHB Rage Damage column: +2 (L1-8), +3 (L9-15), +4 (L16+). It is NOT the
+  // proficiency bonus — a L10 barbarian (PB +4) deals +3, which is what
+  // Ogila's D&D Beyond sheet shows.
+  const barb = (level: number) =>
+    ({ classes: [{ slug: 'barbarian', level }] }) as unknown as CharacterDocument;
+  it.each([
+    [1, 2],
+    [5, 2],
+    [8, 2],
+    [9, 3],
+    [10, 3],
+    [15, 3],
+    [16, 4],
+    [20, 4]
+  ])('barbarian L%i → +%i', (level, bonus) => {
+    expect(rageDamageFor(barb(level))).toBe(bonus);
+  });
+  it('uses barbarian level only, not total character level', () => {
+    const multi = {
+      classes: [
+        { slug: 'barbarian', level: 5 },
+        { slug: 'fighter', level: 10 }
+      ]
+    } as unknown as CharacterDocument;
+    expect(rageDamageFor(multi)).toBe(2);
   });
 });

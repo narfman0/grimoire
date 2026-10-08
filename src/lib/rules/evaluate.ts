@@ -148,9 +148,14 @@ export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
 }
 
-/** 2024 Barbarian rage damage = proficiency bonus. */
-export function rageDamageFor(_char: CharacterDocument, proficiencyBonus: number): number {
-  return proficiencyBonus;
+/** Barbarian Rage Damage column (identical in the 2014 and 2024 PHB):
+ *  +2 at levels 1-8, +3 at 9-15, +4 at 16+. Keyed on barbarian level, not
+ *  proficiency bonus — the two diverge at levels 5-8 and 13-15. */
+export function rageDamageFor(char: CharacterDocument): number {
+  const level = char.classes?.find((c) => c.slug === 'barbarian')?.level ?? 0;
+  if (level >= 16) return 4;
+  if (level >= 9) return 3;
+  return 2;
 }
 
 // Tiny arithmetic grammar for modifier values like "1 + warlockLevel",
