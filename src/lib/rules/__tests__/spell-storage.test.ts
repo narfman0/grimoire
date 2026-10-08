@@ -96,10 +96,9 @@ describe('spell storage pools', () => {
     );
     expect(cast).toBeDefined();
     expect(cast!.attackBonus).toBe(9);
-    // Guiding Bolt stored at L2: 4d6 + 1d6 radiant. The +5 is the
-    // wearer's spellcasting mod — the inline attack.damage path folds it
-    // in (pre-existing engine behavior, same as the wearer's own cast).
-    expect(cast!.damageRolls).toEqual([{ formula: '5d6+5', type: 'radiant' }]);
+    // Guiding Bolt stored at L2: 4d6 + 1d6 radiant. Spell attacks don't add
+    // the caster's modifier unless the spell says so (`addsSpellMod`).
+    expect(cast!.damageRolls).toEqual([{ formula: '5d6', type: 'radiant' }]);
   });
 
   it('emits spell-storage-over-capacity when Σ levels exceeds maxLevels (soft, actions still realize)', () => {

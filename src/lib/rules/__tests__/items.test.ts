@@ -296,6 +296,20 @@ describe('Lunar Dragon Raiment (Spelljammer) — Ray of Frost at will + resistan
     expect(rayOfFrost!.cost).toBe('action');
   });
 
+  it('inlines a usable Ray of Frost attack (SRD row was a mechanics-free stub)', () => {
+    // Regression: the SRD 5.2 ray-of-frost row had no activities, so the
+    // raiment's cast-spell action rendered with no attack or damage — Ogila
+    // couldn't see her at-will ranged option.
+    const character = withInventory([
+      { contentKind: 'item', contentSlug: 'lunar-dragon-raiment', version: 1, equipped: true, attuned: true }
+    ]);
+    const d = derive(character, chronurgy.makeLookup(PACKS));
+    const ray = d.actions.find((a) => a.id.endsWith('/ldr-cast-ray-of-frost'))!;
+    expect(ray.attackBonus).toBeTypeOf('number');
+    // Ray'Quasar is level 10 → cantrip scaling's 5th-level step.
+    expect(ray.damageRolls).toEqual([{ formula: '2d8', type: 'cold' }]);
+  });
+
   it('Ray of Frost is at-will — no uses resource emitted', () => {
     const character = withInventory([
       { contentKind: 'item', contentSlug: 'lunar-dragon-raiment', version: 1, equipped: true, attuned: true }

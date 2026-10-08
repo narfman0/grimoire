@@ -4839,13 +4839,16 @@ function realizeActivity(
       if (attack.damage) {
         // The ability modifier applies once per hit, on the weapon's primary
         // damage row. Extra rows (Elven Scorn's +2d6, a flame tongue's 2d6
-        // fire) are bare dice.
+        // fire) are bare dice. Spell attacks add it only where the spell
+        // says so (`addsSpellMod`: Spiritual Weapon) — Fire Bolt is 1d10,
+        // not 1d10 + INT.
+        const isSpellAttack = attack.classification === 'spell';
         action.damageRolls = attack.damage.map((d, i) => {
-          const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
-          return {
-            formula: fixedBonus !== null || i > 0 ? formula : addAbilityToFormula(formula, mod),
-            type: d.type
-          };
+          const formula = damagePartDice(d, ctx);
+          const addMod =
+            fixedBonus === null &&
+            (isSpellAttack ? (d as { addsSpellMod?: boolean }).addsSpellMod === true : i === 0);
+          return { formula: addMod ? addAbilityToFormula(formula, mod) : formula, type: d.type };
         });
       } else {
         // 5etools shape: damage lives at act.damage.parts as a sibling of
@@ -4855,7 +4858,7 @@ function realizeActivity(
         const parts = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
         if (parts) {
           action.damageRolls = parts.map((d) => {
-            const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+            const formula = damagePartDice(d, ctx);
             return { formula, type: d.type };
           });
         }
@@ -4879,7 +4882,7 @@ function realizeActivity(
       const damage = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
       if (damage) {
         action.damageRolls = damage.map((d) => {
-          const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+          const formula = damagePartDice(d, ctx);
           return { formula, type: d.type };
         });
       }
@@ -4888,7 +4891,7 @@ function realizeActivity(
     const damage = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
     if (damage) {
       action.damageRolls = damage.map((d) => {
-        const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+        const formula = damagePartDice(d, ctx);
         return { formula, type: d.type };
       });
     }
@@ -5046,7 +5049,7 @@ function realizeActivity(
     const parts = (act.damage as { parts?: Array<{ dice: unknown; type: string }> } | undefined)?.parts;
     if (parts && parts.length > 0) {
       action.damageRolls = parts.map((d) => {
-        const formula = typeof d.dice === 'string' ? d.dice : String(evaluateValue(d.dice, ctx) ?? '');
+        const formula = damagePartDice(d, ctx);
         return { formula, type: d.type };
       });
     }
@@ -5130,6 +5133,21 @@ function computeAttackProficiency(
     return character.classes.some((c) => ['barbarian', 'fighter', 'paladin', 'ranger'].includes(c.slug));
   }
   return true;
+}
+
+/** A damage part's dice, after cantrip character-level scaling
+ *  (`scalesWithCharacterLevel: { at5, at11, at17 }` — the SRD shape for
+ *  Fire Bolt, Sacred Flame, …). Without this every cantrip stayed at its
+ *  1st-level die forever. */
+function damagePartDice(part: { dice: unknown; scalesWithCharacterLevel?: unknown }, ctx: EvalContext): string {
+  const base = typeof part.dice === 'string' ? part.dice : String(evaluateValue(part.dice, ctx) ?? '');
+  const sc = part.scalesWithCharacterLevel as { at5?: unknown; at11?: unknown; at17?: unknown } | undefined;
+  if (!sc || typeof sc !== 'object') return base;
+  const lvl = ctx.totalLevel;
+  for (const [min, v] of [[17, sc.at17], [11, sc.at11], [5, sc.at5]] as const) {
+    if (lvl >= min && typeof v === 'string' && v.length > 0) return v;
+  }
+  return base;
 }
 
 function addAbilityToFormula(dice: string, mod: number): string {

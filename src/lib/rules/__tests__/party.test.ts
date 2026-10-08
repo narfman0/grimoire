@@ -262,3 +262,14 @@ describe("Ray'Quasar — Tortle Chronurgy Magic Wizard 10", () => {
     expect(cs!.limit).toEqual({ per: 'long-rest', uses: 2 });
   });
 });
+
+describe("Spell attack damage — Ray'Quasar (wizard 10)", () => {
+  // Regressions: cantrip damage never scaled with character level
+  // (`scalesWithCharacterLevel` was unread), and every spell attack folded
+  // the caster's INT into damage. Fire Bolt at level 10 is 2d10, no mod.
+  it('Fire Bolt scales to 2d10 at character level 10 without the INT mod', () => {
+    const d = derive(chronurgy.CHARACTER, chronurgy.makeLookup(PACKS));
+    const fb = d.actions.find((a) => a.sourceContent.slug === 'fire-bolt')!;
+    expect(fb.damageRolls).toEqual([{ formula: '2d10', type: 'fire' }]);
+  });
+});
