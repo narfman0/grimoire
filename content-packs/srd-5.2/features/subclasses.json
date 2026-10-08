@@ -8,19 +8,54 @@
       "ownerKind": "subclass",
       "ownerSlug": "path-of-the-berserker",
       "minLevel": 3,
-      "note": "While Raging, immediately after taking the Attack action on your turn you can make one additional melee weapon attack as a bonus action (Frenzied Strike). On a hit, you can choose to push the target up to 10 ft or knock it prone. Frenzy no longer imposes exhaustion in the 2024 rules. Push/prone rider requires manual tracking; engine cannot enforce 'after Attack action' timing.",
-      "activities": [
+      "note": "SRD 5.2: if you use Reckless Attack while your Rage is active, the first target you hit on your turn with a Strength-based attack takes extra damage: a number of d6s equal to your Rage Damage bonus, of the attack's damage type. Modeled as a toggle gated on Rage; flip it on the turn you attack recklessly. Once-per-turn is tracked at the table.",
+      "modifiers": [
         {
-          "id": "frenzied-strike",
-          "name": "Frenzied Strike",
-          "type": "attack",
-          "cost": "bonus",
-          "note": "Requires Rage. Use immediately after your Attack action. On hit: push target 10 ft or knock Prone (manual tracking).",
-          "attack": {
-            "ability": "str",
-            "classification": "weapon",
-            "range": "melee"
-          }
+          "kind": "action-modifier",
+          "id": "frenzy-extra-damage",
+          "name": "Frenzy (reckless while raging, first hit)",
+          "defaultEnabled": false,
+          "appliesWhen": {
+            "condition": "rage"
+          },
+          "appliesTo": {
+            "activityType": "attack",
+            "predicates": [
+              {
+                "attack.ability": "str"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "damage.dice",
+              "value": {
+                "perClass": "barbarian",
+                "table": [
+                  "2d6",
+                  "2d6",
+                  "2d6",
+                  "2d6",
+                  "2d6",
+                  "2d6",
+                  "2d6",
+                  "2d6",
+                  "3d6",
+                  "3d6",
+                  "3d6",
+                  "3d6",
+                  "3d6",
+                  "3d6",
+                  "3d6",
+                  "4d6",
+                  "4d6",
+                  "4d6",
+                  "4d6",
+                  "4d6"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

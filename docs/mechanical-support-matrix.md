@@ -167,7 +167,7 @@ Generated: 2026-05-21 | Last full audit: 2026-05-21 | Updated: 2026-05-22 (batch
 | Kind | Slug | Mechanic | Status | Notes | Audited |
 |------|------|----------|--------|-------|---------|
 | subclass | path-of-the-berserker | Parent Class (barbarian) / Feature List | ✅ Full | parentClass=barbarian, features=[frenzy, mindless-rage, intimidating-presence, retaliation] | 2026-05-21 |
-| subclass | path-of-the-berserker | Feature: frenzy (L3) | ⚠️ Partial | Bonus-action Frenzied Strike attack activity added (STR/weapon/melee); push/prone rider is Out of Scope; activity not rage-gated by engine (timing constraint manual) | 2026-05-22 |
+| subclass | path-of-the-berserker | Feature: frenzy (L3) | ⚠️ Partial | SRD 5.2 rule: rage-gated toggle adds (Rage Damage)d6 of the weapon's type to STR attacks (2d6/3d6/4d6 at L1/9/16); replaced the 2014-style Frenzied Strike bonus attack. Reckless-Attack pairing and first-hit-per-turn are manual | 2026-10-08 |
 | subclass | path-of-the-berserker | Feature: mindless-rage (L3) | ✅ Full | immunity.charmed and immunity.frightened OVERRIDE true gated on rage condition | 2026-05-21 |
 | subclass | college-of-lore | Parent Class (bard) / Feature List | ✅ Full | parentClass=bard, features=[bonus-proficiencies-lore, cutting-words, magical-secrets-lore, peerless-skill] | 2026-05-21 |
 | subclass | college-of-lore | Feature: bonus-proficiencies-lore (L3) | ✅ Full | choices.skillProficiencies {pick:3} emits proficiency.skill.<slug> modifiers for each of the 3 picked skills | 2026-05-21 |
