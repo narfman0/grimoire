@@ -637,6 +637,21 @@ const FEAT_MODIFIER_CHOICE_SPECS: readonly FeatModifierChoiceSpec[] = [
   }
 ];
 
+/** A choice slot may be conditional on a sibling `modifierFromChoice`
+ *  menu: `requiresOption: 'skill'` makes it live only while that option is
+ *  picked (Custom Lineage: the skill slot exists only if the variable
+ *  trait is "skill", not "darkvision"). Unconditional slots are live. */
+function slotActive(
+  declEntry: Record<string, unknown> | undefined,
+  picks: Record<string, unknown> | undefined
+): boolean {
+  const req = declEntry?.requiresOption;
+  if (typeof req !== 'string' || req.length === 0) return true;
+  const menu = picks?.modifierFromChoice as { option?: unknown; options?: unknown } | undefined;
+  if (menu?.option === req) return true;
+  return Array.isArray(menu?.options) && menu.options.includes(req);
+}
+
 function isChoiceAllowed(
   allowed: string[] | string | undefined,
   pick: string,
@@ -1216,6 +1231,7 @@ export function derive(character: CharacterDocument, content: ContentLookup): De
         const declEntry = decl[spec.declKey];
         const pickEntry = picks[spec.declKey];
         if (!declEntry || !pickEntry) continue;
+        if (!slotActive(declEntry, picks)) continue;
         const pick = pickEntry[spec.pickField] as string | undefined;
         if (!pick) continue;
         const allowed = spec.allowedField
@@ -3640,7 +3656,12 @@ function collectPendingFeatureChoices(s: DerivePhaseState): PendingFeatureChoice
     }
     const picks = (picksRaw ?? {}) as Record<string, unknown>;
     const declarations: Record<string, Record<string, unknown>> = {};
-    for (const k of slotKeys) declarations[k] = decl[k] as Record<string, unknown>;
+    for (const k of slotKeys) {
+      // Conditional slots whose gating option isn't picked are neither
+      // shown nor counted as unresolved.
+      if (!slotActive(decl[k] as Record<string, unknown>, picks)) continue;
+      declarations[k] = decl[k] as Record<string, unknown>;
+    }
     // Weapon Mastery's pick count scales with class level (perClass table);
     // resolve it here so the picker gets a plain number.
     if (declarations.weaponMasteries) {
@@ -3653,7 +3674,9 @@ function collectPendingFeatureChoices(s: DerivePhaseState): PendingFeatureChoice
       kind: a.row.kind,
       declarations,
       picks,
-      unresolved: slotKeys.some((k) => isSlotUnresolved(k, declarations[k], picks[k], ctx))
+      unresolved: Object.keys(declarations).some((k) =>
+        isSlotUnresolved(k, declarations[k], picks[k], ctx)
+      )
     });
   }
   return pendingFeatureChoices;

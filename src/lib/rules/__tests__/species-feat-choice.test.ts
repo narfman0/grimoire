@@ -66,6 +66,7 @@ describe('Custom Lineage — choices.feat engine support', () => {
         choices: {
           asi: { ability: 'str' },
           feat: { slug: 'polearm-master' },
+          modifierFromChoice: { option: 'skill' },
           skillProficiency: { skill: 'athletics' }
         }
       }
@@ -120,10 +121,56 @@ describe('Custom Lineage — choices.feat engine support', () => {
     // silently dropped (+3 instead of +7 at L10).
     const char: CharacterDocument = {
       ...BASE_CHAR,
-      species: { ...BASE_CHAR.species, choices: { skillProficiency: { skill: 'stealth' } } }
+      species: {
+        ...BASE_CHAR.species,
+        choices: { modifierFromChoice: { option: 'skill' }, skillProficiency: { skill: 'stealth' } }
+      }
     };
     const d = derive(char, makeLookup());
     expect(d.stats.skills.stealth.proficient).toBe(true);
     expect(d.stats.skills.stealth.bonus).toBe(d.stats.abilities.dex.mod + d.stats.proficiencyBonus);
+  });
+
+  // Tasha's Variable Trait: darkvision 60 ft OR one skill — never both.
+  // D&D Beyond (the authority) shows Ogila with the darkvision option.
+  describe('variable trait', () => {
+    const withPicks = (choices: Record<string, unknown>): CharacterDocument => ({
+      ...BASE_CHAR,
+      species: { ...BASE_CHAR.species, choices }
+    });
+
+    it('darkvision grants 60 ft and drops the skill slot', () => {
+      const d = derive(
+        withPicks({
+          asi: { ability: 'str' },
+          feat: { slug: 'polearm-master' },
+          modifierFromChoice: { option: 'darkvision' },
+          skillProficiency: { skill: 'stealth' }
+        }),
+        makeLookup()
+      );
+      expect(d.stats.senses.darkvision).toBe(60);
+      expect(d.stats.skills.stealth.proficient).toBe(false);
+      const entry = d.pendingFeatureChoices.find((e) => e.featureSlug === 'custom-lineage')!;
+      expect(entry.declarations).not.toHaveProperty('skillProficiency');
+      expect(entry.unresolved).toBe(false);
+    });
+
+    it('skill grants the picked skill and no darkvision', () => {
+      const d = derive(
+        withPicks({ modifierFromChoice: { option: 'skill' }, skillProficiency: { skill: 'stealth' } }),
+        makeLookup()
+      );
+      expect(d.stats.skills.stealth.proficient).toBe(true);
+      expect(d.stats.senses.darkvision ?? 0).toBe(0);
+    });
+
+    it('with no trait picked, the menu is unresolved and the skill slot hidden', () => {
+      const d = derive(withPicks({ asi: { ability: 'str' }, feat: { slug: 'polearm-master' } }), makeLookup());
+      const entry = d.pendingFeatureChoices.find((e) => e.featureSlug === 'custom-lineage')!;
+      expect(entry.declarations).toHaveProperty('modifierFromChoice');
+      expect(entry.declarations).not.toHaveProperty('skillProficiency');
+      expect(entry.unresolved).toBe(true);
+    });
   });
 });
