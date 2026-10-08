@@ -21,6 +21,8 @@
 
   export let p: Participant;
   export let role: 'dm' | 'player';
+  /** DM, or the player whose PC this row is — they enter their own roll. */
+  export let canEditInitiative: boolean = role === 'dm';
   export let isActive: boolean;
   export let isSelected: boolean;
   export let activeConds: string[];
@@ -106,7 +108,7 @@
       >▼</button>
     </span>
   {/if}
-  {#if role === 'dm'}
+  {#if canEditInitiative}
     {#if editingInitiative || p.initiative == null}
       <!-- svelte-ignore a11y-autofocus -->
       <input

@@ -228,6 +228,15 @@ export const SetPlanRequest = z
   .openapi('SetPlanRequest');
 export type TSetPlanRequest = z.infer<typeof SetPlanRequest>;
 
+/** POST /api/encounters/[id]/participants/[pid]/initiative — a player
+ *  entering their own initiative roll. null clears it. */
+export const SetInitiativeRequest = z
+  .object({
+    initiative: z.number().int().min(-20).max(99).nullable()
+  })
+  .openapi('SetInitiativeRequest');
+export type TSetInitiativeRequest = z.infer<typeof SetInitiativeRequest>;
+
 /** Parse a stored `plan_json` blob without letting one bad field take out
  *  the rest of it.
  *

@@ -1872,7 +1872,11 @@
   async function updateInitiative(id: string, value: number | null) {
     busy = true;
     try {
-      await api.patch(`/api/participants/${id}`, { initiative: value });
+      // The initiative sub-route accepts the DM and a PC's own player; the
+      // general participant PATCH is DM-only.
+      await api.post(`/api/encounters/${data.encounter.id}/participants/${id}/initiative`, {
+        initiative: value
+      });
       await invalidateAll();
     } catch {
       // api() already toasted
@@ -2991,6 +2995,7 @@
         <ParticipantRowCard
           {p}
           role={data.role}
+          canEditInitiative={data.role === 'dm' || (data.myParticipantIds ?? []).includes(p.id)}
           isActive={p.id === liveActive}
           {isSelected}
           activeConds={conditionsForParticipant(p, data.participantPcConditions, liveHpMap[p.id]?.conditions)}
