@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import CharacterCard from '$lib/components/CharacterCard.svelte';
   import { api } from '$lib/client/api';
   import { confirmDialog } from '$lib/components/ui/confirm';
@@ -75,6 +76,73 @@
       // checkbox snaps back to server truth on the next load
     } finally {
       busy = false;
+    }
+  }
+
+  // ---- spectator link (DM only) ----
+  //
+  // A no-login, read-only view for someone whose phone died (or who's
+  // watching from the couch). Regenerating replaces the token, which kills
+  // the old link on its next poll; revoking removes it outright.
+  let spectatorCopied = false;
+  $: spectatorUrl = data.spectatorToken
+    ? `${$page.url.origin}/watch/${data.spectatorToken}`
+    : null;
+
+  async function issueSpectatorLink(regenerate: boolean) {
+    if (
+      regenerate &&
+      !(await confirmDialog({
+        title: 'Regenerate spectator link?',
+        message: 'Anyone using the current link loses access.',
+        confirmLabel: 'Regenerate'
+      }))
+    ) {
+      return;
+    }
+    busy = true;
+    try {
+      await api.post(`/api/campaigns/${data.campaign.code}/spectator`);
+      spectatorCopied = false;
+      await invalidateAll();
+    } catch {
+      // api() already toasted
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function revokeSpectatorLink() {
+    if (
+      !(await confirmDialog({
+        title: 'Revoke spectator link?',
+        message: 'Anyone using it loses access immediately.',
+        confirmLabel: 'Revoke',
+        danger: true
+      }))
+    ) {
+      return;
+    }
+    busy = true;
+    try {
+      await api.del(`/api/campaigns/${data.campaign.code}/spectator`);
+      await invalidateAll();
+    } catch {
+      // api() already toasted
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function copySpectatorLink() {
+    if (!spectatorUrl) return;
+    try {
+      await navigator.clipboard.writeText(spectatorUrl);
+      spectatorCopied = true;
+    } catch {
+      // Clipboard blocked (insecure context, permissions) — the URL is in a
+      // selectable field right next to the button.
+      spectatorCopied = false;
     }
   }
 
@@ -962,6 +1030,57 @@
     </a>
   </div>
 </section>
+
+{#if data.role === 'dm'}
+<!-- ── Spectator link (DM only) ───────────────────────────────────── -->
+<section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm" data-testid="spectator-link">
+  <div class="mb-2">
+    <h2 class="text-sm font-semibold text-slate-200">Spectator link</h2>
+    <p class="text-xs text-slate-500">
+      Read-only, no login: party HP, AC, conditions, slots, inventory, the live
+      initiative order and the recent log — exactly what a player sees, nothing
+      hidden. Handy when someone's phone dies mid-session.
+    </p>
+  </div>
+  {#if spectatorUrl}
+    <div class="flex flex-wrap items-center gap-2">
+      <input
+        class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs text-slate-300"
+        readonly
+        value={spectatorUrl}
+        aria-label="Spectator link"
+        on:focus={(e) => e.currentTarget.select()}
+      />
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs hover:border-emerald-600 hover:text-emerald-200"
+        on:click={copySpectatorLink}
+      >{spectatorCopied ? 'Copied ✓' : 'Copy'}</button>
+      <a
+        class="rounded border border-slate-700 px-2 py-1 text-xs hover:border-slate-500"
+        href={spectatorUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+      >Open</a>
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs hover:border-amber-600 hover:text-amber-200 disabled:opacity-40"
+        disabled={busy}
+        on:click={() => issueSpectatorLink(true)}
+      >Regenerate</button>
+      <button
+        class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-red-700 hover:text-red-300 disabled:opacity-40"
+        disabled={busy}
+        on:click={revokeSpectatorLink}
+      >Revoke</button>
+    </div>
+  {:else}
+    <button
+      class="rounded border border-slate-700 px-3 py-1 text-xs hover:border-emerald-600 hover:text-emerald-200 disabled:opacity-40"
+      disabled={busy}
+      on:click={() => issueSpectatorLink(false)}
+    >Create spectator link</button>
+  {/if}
+</section>
+{/if}
 
 {#if data.role === 'dm'}
 <section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">

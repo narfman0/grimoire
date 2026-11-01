@@ -11,6 +11,7 @@
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import { db, schema } from '$lib/server/db';
 import { getCampaignPermissions, PERMISSIVE_DEFAULTS } from '$lib/server/auth/campaign-permissions';
+import { getSpectatorToken } from '$lib/server/spectator-token';
 
 /** Placeholder page data for the pending/rejected membership status view —
  *  same shape as buildCampaignPageData's result, but empty. */
@@ -27,6 +28,9 @@ export const EMPTY_CAMPAIGN_PAGE = {
   backgroundOptions: [] as { slug: string; name: string; source: string; abilityChoices: string[]; skillProficiencies: string[] }[],
   subclassOptions: [] as { slug: string; name: string; source: string; parentClass: string }[],
   pendingMembers: [] as { userId: string; username: string; requestedAt: number }[],
+  /** DM-only: the current spectator link token (null for players, or when
+   *  no link has been issued). */
+  spectatorToken: null as string | null,
 };
 
 export async function buildCampaignPageData(
@@ -207,6 +211,8 @@ export async function buildCampaignPageData(
      *  to players — knowing whether you're allowed to roll for a friend is
      *  not a secret, and the server is the boundary either way. */
     permissions: await getCampaignPermissions(campaign.id),
+    /** The spectator link is a credential — only the DM gets it. */
+    spectatorToken: role === 'dm' ? await getSpectatorToken(campaign.id) : null,
     pendingMembers: pendingMemberRows.map((r) => ({
       userId: r.userId,
       username: r.username,

@@ -114,7 +114,9 @@
       </button>
     </div>
   {/if}
-  <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+  <!-- Dashboard pages (spectator / table view) opt into a wider canvas via
+       `wide: true` in their page data — a landscape tablet has the room. -->
+  <main class="mx-auto w-full {$page.data.wide ? 'max-w-7xl' : 'max-w-5xl'} flex-1 px-4 py-8">
     <slot />
   </main>
   <ConfirmHost />
