@@ -358,11 +358,11 @@
     "version": 1,
     "name": "Relentless Rage",
     "data": {
-      "description": "If you drop to 0 hit points while raging, you can make a DC 10 Constitution saving throw. On a success, you drop to 1 hit point instead. Each time you use this feature, the DC increases by 5. The DC resets to 10 after a Long Rest.",
+      "description": "While your Rage is active, dropping to 0 HP without dying outright lets you make a DC 10 CON save. On a success your HP becomes twice your Barbarian level. The DC rises by 5 for each use after the first and resets to 10 when you finish a Short or Long Rest.",
       "ownerKind": "class",
       "ownerSlug": "barbarian",
       "minLevel": 11,
-      "note": "When you are Raging and you are reduced to 0 HP, you can make a DC 10 CON saving throw. On a success, you drop to 1 HP instead. Each time you use this feature after the first, the DC increases by 5 (DC 10, 15, 20, …). The DC resets to 10 after a Long Rest. The escalating-DC mechanic is not representable as a static stat-modifier; surfaced as a triggered save activity. The engine should prompt the player to roll when the condition is met.",
+      "note": "SRD 5.2 rule: on a successful CON save, HP is set to 2 x Barbarian level (the 2014 rule set it to 1). The escalating DC (10, 15, 20, ...) is tracked manually and resets to 10 on a Short or Long Rest (2014: Long Rest only). Surfaced as a free, save-gated set-hp trigger; the player rolls the save.",
       "triggers": [
         {
           "kind": "trigger",
@@ -380,16 +380,18 @@
             ]
           },
           "grants": {
+            "type": "set-hp",
+            "value": { "perClassLevel": "barbarian", "multiplier": 2 },
             "activityType": "save",
             "cost": "free",
             "save": {
               "ability": "con",
               "dc": {
                 "base": 10,
-                "note": "DC starts at 10 and increases by 5 for each use after the first; resets on Long Rest. Track manually."
+                "note": "DC starts at 10 and increases by 5 for each use after the first; resets to 10 on a Short or Long Rest. Track manually."
               }
             },
-            "effect": "drop-to-1hp-on-success"
+            "effect": "set-hp-on-success"
           }
         }
       ]

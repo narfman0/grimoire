@@ -6,9 +6,10 @@
 //   1. Resistance / immunity / vulnerability for the chosen damage type.
 //   2. Temp HP absorbs first (applyDamageDelta).
 //   3. Dropping to 0 HP offers any `damage.reduce-to-zero` trigger whose
-//      grant is `set-hp` (Relentless Endurance) and still has uses left.
-//      Other reduce-to-zero triggers (Relentless Rage's CON save) are
-//      surfaced as manual follow-ups — the sheet has no dice for them.
+//      grant is `set-hp` (Relentless Endurance, Relentless Rage) and still
+//      has uses left. A save-gated saver (Relentless Rage's CON save)
+//      carries its save so the UI can ask the player to roll first — the
+//      sheet has no dice. Other reduce-to-zero triggers are manual.
 //   4. Staying at 0 HP knocks the character unconscious, which in turn
 //      auto-cancels activations that end on it (Rage).
 
@@ -50,6 +51,9 @@ export interface ZeroHpSaver {
   /** Resource pool to debit (`trigger/<source>/<id>`), when limited. */
   resourceId: string | null;
   setHpTo: number;
+  /** Present when the saver only applies on a successful save the player
+   *  rolls by hand. `dc` is the base DC (escalation is tracked manually). */
+  save?: { ability: string; dc: number | null };
 }
 
 export interface SheetDamagePlan {
@@ -91,6 +95,18 @@ function scopeHolds(scope: unknown, conditions: Set<string>): boolean {
   return true;
 }
 
+function readSaverSave(raw: unknown): ZeroHpSaver['save'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const { ability, dc } = raw as { ability?: unknown; dc?: unknown };
+  if (typeof ability !== 'string') return undefined;
+  const base =
+    typeof dc === 'number' ? dc
+    : dc && typeof dc === 'object' && typeof (dc as { base?: unknown }).base === 'number'
+      ? (dc as { base: number }).base
+      : null;
+  return { ability, dc: base };
+}
+
 export function planSheetDamage(
   d: Pick<CharacterDocument, 'currentHp' | 'tempHp' | 'conditions'>,
   rawAmount: number,
@@ -118,7 +134,14 @@ export function planSheetDamage(
           const pool = ctx.resources.find((r) => r.id === resourceId);
           if (!pool || pool.used >= pool.max) continue;
         }
-        savers.push({ triggerId: t.id, name: t.name, resourceId, setHpTo: grant.value });
+        const save = readSaverSave(grant.save);
+        savers.push({
+          triggerId: t.id,
+          name: t.name,
+          resourceId,
+          setHpTo: grant.value,
+          ...(save ? { save } : {})
+        });
       } else {
         manual.push(t.name);
       }

@@ -172,9 +172,16 @@ function coerceSourcePredicate(raw: unknown): DamageSourcePredicate | undefined 
  *  arm keeps unknown grant shapes forward-compatible. Shapes without a
  *  `type` discriminant are dropped (they were already inert downstream —
  *  every consumer switches on `grants.type`). */
-function coerceTriggerGrant(raw: unknown): TriggerGrant | undefined {
+function coerceTriggerGrant(raw: unknown, ctx: EvalContext): TriggerGrant | undefined {
   if (raw == null || typeof raw !== 'object') return undefined;
-  if (typeof (raw as { type?: unknown }).type !== 'string') return undefined;
+  const type = (raw as { type?: unknown }).type;
+  if (typeof type !== 'string') return undefined;
+  // `set-hp` may scale with level (Relentless Rage: 2 × barbarian level);
+  // resolve it here so consumers always see a number.
+  if (type === 'set-hp') {
+    const value = evaluateValue((raw as { value?: unknown }).value, ctx);
+    return { ...(raw as Record<string, unknown>), type, value } as TriggerGrant;
+  }
   return raw as TriggerGrant;
 }
 
@@ -3069,7 +3076,7 @@ function registerTriggers(s: DerivePhaseState): void {
       name: (m.raw.name as string | undefined) ?? m.id,
       on,
       scope: m.raw.scope,
-      grants: coerceTriggerGrant(m.raw.grants),
+      grants: coerceTriggerGrant(m.raw.grants, ctx),
       limit: m.raw.limit as { per: string; uses: number } | undefined,
       ...(typeof m.raw.description === 'string' ? { description: m.raw.description } : {}),
       ...(triggerSpend

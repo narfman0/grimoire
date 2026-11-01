@@ -875,9 +875,11 @@
     for (const s of plan.savers) {
       const yes = await confirmDialog({
         title: `Use ${s.name}?`,
-        message: `This hit drops you to 0 HP. ${s.name} leaves you at ${s.setHpTo} HP instead.`,
-        confirmLabel: `Use ${s.name}`,
-        cancelLabel: 'Drop to 0'
+        message: s.save
+          ? `This hit drops you to 0 HP. Roll a ${s.save.ability.toUpperCase()} save${s.save.dc != null ? ` (DC ${s.save.dc}, +5 per earlier use since your last rest)` : ''}. On a success, ${s.name} leaves you at ${s.setHpTo} HP.`
+          : `This hit drops you to 0 HP. ${s.name} leaves you at ${s.setHpTo} HP instead.`,
+        confirmLabel: s.save ? `Saved — use ${s.name}` : `Use ${s.name}`,
+        cancelLabel: s.save ? 'Failed / drop to 0' : 'Drop to 0'
       });
       if (yes) {
         saver = s;
