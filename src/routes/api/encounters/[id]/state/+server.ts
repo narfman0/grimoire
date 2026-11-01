@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { db, schema } from '$lib/server/db';
@@ -8,7 +8,7 @@ import { PlanJson, SpellSlotsJson, salvagePlanJson } from '$lib/server/api/encou
 import { readCombatState } from '$lib/encounter/combat-state';
 import { parseParams } from '$lib/server/api/validate';
 import { getMembershipByCampaignId } from '$lib/server/auth/membership';
-import { hpBucket, parseReveals } from '$lib/realtime/reveals';
+import { parseReveals, projectVitals } from '$lib/realtime/reveals';
 import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { economyFromCharacterDoc, normalizeEconomy } from '$lib/realtime/economy';
 import { normalizeTimers, pruneTimers } from '$lib/encounter/condition-timers';
@@ -25,7 +25,7 @@ import {
   visibleFloorList
 } from '$lib/server/encounter/dungeon';
 import { WireFloorLink } from '$lib/server/api/dungeon-schemas';
-import { monsterDerive } from '$lib/rules/monster-derive';
+import { loadMonsterDex, participantDex } from '$lib/server/encounter/participant-dex';
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
@@ -320,45 +320,16 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     }
   }
 
-  // Dex per participant for the initiative tiebreaker — mirrors the SSR
-  // loader's dexForParticipant so both surfaces sort identically. Runs
-  // post-304 only; the token already covers every input (rows incl.
-  // statblock columns, char docs via updated_at, static monster content).
-  const monsterSlugs = Array.from(
-    new Set(partRows.map((p) => p.statblockSlug).filter((s): s is string => !!s))
+  // Dex per participant for the initiative tiebreaker — shared with the
+  // party dashboard (participant-dex.ts) so both surfaces sort, and number
+  // "Enemy N", identically. Runs post-304 only; the token already covers
+  // every input (rows incl. statblock columns, char docs via updated_at,
+  // static monster content).
+  const monsterDex = await loadMonsterDex(
+    partRows.map((p) => p.statblockSlug).filter((s): s is string => !!s)
   );
-  const monsterDex = new Map<string, number>();
-  if (monsterSlugs.length > 0) {
-    const rows = await db
-      .select({ slug: schema.content.slug, data: schema.content.data })
-      .from(schema.content)
-      .where(and(eq(schema.content.kind, 'monster'), inArray(schema.content.slug, monsterSlugs)));
-    for (const r of rows) {
-      try {
-        const derived = monsterDerive(JSON.parse(r.data as string) as Record<string, unknown>);
-        monsterDex.set(r.slug, derived.abilityScores.dex);
-      } catch (err) {
-        logger.warn({ err, encounterId: id, slug: r.slug }, 'state poll: malformed monster content');
-      }
-    }
-  }
-  function dexForParticipant(p: (typeof partRows)[number]): number {
-    if (p.characterId) {
-      const dex = (charDocs.get(p.characterId)?.abilityScores as { dex?: number } | undefined)?.dex;
-      if (typeof dex === 'number') return dex;
-      return 10;
-    }
-    if (p.statblockSlug) return monsterDex.get(p.statblockSlug) ?? 10;
-    if (p.statblockJson) {
-      try {
-        const d = JSON.parse(p.statblockJson) as { abilityScores?: { dex?: number } };
-        return d.abilityScores?.dex ?? 10;
-      } catch {
-        // fall through
-      }
-    }
-    return 10;
-  }
+  const dexForParticipant = (p: (typeof partRows)[number]) =>
+    participantDex(p, charDocs, monsterDex);
 
   const participants = buildLiveParticipantList(
     partRows.map((p) => ({
@@ -478,14 +449,13 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
     // Vitals redaction. The DM sees everything; players see exact numbers for
     // their own party and for any non-PC row the DM has revealed, and the
     // bucket alone for the rest. Computed here, once, from the real numbers —
-    // the same discipline as the fog and token-position redactions.
-    const bucket = hpBucket(currentHp, maxHp);
-    const revealVitals = role === 'dm' || isPc || parseReveals(p.revealsJson).vitals;
+    // the same discipline as the fog and token-position redactions. The rule
+    // itself lives in projectVitals so the party dashboard can't drift.
     participantHp[p.id] = {
-      currentHp: revealVitals ? currentHp : null,
-      tempHp: revealVitals ? tempHp : 0,
-      maxHp: revealVitals ? maxHp : null,
-      hpBucket: bucket,
+      ...projectVitals(
+        { currentHp, tempHp, maxHp },
+        { isDM: role === 'dm', isPc, reveals: parseReveals(p.revealsJson) }
+      ),
       conditions,
       conditionTimers,
       concentrating

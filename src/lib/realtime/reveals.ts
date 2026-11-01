@@ -69,6 +69,32 @@ export function hpBucket(
   return 'healthy';
 }
 
+export interface ProjectedVitals {
+  currentHp: number | null;
+  tempHp: number;
+  maxHp: number | null;
+  hpBucket: HpBucket;
+}
+
+/** The one vitals-redaction rule, shared by every surface that ships a
+ *  participant's HP to a browser (the encounter poll, the party dashboard).
+ *  The DM sees exact numbers; players see exact numbers for PCs and for any
+ *  non-PC whose `vitals` flag is revealed, and only the bucket otherwise.
+ *  The bucket is always computed from the *real* numbers, before redaction. */
+export function projectVitals(
+  hp: { currentHp: number | null; tempHp: number; maxHp: number | null },
+  viewer: { isDM: boolean; isPc: boolean; reveals: ParticipantReveals }
+): ProjectedVitals {
+  const bucket = hpBucket(hp.currentHp, hp.maxHp);
+  const reveal = viewer.isDM || viewer.isPc || viewer.reveals.vitals;
+  return {
+    currentHp: reveal ? hp.currentHp : null,
+    tempHp: reveal ? hp.tempHp : 0,
+    maxHp: reveal ? hp.maxHp : null,
+    hpBucket: bucket
+  };
+}
+
 export const HP_BUCKET_LABELS: Record<HpBucket, string> = {
   healthy: 'Healthy',
   wounded: 'Wounded',
