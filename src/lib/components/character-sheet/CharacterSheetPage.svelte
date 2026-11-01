@@ -771,10 +771,15 @@
   let mutationChain: Promise<void> = Promise.resolve();
   let mutationsPending = 0;
 
-  function patchDocument(updater: (doc: NonNullable<typeof charDoc>) => void): Promise<void> {
+  function patchDocument(
+    updater: (doc: NonNullable<typeof charDoc>) => void,
+    /** Session-log hint (rests): lets the server fold the rest's many field
+     *  changes into one log entry. Changes nothing about the write. */
+    opts: { logReason?: 'short-rest' | 'long-rest' } = {}
+  ): Promise<void> {
     mutationsPending++;
     busy = true;
-    const run = mutationChain.then(() => runPatch(updater));
+    const run = mutationChain.then(() => runPatch(updater, opts));
     mutationChain = run.catch(() => {});
     return run.finally(() => {
       mutationsPending--;
@@ -782,7 +787,10 @@
     });
   }
 
-  async function runPatch(updater: (doc: NonNullable<typeof charDoc>) => void): Promise<void> {
+  async function runPatch(
+    updater: (doc: NonNullable<typeof charDoc>) => void,
+    opts: { logReason?: 'short-rest' | 'long-rest' } = {}
+  ): Promise<void> {
     // Read the base synchronously from the raw variables — the reactive
     // `charDoc` only recomputes on Svelte's flush, which may not have run
     // yet when a queued mutation starts right after the previous one.
@@ -798,7 +806,7 @@
       const req = fetch(`/api/characters/${data.character.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ document: doc, baseUpdatedAt: base })
+        body: JSON.stringify({ document: doc, baseUpdatedAt: base, ...opts })
       });
       // Tell the polling channel a mutation is in flight so a stale poll
       // snapshot issued before this PATCH can't clobber the result.
@@ -2118,7 +2126,7 @@
         const state = d.activations[a.id];
         if (state?.active) d.activations[a.id] = { ...state, active: false };
       }
-    });
+    }, { logReason: 'short-rest' });
     restingShort = true;
     restNote = 'Short rest — short-rest resources restored. Spend hit dice below as needed.';
   }
@@ -2165,7 +2173,7 @@
       // reset them on rest. Conditions like "frightened" generally end on a
       // long rest unless the source persists, but we don't track durations
       // yet, so leave them — DM adjudicates.
-    });
+    }, { logReason: 'long-rest' });
     restingShort = false;
     restNote = 'Long rest complete.';
   }

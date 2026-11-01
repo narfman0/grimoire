@@ -346,7 +346,11 @@ export const UpdateCharacterRequest = z
      *  matches the row, the server responds 409 with the current serialized
      *  character so the client can rebase and retry. Omit for plain
      *  last-write-wins (backward compatible). */
-    baseUpdatedAt: z.number().int().nonnegative().optional()
+    baseUpdatedAt: z.number().int().nonnegative().optional(),
+    /** Session-log hint from the sheet's rest buttons: the server folds the
+     *  rest's many document changes into one "took a long rest" entry.
+     *  Purely descriptive — it changes nothing about what is written. */
+    logReason: z.enum(['short-rest', 'long-rest']).optional()
   })
   .refine((v) => v.name !== undefined || v.slug !== undefined || v.document !== undefined, {
     message: 'at least one field required'
@@ -526,7 +530,13 @@ export const TimelineEntrySchema = z
   .object({
     id: z.string(),
     at: TimestampMs,
-    source: z.enum(['combat']),
+    source: z.enum(['combat', 'session']),
+    kind: z.string(),
+    isPrivate: z.boolean(),
+    amendsId: z.string().nullable(),
+    amendedById: z.string().nullable(),
+    actorName: z.string().nullable(),
+    restorable: z.boolean(),
     characterIds: z.array(Uuid),
     summary: z.string(),
     encounterName: z.string().nullable(),
@@ -536,6 +546,37 @@ export const TimelineEntrySchema = z
     redacted: z.boolean()
   })
   .openapi('TimelineEntry');
+
+// ---------------------------------------------------------------------------
+// Session log / campaign timeline — see $lib/server/session-log + timeline.
+// ---------------------------------------------------------------------------
+
+export const TimelineQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** Only entries about this character. */
+  characterId: Uuid.optional(),
+  /** Cursor (ms): entries strictly older than this. */
+  before: z.coerce.number().int().nonnegative().optional()
+});
+
+export const TimelineList = z
+  .object({ entries: z.array(TimelineEntrySchema) })
+  .openapi('TimelineList');
+
+export const AddLogNoteRequest = z
+  .object({
+    text: z.string().trim().min(1).max(2000),
+    /** DM-only note — never shown to players or spectators. */
+    isPrivate: z.boolean().optional().default(false),
+    characterId: Uuid.nullable().optional()
+  })
+  .openapi('AddLogNoteRequest');
+
+export const AmendLogNoteRequest = z
+  .object({ text: z.string().trim().min(1).max(2000) })
+  .openapi('AmendLogNoteRequest');
+
+export const LogEntryCreated = z.object({ id: Uuid }).openapi('LogEntryCreated');
 
 export const PartyDashboardResponse = z
   .object({

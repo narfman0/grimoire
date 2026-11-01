@@ -37,17 +37,24 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (part.kind === 'pc') {
     if (!part.characterId) throw error(409, 'PC participant is not linked to a character');
     if (delta) {
-      return json({ ok: true, ...(await applyPcHpDelta(part.characterId, delta, enc.campaignId)) });
+      return json({
+        ok: true,
+        ...(await applyPcHpDelta(part.characterId, delta, enc.campaignId, user.id))
+      });
     }
     if (body.maxHp !== undefined) {
       // Max HP is derived from class/level/CON, not a combat value. Editing
       // it is a character change and belongs on the sheet.
       throw error(400, 'max HP for a PC is derived; edit the character instead');
     }
-    const next = await applyPcVitals(part.characterId, {
-      ...(body.currentHp != null ? { currentHp: body.currentHp } : {}),
-      ...(body.tempHp !== undefined ? { tempHp: body.tempHp } : {})
-    });
+    const next = await applyPcVitals(
+      part.characterId,
+      {
+        ...(body.currentHp != null ? { currentHp: body.currentHp } : {}),
+        ...(body.tempHp !== undefined ? { tempHp: body.tempHp } : {})
+      },
+      { actorUserId: user.id }
+    );
     return json({ ok: true, ...next });
   }
 
