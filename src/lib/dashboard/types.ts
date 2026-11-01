@@ -91,6 +91,16 @@ export interface TimelineEntry {
   redacted: boolean;
 }
 
+/** Table view (DM) quick HP control, dispatched by PartyDashboard. Party
+ *  members are addressed by character, combatants by participant. */
+export interface AdjustEvent {
+  target:
+    | { kind: 'character'; id: string }
+    | { kind: 'participant'; id: string; encounterId: string };
+  mode: 'damage' | 'heal';
+  amount: number;
+}
+
 export interface PartyDashboard {
   campaign: { name: string };
   party: DashboardPartyMember[];

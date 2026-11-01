@@ -1025,9 +1025,17 @@
       <h2 class="text-sm font-semibold text-slate-200">Encounters</h2>
       <p class="text-xs text-slate-500">Combat scenes and initiative tracker.</p>
     </div>
-    <a class="rounded border border-slate-700 px-3 py-1 text-sm hover:border-emerald-600 hover:text-emerald-200" href={encountersHref}>
-      Open encounters →
-    </a>
+    <div class="flex shrink-0 gap-2">
+      <!-- Code-scoped on both campaign URL schemes: one table view route. -->
+      <a
+        class="rounded border border-slate-700 px-3 py-1 text-sm hover:border-sky-600 hover:text-sky-200"
+        href={`/c/${data.campaign.code}/table`}
+        title="Landscape dashboard for a tablet at the table"
+      >Table view</a>
+      <a class="rounded border border-slate-700 px-3 py-1 text-sm hover:border-emerald-600 hover:text-emerald-200" href={encountersHref}>
+        Open encounters →
+      </a>
+    </div>
   </div>
 </section>
 

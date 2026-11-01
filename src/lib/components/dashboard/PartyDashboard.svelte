@@ -10,16 +10,27 @@
 
   Layout: single column on a phone; party grid + side column (encounter
   strip, log) from `lg` up, which is the tablet-in-landscape table layout.
+
+  `editable` (table view, DM only) adds quick damage/heal controls and
+  dispatches `adjust`; the wrapper owns the request. The spectator wrapper
+  never sets it, so the spectator view has no controls at all.
 -->
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import HpBar from './HpBar.svelte';
+  import QuickHpControl from './QuickHpControl.svelte';
   import HpBucketBadge from '$lib/components/HpBucketBadge.svelte';
   import type { HpBucket } from '$lib/realtime/reveals';
-  import type { PartyDashboard } from '$lib/dashboard/types';
+  import type { AdjustEvent, PartyDashboard } from '$lib/dashboard/types';
   import type { DashboardStatus } from '$lib/realtime/dashboard-channel';
 
   export let data: PartyDashboard;
   export let status: DashboardStatus = 'open';
+  export let editable = false;
+  /** Disables the controls while a request is in flight. */
+  export let busy = false;
+
+  const dispatch = createEventDispatcher<{ adjust: AdjustEvent }>();
 
   $: enc = data.encounter;
 
@@ -85,6 +96,14 @@
 
             {#if m.hasSheet}
               <HpBar current={m.currentHp} max={m.maxHp} temp={m.tempHp} />
+              {#if editable}
+                <QuickHpControl
+                  label={m.name}
+                  {busy}
+                  on:apply={(e) =>
+                    dispatch('adjust', { target: { kind: 'character', id: m.id }, ...e.detail })}
+                />
+              {/if}
 
               {#if m.deathSaves}
                 <div class="mt-1 text-xs text-slate-300">
@@ -160,7 +179,7 @@
           <ol class="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
             {#each enc.combatants as c (c.id)}
               <li
-                class="min-w-[9rem] rounded border px-2 py-1.5 lg:min-w-0 {c.id === enc.activeParticipantId
+                class="{editable ? 'min-w-[16rem]' : 'min-w-[9rem]'} rounded border px-2 py-1.5 lg:min-w-0 {c.id === enc.activeParticipantId
                   ? 'border-amber-400 bg-amber-900/20'
                   : 'border-slate-800 bg-slate-950/40'}"
                 aria-current={c.id === enc.activeParticipantId ? 'step' : undefined}
@@ -188,6 +207,18 @@
                       <span class="text-[10px] capitalize text-amber-300">{cond}</span>
                     {/each}
                   </div>
+                {/if}
+                {#if editable && enc}
+                  {@const encounterId = enc.id}
+                  <QuickHpControl
+                    label={c.name}
+                    {busy}
+                    on:apply={(e) =>
+                      dispatch('adjust', {
+                        target: { kind: 'participant', id: c.id, encounterId },
+                        ...e.detail
+                      })}
+                  />
                 {/if}
               </li>
             {/each}

@@ -127,6 +127,34 @@ describe('PartyDashboard', () => {
     expect(container.querySelectorAll('input, button')).toHaveLength(0);
   });
 
+  it('editable mode dispatches relative adjustments for party and combatants', async () => {
+    const events: unknown[] = [];
+    const { getAllByTestId } = render(PartyDashboard, {
+      props: { data: sample(), status: 'open', editable: true },
+      events: { adjust: (e) => events.push(e.detail) }
+    });
+
+    // One control per party member with a sheet + one per combatant.
+    const controls = getAllByTestId('quick-hp');
+    expect(controls).toHaveLength(3);
+
+    const [aria, , enemy] = controls;
+    const fire = async (el: HTMLElement, value: string, button: number) => {
+      const input = el.querySelector('input')!;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      el.querySelectorAll('button')[button].click();
+      await Promise.resolve();
+    };
+    await fire(aria, '6', 0);
+    await fire(enemy, '4', 1);
+    await fire(enemy, '0', 0); // ignored: not a positive amount
+    expect(events).toEqual([
+      { target: { kind: 'character', id: ID(1) }, mode: 'damage', amount: 6 },
+      { target: { kind: 'participant', id: ID(5), encounterId: ID(3) }, mode: 'heal', amount: 4 }
+    ]);
+  });
+
   it('tells a spectator when their link stopped working', () => {
     const { getByTestId } = render(PartyDashboard, { props: { data: sample(), status: 'gone' } });
     expect(getByTestId('dashboard-status').textContent).toContain('no longer valid');
