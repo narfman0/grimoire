@@ -327,9 +327,20 @@ export const SetHpRequest = z
   .object({
     currentHp: z.number().int().nullable().optional(),
     tempHp: z.number().int().nonnegative().optional(),
-    maxHp: z.number().int().nullable().optional()
+    maxHp: z.number().int().nullable().optional(),
+    /** Relative change, computed server-side from the stored HP (temp HP
+     *  absorbs damage first; healing caps at max). Lets a client adjust a
+     *  creature whose exact HP it isn't shown. Exclusive with every
+     *  absolute field. */
+    damage: z.number().int().positive().max(9999).optional(),
+    heal: z.number().int().positive().max(9999).optional()
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'at least one field required' })
+  .refine(
+    (v) =>
+      (v.damage === undefined && v.heal === undefined) || Object.keys(v).length === 1,
+    { message: 'damage / heal cannot be combined with other fields' }
+  )
   .openapi('SetHpRequest');
 export type TSetHpRequest = z.infer<typeof SetHpRequest>;
 

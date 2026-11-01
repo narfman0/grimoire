@@ -451,6 +451,24 @@ export const SpectatorToken = z
   .regex(/^[0-9a-f]{32}$/, '32 lowercase hex chars')
   .openapi({ description: 'Revocable spectator link token.' });
 
+/** Table-view quick HP control: exactly one of damage / heal. */
+export const HpDeltaRequest = z
+  .object({
+    damage: z.number().int().positive().max(9999).optional(),
+    heal: z.number().int().positive().max(9999).optional()
+  })
+  .refine((v) => (v.damage === undefined) !== (v.heal === undefined), {
+    message: 'exactly one of damage / heal is required'
+  })
+  .openapi('HpDeltaRequest');
+
+export const HpDeltaResponse = z
+  .object({
+    currentHp: z.number().int().nonnegative(),
+    tempHp: z.number().int().nonnegative()
+  })
+  .openapi('HpDeltaResponse');
+
 export const SpectatorLink = z
   .object({
     /** Null when the DM hasn't issued a link (or revoked it). */

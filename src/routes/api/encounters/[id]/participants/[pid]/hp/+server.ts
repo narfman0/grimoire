@@ -7,7 +7,8 @@ import { Uuid } from '$lib/server/api/schemas';
 import { parseJson, parseParams } from '$lib/server/api/validate';
 import { requireUser, requireParticipantAccess } from '$lib/server/auth/guards';
 import { requireVitalsWriteAccess } from '$lib/server/encounter/vitals-access';
-import { applyPcVitals } from '$lib/server/encounter/pc-vitals';
+import { applyPcHpDelta, applyPcVitals, type HpDelta } from '$lib/server/encounter/pc-vitals';
+import { applyDamageDelta, applyHealDelta } from '$lib/rules/hp';
 import { OkResponse } from '$lib/server/api/responses';
 import type { RequestHandler } from './$types';
 
@@ -26,8 +27,18 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // the rest of the document through. This endpoint used to 400 for PC rows,
   // which meant nobody — not even the DM — could apply damage to a PC
   // server-side; the encounter UI had to tell players to do it themselves.
+  const delta: HpDelta | null =
+    body.damage !== undefined
+      ? { damage: body.damage }
+      : body.heal !== undefined
+        ? { heal: body.heal }
+        : null;
+
   if (part.kind === 'pc') {
     if (!part.characterId) throw error(409, 'PC participant is not linked to a character');
+    if (delta) {
+      return json({ ok: true, ...(await applyPcHpDelta(part.characterId, delta, enc.campaignId)) });
+    }
     if (body.maxHp !== undefined) {
       // Max HP is derived from class/level/CON, not a combat value. Editing
       // it is a character change and belongs on the sheet.
@@ -38,6 +49,19 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       ...(body.tempHp !== undefined ? { tempHp: body.tempHp } : {})
     });
     return json({ ok: true, ...next });
+  }
+
+  if (delta) {
+    const state = { currentHp: part.currentHp, tempHp: part.tempHp ?? 0 };
+    const next =
+      delta.damage !== undefined
+        ? applyDamageDelta(state, delta.damage)
+        : applyHealDelta(state, delta.heal, part.maxHp);
+    await db
+      .update(schema.participants)
+      .set({ currentHp: next.currentHp, tempHp: next.tempHp })
+      .where(eq(schema.participants.id, pid));
+    return json({ ok: true });
   }
 
   const updates: Partial<typeof schema.participants.$inferInsert> = {};
@@ -51,7 +75,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 export const _openapi = {
   POST: {
-    summary: 'Set HP for a participant (PCs route to the character document)',
+    summary:
+      'Set HP for a participant, or apply relative damage / heal computed server-side (PCs route to the character document)',
     params: Params,
     body: SetHpRequest,
     response: OkResponse,
