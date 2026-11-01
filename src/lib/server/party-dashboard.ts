@@ -10,7 +10,7 @@
 //
 //   participant membership/order/names → buildLiveParticipantList(.., false)
 //   vitals                             → projectVitals({ isDM: false })
-//   action log rows                    → redactActionLog(.., false)
+//   log (combat + session timeline)    → loadTimeline({ isDM: false })
 //
 // Party data (HP, AC, slots, inventory) is what any approved co-member can
 // already read off a linked character's sheet (requireCharacterViewAccess),
@@ -25,17 +25,14 @@ import type { CharacterDocument, ContentRef, Derived } from '$lib/rules/types';
 import { buildContentLookup } from '$lib/server/content/lookup';
 import { buildLiveParticipantList } from '$lib/realtime/participants';
 import { parseReveals, projectVitals } from '$lib/realtime/reveals';
-import { buildRedactionMap, redactActionLog } from '$lib/realtime/action-log';
-import { serializeActionLogEntry } from '$lib/server/serializers';
 import { loadMonsterDex, participantDex } from '$lib/server/encounter/participant-dex';
-import { describeCombatEntry } from '$lib/dashboard/describe';
+import { loadTimeline } from '$lib/server/timeline';
 import { logger } from '$lib/server/logger';
 import type {
   DashboardCombatant,
   DashboardEncounter,
   DashboardPartyMember,
-  PartyDashboard,
-  TimelineEntry
+  PartyDashboard
 } from '$lib/dashboard/types';
 
 /** How many log entries the dashboard carries. */
@@ -300,19 +297,7 @@ export async function buildPartyDashboard(campaign: {
     .orderBy(desc(schema.encounters.createdAt))
     .limit(1);
 
-  // Recent combat log across the campaign's encounters.
-  const logRows = await db
-    .select({ log: schema.actionLog, encounterName: schema.encounters.name })
-    .from(schema.actionLog)
-    .innerJoin(schema.encounters, eq(schema.encounters.id, schema.actionLog.encounterId))
-    .where(eq(schema.encounters.campaignId, campaign.id))
-    .orderBy(desc(schema.actionLog.createdAt))
-    .limit(DASHBOARD_LOG_LIMIT);
-
-  const encounterIds = Array.from(
-    new Set([...(live ? [live.id] : []), ...logRows.map((r) => r.log.encounterId)])
-  );
-  const participants = await loadParticipants(encounterIds);
+  const participants = await loadParticipants(live ? [live.id] : []);
 
   const charIds = Array.from(
     new Set([
@@ -398,50 +383,9 @@ export async function buildPartyDashboard(campaign: {
   }
 
   // ---- log ----------------------------------------------------------------
-  const labelsByEncounter = new Map<string, Map<string, { name: string; characterId: string | null }>>();
-  const redactionByEncounter = new Map<string, ReturnType<typeof buildRedactionMap>>();
-  for (const [encId, rows] of byEncounter) {
-    labelsByEncounter.set(encId, playerLabels(rows, chars, monsterDex));
-    redactionByEncounter.set(
-      encId,
-      buildRedactionMap(
-        rows.map((p) => ({
-          id: p.id,
-          kind: p.kind,
-          name: p.name,
-          reveals: parseReveals(p.revealsJson)
-        }))
-      )
-    );
-  }
-  const log: TimelineEntry[] = logRows.map(({ log: row, encounterName }) => {
-    const [entry] = redactActionLog(
-      [serializeActionLogEntry(row)],
-      redactionByEncounter.get(row.encounterId) ?? new Map(),
-      false
-    );
-    const labels = labelsByEncounter.get(row.encounterId) ?? new Map();
-    const actor = entry.participantId ? labels.get(entry.participantId) ?? null : null;
-    const target = entry.targetParticipantId ? labels.get(entry.targetParticipantId) ?? null : null;
-    return {
-      id: entry.id,
-      at: entry.createdAt,
-      source: 'combat',
-      characterIds: [actor?.characterId, target?.characterId].filter((x): x is string => !!x),
-      summary: describeCombatEntry({
-        actor: actor?.name ?? null,
-        target: target?.name ?? null,
-        actionLabel: entry.actionLabel,
-        hit: entry.hit,
-        damageRoll: entry.damageRoll
-      }),
-      encounterName,
-      round: entry.round,
-      hpBefore: entry.targetHpBefore,
-      hpAfter: entry.targetHpAfter,
-      redacted: entry.redacted === true
-    };
-  });
+  // Session + combat timeline through the player lens: no private notes,
+  // combat rows redacted like any player's encounter screen.
+  const log = await loadTimeline(campaign.id, { isDM: false, limit: DASHBOARD_LOG_LIMIT });
 
   return { campaign: { name: campaign.name }, party, encounter, log };
 }

@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (linked.length === 0) throw error(404, 'character not in this campaign');
 
   const delta = body.damage !== undefined ? { damage: body.damage } : { heal: body.heal as number };
-  return json(await applyPcHpDelta(id, delta, m.campaignId));
+  return json(await applyPcHpDelta(id, delta, m.campaignId, user.id));
 };
 
 export const _openapi = {

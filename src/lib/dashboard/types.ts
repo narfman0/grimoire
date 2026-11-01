@@ -77,8 +77,23 @@ export interface TimelineEntry {
   id: string;
   /** ms since epoch. */
   at: number;
-  /** 'combat' rows come from action_log. */
-  source: 'combat';
+  /** 'combat' rows come from action_log; 'session' rows from session_log. */
+  source: 'combat' | 'session';
+  /** 'combat' for action-log rows; the session_log kind otherwise ('hp',
+   *  'condition', 'rest', 'note', …). */
+  kind: string;
+  /** DM-only note. Never present for a non-DM viewer — private rows are
+   *  dropped server-side, this flag only labels them for the DM. */
+  isPrivate: boolean;
+  /** This row corrects an earlier one (an HP restore, an amended note). */
+  amendsId: string | null;
+  /** A later row corrects this one. */
+  amendedById: string | null;
+  /** Who made the change (username), when known. */
+  actorName: string | null;
+  /** Session 'hp' rows carry the HP they started from — the DM can restore
+   *  the character to it. */
+  restorable: boolean;
   /** Character this entry is about (actor or target), for filtering. */
   characterIds: string[];
   /** Human-readable line, composed server-side from redacted fields. */

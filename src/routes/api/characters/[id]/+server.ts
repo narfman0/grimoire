@@ -10,6 +10,7 @@ import {
 } from '$lib/server/auth/membership';
 import { requireUser } from '$lib/server/auth/guards';
 import { serializeCharacter } from '$lib/server/serializers';
+import { recordCharacterChanges } from '$lib/server/session-log';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ id: Uuid });
@@ -97,6 +98,16 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     })
     .where(eq(schema.characters.id, id));
 
+  if (patch.document != null) {
+    await recordCharacterChanges({
+      characterId: id,
+      before: existing.document,
+      after: nextDocument,
+      actorUserId: user.id,
+      reason: patch.logReason
+    });
+  }
+
   const parsedDoc = nextDocument ? JSON.parse(nextDocument) : null;
 
   return json({
@@ -129,6 +140,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       updatedAt: now
     })
     .where(eq(schema.characters.id, id));
+
+  await recordCharacterChanges({
+    characterId: id,
+    before: existing.document,
+    after: nextDocument,
+    actorUserId: user.id
+  });
 
   return json({
     id: existing.id,

@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // PC conditions live on the character document — same scoped writer as HP.
   if (part.kind === 'pc') {
     if (!part.characterId) throw error(409, 'PC participant is not linked to a character');
-    await applyPcVitals(part.characterId, { conditions: body.conditions });
+    await applyPcVitals(part.characterId, { conditions: body.conditions }, { actorUserId: user.id });
     return json({ ok: true });
   }
 

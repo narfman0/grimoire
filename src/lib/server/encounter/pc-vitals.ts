@@ -5,6 +5,7 @@ import { derive } from '$lib/rules';
 import { applyDamageDelta, applyFormDamage, applyHealDelta } from '$lib/rules/hp';
 import type { CharacterDocument } from '$lib/rules/types';
 import { buildContentLookup } from '$lib/server/content/lookup';
+import { recordCharacterChanges } from '$lib/server/session-log';
 
 // Scoped writes to a PC's combat vitals.
 //
@@ -59,7 +60,10 @@ async function loadCharacter(characterId: string): Promise<CharacterRow | null> 
  */
 export async function applyPcVitals(
   characterId: string,
-  patch: PcVitalsPatch
+  patch: PcVitalsPatch,
+  /** Session-log attribution. `amendsLogId` marks the write as a correction
+   *  of an earlier log row (an HP restore). */
+  log: { actorUserId?: string | null; amendsLogId?: string } = {}
 ): Promise<{ currentHp: number; tempHp: number }> {
   const row = await loadCharacter(characterId);
   if (!row) throw error(404, 'character not found');
@@ -94,10 +98,19 @@ export async function applyPcVitals(
   // even when two writes land in the same millisecond.
   const now = new Date(Math.max(Date.now(), row.updatedAt.getTime() + 1));
 
+  const nextJson = JSON.stringify(next);
   await db
     .update(schema.characters)
-    .set({ document: JSON.stringify(next), updatedAt: now })
+    .set({ document: nextJson, updatedAt: now })
     .where(eq(schema.characters.id, characterId));
+
+  await recordCharacterChanges({
+    characterId,
+    before: row.document,
+    after: nextJson,
+    actorUserId: log.actorUserId ?? null,
+    amendsLogId: log.amendsLogId
+  });
 
   return {
     currentHp: typeof next.currentHp === 'number' ? next.currentHp : 0,
@@ -123,8 +136,10 @@ export type HpDelta = { damage: number; heal?: undefined } | { heal: number; dam
 export async function applyPcHpDelta(
   characterId: string,
   delta: HpDelta,
-  campaignId: string
+  campaignId: string,
+  actorUserId: string | null = null
 ): Promise<{ currentHp: number; tempHp: number }> {
+  const log = { actorUserId };
   const rows = await db
     .select({
       document: schema.characters.document,
@@ -151,14 +166,14 @@ export async function applyPcHpDelta(
     const form = doc.polymorphForm;
     if (form && typeof form.currentHp === 'number' && typeof form.maxHp === 'number') {
       const r = applyFormDamage(base, { current: form.currentHp, max: form.maxHp }, delta.damage);
-      return applyPcVitals(characterId, {
-        currentHp: r.base.currentHp ?? 0,
-        tempHp: r.base.tempHp,
-        formHp: r.form.current
-      });
+      return applyPcVitals(
+        characterId,
+        { currentHp: r.base.currentHp ?? 0, tempHp: r.base.tempHp, formHp: r.form.current },
+        log
+      );
     }
     const next = applyDamageDelta(base, delta.damage);
-    return applyPcVitals(characterId, { currentHp: next.currentHp ?? 0, tempHp: next.tempHp });
+    return applyPcVitals(characterId, { currentHp: next.currentHp ?? 0, tempHp: next.tempHp }, log);
   }
 
   let maxHp: number;
@@ -170,5 +185,5 @@ export async function applyPcHpDelta(
     throw error(409, 'cannot compute max HP for this character');
   }
   const next = applyHealDelta(base, delta.heal, maxHp);
-  return applyPcVitals(characterId, { currentHp: next.currentHp ?? 0 });
+  return applyPcVitals(characterId, { currentHp: next.currentHp ?? 0 }, log);
 }
