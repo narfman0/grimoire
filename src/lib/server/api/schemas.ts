@@ -440,3 +440,99 @@ export const SourceList = z
 export type TContentKind = z.infer<typeof ContentKind>;
 export type TContentSummary = z.infer<typeof ContentSummary>;
 export type TContentRow = z.infer<typeof ContentRow>;
+
+// ---------------------------------------------------------------------------
+// Party dashboard — spectator view (/watch/[token]) + table view. Mirrors
+// $lib/dashboard/types; always the player lens (see party-dashboard.ts).
+// ---------------------------------------------------------------------------
+
+export const SpectatorToken = z
+  .string()
+  .regex(/^[0-9a-f]{32}$/, '32 lowercase hex chars')
+  .openapi({ description: 'Revocable spectator link token.' });
+
+export const SpectatorLink = z
+  .object({
+    /** Null when the DM hasn't issued a link (or revoked it). */
+    token: SpectatorToken.nullable()
+  })
+  .openapi('SpectatorLink');
+
+const DashboardPartyMemberSchema = z.object({
+  id: Uuid,
+  name: z.string(),
+  portrait: z.string().nullable(),
+  classLine: z.string(),
+  level: z.number().int().nonnegative(),
+  hasSheet: z.boolean(),
+  currentHp: z.number().int().nullable(),
+  maxHp: z.number().int().nullable(),
+  tempHp: z.number().int().nonnegative(),
+  ac: z.number().int().nullable(),
+  conditions: z.array(z.string()),
+  concentrating: z.string().nullable(),
+  deathSaves: z
+    .object({ successes: z.number().int(), failures: z.number().int() })
+    .nullable(),
+  spellSlots: z.array(
+    z.object({ level: z.number().int(), max: z.number().int(), used: z.number().int() })
+  ),
+  resources: z.array(
+    z.object({ id: z.string(), name: z.string(), current: z.number().int(), max: z.number().int() })
+  ),
+  inventory: z.array(
+    z.object({
+      name: z.string(),
+      equipped: z.boolean(),
+      attuned: z.boolean(),
+      charges: z.number().int().nullable()
+    })
+  )
+});
+
+const DashboardCombatantSchema = z.object({
+  id: Uuid,
+  name: z.string(),
+  kind: z.string(),
+  characterId: Uuid.nullable(),
+  initiative: z.number().int().nullable(),
+  currentHp: z.number().int().nullable(),
+  maxHp: z.number().int().nullable(),
+  tempHp: z.number().int().nonnegative(),
+  hpBucket: z.string(),
+  conditions: z.array(z.string()),
+  concentrating: z.string().nullable()
+});
+
+export const TimelineEntrySchema = z
+  .object({
+    id: z.string(),
+    at: TimestampMs,
+    source: z.enum(['combat']),
+    characterIds: z.array(Uuid),
+    summary: z.string(),
+    encounterName: z.string().nullable(),
+    round: z.number().int().nullable(),
+    hpBefore: z.number().int().nullable(),
+    hpAfter: z.number().int().nullable(),
+    redacted: z.boolean()
+  })
+  .openapi('TimelineEntry');
+
+export const PartyDashboardResponse = z
+  .object({
+    campaign: z.object({ name: z.string() }),
+    party: z.array(DashboardPartyMemberSchema),
+    encounter: z
+      .object({
+        id: Uuid,
+        name: z.string(),
+        status: z.string(),
+        round: z.number().int().nonnegative(),
+        activeParticipantId: Uuid.nullable(),
+        combatants: z.array(DashboardCombatantSchema)
+      })
+      .nullable(),
+    log: z.array(TimelineEntrySchema)
+  })
+  .openapi('PartyDashboard');

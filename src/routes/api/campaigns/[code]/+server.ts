@@ -9,6 +9,7 @@ import { isRateLimited } from '$lib/server/auth/rate-limit';
 import { requireUser } from '$lib/server/auth/guards';
 import { getCampaignPermissions } from '$lib/server/auth/campaign-permissions';
 import { logCampaignPermissionChange } from '$lib/server/auth/audit-log';
+import { preserveExtraSettings } from '$lib/server/spectator-token';
 import type { RequestHandler } from './$types';
 
 const Params = z.object({ code: CampaignCode });
@@ -52,7 +53,14 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     // the full resolved object keeps the column self-describing.
     const current = await getCampaignPermissions(m.campaignId);
     const next = { ...current, ...patch.permissions };
-    updates.permissionsJson = JSON.stringify(next);
+    // The stored blob also carries non-permission settings (the spectator
+    // link); carry them across so tightening a permission can't revoke it.
+    const [stored] = await db
+      .select({ permissionsJson: schema.campaigns.permissionsJson })
+      .from(schema.campaigns)
+      .where(eq(schema.campaigns.id, m.campaignId))
+      .limit(1);
+    updates.permissionsJson = preserveExtraSettings(stored?.permissionsJson, next);
 
     // Record every tightening. A player who suddenly can't roll for a friend
     // deserves an answer better than "it stopped working".
