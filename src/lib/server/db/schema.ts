@@ -586,6 +586,54 @@ export const actionLog = sqliteTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// Session log — append-only, campaign-scoped timeline of what happened to
+// the party outside the combat action log: HP, conditions, death saves,
+// spell slots / class resources, rests, inventory, levels, and free-text DM
+// notes. Rows are written server-side by diffing the character document on
+// every write (see $lib/server/session-log), so no client can forget to log.
+//
+// Append-only like action_log was meant to be: a correction (an HP restore,
+// an amended note) is a NEW row with `amends_log_id` pointing back at the
+// original. Nothing ever UPDATEs or DELETEs a row here.
+//
+// `is_private` is for DM notes; private rows never leave the server for a
+// non-DM viewer. Combat damage to creatures stays in action_log; the
+// timeline API folds both together at read time.
+// ---------------------------------------------------------------------------
+
+export const sessionLog = sqliteTable(
+  'session_log',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    /** Character the entry is about; null for campaign-wide notes. */
+    characterId: text('character_id').references(() => characters.id, { onDelete: 'set null' }),
+    /** 'hp' | 'condition' | 'death-save' | 'concentration' | 'spell-slot' |
+     *  'resource' | 'rest' | 'inventory' | 'level' | 'note'. Free text so a
+     *  new kind needs no migration. */
+    kind: text('kind').notNull(),
+    /** Display line composed at write time (names resolved then, so a later
+     *  rename or content edit can't rewrite history). */
+    summary: text('summary').notNull(),
+    /** Structured before/after for the change — what an HP restore reads. */
+    detailJson: text('detail_json'),
+    isPrivate: integer('is_private', { mode: 'boolean' }).notNull().default(false),
+    amendsLogId: text('amends_log_id'),
+    actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
+  },
+  (t) => ({
+    byCampaign: index('session_log_campaign').on(t.campaignId, t.createdAt),
+    byCharacter: index('session_log_character').on(t.characterId)
+  })
+);
+
+export type SessionLogEntry = typeof sessionLog.$inferSelect;
+export type NewSessionLogEntry = typeof sessionLog.$inferInsert;
+
 export type Encounter = typeof encounters.$inferSelect;
 export type NewEncounter = typeof encounters.$inferInsert;
 export type Participant = typeof participants.$inferSelect;
