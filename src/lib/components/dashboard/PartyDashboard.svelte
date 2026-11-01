@@ -237,7 +237,7 @@
               <li class="text-slate-300" data-testid="log-entry">
                 <span class="font-mono text-slate-500">{time(e.at)}</span>
                 <span class={e.redacted ? 'italic text-slate-400' : ''}>{e.summary}</span>
-                {#if e.hpBefore != null && e.hpAfter != null}
+                {#if e.source === 'combat' && e.hpBefore != null && e.hpAfter != null}
                   <span class="font-mono text-slate-400">HP {e.hpBefore}→{e.hpAfter}</span>
                 {/if}
                 {#if e.encounterName}

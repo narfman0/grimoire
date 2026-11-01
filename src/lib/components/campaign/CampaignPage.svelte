@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import CharacterCard from '$lib/components/CharacterCard.svelte';
+  import CampaignLog from './CampaignLog.svelte';
   import { api } from '$lib/client/api';
   import { confirmDialog } from '$lib/components/ui/confirm';
   import type { CampaignPageData } from '$lib/server/campaign-page';
@@ -12,6 +13,10 @@
   export let encountersHref: string;
   /** Sheet link for a character card; undefined renders an unlinked card. */
   export let characterHref: (character: CampaignPageData['characters'][number]) => string | undefined;
+
+  /** Overview (everything below) or the session Log tab. The log mounts —
+   *  and starts polling — only while its tab is open. */
+  let tab: 'overview' | 'log' = 'overview';
 
   let newName = '';
   // Creation form is collapsed by default — it's a once-per-character action
@@ -564,6 +569,27 @@
   <p class="font-medium text-red-200">Request rejected</p>
   <p class="mt-1 text-sm text-red-400">The DM has rejected your request to join <span class="font-semibold">{data.campaign.name}</span>.</p>
 </div>
+{:else}
+
+<div class="mb-4 flex gap-1 border-b border-slate-800 text-sm" role="tablist">
+  {#each [['overview', 'Overview'], ['log', 'Log']] as [id, label]}
+    <button
+      role="tab"
+      aria-selected={tab === id}
+      class="-mb-px border-b-2 px-3 py-1.5 {tab === id
+        ? 'border-emerald-500 text-slate-100'
+        : 'border-transparent text-slate-400 hover:text-slate-200'}"
+      on:click={() => (tab = id as typeof tab)}
+    >{label}</button>
+  {/each}
+</div>
+
+{#if tab === 'log'}
+<CampaignLog
+  code={data.campaign.code}
+  isDM={data.role === 'dm'}
+  characters={data.characters.map((c) => ({ id: c.id, name: c.name }))}
+/>
 {:else}
 
 <!-- ── Party members ──────────────────────────────────────────────── -->
@@ -1172,4 +1198,5 @@
   </div>
 </section>
 
+{/if}
 {/if}
